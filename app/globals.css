@@ -1,0 +1,281 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Righello Brand Colors */
+  --righello-pink: #ff0092;
+  --righello-pink-light: #ff33a8;
+  --righello-pink-dark: #e6007a;
+  --righello-charcoal: #1a1a1a;
+  --righello-dark-gray: #2c2c2c;
+  --righello-light-gray: #f0f0ea;
+  --righello-medium-gray: #8b8b8b;
+
+  /* Semantic Colors */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+  --primary: 330 100% 50%; /* Righello Pink */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 330 100% 50%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 0 0% 10%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 10%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 330 100% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 65%;
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 15%;
+  --input: 0 0% 15%;
+  --ring: 330 100% 50%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  font-variation-settings: "opsz" 32;
+  line-height: 1.6;
+}
+
+/* Righello Design System Classes */
+.righello-gradient {
+  background: linear-gradient(135deg, var(--righello-pink) 0%, var(--righello-pink-dark) 100%);
+}
+
+.righello-glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.righello-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 0, 146, 0.05);
+}
+
+.righello-shadow-lg {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px
+    rgba(255, 0, 146, 0.1);
+}
+
+.righello-text-gradient {
+  background: linear-gradient(135deg, var(--righello-pink) 0%, var(--righello-pink-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Enhanced Typography */
+.righello-heading {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.righello-subheading {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.righello-body {
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Interactive Elements */
+.righello-interactive {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.righello-interactive:hover {
+  transform: translateY(-1px);
+}
+
+.righello-button-primary {
+  background: var(--righello-pink);
+  color: white;
+  border: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.righello-button-primary:hover {
+  background: var(--righello-pink-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(255, 0, 146, 0.3);
+}
+
+/* Status Colors */
+.status-idea {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+.status-bozza {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+.status-revisione {
+  background-color: #f3e8ff;
+  color: #7c3aed;
+}
+.status-approvato {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+.status-programmato {
+  background-color: #ccfbf1;
+  color: #0f766e;
+}
+.status-pubblicato {
+  background-color: #dcfce7;
+  color: #166534;
+}
+.status-rifiutato {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+/* Dark mode status colors */
+.dark .status-idea {
+  background-color: #451a03;
+  color: #fcd34d;
+}
+.dark .status-bozza {
+  background-color: #1e3a8a;
+  color: #93c5fd;
+}
+.dark .status-revisione {
+  background-color: #581c87;
+  color: #c4b5fd;
+}
+.dark .status-approvato {
+  background-color: #064e3b;
+  color: #6ee7b7;
+}
+.dark .status-programmato {
+  background-color: #134e4a;
+  color: #5eead4;
+}
+.dark .status-pubblicato {
+  background-color: #14532d;
+  color: #86efac;
+}
+.dark .status-rifiutato {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* Animations */
+@keyframes righello-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.righello-fade-in {
+  animation: righello-fade-in 0.3s ease-out;
+}
+
+@keyframes righello-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.righello-scale-in {
+  animation: righello-scale-in 0.2s ease-out;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--righello-pink);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--righello-pink-dark);
+}
+
+/* Focus States */
+.righello-focus:focus {
+  outline: 2px solid var(--righello-pink);
+  outline-offset: 2px;
+}
+
+/* Loading States */
+.righello-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.righello-loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 0, 146, 0.2), transparent);
+  animation: righello-shimmer 1.5s infinite;
+}
+
+@keyframes righello-shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
