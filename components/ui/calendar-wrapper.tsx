@@ -1,7 +1,8 @@
-import { Suspense } from "react"
-import CalendarWrapper from "./components/calendar-wrapper"
+"use client"
 
-// Lightweight loading placeholder (render-safe in RSC)
+import dynamic from "next/dynamic"
+
+// Lightweight loading placeholder
 function CalendarLoading() {
   return (
     <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -13,10 +14,12 @@ function CalendarLoading() {
   )
 }
 
-export default function Page() {
-  return (
-    <Suspense fallback={<CalendarLoading />}>
-      <CalendarWrapper />
-    </Suspense>
-  )
+// Dynamic import with ssr: false in client component
+const EditorialCalendarClient = dynamic(() => import("../editorial-calendar-client"), {
+  ssr: false,
+  loading: () => <CalendarLoading />,
+})
+
+export default function CalendarWrapper() {
+  return <EditorialCalendarClient />
 }
