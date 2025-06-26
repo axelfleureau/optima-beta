@@ -81,14 +81,13 @@ import {
   type CaptionGenerationData,
 } from "@/lib/ai-caption-service"
 import dynamic from "next/dynamic"
-import { Suspense } from "react"
 
 // Loading component
 function CalendarLoading() {
   return (
     <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="text-center space-y-4">
-        <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
         <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento calendario editoriale...</p>
       </div>
     </div>
@@ -102,11 +101,7 @@ const EditorialCalendarClient = dynamic(() => import("./editorial-calendar-clien
 })
 
 export default function EditorialCalendarPage() {
-  return (
-    <Suspense fallback={<CalendarLoading />}>
-      <EditorialCalendarClient />
-    </Suspense>
-  )
+  return <EditorialCalendarClient />
 }
 
 const statusConfig = {
@@ -207,6 +202,18 @@ function EditorialCalendarPageContent() {
   useEffect(() => {
     setIsAuthenticated(!!userData)
   }, [userData])
+
+  const [hasClientRole, setHasClientRole] = useState(false)
+
+  useEffect(() => {
+    setHasClientRole(userData?.role === "client" && !!userData.clientId)
+  }, [userData])
+
+  useEffect(() => {
+    if (hasClientRole) {
+      setSelectedClientId(userData.clientId)
+    }
+  }, [hasClientRole, userData?.clientId])
 
   if (!isAuthenticated) {
     return (
@@ -900,7 +907,7 @@ function EditorialPostFormDialog({
   const [formatVal, setFormatVal] = useState<EditorialPostFormat>(PostFormatEnum.POST_SINGOLO)
   const [objective, setObjective] = useState<PostObjective | undefined>(undefined)
   const [keywords, setKeywords] = useState<string>("")
-  const [targetAudience, setTargetAudience] = useState("")
+  const [targetAudience, setTargetAudience] = useState<string>("")
   const [caption, setCaption] = useState("")
   const [notes, setNotes] = useState("")
   const [visualUrl, setVisualUrl] = useState("")

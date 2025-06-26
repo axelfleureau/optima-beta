@@ -157,9 +157,7 @@ export default function EditorialCalendarClient() {
   const [editingPost, setEditingPost] = useState<EditorialPost | null>(null)
   const [mounted, setMounted] = useState(false)
 
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(
-    userData?.role === "client" && userData.clientId ? userData.clientId : null,
-  )
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
 
   const { clients, loading: clientsLoading } = useClients()
   const {
@@ -213,7 +211,7 @@ export default function EditorialCalendarClient() {
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Inizializzazione...</p>
         </div>
       </div>
@@ -225,7 +223,7 @@ export default function EditorialCalendarClient() {
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Autenticazione...</p>
         </div>
       </div>
@@ -313,7 +311,7 @@ export default function EditorialCalendarClient() {
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento calendario editoriale...</p>
         </div>
       </div>
@@ -334,7 +332,7 @@ export default function EditorialCalendarClient() {
             {/* Title and Logo */}
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-righello-pink to-righello-pink-dark rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
                   <Image
                     src="/placeholder.svg?height=24&width=24&text=R"
                     alt="Righello Mark"
@@ -344,17 +342,17 @@ export default function EditorialCalendarClient() {
                   />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold righello-heading bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
                     Calendario Editoriale
                   </h1>
-                  <p className="text-slate-600 dark:text-slate-400 righello-body">
+                  <p className="text-slate-600 dark:text-slate-400">
                     Gestisci e pianifica i tuoi contenuti con precisione
                   </p>
                 </div>
               </div>
 
               {/* Video Tutorial Link */}
-              <div className="flex items-center gap-2 text-sm text-righello-pink hover:text-righello-pink-dark transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 text-sm text-pink-500 hover:text-pink-600 transition-colors cursor-pointer">
                 <Video className="w-4 h-4" />
                 <span>Guarda il tutorial per ottimizzare il tuo workflow</span>
               </div>
@@ -396,7 +394,7 @@ export default function EditorialCalendarClient() {
               </div>
               <Button
                 onClick={openNewForm}
-                className="bg-gradient-to-r from-righello-pink to-righello-pink-dark hover:from-righello-pink-dark hover:to-righello-pink text-white font-semibold px-6 py-2 rounded-xl shadow-lg hover:shadow-righello-pink transition-all duration-200 hover:scale-105"
+                className="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-500 text-white font-semibold px-6 py-2 rounded-xl shadow-lg hover:shadow-pink-500/25 transition-all duration-200 hover:scale-105"
               >
                 <PlusCircle className="w-5 h-5 mr-2" />
                 Nuovo Post
@@ -414,21 +412,21 @@ export default function EditorialCalendarClient() {
             <TabsList className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 p-1 rounded-2xl shadow-lg">
               <TabsTrigger
                 value="table"
-                className="data-[state=active]:bg-righello-pink data-[state=active]:text-white rounded-xl font-medium px-6 py-2 transition-all duration-200"
+                className="data-[state=active]:bg-pink-500 data-[state=active]:text-white rounded-xl font-medium px-6 py-2 transition-all duration-200"
               >
                 <List className="w-4 h-4 mr-2" />
                 Tutti i Post
               </TabsTrigger>
               <TabsTrigger
                 value="kanban"
-                className="data-[state=active]:bg-righello-pink data-[state=active]:text-white rounded-xl font-medium px-6 py-2 transition-all duration-200"
+                className="data-[state=active]:bg-pink-500 data-[state=active]:text-white rounded-xl font-medium px-6 py-2 transition-all duration-200"
               >
                 <LayoutGrid className="w-4 h-4 mr-2" />
                 Bacheca per Stato
               </TabsTrigger>
               <TabsTrigger
                 value="calendar"
-                className="data-[state=active]:bg-righello-pink data-[state=active]:text-white rounded-xl font-medium px-6 py-2 transition-all duration-200"
+                className="data-[state=active]:bg-pink-500 data-[state=active]:text-white rounded-xl font-medium px-6 py-2 transition-all duration-200"
               >
                 <CalendarIcon className="w-4 h-4 mr-2" />
                 Vista Calendario
@@ -542,7 +540,7 @@ export default function EditorialCalendarClient() {
                                 href={post.visuals[0].url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-righello-pink hover:text-righello-pink-dark font-medium transition-colors"
+                                className="text-pink-500 hover:text-pink-600 font-medium transition-colors"
                               >
                                 Visual ({post.visuals.length})
                               </a>
@@ -589,7 +587,7 @@ export default function EditorialCalendarClient() {
                 <Button
                   variant="outline"
                   onClick={openNewForm}
-                  className="w-full border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-righello-pink hover:text-righello-pink transition-colors"
+                  className="w-full border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-pink-500 hover:text-pink-500 transition-colors"
                 >
                   <PlusCircle className="w-4 h-4 mr-2" />
                   Aggiungi nuovo post
@@ -613,7 +611,7 @@ export default function EditorialCalendarClient() {
                           ref={provided.innerRef}
                           {...provided.droppableProps}
                           className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 shadow-xl rounded-2xl overflow-hidden transition-all duration-200 ${
-                            snapshot.isDraggingOver ? "ring-2 ring-righello-pink ring-opacity-50 scale-105" : ""
+                            snapshot.isDraggingOver ? "ring-2 ring-pink-500 ring-opacity-50 scale-105" : ""
                           }`}
                         >
                           <CardHeader className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 border-b border-slate-200/50 dark:border-slate-700/50">
@@ -683,7 +681,7 @@ export default function EditorialCalendarClient() {
                                 setEditingPost(null)
                                 setIsFormOpen(true)
                               }}
-                              className="w-full mt-3 border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-righello-pink hover:text-righello-pink transition-colors"
+                              className="w-full mt-3 border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-pink-500 hover:text-pink-500 transition-colors"
                             >
                               <PlusCircle className="w-4 h-4 mr-2" />
                               Nuovo Post
@@ -806,7 +804,7 @@ export default function EditorialCalendarClient() {
                                         <Button
                                           onClick={() => openEditForm(post)}
                                           size="sm"
-                                          className="w-full bg-righello-pink hover:bg-righello-pink-dark"
+                                          className="w-full bg-pink-500 hover:bg-pink-600"
                                         >
                                           Vedi Dettagli
                                         </Button>
@@ -1030,10 +1028,10 @@ function EditorialPostFormDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50">
         <DialogHeader className="space-y-3 pb-6 border-b border-slate-200/50 dark:border-slate-700/50">
-          <DialogTitle className="text-2xl font-bold righello-heading bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
             {post ? "Modifica Post" : "Nuovo Post Editoriale"}
           </DialogTitle>
-          <DialogDescription className="text-slate-600 dark:text-slate-400 righello-body">
+          <DialogDescription className="text-slate-600 dark:text-slate-400">
             {post
               ? "Aggiorna i dettagli di questo contenuto."
               : "Crea un nuovo contenuto per il calendario editoriale."}
@@ -1246,7 +1244,7 @@ function EditorialPostFormDialog({
                   disabled={!canGenerate || isGeneratingCaption}
                   className={`${
                     canGenerate
-                      ? "border-righello-pink text-righello-pink hover:bg-righello-pink hover:text-white"
+                      ? "border-pink-500 text-pink-500 hover:bg-pink-500 hover:text-white"
                       : "border-slate-300 text-slate-400 cursor-not-allowed"
                   } transition-all duration-200`}
                 >
@@ -1320,7 +1318,7 @@ function EditorialPostFormDialog({
               </DialogClose>
               <Button
                 type="submit"
-                className="flex-1 sm:flex-none bg-gradient-to-r from-righello-pink to-righello-pink-dark hover:from-righello-pink-dark hover:to-righello-pink text-white font-semibold shadow-lg hover:shadow-righello-pink transition-all duration-200"
+                className="flex-1 sm:flex-none bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-500 text-white font-semibold shadow-lg hover:shadow-pink-500/25 transition-all duration-200"
               >
                 {post ? "Aggiorna Post" : "Crea Post"}
               </Button>
