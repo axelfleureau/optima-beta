@@ -1,12 +1,16 @@
 "use client"
 
+// Force this page to be dynamic and never prerendered
+export const dynamicConfig = "force-dynamic"
+export const revalidate = 0
+
+import { Suspense } from "react"
 import dynamic from "next/dynamic"
 import { Loader2, Sparkles } from "lucide-react"
 
-// Completely disable SSR for the entire AI Assistant page
-const AIAssistantPage = dynamic(() => import("./ai-assistant-client"), {
-  ssr: false,
-  loading: () => (
+// Loading component
+function AIAssistantLoading() {
+  return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-6 py-12">
         <div className="flex items-center justify-center h-96">
@@ -25,9 +29,35 @@ const AIAssistantPage = dynamic(() => import("./ai-assistant-client"), {
         </div>
       </div>
     </div>
-  ),
-})
+  )
+}
 
-export default function Page() {
-  return <AIAssistantPage />
+// Completely disable SSR for the entire AI Assistant page
+const AIAssistantClient = dynamic(
+  () =>
+    import("./ai-assistant-client").catch(() => {
+      // Fallback in case of import error
+      return {
+        default: () => (
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold mb-2">Errore di Caricamento</h2>
+              <p className="text-gray-600">Impossibile caricare l'assistente AI. Riprova più tardi.</p>
+            </div>
+          </div>
+        ),
+      }
+    }),
+  {
+    ssr: false,
+    loading: AIAssistantLoading,
+  },
+)
+
+export default function AIAssistantPage() {
+  return (
+    <Suspense fallback={<AIAssistantLoading />}>
+      <AIAssistantClient />
+    </Suspense>
+  )
 }
