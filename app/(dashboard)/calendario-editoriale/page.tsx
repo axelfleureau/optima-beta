@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import CalendarWrapper from "./components/calendar-wrapper"
+import CalendarWrapper from "../../../components/ui/calendar-wrapper"
 
 // Lightweight loading placeholder (render-safe in RSC)
 function CalendarLoading() {
