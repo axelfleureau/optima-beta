@@ -80,34 +80,6 @@ import {
   getMissingFieldsSuggestion,
   type CaptionGenerationData,
 } from "@/lib/ai-caption-service"
-import dynamic from "next/dynamic"
-import { Suspense } from "react"
-
-// Loading component
-function CalendarLoading() {
-  return (
-    <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      <div className="text-center space-y-4">
-        <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento calendario editoriale...</p>
-      </div>
-    </div>
-  )
-}
-
-// Dynamically import the client component with no SSR
-const EditorialCalendarClient = dynamic(() => import("./editorial-calendar-client"), {
-  ssr: false,
-  loading: () => <CalendarLoading />,
-})
-
-export default function EditorialCalendarPage() {
-  return (
-    <Suspense fallback={<CalendarLoading />}>
-      <EditorialCalendarClient />
-    </Suspense>
-  )
-}
 
 const statusConfig = {
   [PostStatusEnum.IDEA]: {
@@ -177,12 +149,13 @@ const statusConfig = {
 
 const statusOrder = Object.values(PostStatusEnum)
 
-function EditorialCalendarPageContent() {
+export default function EditorialCalendarClient() {
   const { userData } = useAuth()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<"table" | "kanban" | "calendar">("table")
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<EditorialPost | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   const [selectedClientId, setSelectedClientId] = useState<string | null>(
     userData?.role === "client" && userData.clientId ? userData.clientId : null,
@@ -201,23 +174,10 @@ function EditorialCalendarPageContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
-  // Add this right after all the useState hooks
-  const [isAuthenticated, setIsAuthenticated] = useState(!!userData)
-
+  // Ensure component is mounted before rendering
   useEffect(() => {
-    setIsAuthenticated(!!userData)
-  }, [userData])
-
-  if (!isAuthenticated) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Autenticazione...</p>
-        </div>
-      </div>
-    )
-  }
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (userData?.role === "client" && userData.clientId && !selectedClientId) {
@@ -247,6 +207,30 @@ function EditorialCalendarPageContent() {
     })
     return grouped
   }, [filteredPosts])
+
+  // Don't render anything until mounted
+  if (!mounted) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Inizializzazione...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading if user data is not available
+  if (!userData) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Autenticazione...</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleAddOrEditPost = async (values: Partial<EditorialPost>) => {
     try {
@@ -352,7 +336,7 @@ function EditorialCalendarPageContent() {
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-righello-pink to-righello-pink-dark rounded-2xl flex items-center justify-center shadow-lg">
                   <Image
-                    src="/assets/logos/righello-mark-pink.png"
+                    src="/placeholder.svg?height=24&width=24&text=R"
                     alt="Righello Mark"
                     width={24}
                     height={24}
@@ -865,10 +849,6 @@ function EditorialCalendarPageContent() {
     </div>
   )
 }
-
-//export default function EditorialCalendarPage() {
-//  return <EditorialCalendarPageClient />
-//}
 
 // Enhanced Form Dialog Component with AI Caption Generation
 interface EditorialPostFormDialogProps {
