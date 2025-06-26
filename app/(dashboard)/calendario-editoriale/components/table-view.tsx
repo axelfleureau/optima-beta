@@ -1,13 +1,13 @@
 "use client"
 
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
-import { MoreHorizontal, Edit3, Trash2, List, PlusCircle } from "lucide-react"
+import { List, MoreHorizontal, Edit3, Trash2, PlusCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { format } from "date-fns"
+import { it } from "date-fns/locale"
 import type { EditorialPost } from "@/lib/types"
 import { statusConfig } from "../utils/status-config"
 

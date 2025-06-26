@@ -1,19 +1,19 @@
 "use client"
 
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { format } from "date-fns"
+import { it } from "date-fns/locale"
 import type { EditorialPost } from "@/lib/types"
 import { statusConfig } from "../utils/status-config"
 
 interface CalendarViewProps {
   posts: EditorialPost[]
   currentMonth: Date
-  onMonthChange: (month: Date) => void
+  onMonthChange: (date: Date) => void
   onEditPost: (post: EditorialPost) => void
 }
 

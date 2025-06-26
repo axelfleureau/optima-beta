@@ -34,8 +34,8 @@ export function CalendarHeader({
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
                 <Image
-                  src="/placeholder.svg?height=24&width=24&text=R"
-                  alt="Righello Mark"
+                  src="/assets/logos/righello-logo.svg"
+                  alt="Righello Logo"
                   width={24}
                   height={24}
                   className="brightness-0 invert"

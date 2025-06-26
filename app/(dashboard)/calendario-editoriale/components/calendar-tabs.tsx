@@ -1,12 +1,12 @@
 "use client"
 
-import { CalendarIcon, List, LayoutGrid, Filter, SortAsc } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { List, LayoutGrid, CalendarIcon, Filter, SortAsc } from "lucide-react"
 import { TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 
 interface CalendarTabsProps {
-  activeTab: "table" | "kanban" | "calendar"
-  onTabChange: (tab: "table" | "kanban" | "calendar") => void
+  activeTab: string
+  onTabChange: (tab: string) => void
 }
 
 export function CalendarTabs({ activeTab, onTabChange }: CalendarTabsProps) {

@@ -1,12 +1,12 @@
 "use client"
 
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
 import { Clock, PlusCircle } from "lucide-react"
-import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd"
+import { format } from "date-fns"
+import { it } from "date-fns/locale"
 import type { EditorialPost } from "@/lib/types"
 import { statusConfig, statusOrder } from "../utils/status-config"
 
