@@ -80,6 +80,20 @@ import {
   getMissingFieldsSuggestion,
   type CaptionGenerationData,
 } from "@/lib/ai-caption-service"
+import dynamic from "next/dynamic"
+
+// Prevent SSR for this component
+const EditorialCalendarPageClient = dynamic(() => Promise.resolve(EditorialCalendarPageContent), {
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="text-center space-y-4">
+        <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento calendario editoriale...</p>
+      </div>
+    </div>
+  ),
+})
 
 const statusConfig = {
   [PostStatusEnum.IDEA]: {
@@ -149,7 +163,7 @@ const statusConfig = {
 
 const statusOrder = Object.values(PostStatusEnum)
 
-export default function EditorialCalendarPage() {
+function EditorialCalendarPageContent() {
   const { userData } = useAuth()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<"table" | "kanban" | "calendar">("table")
@@ -172,6 +186,18 @@ export default function EditorialCalendarPage() {
 
   const [searchTerm, setSearchTerm] = useState("")
   const [currentMonth, setCurrentMonth] = useState(new Date())
+
+  // Add this right after all the useState hooks
+  if (!userData) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-righello-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Autenticazione...</p>
+        </div>
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (userData?.role === "client" && userData.clientId && !selectedClientId) {
@@ -818,6 +844,10 @@ export default function EditorialCalendarPage() {
       />
     </div>
   )
+}
+
+export default function EditorialCalendarPage() {
+  return <EditorialCalendarPageClient />
 }
 
 // Enhanced Form Dialog Component with AI Caption Generation
