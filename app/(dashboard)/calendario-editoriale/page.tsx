@@ -81,6 +81,7 @@ import {
   type CaptionGenerationData,
 } from "@/lib/ai-caption-service"
 import dynamic from "next/dynamic"
+import { Suspense } from "react"
 
 // Loading component
 function CalendarLoading() {
@@ -101,7 +102,11 @@ const EditorialCalendarClient = dynamic(() => import("./editorial-calendar-clien
 })
 
 export default function EditorialCalendarPage() {
-  return <EditorialCalendarClient />
+  return (
+    <Suspense fallback={<CalendarLoading />}>
+      <EditorialCalendarClient />
+    </Suspense>
+  )
 }
 
 const statusConfig = {
@@ -215,6 +220,17 @@ function EditorialCalendarPageContent() {
     }
   }, [hasClientRole, userData?.clientId])
 
+  const shouldSetClientId = userData?.role === "client" && userData.clientId && !selectedClientId
+
+  const [settingClientId, setSettingClientId] = useState(false)
+
+  useEffect(() => {
+    if (shouldSetClientId && !settingClientId) {
+      setSettingClientId(true)
+      setSelectedClientId(userData.clientId)
+    }
+  }, [shouldSetClientId, userData?.clientId, settingClientId])
+
   if (!isAuthenticated) {
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -225,12 +241,6 @@ function EditorialCalendarPageContent() {
       </div>
     )
   }
-
-  useEffect(() => {
-    if (userData?.role === "client" && userData.clientId && !selectedClientId) {
-      setSelectedClientId(userData.clientId)
-    }
-  }, [userData, selectedClientId])
 
   const filteredPosts = useMemo(() => {
     return posts.filter(

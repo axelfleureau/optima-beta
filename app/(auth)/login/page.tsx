@@ -13,6 +13,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import Image from "next/image"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("demo@righello.com")
@@ -90,8 +91,14 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-pink-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">O</span>
+            <div className="w-10 h-10 flex items-center justify-center">
+              <Image
+                src="/assets/logos/righello-logo.svg"
+                alt="Righello Logo"
+                width={40}
+                height={40}
+                className="w-10 h-10"
+              />
             </div>
             <span className="text-white font-bold text-2xl">Optima</span>
           </div>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Target, Users, BarChart3, Bot, Calendar, FileText, ArrowRight, Check, Star, Play } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import Image from "next/image"
 
 const features = [
   {
@@ -138,8 +139,14 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-pink-500 rounded flex items-center justify-center">
-                <span className="text-white font-bold text-sm">O</span>
+              <div className="w-8 h-8 flex items-center justify-center">
+                <Image
+                  src="/assets/logos/righello-logo.svg"
+                  alt="Righello Logo"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8"
+                />
               </div>
               <span className="font-bold text-xl">Optima</span>
               <Badge variant="secondary" className="bg-pink-500/20 text-pink-300 border-pink-500/30">
@@ -158,9 +165,7 @@ export default function HomePage() {
                 Testimonianze
               </Link>
               <Link href="/login">
-                <Button className="bg-gray-700 hover:bg-gray-600 text-white">
-                  Accedi
-                </Button>
+                <Button className="bg-gray-700 hover:bg-gray-600 text-white">Accedi</Button>
               </Link>
               <Link href="/register">
                 <Button className="bg-pink-500 hover:bg-pink-600">Inizia Gratis</Button>
@@ -381,8 +386,14 @@ export default function HomePage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-pink-500 rounded flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">O</span>
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <Image
+                    src="/assets/logos/righello-logo.svg"
+                    alt="Righello Logo"
+                    width={32}
+                    height={32}
+                    className="w-8 h-8"
+                  />
                 </div>
                 <span className="font-bold text-xl">Optima</span>
               </div>
