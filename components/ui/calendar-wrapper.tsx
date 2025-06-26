@@ -14,8 +14,8 @@ function CalendarLoading() {
   )
 }
 
-// Dynamic import with ssr: false in client component
-const EditorialCalendarClient = dynamic(() => import("../editorial-calendar-client"), {
+// Dynamic import with ssr: false - now safe in client component
+const EditorialCalendarClient = dynamic(() => import("../../app/(dashboard)/calendario-editoriale/editorial-calendar-client"), {
   ssr: false,
   loading: () => <CalendarLoading />,
 })
