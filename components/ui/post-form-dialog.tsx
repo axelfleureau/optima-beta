@@ -50,7 +50,7 @@ import {
   getMissingFieldsSuggestion,
   type CaptionGenerationData,
 } from "@/lib/ai-caption-service"
-import { statusConfig } from "../utils/status-config"
+import { statusConfig } from "../../app/(dashboard)/calendario-editoriale/utils/status-config"
 
 interface EditorialPostFormDialogProps {
   isOpen: boolean

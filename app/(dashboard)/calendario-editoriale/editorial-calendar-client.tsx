@@ -15,12 +15,12 @@ import {
 import { Timestamp } from "firebase/firestore"
 import type { DropResult } from "@hello-pangea/dnd"
 
-import { CalendarHeader } from "./components/calendar-header"
-import { CalendarTabs } from "./components/calendar-tabs"
-import { TableView } from "./components/table-view"
-import { KanbanView } from "./components/kanban-view"
-import { CalendarView } from "./components/calendar-view"
-import { EditorialPostFormDialog } from "./components/post-form-dialog"
+import { CalendarHeader } from "../../../components/ui/calendar-header"
+import { CalendarTabs } from "../../../components/ui/calendar-tabs"
+import { TableView } from "../../../components/ui/table-view"
+import { KanbanView } from "../../../components/ui/kanban-view"
+import { CalendarView } from "../../../components/ui/calendar-view"
+import { EditorialPostFormDialog } from "../../../components/ui/post-form-dialog"
 import { statusConfig, statusOrder } from "./utils/status-config"
 
 export default function EditorialCalendarClient() {

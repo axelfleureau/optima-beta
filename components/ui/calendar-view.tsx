@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
 import type { EditorialPost } from "@/lib/types"
-import { statusConfig } from "../utils/status-config"
+import { statusConfig } from "../../app/(dashboard)/calendario-editoriale/utils/status-config"
 
 interface CalendarViewProps {
   posts: EditorialPost[]

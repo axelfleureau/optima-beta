@@ -8,7 +8,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-p
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
 import type { EditorialPost } from "@/lib/types"
-import { statusConfig, statusOrder } from "../utils/status-config"
+import { statusConfig, statusOrder } from "../../app/(dashboard)/calendario-editoriale/utils/status-config"
 
 interface KanbanViewProps {
   postsByStatus: Record<string, EditorialPost[]>
