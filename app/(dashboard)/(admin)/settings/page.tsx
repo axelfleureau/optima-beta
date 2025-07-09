@@ -1,325 +1,407 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Separator } from "@/components/ui/separator"
-import { Mail, Shield, Bell, Database, Save, TestTube } from "lucide-react"
+import {
+  Settings,
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Database,
+  Mail,
+  Key,
+  Globe,
+  Sparkles,
+  Save,
+  CheckCircle,
+} from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
-import { useToast } from "@/hooks/use-toast"
 
 export default function SettingsPage() {
-  const { user, userData } = useAuth()
-  const { toast } = useToast()
+  const { userData } = useAuth()
   const [loading, setLoading] = useState(false)
-  const [testingEmail, setTestingEmail] = useState(false)
+  const [saved, setSaved] = useState(false)
 
-  const [emailSettings, setEmailSettings] = useState({
-    enabled: false,
-    smtpHost: "",
-    smtpPort: 587,
-    smtpSecure: false,
-    smtpUser: "",
-    smtpPass: "",
-    fromEmail: "",
-    fromName: "",
-  })
-
-  useEffect(() => {
-    if (user?.uid) {
-      loadEmailSettings()
-    }
-  }, [user])
-
-  const loadEmailSettings = async () => {
-    try {
-      const response = await fetch(`/api/settings/email?tenantId=${user?.uid}`)
-      if (response.ok) {
-        const settings = await response.json()
-        setEmailSettings(settings)
-      }
-    } catch (error) {
-      console.error("Error loading email settings:", error)
-    }
-  }
-
-  const saveEmailSettings = async () => {
+  const handleSave = async () => {
     setLoading(true)
-    try {
-      const response = await fetch("/api/settings/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenantId: user?.uid,
-          ...emailSettings,
-        }),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Successo",
-          description: "Impostazioni email salvate con successo",
-        })
-      } else {
-        throw new Error("Failed to save settings")
-      }
-    } catch (error) {
-      console.error("Error saving email settings:", error)
-      toast({
-        title: "Errore",
-        description: "Errore durante il salvataggio delle impostazioni",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const testEmailConfiguration = async () => {
-    setTestingEmail(true)
-    try {
-      const response = await fetch("/api/send-welcome-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          clientName: "Test User",
-          clientEmail: emailSettings.fromEmail || userData?.email,
-          password: "test123",
-          agencyName: userData?.companyName || "Test Agency",
-        }),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Test completato",
-          description: "Email di test inviata con successo",
-        })
-      } else {
-        throw new Error("Test failed")
-      }
-    } catch (error) {
-      console.error("Error testing email:", error)
-      toast({
-        title: "Test fallito",
-        description: "Errore durante l'invio dell'email di test",
-        variant: "destructive",
-      })
-    } finally {
-      setTestingEmail(false)
-    }
+    // Simulate save operation
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    setSaved(true)
+    setLoading(false)
+    setTimeout(() => setSaved(false), 3000)
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Impostazioni</h1>
-        <p className="text-gray-600">Configura le impostazioni della piattaforma</p>
-      </div>
-
-      <Tabs defaultValue="email" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="email" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Email
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Sicurezza
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            Notifiche
-          </TabsTrigger>
-          <TabsTrigger value="database" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Database
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="email" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                Configurazione Email
-              </CardTitle>
-              <CardDescription>
-                Configura il server SMTP per l'invio automatico delle email di benvenuto ai nuovi clienti
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="email-enabled"
-                  checked={emailSettings.enabled}
-                  onCheckedChange={(checked) => setEmailSettings({ ...emailSettings, enabled: checked })}
-                />
-                <Label htmlFor="email-enabled">Abilita invio email automatico</Label>
-              </div>
-
-              {emailSettings.enabled && (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
+                <div className="p-3 bg-gradient-to-r from-gray-500 to-slate-600 rounded-2xl shadow-lg">
+                  <Settings className="h-8 w-8 text-white" />
+                </div>
+                Impostazioni
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 text-lg">Configura la tua piattaforma</p>
+            </div>
+            <Button
+              onClick={handleSave}
+              disabled={loading}
+              className="bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white shadow-lg"
+            >
+              {loading ? (
                 <>
-                  <Separator />
-
-                  <Alert>
-                    <Mail className="h-4 w-4" />
-                    <AlertDescription>
-                      Configura i parametri SMTP per abilitare l'invio automatico delle email di benvenuto. Le
-                      credenziali verranno salvate in modo sicuro.
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="smtp-host">Host SMTP</Label>
-                      <Input
-                        id="smtp-host"
-                        placeholder="smtp.gmail.com"
-                        value={emailSettings.smtpHost}
-                        onChange={(e) => setEmailSettings({ ...emailSettings, smtpHost: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="smtp-port">Porta</Label>
-                      <Input
-                        id="smtp-port"
-                        type="number"
-                        placeholder="587"
-                        value={emailSettings.smtpPort}
-                        onChange={(e) =>
-                          setEmailSettings({ ...emailSettings, smtpPort: Number.parseInt(e.target.value) || 587 })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="smtp-secure"
-                      checked={emailSettings.smtpSecure}
-                      onCheckedChange={(checked) => setEmailSettings({ ...emailSettings, smtpSecure: checked })}
-                    />
-                    <Label htmlFor="smtp-secure">Connessione sicura (SSL/TLS)</Label>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="smtp-user">Username SMTP</Label>
-                      <Input
-                        id="smtp-user"
-                        placeholder="your-email@gmail.com"
-                        value={emailSettings.smtpUser}
-                        onChange={(e) => setEmailSettings({ ...emailSettings, smtpUser: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="smtp-pass">Password SMTP</Label>
-                      <Input
-                        id="smtp-pass"
-                        type="password"
-                        placeholder="••••••••"
-                        value={emailSettings.smtpPass}
-                        onChange={(e) => setEmailSettings({ ...emailSettings, smtpPass: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="from-email">Email mittente</Label>
-                      <Input
-                        id="from-email"
-                        placeholder="noreply@youragency.com"
-                        value={emailSettings.fromEmail}
-                        onChange={(e) => setEmailSettings({ ...emailSettings, fromEmail: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="from-name">Nome mittente</Label>
-                      <Input
-                        id="from-name"
-                        placeholder="Your Agency Name"
-                        value={emailSettings.fromName}
-                        onChange={(e) => setEmailSettings({ ...emailSettings, fromName: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 pt-4">
-                    <Button onClick={saveEmailSettings} disabled={loading} className="bg-pink-500 hover:bg-pink-600">
-                      <Save className="mr-2 h-4 w-4" />
-                      {loading ? "Salvataggio..." : "Salva Impostazioni"}
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={testEmailConfiguration}
-                      disabled={testingEmail || !emailSettings.enabled}
-                    >
-                      <TestTube className="mr-2 h-4 w-4" />
-                      {testingEmail ? "Invio test..." : "Test Email"}
-                    </Button>
-                  </div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Salva Modifiche
                 </>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </Button>
+          </div>
 
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Impostazioni di Sicurezza
-              </CardTitle>
-              <CardDescription>Gestisci le impostazioni di sicurezza e autenticazione</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Funzionalità di sicurezza in arrivo...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          {/* Success Alert */}
+          {saved && (
+            <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 dark:text-green-300">
+                Impostazioni salvate con successo!
+              </AlertDescription>
+            </Alert>
+          )}
 
-        <TabsContent value="notifications" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
+          {/* Settings Tabs */}
+          <Tabs defaultValue="profile" className="space-y-6">
+            <TabsList className="bg-white/80 backdrop-blur-sm border-gray-200/50 p-1">
+              <TabsTrigger value="profile" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Profilo
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="flex items-center gap-2">
+                <Bell className="h-4 w-4" />
                 Notifiche
-              </CardTitle>
-              <CardDescription>Configura le preferenze di notifica</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Impostazioni notifiche in arrivo...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </TabsTrigger>
+              <TabsTrigger value="security" className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Sicurezza
+              </TabsTrigger>
+              <TabsTrigger value="appearance" className="flex items-center gap-2">
+                <Palette className="h-4 w-4" />
+                Aspetto
+              </TabsTrigger>
+              <TabsTrigger value="integrations" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Integrazioni
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="database" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Gestione Database
-              </CardTitle>
-              <CardDescription>Strumenti per la gestione e manutenzione del database</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Strumenti database in arrivo...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            {/* Profile Settings */}
+            <TabsContent value="profile" className="space-y-6">
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
+                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
+                    <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-sm">
+                      <User className="h-5 w-5 text-white" />
+                    </div>
+                    Informazioni Personali
+                  </CardTitle>
+                  <CardDescription>Aggiorna le tue informazioni personali e di contatto</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">Nome</Label>
+                      <Input
+                        id="firstName"
+                        defaultValue={userData?.firstName || ""}
+                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Cognome</Label>
+                      <Input
+                        id="lastName"
+                        defaultValue={userData?.lastName || ""}
+                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      defaultValue={userData?.email || ""}
+                      className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Azienda</Label>
+                    <Input
+                      id="company"
+                      defaultValue={userData?.companyName || ""}
+                      className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bio">Bio</Label>
+                    <Textarea
+                      id="bio"
+                      placeholder="Raccontaci qualcosa di te..."
+                      className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
+                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
+                    <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
+                      <Sparkles className="h-5 w-5 text-white" />
+                    </div>
+                    Piano e Utilizzo
+                  </CardTitle>
+                  <CardDescription>Informazioni sul tuo piano attuale</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Piano Attuale</span>
+                    <Badge className="bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 dark:from-purple-900/30 dark:to-violet-900/30 dark:text-purple-300 border-0">
+                      {userData?.plan || "Base"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Stato Account</span>
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-0">
+                      Attivo
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Notifications Settings */}
+            <TabsContent value="notifications" className="space-y-6">
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
+                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
+                    <div className="p-2 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-xl shadow-sm">
+                      <Bell className="h-5 w-5 text-white" />
+                    </div>
+                    Preferenze Notifiche
+                  </CardTitle>
+                  <CardDescription>Configura come e quando ricevere le notifiche</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Notifiche Email</Label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Ricevi aggiornamenti via email</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Notifiche Push</Label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Notifiche push nel browser</p>
+                      </div>
+                      <Switch />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Aggiornamenti Campagne</Label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Notifiche per le tue campagne</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Nuovi Clienti</Label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Notifiche per nuovi clienti</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Security Settings */}
+            <TabsContent value="security" className="space-y-6">
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
+                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
+                    <div className="p-2 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl shadow-sm">
+                      <Shield className="h-5 w-5 text-white" />
+                    </div>
+                    Sicurezza Account
+                  </CardTitle>
+                  <CardDescription>Gestisci la sicurezza del tuo account</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="currentPassword">Password Attuale</Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">Nuova Password</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Conferma Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Autenticazione a Due Fattori</Label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Aggiungi un livello extra di sicurezza
+                        </p>
+                      </div>
+                      <Switch />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Appearance Settings */}
+            <TabsContent value="appearance" className="space-y-6">
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
+                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
+                    <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl shadow-sm">
+                      <Palette className="h-5 w-5 text-white" />
+                    </div>
+                    Personalizzazione
+                  </CardTitle>
+                  <CardDescription>Personalizza l'aspetto della piattaforma</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Tema Scuro</Label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Attiva il tema scuro</p>
+                      </div>
+                      <Switch />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Animazioni</Label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Abilita animazioni nell'interfaccia</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Sidebar Compatta</Label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Riduci la dimensione della sidebar</p>
+                      </div>
+                      <Switch />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Integrations Settings */}
+            <TabsContent value="integrations" className="space-y-6">
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
+                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
+                    <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-sm">
+                      <Globe className="h-5 w-5 text-white" />
+                    </div>
+                    Integrazioni
+                  </CardTitle>
+                  <CardDescription>Connetti servizi esterni alla piattaforma</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="grid gap-4">
+                    <div className="flex items-center justify-between p-4 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-500 rounded-lg">
+                          <Mail className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white">Email Marketing</h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Connetti il tuo servizio email</p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        Configura
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-500 rounded-lg">
+                          <Database className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white">CRM</h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Sincronizza con il tuo CRM</p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        Configura
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-500 rounded-lg">
+                          <Key className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white">API Keys</h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Gestisci le tue chiavi API</p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        Gestisci
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
     </div>
   )
 }

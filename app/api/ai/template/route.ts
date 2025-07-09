@@ -55,6 +55,20 @@ async function logTokenUsageFromService(adminId: string, userId: string, tokensU
   }
 }
 
+// Function to get OpenAI client with proper API key configuration
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
+
+  if (!apiKey) {
+    console.error("❌ OPENAI_API_KEY environment variable is missing")
+    throw new Error("OpenAI API key is not configured. Please contact your administrator.")
+  }
+
+  return openai({
+    apiKey: apiKey,
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { templateId, formData, userId } = await request.json()
@@ -78,6 +92,9 @@ export async function POST(request: NextRequest) {
     // Generate prompt based on template
     const prompt = generateTemplatePrompt(templateId, formData)
 
+    // Get OpenAI client with proper configuration
+    const openaiClient = getOpenAIClient()
+
     // Estimate tokens for this request
     const estimatedTokens = estimateTokens(prompt) + 800 // Add estimated output tokens
 
@@ -85,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     // Stream the AI response using GPT-4o-mini
     const result = streamText({
-      model: openai("gpt-4o-mini"),
+      model: openaiClient("gpt-4o-mini"),
       messages: [
         {
           role: "system",
@@ -159,6 +176,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("AI Template POST handler error:", error)
+    if (error instanceof Error && error.message.includes("API key")) {
+      return new Response(JSON.stringify({ error: "Configurazione AI non disponibile. Contatta l'amministratore." }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
     return new Response(JSON.stringify({ error: "Errore interno del server" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

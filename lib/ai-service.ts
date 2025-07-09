@@ -83,6 +83,20 @@ async function getOrganizationAdminId(userId: string): Promise<{ adminId: string
   }
 }
 
+// Function to get OpenAI client with proper API key configuration
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
+
+  if (!apiKey) {
+    console.error("❌ OPENAI_API_KEY environment variable is missing")
+    throw new Error("OpenAI API key is not configured. Please contact your administrator.")
+  }
+
+  return openai({
+    apiKey: apiKey,
+  })
+}
+
 // Function to generate text using OpenAI (GPT-4o-mini only)
 export async function generateAIResponse(
   prompt: string,
@@ -94,9 +108,12 @@ export async function generateAIResponse(
     const { adminId, userRole } = await getOrganizationAdminId(userId)
     console.log(`Generating AI response for user ${userId} (${userRole}) using admin ${adminId} tokens`)
 
+    // Get OpenAI client with proper configuration
+    const openaiClient = getOpenAIClient()
+
     // Generate text using OpenAI GPT-4o-mini
     const response = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: openaiClient("gpt-4o-mini"),
       prompt,
       system: systemPrompt,
       maxTokens: 1000,
@@ -124,6 +141,9 @@ export async function generateAIResponse(
     }
   } catch (error) {
     console.error("Error generating AI response:", error)
+    if (error instanceof Error && error.message.includes("API key")) {
+      throw new Error("Configurazione AI non disponibile. Contatta l'amministratore.")
+    }
     throw error
   }
 }
@@ -140,11 +160,14 @@ export async function streamAIResponse(
     const { adminId, userRole } = await getOrganizationAdminId(userId)
     console.log(`Streaming AI response for user ${userId} (${userRole}) using admin ${adminId} tokens`)
 
+    // Get OpenAI client with proper configuration
+    const openaiClient = getOpenAIClient()
+
     let fullText = ""
 
     // Stream text using OpenAI GPT-4o-mini
     const result = streamText({
-      model: openai("gpt-4o-mini"),
+      model: openaiClient("gpt-4o-mini"),
       prompt,
       system: systemPrompt,
       maxTokens: 1000,
@@ -186,6 +209,9 @@ export async function streamAIResponse(
     }
   } catch (error) {
     console.error("Error streaming AI response:", error)
+    if (error instanceof Error && error.message.includes("API key")) {
+      throw new Error("Configurazione AI non disponibile. Contatta l'amministratore.")
+    }
     throw error
   }
 }

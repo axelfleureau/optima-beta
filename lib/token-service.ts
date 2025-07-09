@@ -1,209 +1,225 @@
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  addDoc,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  Timestamp,
+} from "firebase/firestore"
 import { db } from "./firebase"
-import { doc, getDoc, updateDoc, increment, addDoc, collection } from "firebase/firestore"
 
 export interface TokenUsage {
-  adminId: string
   userId: string
+  tenantId: string
+  feature: string
   tokensUsed: number
-  feature: "chat" | "template" | "other"
-  createdAt: Date
+  createdAt: Timestamp
+  userEmail?: string
+  prompt?: string
+  response?: string
 }
 
-export interface TokenInfo {
-  tokensUsed: number
-  tokensTotal: number
-  tokensAvailable: number
-  organizationName: string
-  adminId: string
-  userRole: string
+export interface UserTokenData {
+  aiTokensUsed: number
+  aiTokensLimit: number
+  lastResetDate?: Timestamp
 }
 
-// Get organization admin ID from user (dynamic from database)
-export async function getOrganizationAdminId(userId: string): Promise<{ adminId: string; userRole: string }> {
-  try {
-    const userDoc = await getDoc(doc(db, "users", userId))
-    if (!userDoc.exists()) {
-      console.log("User not found, using userId as adminId:", userId)
-      return { adminId: userId, userRole: "unknown" }
+export class TokenService {
+  /**
+   * Records AI token usage and updates user's token count
+   */
+  static async recordTokenUsage(
+    userId: string,
+    tenantId: string,
+    feature: string,
+    tokensUsed: number,
+    userEmail?: string,
+    prompt?: string,
+    response?: string,
+  ): Promise<void> {
+    try {
+      // 1. Record the usage in ai_usage collection
+      await addDoc(collection(db, "ai_usage"), {
+        userId,
+        tenantId,
+        feature,
+        tokensUsed,
+        userEmail,
+        prompt,
+        response,
+        createdAt: Timestamp.now(),
+      })
+
+      // 2. Update user's token count
+      const userRef = doc(db, "users", userId)
+      const userDoc = await getDoc(userRef)
+
+      if (userDoc.exists()) {
+        const currentTokensUsed = userDoc.data().aiTokensUsed || 0
+        await updateDoc(userRef, {
+          aiTokensUsed: currentTokensUsed + tokensUsed,
+          updatedAt: Timestamp.now(),
+        })
+      }
+    } catch (error) {
+      console.error("Error recording token usage:", error)
+      throw new Error("Failed to record token usage")
     }
-
-    const userData = userDoc.data()
-    const role = userData.role
-
-    console.log(`🔍 Token Service: User ${userId} has role: ${role}`)
-
-    switch (role) {
-      case "admin":
-      case "super-admin":
-        return { adminId: userId, userRole: role }
-
-      case "user":
-      case "client":
-        const adminId = userData.parentTenantId
-        if (adminId) {
-          console.log(`🔍 Token Service: ${role} ${userId} uses admin ${adminId} tokens`)
-          return { adminId, userRole: role }
-        } else {
-          console.log(`🔍 Token Service: ${role} ${userId} has no parentTenantId, using tenantId`)
-          return { adminId: userData.tenantId || userId, userRole: role }
-        }
-
-      default:
-        console.log("Unknown role, using userId as adminId:", role, userId)
-        return { adminId: userId, userRole: role || "unknown" }
-    }
-  } catch (error) {
-    console.error("Error getting organization admin ID:", error)
-    return { adminId: userId, userRole: "error" }
   }
-}
 
-// Get available tokens for an organization (FIXED VERSION)
-export async function getAvailableTokens(userId: string): Promise<TokenInfo> {
-  try {
-    const { adminId, userRole } = await getOrganizationAdminId(userId)
-    console.log(`🔍 Token Service: Getting token info for user ${userId} (${userRole}) from admin ${adminId}`)
+  /**
+   * Gets user's current token data
+   */
+  static async getUserTokenData(userId: string): Promise<UserTokenData> {
+    try {
+      const userRef = doc(db, "users", userId)
+      const userDoc = await getDoc(userRef)
 
-    const adminDoc = await getDoc(doc(db, "users", adminId))
+      if (userDoc.exists()) {
+        const data = userDoc.data()
+        return {
+          aiTokensUsed: data.aiTokensUsed || 0,
+          aiTokensLimit: data.aiTokensLimit || 1000000,
+          lastResetDate: data.lastResetDate,
+        }
+      }
 
-    if (!adminDoc.exists()) {
-      console.log(`❌ Token Service: Admin document ${adminId} not found`)
       return {
-        tokensUsed: 0,
-        tokensTotal: 1000000,
-        tokensAvailable: 1000000,
-        organizationName: "Organizzazione",
-        adminId,
-        userRole,
+        aiTokensUsed: 0,
+        aiTokensLimit: 1000000,
+      }
+    } catch (error) {
+      console.error("Error getting user token data:", error)
+      throw new Error("Failed to get user token data")
+    }
+  }
+
+  /**
+   * Checks if user has enough tokens for a request
+   */
+  static async checkTokenAvailability(userId: string, requiredTokens: number): Promise<boolean> {
+    try {
+      const tokenData = await this.getUserTokenData(userId)
+      return tokenData.aiTokensUsed + requiredTokens <= tokenData.aiTokensLimit
+    } catch (error) {
+      console.error("Error checking token availability:", error)
+      return false
+    }
+  }
+
+  /**
+   * Gets recent token usage for a user or tenant
+   */
+  static async getRecentUsage(tenantId: string, limitCount = 10, userId?: string): Promise<TokenUsage[]> {
+    try {
+      let q = query(
+        collection(db, "ai_usage"),
+        where("tenantId", "==", tenantId),
+        orderBy("createdAt", "desc"),
+        limit(limitCount),
+      )
+
+      if (userId) {
+        q = query(
+          collection(db, "ai_usage"),
+          where("tenantId", "==", tenantId),
+          where("userId", "==", userId),
+          orderBy("createdAt", "desc"),
+          limit(limitCount),
+        )
+      }
+
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          }) as TokenUsage & { id: string },
+      )
+    } catch (error) {
+      console.error("Error getting recent usage:", error)
+      return []
+    }
+  }
+
+  /**
+   * Resets user's token count (for monthly resets)
+   */
+  static async resetUserTokens(userId: string): Promise<void> {
+    try {
+      const userRef = doc(db, "users", userId)
+      await updateDoc(userRef, {
+        aiTokensUsed: 0,
+        lastResetDate: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      })
+    } catch (error) {
+      console.error("Error resetting user tokens:", error)
+      throw new Error("Failed to reset user tokens")
+    }
+  }
+
+  /**
+   * Updates user's token limit
+   */
+  static async updateTokenLimit(userId: string, newLimit: number): Promise<void> {
+    try {
+      const userRef = doc(db, "users", userId)
+      await updateDoc(userRef, {
+        aiTokensLimit: newLimit,
+        updatedAt: Timestamp.now(),
+      })
+    } catch (error) {
+      console.error("Error updating token limit:", error)
+      throw new Error("Failed to update token limit")
+    }
+  }
+
+  /**
+   * Gets token usage statistics for a tenant
+   */
+  static async getTenantTokenStats(tenantId: string): Promise<{
+    totalUsage: number
+    totalLimit: number
+    userCount: number
+    averageUsage: number
+  }> {
+    try {
+      // Get all users in tenant
+      const usersQuery = query(collection(db, "users"), where("tenantId", "==", tenantId))
+      const usersSnapshot = await getDocs(usersQuery)
+
+      let totalUsage = 0
+      let totalLimit = 0
+      const userCount = usersSnapshot.size
+
+      usersSnapshot.forEach((doc) => {
+        const data = doc.data()
+        totalUsage += data.aiTokensUsed || 0
+        totalLimit += data.aiTokensLimit || 0
+      })
+
+      return {
+        totalUsage,
+        totalLimit,
+        userCount,
+        averageUsage: userCount > 0 ? Math.round(totalUsage / userCount) : 0,
+      }
+    } catch (error) {
+      console.error("Error getting tenant token stats:", error)
+      return {
+        totalUsage: 0,
+        totalLimit: 0,
+        userCount: 0,
+        averageUsage: 0,
       }
     }
-
-    const adminData = adminDoc.data()
-
-    // 🔧 FIX: Leggi SOLO dal campo aiTokensUsed
-    const tokensUsed = adminData.aiTokensUsed || 0
-    const tokensTotal = adminData.aiTokensLimit || 1000000
-
-    console.log(`✅ Token Service: Admin ${adminId} tokens: ${tokensUsed}/${tokensTotal}`)
-    console.log(`🔍 Token Service: Raw adminData.aiTokensUsed:`, adminData.aiTokensUsed)
-    console.log(`🔍 Token Service: Raw adminData.aiTokensLimit:`, adminData.aiTokensLimit)
-
-    return {
-      tokensUsed,
-      tokensTotal,
-      tokensAvailable: tokensTotal - tokensUsed,
-      organizationName: adminData.companyName || `${adminData.firstName} ${adminData.lastName}` || "Organizzazione",
-      adminId,
-      userRole,
-    }
-  } catch (error) {
-    console.error("Error getting available tokens:", error)
-    return {
-      tokensUsed: 0,
-      tokensTotal: 1000000,
-      tokensAvailable: 1000000,
-      organizationName: "Organizzazione",
-      adminId: userId,
-      userRole: "error",
-    }
   }
-}
-
-// 🚨 FIXED: Log token usage (separate from chat history)
-export async function logTokenUsage(
-  adminId: string,
-  userId: string,
-  tokensUsed: number,
-  feature: "chat" | "template" | "other" = "chat",
-): Promise<void> {
-  try {
-    console.log(`🔍 Token Service: Logging ${tokensUsed} tokens: admin=${adminId}, user=${userId}, feature=${feature}`)
-
-    // 🚨 CRITICAL FIX: Ensure we have valid adminId
-    if (!adminId || adminId === "undefined") {
-      console.error("❌ Invalid adminId for token logging:", adminId)
-      return
-    }
-
-    // Log usage to ai_usage collection (only token data)
-    const usageDoc = await addDoc(collection(db, "ai_usage"), {
-      adminId,
-      userId,
-      tokensUsed,
-      feature,
-      createdAt: new Date(),
-    })
-    console.log(`✅ Token Service: Created usage log document: ${usageDoc.id}`)
-
-    // 🚨 CRITICAL FIX: Update ADMIN's token usage in users collection
-    const adminRef = doc(db, "users", adminId)
-
-    // First check if admin document exists
-    const adminDoc = await getDoc(adminRef)
-    if (!adminDoc.exists()) {
-      console.error(`❌ Admin document ${adminId} does not exist, cannot update tokens`)
-      return
-    }
-
-    // Update the aiTokensUsed field
-    await updateDoc(adminRef, {
-      aiTokensUsed: increment(tokensUsed),
-    })
-
-    console.log(`✅ Token Service: Successfully incremented aiTokensUsed by ${tokensUsed} for admin: ${adminId}`)
-
-    // 🔍 DEBUG: Verify the update worked
-    const updatedAdminDoc = await getDoc(adminRef)
-    if (updatedAdminDoc.exists()) {
-      const updatedData = updatedAdminDoc.data()
-      console.log(`🔍 Token Service: After update - aiTokensUsed: ${updatedData.aiTokensUsed}`)
-    }
-  } catch (error) {
-    console.error("❌ Error logging token usage:", error)
-    console.error("Error details:", {
-      adminId,
-      userId,
-      tokensUsed,
-      feature,
-      errorMessage: error.message,
-    })
-  }
-}
-
-// Check if organization has enough tokens
-export async function hasEnoughTokens(adminId: string, estimatedTokens: number): Promise<boolean> {
-  try {
-    const adminDoc = await getDoc(doc(db, "users", adminId))
-
-    if (!adminDoc.exists()) {
-      console.log("Token Service: Admin not found, allowing request:", adminId)
-      return true
-    }
-
-    const adminData = adminDoc.data()
-    const tokensUsed = adminData.aiTokensUsed || 0
-    const tokensTotal = adminData.aiTokensLimit || 1000000
-    const tokensAvailable = tokensTotal - tokensUsed
-
-    const hasTokens = tokensAvailable >= estimatedTokens
-    console.log(
-      `Token Service: Token check for admin ${adminId}: ${tokensAvailable}/${tokensTotal} available, need ${estimatedTokens}, result: ${hasTokens}`,
-    )
-
-    return hasTokens
-  } catch (error) {
-    console.error("Error checking token availability:", error)
-    return true
-  }
-}
-
-// Estimate tokens for a prompt (more accurate)
-export function estimateTokens(prompt: string): number {
-  // More accurate token estimation
-  // GPT-4o-mini uses roughly 3.5-4 characters per token
-  const inputTokens = Math.ceil(prompt.length / 3.5)
-  const systemPromptTokens = 150 // Estimated system prompt tokens
-  const bufferTokens = 100 // Buffer for safety
-
-  return inputTokens + systemPromptTokens + bufferTokens
 }

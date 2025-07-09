@@ -1,112 +1,178 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
+import { collection, query, where, getDocs, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  Timestamp,
-  orderBy,
-} from "firebase/firestore"
 import { useAuth } from "@/lib/auth-context"
-import type { Campaign } from "@/lib/types"
 
-export function useCampaigns(clientId?: string) {
-  const { user } = useAuth()
+export interface Campaign {
+  id: string
+  title: string
+  description?: string
+  clientId?: string
+  clientName?: string
+  status: "draft" | "active" | "paused" | "completed" | "cancelled" | "running"
+  budget: number
+  startDate: Date
+  endDate: Date
+  platforms: string[]
+  metrics: {
+    reach: number
+    engagement: number
+    conversions: number
+    ctr: number
+  }
+  progress: number
+  createdAt: Date
+  updatedAt: Date
+  tenantId: string
+}
+
+// Helper function to safely convert Firestore timestamp to Date
+const safeToDate = (timestamp: any): Date => {
+  if (!timestamp) return new Date()
+  if (timestamp instanceof Date) return timestamp
+  if (timestamp.toDate && typeof timestamp.toDate === "function") {
+    try {
+      return timestamp.toDate()
+    } catch (e) {
+      console.warn("Error converting timestamp:", e)
+      return new Date()
+    }
+  }
+  if (timestamp.seconds) {
+    return new Date(timestamp.seconds * 1000)
+  }
+  return new Date()
+}
+
+export function useCampaigns() {
+  const { userData } = useAuth()
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user?.tenantId) {
+    if (!userData?.tenantId) {
       setLoading(false)
-      // setCampaigns([]); // Keep existing campaigns if user logs out then in, or clear
       return
     }
 
-    setLoading(true)
-    let q = query(collection(db, "campaigns"), where("tenantId", "==", user.tenantId), orderBy("createdAt", "desc"))
+    fetchCampaigns()
+  }, [userData?.tenantId])
 
-    if (clientId) {
-      q = query(
-        collection(db, "campaigns"),
-        where("tenantId", "==", user.tenantId),
-        where("clientId", "==", clientId),
-        orderBy("createdAt", "desc"),
-      )
-    }
+  const fetchCampaigns = async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const campaignsData = querySnapshot.docs.map((doc) => ({
+      const q = query(collection(db, "campaigns"), where("tenantId", "==", userData?.tenantId))
+      const snapshot = await getDocs(q)
+
+      const campaignsData = snapshot.docs.map((doc) => {
+        const data = doc.data()
+        return {
           id: doc.id,
-          ...doc.data(),
-        })) as Campaign[]
-        setCampaigns(campaignsData)
-        setLoading(false)
-      },
-      (err) => {
-        console.error("Error fetching campaigns:", err)
-        setError(err)
-        setLoading(false)
-      },
-    )
+          title: data.title || "",
+          description: data.description || "",
+          clientId: data.clientId || "",
+          clientName: data.clientName || "",
+          status: data.status || "draft",
+          budget: data.budget || 0,
+          startDate: safeToDate(data.startDate),
+          endDate: safeToDate(data.endDate),
+          platforms: data.platforms || [],
+          metrics: {
+            reach: data.metrics?.reach || 0,
+            engagement: data.metrics?.engagement || 0,
+            conversions: data.metrics?.conversions || 0,
+            ctr: data.metrics?.ctr || 0,
+          },
+          progress: data.progress || 0,
+          createdAt: safeToDate(data.createdAt),
+          updatedAt: safeToDate(data.updatedAt),
+          tenantId: data.tenantId,
+        } as Campaign
+      })
 
-    return () => unsubscribe()
-  }, [user?.tenantId, clientId])
+      setCampaigns(campaignsData)
+    } catch (err) {
+      console.error("Error fetching campaigns:", err)
+      setError("Errore nel caricamento delle campagne")
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const addCampaign = useCallback(
-    async (campaignData: Omit<Campaign, "id" | "createdAt" | "updatedAt" | "tenantId">) => {
-      if (!user?.tenantId) throw new Error("User not authenticated or tenantId missing.")
-      try {
-        const newCampaign = {
-          ...campaignData,
-          tenantId: user.tenantId,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        }
-        const docRef = await addDoc(collection(db, "campaigns"), newCampaign)
-        return docRef.id
-      } catch (err) {
-        console.error("Error adding campaign:", err)
-        throw err
+  const createCampaign = async (campaignData: Omit<Campaign, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      const now = new Date()
+      const docRef = await addDoc(collection(db, "campaigns"), {
+        ...campaignData,
+        createdAt: now,
+        updatedAt: now,
+        tenantId: userData?.tenantId,
+      })
+
+      const newCampaign: Campaign = {
+        ...campaignData,
+        id: docRef.id,
+        createdAt: now,
+        updatedAt: now,
       }
-    },
-    [user?.tenantId],
-  )
 
-  const updateCampaign = useCallback(
-    async (id: string, updates: Partial<Omit<Campaign, "id" | "createdAt" | "tenantId">>) => {
-      try {
-        const campaignRef = doc(db, "campaigns", id)
-        await updateDoc(campaignRef, {
-          ...updates,
-          updatedAt: Timestamp.now(),
-        })
-      } catch (err) {
-        console.error("Error updating campaign:", err)
-        throw err
-      }
-    },
-    [],
-  )
+      setCampaigns((prev) => [newCampaign, ...prev])
+      return newCampaign
+    } catch (err) {
+      console.error("Error creating campaign:", err)
+      throw new Error("Errore nella creazione della campagna")
+    }
+  }
 
-  const deleteCampaign = useCallback(async (id: string) => {
+  const updateCampaign = async (id: string, updates: Partial<Campaign>) => {
     try {
       const campaignRef = doc(db, "campaigns", id)
-      await deleteDoc(campaignRef)
+      const updateData = {
+        ...updates,
+        updatedAt: new Date(),
+      }
+
+      await updateDoc(campaignRef, updateData)
+
+      setCampaigns((prev) =>
+        prev.map((campaign) =>
+          campaign.id === id
+            ? {
+                ...campaign,
+                ...updates,
+                updatedAt: new Date(),
+              }
+            : campaign,
+        ),
+      )
+    } catch (err) {
+      console.error("Error updating campaign:", err)
+      throw new Error("Errore nell'aggiornamento della campagna")
+    }
+  }
+
+  const deleteCampaign = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "campaigns", id))
+      setCampaigns((prev) => prev.filter((campaign) => campaign.id !== id))
     } catch (err) {
       console.error("Error deleting campaign:", err)
-      throw err
+      throw new Error("Errore nell'eliminazione della campagna")
     }
-  }, [])
+  }
 
-  return { campaigns, loading, error, addCampaign, updateCampaign, deleteCampaign }
+  return {
+    campaigns,
+    loading,
+    error,
+    createCampaign,
+    updateCampaign,
+    deleteCampaign,
+    refetch: fetchCampaigns,
+  }
 }
