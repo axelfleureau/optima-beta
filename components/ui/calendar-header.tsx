@@ -29,8 +29,8 @@ export function CalendarHeader({
       <div className="container mx-auto px-6 py-6">
         {/* Titolo principale */}
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-            <Calendar className="h-6 w-6 text-white" />
+          <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
+            <Calendar className="h-8 w-8 text-white" />
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">

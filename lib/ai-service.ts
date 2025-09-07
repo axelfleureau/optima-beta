@@ -1,5 +1,9 @@
+// lib/ai-service.ts
+
 import { db } from "@/lib/firebase"
 import { doc, getDoc, updateDoc, increment, collection, query, where, getDocs, limit } from "firebase/firestore"
+
+// ============= EXISTING TOKEN MANAGEMENT CODE =============
 
 export interface TokenData {
   tokensUsed: number
@@ -171,4 +175,109 @@ export async function resetTokens(userId: string): Promise<void> {
     console.error("❌ Error resetting tokens:", error)
     throw error
   }
+}
+
+// ============= NEW AI GENERATION CODE =============
+
+export interface AIResponse {
+  text: string
+  usage: {
+    totalTokens: number
+    promptTokens: number
+    completionTokens: number
+  }
+}
+
+export interface AITextOptions {
+  prompt: string
+  systemPrompt?: string
+  maxTokens?: number
+  temperature?: number
+}
+
+export const SYSTEM_PROMPTS = {
+  VISUAL: "You are an expert in visual design and AI image generation. Create detailed, specific prompts for image generation.",
+  CAPTION: "You are an expert social media copywriter. Create engaging, platform-optimized captions.",
+  DEFAULT: "You are a helpful AI assistant.",
+  TASK: "You are an expert project manager and productivity consultant."
+}
+
+// Stub implementation - replace with actual OpenAI/Anthropic API calls
+export async function generateAIResponse(
+  prompt: string,
+  userId: string,
+  systemPrompt?: string
+): Promise<AIResponse> {
+  try {
+    console.log("🤖 Generating AI response for user:", userId)
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // In production, this would call OpenAI or Anthropic API
+    // For now, return a mock response
+    const mockResponse = {
+      text: `[AI Generated Response]\n\nBased on your request, here's a professional response:\n\n${prompt.substring(0, 200)}...\n\nQuesto è un esempio di risposta generata. In produzione, questa funzione chiamerà l'API di OpenAI o Claude per generare contenuti reali e personalizzati.`,
+      usage: {
+        totalTokens: 150,
+        promptTokens: 100,
+        completionTokens: 50
+      }
+    }
+    
+    // Update token usage
+    await updateTokenUsage(userId, mockResponse.usage.totalTokens)
+    
+    return mockResponse
+  } catch (error) {
+    console.error("Error generating AI response:", error)
+    throw new Error("Failed to generate AI response")
+  }
+}
+
+// Alias for generateAIResponse with options
+export async function generateAIText(options: AITextOptions): Promise<AIResponse> {
+  // For stub purposes, just call generateAIResponse
+  // In production, this would handle the options differently
+  return generateAIResponse(
+    options.prompt,
+    "default-user", // This should be passed properly in production
+    options.systemPrompt || SYSTEM_PROMPTS.DEFAULT
+  )
+}
+
+// Helper function to get organization admin ID
+export async function getOrganizationAdminId(userId: string): Promise<{ adminId: string }> {
+  try {
+    // In production, this would find the organization admin
+    // For now, return the user as their own admin
+    const resolvedUserId = await findUserDocumentId(userId)
+    return { adminId: resolvedUserId || userId }
+  } catch (error) {
+    console.error("Error getting organization admin:", error)
+    return { adminId: userId }
+  }
+}
+
+// Log token usage with specific operation type
+export async function logTokenUsage(
+  adminId: string,
+  userId: string,
+  tokens: number,
+  operation: string
+): Promise<void> {
+  try {
+    console.log(`📊 Logging ${tokens} tokens for ${operation} by user ${userId}`)
+    await updateTokenUsage(adminId, tokens)
+  } catch (error) {
+    console.error("Error logging token usage:", error)
+    // Don't throw - logging failures shouldn't break the operation
+  }
+}
+
+// Estimate tokens for a given text (rough approximation)
+export function estimateTokens(text: string): number {
+  // Rough estimate: 1 token ≈ 4 characters in English
+  // For Italian/mixed content, be more conservative
+  return Math.ceil(text.length / 3)
 }

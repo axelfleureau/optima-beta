@@ -21,7 +21,7 @@ import { CalendarTabs } from "../../../components/ui/calendar-tabs"
 import { TableView } from "../../../components/ui/table-view"
 import { KanbanView } from "../../../components/ui/kanban-view"
 import { CalendarView } from "../../../components/ui/calendar-view"
-import { EditorialPostFormDialog } from "../../../components/ui/post-form-dialog"
+import { PostFormDialog as EditorialPostFormDialog } from "../../../components/ui/post-form-dialog"
 import { statusConfig, statusOrder } from "./utils/status-config"
 
 export default function EditorialCalendarClient() {
@@ -201,32 +201,15 @@ export default function EditorialCalendarClient() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800">
       {/* Header migliorato */}
       <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-lg">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-              <Calendar className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                Calendario Editoriale
-              </h1>
-              <p className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                Gestisci i tuoi contenuti editoriali con stile
-              </p>
-            </div>
-          </div>
-
-          <CalendarHeader
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onNewPost={openNewForm}
-            selectedClientId={selectedClientId}
-            onClientChange={setSelectedClientId}
-            clientOptions={clientOptions}
-            userRole={userData?.role}
-          />
-        </div>
+        <CalendarHeader
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          onNewPost={openNewForm}
+          selectedClientId={selectedClientId}
+          onClientChange={setSelectedClientId}
+          clientOptions={clientOptions}
+          userRole={userData?.role}
+        />
       </div>
 
       <div className="container mx-auto px-6 py-8">
@@ -265,10 +248,10 @@ export default function EditorialCalendarClient() {
       </div>
 
       <EditorialPostFormDialog
-        isOpen={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false)
-          setEditingPost(null)
+        open={isFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open)
+          if (!open) setEditingPost(null)
         }}
         onSubmit={handleAddOrEditPost}
         post={editingPost}

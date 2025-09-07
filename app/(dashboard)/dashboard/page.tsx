@@ -3,7 +3,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 import {
   Plus,
@@ -105,7 +104,6 @@ export default function Dashboard() {
           {/* Header Section */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <SidebarTrigger />
               <div className="space-y-2">
                 <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
                   <div className="p-3 bg-gradient-to-r from-pink-500 to-rose-600 rounded-2xl shadow-lg">
