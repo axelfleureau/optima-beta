@@ -5,16 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sparkles, Zap, MessageSquare, TrendingUp, Activity, CheckCircle, Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useRealTimeTokens } from "@/hooks/use-real-time-tokens"
 
-// Dynamic imports for all client-side dependencies
+// Dynamic imports for client-side dependencies
 import dynamic from "next/dynamic"
-
-const useAuth = dynamic(() => import("@/lib/auth-context").then((mod) => ({ default: mod.useAuth })), { ssr: false })
-const useDashboardData = dynamic(
-  () => import("@/hooks/use-dashboard-data").then((mod) => ({ default: mod.useDashboardData })),
-  { ssr: false },
-)
-const useToast = dynamic(() => import("@/hooks/use-toast").then((mod) => ({ default: mod.useToast })), { ssr: false })
 
 const AIChat = dynamic(() => import("@/components/ai/ai-chat").then((mod) => ({ default: mod.AIChat })), {
   ssr: false,
@@ -35,63 +30,23 @@ const ChatHistorySidebar = dynamic(
 
 export default function AIAssistantClient() {
   const [mounted, setMounted] = useState(false)
-  const [authData, setAuthData] = useState<any>(null)
-  const [dashboardData, setDashboardData] = useState<any>(null)
-  const [toastData, setToastData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+
+  // Real auth data instead of mock
+  const { user, loading: authLoading } = useAuth()
+
+  // Real-time token data
+  const tokenData = useRealTimeTokens(user?.uid || "")
 
   // State for the component
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [chatHistory, setChatHistory] = useState<any[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
   const [loadingHistory, setLoadingHistory] = useState(false)
-  const [tokenInfo, setTokenInfo] = useState<any>(null)
-  const [loadingTokens, setLoadingTokens] = useState(true)
 
   // Handle mounting
   useEffect(() => {
     setMounted(true)
-
-    // Load hooks dynamically after mounting
-    const loadHooks = async () => {
-      try {
-        const [authModule, dashboardModule, toastModule] = await Promise.all([
-          import("@/lib/auth-context"),
-          import("@/hooks/use-dashboard-data"),
-          import("@/hooks/use-toast"),
-        ])
-
-        // These will be used as regular functions, not hooks
-        setAuthData(authModule)
-        setDashboardData(dashboardModule)
-        setToastData(toastModule)
-        setLoading(false)
-      } catch (error) {
-        console.error("Error loading hooks:", error)
-        setLoading(false)
-      }
-    }
-
-    loadHooks()
   }, [])
-
-  const loadTokenInfo = async (userId: string) => {
-    if (!userId) return
-
-    try {
-      setLoadingTokens(true)
-      console.log("🔍 Loading token info for user:", userId)
-
-      const { getAvailableTokens } = await import("@/lib/token-service")
-      const info = await getAvailableTokens(userId)
-      console.log("✅ Token info loaded:", info)
-      setTokenInfo(info)
-    } catch (error) {
-      console.error("❌ Error loading token info:", error)
-    } finally {
-      setLoadingTokens(false)
-    }
-  }
 
   const loadChatHistory = async (sessionId: string) => {
     try {
@@ -131,15 +86,11 @@ export default function AIAssistantClient() {
   }
 
   const handleMessageSent = () => {
-    console.log("📨 Message sent, refreshing token data")
-    // Refresh token info after message sent
-    if (authData?.user?.uid) {
-      loadTokenInfo(authData.user.uid)
-    }
+    console.log("📨 Message sent, token data will update automatically via real-time listener")
   }
 
-  // Show loading while mounting
-  if (!mounted || loading) {
+  // Show loading while mounting or auth is loading
+  if (!mounted || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-6 py-12">
@@ -150,7 +101,7 @@ export default function AIAssistantClient() {
               </div>
               <div className="space-y-2">
                 <p className="text-gray-900 dark:text-white font-medium text-lg">Inizializzazione Assistente AI</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Caricamento moduli...</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Caricamento autenticazione...</p>
               </div>
             </div>
           </div>
@@ -159,12 +110,43 @@ export default function AIAssistantClient() {
     )
   }
 
-  // Mock user data for now - in real implementation this would come from auth
-  const mockUser = { uid: "demo-user" }
-  const tokensAvailable = tokenInfo?.tokensAvailable || 996188
-  const tokensTotal = tokenInfo?.tokensTotal || 1000000
-  const tokensUsed = tokenInfo?.tokensUsed || 3812
+  // Check if user is authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="container mx-auto px-6 py-12">
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+                <MessageSquare className="h-8 w-8 text-white" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-gray-900 dark:text-white font-medium text-lg">Accesso Richiesto</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Devi essere autenticato per utilizzare l'Assistente AI
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Use real token data from the hook
+  const tokensAvailable = tokenData.tokensAvailable
+  const tokensTotal = tokenData.tokensTotal
+  const tokensUsed = tokenData.tokensUsed
   const usagePercentage = tokensTotal > 0 ? (tokensUsed / tokensTotal) * 100 : 0
+
+  console.log("🔍 Current token data:", {
+    tokensUsed,
+    tokensAvailable,
+    tokensTotal,
+    loading: tokenData.loading,
+    error: tokenData.error,
+    userId: user.uid,
+  })
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -183,6 +165,9 @@ export default function AIAssistantClient() {
               <p className="text-gray-600 dark:text-gray-400 text-lg">
                 Il tuo assistente marketing intelligente con memoria delle conversazioni
               </p>
+              {user && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Benvenuto, {user.displayName || user.email}</p>
+              )}
             </div>
 
             <Button onClick={() => setShowSidebar(!showSidebar)} variant="outline" className="lg:hidden h-10 px-4">
@@ -200,25 +185,29 @@ export default function AIAssistantClient() {
                     <Zap className="h-4 w-4 text-white" />
                   </div>
                   Token Disponibili
+                  {tokenData.loading && <Loader2 className="h-3 w-3 animate-spin" />}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-3xl font-bold text-pink-600 dark:text-pink-400">
-                  {tokensAvailable.toLocaleString()}
+                  {tokenData.loading ? "..." : tokensAvailable.toLocaleString()}
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
                     <span>Utilizzo</span>
-                    <span>{Math.round(100 - (tokensAvailable / tokensTotal) * 100)}%</span>
+                    <span>{tokenData.loading ? "..." : Math.round(usagePercentage)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div
                       className="bg-gradient-to-r from-pink-500 to-rose-600 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.max(0, 100 - (tokensAvailable / tokensTotal) * 100)}%` }}
+                      style={{ width: `${Math.min(100, Math.max(0, usagePercentage))}%` }}
                     ></div>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Aggiornato automaticamente</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {tokenData.loading ? "Caricamento..." : "Aggiornato in tempo reale"}
+                </p>
+                {tokenData.error && <p className="text-xs text-red-500">Errore: {tokenData.error}</p>}
               </CardContent>
             </Card>
 
@@ -229,23 +218,28 @@ export default function AIAssistantClient() {
                     <TrendingUp className="h-4 w-4 text-white" />
                   </div>
                   Token Utilizzati
+                  {tokenData.loading && <Loader2 className="h-3 w-3 animate-spin" />}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{tokensUsed.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  {tokenData.loading ? "..." : tokensUsed.toLocaleString()}
+                </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
                     <span>Progresso</span>
-                    <span>{Math.round(usagePercentage)}%</span>
+                    <span>{tokenData.loading ? "..." : Math.round(usagePercentage)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div
                       className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, usagePercentage)}%` }}
+                      style={{ width: `${Math.min(100, Math.max(0, usagePercentage))}%` }}
                     ></div>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">di {tokensTotal.toLocaleString()} totali</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  di {tokenData.loading ? "..." : tokensTotal.toLocaleString()} totali
+                </p>
               </CardContent>
             </Card>
 
@@ -265,19 +259,22 @@ export default function AIAssistantClient() {
                     variant="secondary"
                     className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300 px-3 py-1"
                   >
-                    Operativo
+                    {tokenData.loading ? "Caricamento..." : "Operativo"}
                   </Badge>
                 </div>
                 <div className="space-y-2">
                   {["Memoria conversazioni attiva", "Token tracking in tempo reale", "GPT-4o Mini disponibile"].map(
                     (feature, index) => (
                       <div key={index} className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div
+                          className={`w-2 h-2 rounded-full ${tokenData.loading ? "bg-yellow-500" : "bg-green-500"}`}
+                        ></div>
                         <span>{feature}</span>
                       </div>
                     ),
                   )}
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Utente: {user.uid.substring(0, 8)}...</p>
               </CardContent>
             </Card>
           </div>
@@ -289,7 +286,7 @@ export default function AIAssistantClient() {
               {showSidebar && (
                 <div className="hidden lg:block">
                   <ChatHistorySidebar
-                    userId={mockUser.uid}
+                    userId={user.uid}
                     currentSessionId={selectedSessionId}
                     onSessionSelect={handleSessionSelect}
                     onNewChat={handleNewChat}
@@ -313,7 +310,7 @@ export default function AIAssistantClient() {
                   </div>
                 ) : (
                   <AIChat
-                    userId={mockUser.uid}
+                    userId={user.uid}
                     sessionId={selectedSessionId}
                     initialMessages={chatHistory}
                     onMessageSent={handleMessageSent}

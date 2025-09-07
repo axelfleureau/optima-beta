@@ -13,6 +13,8 @@ export interface User {
   companyName?: string
   createdAt: Timestamp
   updatedAt: Timestamp
+  aiTokensUsed?: number
+  aiTokensLimit?: number
 }
 
 export interface Client {
@@ -40,6 +42,80 @@ export interface Campaign {
   createdAt: Timestamp
   updatedAt: Timestamp
   createdBy: string
+}
+
+// Task Management Types
+export interface Task {
+  id: string
+  title: string
+  description?: string
+  status: "todo" | "in-progress" | "review" | "done"
+  columnId: string
+  priority: "low" | "medium" | "high" | "urgent"
+  dueDate?: Timestamp
+  assignee?: string
+  clientId: string
+  clientName?: string
+  tenantId: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+  createdBy: string
+  tags?: string[]
+  attachments?: TaskAttachment[]
+  comments?: TaskComment[]
+  subItems?: TaskSubItem[]
+  dependencies?: string[] // IDs of tasks this task depends on
+  estimatedHours?: number
+  actualHours?: number
+  score?: number // For AI optimization
+}
+
+export interface TaskAttachment {
+  id: string
+  name: string
+  url: string
+  type: string
+  size: number
+  uploadedAt: Timestamp
+  uploadedBy: string
+}
+
+export interface TaskComment {
+  id: string
+  text: string
+  authorId: string
+  authorName: string
+  authorAvatar?: string
+  createdAt: Timestamp
+}
+
+export interface TaskSubItem {
+  id: string
+  title: string
+  completed: boolean
+  createdAt: Timestamp
+}
+
+// AI Task Optimization Types
+export interface TaskOptimizationRequest {
+  tasks: Task[]
+  columnId: string
+  optimizationType: "blocking_operations" | "priority_based" | "deadline_focused"
+  clientId?: string
+}
+
+export interface TaskOptimizationResponse {
+  optimizedTasks: Task[]
+  reasoning: string
+  estimatedTokens: number
+  actualTokens: number
+}
+
+export interface AIOptimizationCostEstimate {
+  estimatedTokens: number
+  estimatedCost: string
+  taskCount: number
+  optimizationType: string
 }
 
 // Editorial Calendar Types
