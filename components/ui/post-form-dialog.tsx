@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { CaptionGenerationData, generateCaption } from "@/lib/ai-caption-service"
+import { CaptionGenerationData, generateCaption, type CaptionGenerationOptions, type GeneratedCaption } from "@/lib/ai-caption-service"
 import { aiCaptionService } from "@/lib/ai-caption-service"
 import { aiVisualService, type VisualGenerationOptions, type GeneratedVisual } from "@/lib/ai-visual-service"
 import {

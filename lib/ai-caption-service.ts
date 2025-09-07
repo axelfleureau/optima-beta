@@ -291,3 +291,51 @@ export const aiCaptionService = {
   getCaptionSuggestions,
   analyzeCaptionPerformance,
 }
+
+// --- TIPI ESPORTATI PER IL FORM ---
+
+export type CaptionGenerationOptions = {
+  content: string
+  platform: SocialPlatform | SocialPlatform[]
+  tone?: "professionale" | "amichevole" | "divertente" | "ispirante" | "informativo" | "promozionale"
+  length?: "corta" | "media" | "lunga"
+  includeHashtags?: boolean
+  includeCTA?: boolean
+  targetAudience?: string
+  brandVoice?: string
+  keywords?: string | string[]
+  date?: Date
+  format?: EditorialPostFormat
+  objective?: PostObjective
+  clientName?: string
+  /** opzionale: se vuoi passarlo direttamente dal form */
+  name?: string
+}
+
+// Risultato mostrato nella UI dopo la generazione
+export type CaptionAnalysis = {
+  score: number
+  suggestions: string[]
+  strengths: string[]
+  improvements: string[]
+}
+
+export interface GeneratedCaption {
+  caption: string
+  hashtags: string[]
+  analysis: CaptionAnalysis
+}
+
+/** Helper per convertire la stringa restituita da generateCaption in un oggetto UI-friendly */
+export function toGeneratedCaption(text: string): GeneratedCaption {
+  return {
+    caption: text,
+    hashtags: [],
+    analysis: {
+      score: 7,
+      suggestions: [],
+      strengths: [],
+      improvements: [],
+    },
+  }
+}
