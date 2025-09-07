@@ -31,7 +31,6 @@ const ChatHistorySidebar = dynamic(
 export default function AIAssistantClient() {
   const [mounted, setMounted] = useState(false)
 
-  // Real auth data instead of mock
   const { user, loading: authLoading } = useAuth()
 
   // Real-time token data

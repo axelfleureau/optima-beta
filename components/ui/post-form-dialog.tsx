@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { aiCaptionService, type CaptionGenerationOptions, type GeneratedCaption } from "@/lib/ai-caption-service"
+import { CaptionGenerationData, generateCaption } from "@/lib/ai-caption-service"
+import { aiCaptionService } from "@/lib/ai-caption-service"
 import { aiVisualService, type VisualGenerationOptions, type GeneratedVisual } from "@/lib/ai-visual-service"
 import {
   Calendar,
@@ -30,6 +31,8 @@ import {
   Eye,
   Save,
 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { EditorialPostFormat, SocialPlatform } from "@/lib/types"
 
 interface PostFormDialogProps {
   open: boolean
@@ -40,6 +43,8 @@ interface PostFormDialogProps {
 
 export function PostFormDialog({ open, onOpenChange, onSave, editingPost }: PostFormDialogProps) {
   const { toast } = useToast()
+  const { user, loading: authLoading } = useAuth()
+
 
   // Form state
   const [formData, setFormData] = useState({
@@ -55,15 +60,16 @@ export function PostFormDialog({ open, onOpenChange, onSave, editingPost }: Post
   })
 
   // AI Caption state
-  const [captionOptions, setCaptionOptions] = useState<CaptionGenerationOptions>({
-    content: "",
-    platform: "instagram" as const,
+  const [captionOptions, setCaptionOptions] = useState<CaptionGenerationData>({
+    title: "",
+    content:"",
+    format: "Post singolo" as EditorialPostFormat,
+    platform: "instagram" as SocialPlatform,
     tone: "professionale" as const,
     length: "media" as const,
     includeHashtags: true,
     includeCTA: true,
     targetAudience: "",
-    brandVoice: "",
   })
 
   const [generatedCaption, setGeneratedCaption] = useState<GeneratedCaption | null>(null)
@@ -123,35 +129,94 @@ export function PostFormDialog({ open, onOpenChange, onSave, editingPost }: Post
     setCaptionOptions((prev) => ({ ...prev, content: formData.content }))
   }, [formData.content])
 
+  // helper interni al file (puoi metterli sopra alla funzione)
+  const mapTypeToEditorialFormat = (t: string) =>
+    (t === "post" ? "post_singolo" : t) as any;
+
+  const toArray = <T,>(v: T | T[] | undefined): T[] =>
+    Array.isArray(v) ? v.filter(Boolean) : v ? [v] : [];
+
+  // 🔧 SOSTITUISCI QUESTA FUNZIONE NEL TUO FILE
   const handleGenerateCaption = async () => {
-    if (!captionOptions.content.trim()) {
+    // 1) Validazioni minime
+    const name = formData.title?.trim() || editingPost?.title?.trim() || "";
+    if (!name) {
       toast({
         title: "Errore",
-        description: "Inserisci una descrizione del contenuto per generare la caption",
+        description: "Inserisci il Titolo del post (campo 'Titolo' nella tab 'Informazioni Base').",
         variant: "destructive",
-      })
-      return
+      });
+      return;
+    }
+    if (!captionOptions.content?.trim()) {
+      toast({
+        title: "Errore",
+        description: "Inserisci una descrizione del contenuto per generare la caption.",
+        variant: "destructive",
+      });
+      return;
     }
 
-    setIsGeneratingCaption(true)
+    setIsGeneratingCaption(true);
     try {
-      const result = await aiCaptionService.generateCaption(captionOptions)
-      setGeneratedCaption(result)
+      // 2) Normalizzazioni robuste
+      const platformNormalized = formData.platform === "twitter" ? "x" : (formData.platform as any);
+      const toneNormalized =
+        (captionOptions.tone as any) === "ispirazionale" ? ("ispirante" as const) : captionOptions.tone;
+
+      // Se vuoi passare anche la data al service:
+      const dateNormalized =
+        formData.scheduledDate
+          ? new Date(`${formData.scheduledDate}T${formData.scheduledTime || "00:00"}`)
+          : undefined;
+
+      const normalized: CaptionGenerationData = {
+        title: captionOptions.title ?? "",
+        // 👇 array garantito
+        platform: toArray(platformNormalized) as any,
+        // 👇 mappo il tuo "type" al formato atteso dal service
+        format: mapTypeToEditorialFormat(formData.type),
+        // opzionali
+        keywords: [], // se vuoi, prendi da tags: formData.tags
+        targetAudience: captionOptions.targetAudience ?? "",
+        clientName: captionOptions.brandVoice ?? "",
+        date: dateNormalized,
+        tone: toneNormalized ?? "professionale",
+        length: captionOptions.length ?? "media",
+        includeHashtags: captionOptions.includeHashtags ?? true,
+        includeCTA: captionOptions.includeCTA ?? true,
+        // objective: puoi mapparlo in futuro se lo usi
+      };
+
+      // 3) Call al service (richiede 2 argomenti)
+      const res = await generateCaption(normalized, user?.uid || "system");
+
+      // 4) Supporto sia a return stringa sia a oggetto
+      const asGenerated =
+        typeof res === "string"
+          ? ({
+            caption: res,
+            hashtags: [],
+            analysis: { score: 7, suggestions: [], strengths: [], improvements: [] },
+          } as any)
+          : res;
+
+      setGeneratedCaption(asGenerated);
       toast({
         title: "Caption generata!",
         description: "La tua caption AI è pronta. Puoi modificarla o usarla così com'è.",
-      })
-    } catch (error) {
-      console.error("Error generating caption:", error)
+      });
+    } catch (err: any) {
+      console.error(err);
       toast({
         title: "Errore",
-        description: error instanceof Error ? error.message : "Impossibile generare la caption",
+        description: err?.message ?? "Impossibile generare la caption. Riprova più tardi.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsGeneratingCaption(false)
+      setIsGeneratingCaption(false);
     }
-  }
+  };
 
   const handleGenerateVisuals = async () => {
     if (!visualOptions.description.trim()) {

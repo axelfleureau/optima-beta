@@ -253,7 +253,7 @@ export default function EditorialCalendarClient() {
           setIsFormOpen(open)
           if (!open) setEditingPost(null)
         }}
-        onSubmit={handleAddOrEditPost}
+        onSave={handleAddOrEditPost}
         post={editingPost}
         clients={clientOptions}
         selectedClientId={selectedClientId}
