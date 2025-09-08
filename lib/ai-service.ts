@@ -1,9 +1,7 @@
-// lib/ai-service.ts
-
 import { db } from "@/lib/firebase"
-import { doc, getDoc, updateDoc, increment, collection, query, where, getDocs, limit } from "firebase/firestore"
+import { doc, getDoc, setDoc, updateDoc, increment, collection, query, where, getDocs, limit } from "firebase/firestore"
 
-// ============= EXISTING TOKEN MANAGEMENT CODE =============
+// ============= TOKEN MANAGEMENT CODE =============
 
 export interface TokenData {
   tokensUsed: number
@@ -64,6 +62,32 @@ export async function findUserDocumentId(identifier: string): Promise<string | n
   }
 }
 
+// Helper function to ensure admin document exists
+async function ensureAdminDocument(userId: string): Promise<void> {
+  try {
+    const adminDocRef = doc(db, "admin", userId)
+    const adminDoc = await getDoc(adminDocRef)
+
+    if (!adminDoc.exists()) {
+      console.log("📝 Creating new admin document for user:", userId)
+      const defaultData = {
+        tokensUsed: 0,
+        tokensAvailable: 100000, // 100k tokens default
+        tokensTotal: 100000,
+        tokensLimit: 100000,
+        lastUpdated: new Date(),
+      }
+
+      // Use setDoc instead of updateDoc for creating new documents
+      await setDoc(adminDocRef, defaultData)
+      console.log("✅ Admin document created successfully")
+    }
+  } catch (error) {
+    console.error("❌ Error ensuring admin document:", error)
+    throw error
+  }
+}
+
 export async function getTokenData(userId: string): Promise<TokenData> {
   try {
     console.log("📊 Getting token data for user:", userId)
@@ -74,38 +98,18 @@ export async function getTokenData(userId: string): Promise<TokenData> {
       throw new Error(`User not found: ${userId}`)
     }
 
+    // Ensure the admin document exists
+    await ensureAdminDocument(resolvedUserId)
+
     const adminDoc = await getDoc(doc(db, "admin", resolvedUserId))
-
-    if (!adminDoc.exists()) {
-      console.log("📝 Creating new admin document for user:", resolvedUserId)
-      const defaultData: TokenData = {
-        tokensUsed: 0,
-        tokensAvailable: 10000,
-        tokensTotal: 10000,
-        tokensLimit: 10000,
-        lastUpdated: new Date(),
-        loading: false,
-        error: null,
-      }
-
-      await updateDoc(doc(db, "admin", resolvedUserId), {
-        tokensUsed: defaultData.tokensUsed,
-        tokensAvailable: defaultData.tokensAvailable,
-        tokensTotal: defaultData.tokensTotal,
-        tokensLimit: defaultData.tokensLimit,
-        lastUpdated: defaultData.lastUpdated,
-      })
-
-      return defaultData
-    }
-
     const data = adminDoc.data()
+
     const tokenData: TokenData = {
-      tokensUsed: data.tokensUsed || 0,
-      tokensAvailable: data.tokensAvailable || 10000,
-      tokensTotal: data.tokensTotal || 10000,
-      tokensLimit: data.tokensLimit || 10000,
-      lastUpdated: data.lastUpdated?.toDate() || new Date(),
+      tokensUsed: data?.tokensUsed || 0,
+      tokensAvailable: data?.tokensAvailable || 100000,
+      tokensTotal: data?.tokensTotal || 100000,
+      tokensLimit: data?.tokensLimit || 100000,
+      lastUpdated: data?.lastUpdated?.toDate() || new Date(),
       loading: false,
       error: null,
     }
@@ -136,6 +140,9 @@ export async function updateTokenUsage(userId: string, tokensUsed: number): Prom
       throw new Error(`User not found: ${userId}`)
     }
 
+    // Ensure the admin document exists before updating
+    await ensureAdminDocument(resolvedUserId)
+
     const adminDocRef = doc(db, "admin", resolvedUserId)
 
     await updateDoc(adminDocRef, {
@@ -161,12 +168,15 @@ export async function resetTokens(userId: string): Promise<void> {
       throw new Error(`User not found: ${userId}`)
     }
 
+    // Ensure the admin document exists before updating
+    await ensureAdminDocument(resolvedUserId)
+
     const adminDocRef = doc(db, "admin", resolvedUserId)
 
     await updateDoc(adminDocRef, {
       tokensUsed: 0,
-      tokensAvailable: 10000,
-      tokensTotal: 10000,
+      tokensAvailable: 100000,
+      tokensTotal: 100000,
       lastUpdated: new Date(),
     })
 
@@ -177,7 +187,7 @@ export async function resetTokens(userId: string): Promise<void> {
   }
 }
 
-// ============= NEW AI GENERATION CODE =============
+// ============= NEW AI GENERATION CODE WITH OPENAI =============
 
 export interface AIResponse {
   text: string
@@ -193,57 +203,145 @@ export interface AITextOptions {
   systemPrompt?: string
   maxTokens?: number
   temperature?: number
+  model?: string
 }
 
 export const SYSTEM_PROMPTS = {
-  VISUAL: "You are an expert in visual design and AI image generation. Create detailed, specific prompts for image generation.",
-  CAPTION: "You are an expert social media copywriter. Create engaging, platform-optimized captions.",
-  DEFAULT: "You are a helpful AI assistant.",
-  TASK: "You are an expert project manager and productivity consultant."
+  VISUAL:
+    "Sei un esperto di visual design e generazione di immagini AI. Crea prompt dettagliati e specifici per la generazione di immagini.",
+  CAPTION: "Sei un esperto copywriter di social media. Crea caption coinvolgenti e ottimizzate per ogni piattaforma.",
+  DEFAULT: "Sei un assistente AI utile e professionale.",
+  TASK: "Sei un esperto project manager e consulente di produttività.",
 }
 
-// Stub implementation - replace with actual OpenAI/Anthropic API calls
-export async function generateAIResponse(
+async function callCaptionAPI(
   prompt: string,
+  systemPrompt: string,
   userId: string,
-  systemPrompt?: string
-): Promise<AIResponse> {
+  maxTokens = 1000,
+  temperature = 0.7,
+): Promise<any> {
+  const response = await fetch("/api/ai/caption", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      systemPrompt,
+      userId,
+      maxTokens,
+      temperature,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "API call failed" }))
+    throw new Error(error.error || "Failed to generate caption")
+  }
+
+  return await response.json()
+}
+
+// OpenAI API integration through Next.js API route
+async function callOpenAI(
+  messages: Array<{ role: string; content: string }>,
+  maxTokens = 1000,
+  temperature = 0.7,
+  model = "gpt-4o-mini",
+): Promise<any> {
+  try {
+    // Call our API route instead of OpenAI directly
+    const response = await fetch("/api/ai/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messages,
+        maxTokens,
+        temperature,
+        model,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "API call failed" }))
+      throw new Error(error.error || "Failed to generate AI response")
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error("Error calling OpenAI through API route:", error)
+    throw error
+  }
+}
+
+// Real implementation using Next.js API route
+export async function generateAIResponse(prompt: string, userId: string, systemPrompt?: string): Promise<AIResponse> {
   try {
     console.log("🤖 Generating AI response for user:", userId)
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // In production, this would call OpenAI or Anthropic API
-    // For now, return a mock response
-    const mockResponse = {
-      text: `[AI Generated Response]\n\nBased on your request, here's a professional response:\n\n${prompt.substring(0, 200)}...\n\nQuesto è un esempio di risposta generata. In produzione, questa funzione chiamerà l'API di OpenAI o Claude per generare contenuti reali e personalizzati.`,
-      usage: {
-        totalTokens: 150,
-        promptTokens: 100,
-        completionTokens: 50
-      }
+
+    // Call our API route
+    const response = await callCaptionAPI(prompt, systemPrompt || SYSTEM_PROMPTS.DEFAULT, userId, 1000, 0.7)
+
+    return {
+      text: response.text,
+      usage: response.usage || {
+        totalTokens: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+      },
     }
-    
-    // Update token usage
-    await updateTokenUsage(userId, mockResponse.usage.totalTokens)
-    
-    return mockResponse
   } catch (error) {
     console.error("Error generating AI response:", error)
-    throw new Error("Failed to generate AI response")
+
+    // Fallback to mock response if API fails
+    if (error instanceof Error && error.message.includes("API")) {
+      console.warn("⚠️ API error, using fallback response")
+      return {
+        text: `[Errore API - Controlla la configurazione]\n\nAssicurati che OPENAI_API_KEY sia configurata correttamente nel file .env.local del server.\n\nDettaglio errore: ${error.message}`,
+        usage: {
+          totalTokens: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+        },
+      }
+    }
+
+    throw error
   }
 }
 
 // Alias for generateAIResponse with options
 export async function generateAIText(options: AITextOptions): Promise<AIResponse> {
-  // For stub purposes, just call generateAIResponse
-  // In production, this would handle the options differently
-  return generateAIResponse(
-    options.prompt,
-    "default-user", // This should be passed properly in production
-    options.systemPrompt || SYSTEM_PROMPTS.DEFAULT
-  )
+  try {
+    const response = await callCaptionAPI(
+      options.prompt,
+      options.systemPrompt || SYSTEM_PROMPTS.DEFAULT,
+      "system", // Default user for system calls
+      options.maxTokens || 1000,
+      options.temperature || 0.7,
+    )
+
+    return {
+      text: response.text,
+      usage: response.usage || {
+        totalTokens: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+      },
+    }
+  } catch (error) {
+    console.error("Error in generateAIText:", error)
+
+    // Fallback response
+    return {
+      text: "[Errore nella generazione AI]",
+      usage: { totalTokens: 0, promptTokens: 0, completionTokens: 0 },
+    }
+  }
 }
 
 // Helper function to get organization admin ID
@@ -260,12 +358,7 @@ export async function getOrganizationAdminId(userId: string): Promise<{ adminId:
 }
 
 // Log token usage with specific operation type
-export async function logTokenUsage(
-  adminId: string,
-  userId: string,
-  tokens: number,
-  operation: string
-): Promise<void> {
+export async function logTokenUsage(adminId: string, userId: string, tokens: number, operation: string): Promise<void> {
   try {
     console.log(`📊 Logging ${tokens} tokens for ${operation} by user ${userId}`)
     await updateTokenUsage(adminId, tokens)

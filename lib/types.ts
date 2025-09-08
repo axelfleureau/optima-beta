@@ -176,22 +176,135 @@ export interface EditorialPostVisual {
   description?: string
 }
 
+export interface AIGeneratedContent {
+  id: string
+  postId: string // riferimento al post editorialPosts
+  type: "caption" | "visual" | "hashtags" | "analysis"
+  content: string
+  metadata?: {
+    score?: number
+    suggestions?: string[]
+    strengths?: string[]
+    improvements?: string[]
+    platform?: SocialPlatform
+    generatedAt: Timestamp
+    model?: string
+    tokensUsed?: number
+  }
+  tenantId: string
+  createdBy: string
+  createdAt: Timestamp
+}
+
 export interface EditorialPost {
   id: string
-  name: string
-  date: Timestamp
-  status: EditorialPostStatus
-  platform: SocialPlatform[]
-  format: EditorialPostFormat
-  objective?: PostObjective
-  keywords?: string[]
-  targetAudience?: string
-  caption?: string
-  notes?: string
-  visuals?: EditorialPostVisual[]
-  clientId: string
-  tenantId: string
+
+  // Campi principali (esattamente come nel database Firebase)
+  title: string
+  content: string
+  description?: string
+
+  // Date e programmazione
+  scheduledDate: string // formato "YYYY-MM-DD" come nel database
+  scheduledTime?: string // formato "HH:MM" come nel database
   createdAt: Timestamp
   updatedAt: Timestamp
+
+  // Stato e formato
+  status:
+    | "idea"
+    | "bozza"
+    | "revisione_interna"
+    | "revisione_cliente"
+    | "approvato"
+    | "programmato"
+    | "pubblicato"
+    | "rifiutato"
+    | "archiviato"
+  type:
+    | "post"
+    | "carosello"
+    | "video"
+    | "reel"
+    | "story"
+    | "articolo_blog"
+    | "newsletter"
+    | "podcast"
+    | "live"
+    | "altro"
+  format:
+    | "post_singolo"
+    | "carosello"
+    | "video"
+    | "reel"
+    | "story"
+    | "articolo_blog"
+    | "newsletter"
+    | "podcast"
+    | "live"
+    | "altro"
+
+  // Piattaforma (singola stringa come nel database)
+  platform:
+    | "instagram"
+    | "facebook"
+    | "linkedin"
+    | "tiktok"
+    | "x"
+    | "youtube"
+    | "blog"
+    | "pinterest"
+    | "threads"
+    | "altro"
+
+  // Contenuti e metadata
+  keywords?: string[] // array di parole chiave
+  hashtags?: string[] // array di hashtag
+
+  // Campi opzionali
+  objective?:
+    | "awareness"
+    | "engagement"
+    | "traffic"
+    | "conversioni"
+    | "vendite"
+    | "lead_generation"
+    | "brand_building"
+    | "educazione"
+    | "intrattenimento"
+    | "community"
+  targetAudience?: string
+  notes?: string
+
+  // Identificatori
+  clientId: string
+  tenantId: string
   createdBy: string
+
+  // Campi legacy mantenuti per compatibilità (saranno rimossi nella migrazione)
+  name?: string // deprecato, usa title
+  date?: Timestamp // deprecato, usa scheduledDate
+  postType?: string // deprecato, usa type
+  caption?: string // deprecato, usa content
+  visuals?: any[] // deprecato, i media saranno gestiti separatamente
+  attachments?: any[] // deprecato, i media saranno gestiti separatamente
+
+  // IMPORTANTE: Rimuovere completamente aiGenerated - sarà spostato in AIGeneratedContent
+}
+
+export interface PostFormData {
+  title: string
+  description?: string
+  content: string
+  platform: string
+  type: string
+  scheduledDate: string
+  scheduledTime?: string
+  status: string
+  keywords?: string[]
+  hashtags?: string[]
+  clientId: string
+  objective?: string
+  targetAudience?: string
+  notes?: string
 }

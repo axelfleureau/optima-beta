@@ -69,15 +69,25 @@ export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: 
                                 {format(post.date.toDate(), "d MMM", { locale: it })}
                               </div>
                               <div className="flex flex-wrap gap-1">
-                                {post.platform.slice(0, 2).map((platform) => (
-                                  <Badge key={platform} variant="outline" className="text-xs">
-                                    {platform}
-                                  </Badge>
-                                ))}
-                                {post.platform.length > 2 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{post.platform.length - 2}
-                                  </Badge>
+                                {Array.isArray(post.platform) ? (
+                                  <>
+                                    {post.platform.slice(0, 2).map((platform) => (
+                                      <Badge key={platform} variant="outline" className="text-xs">
+                                        {platform}
+                                      </Badge>
+                                    ))}
+                                    {post.platform.length > 2 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        +{post.platform.length - 2}
+                                      </Badge>
+                                    )}
+                                  </>
+                                ) : (
+                                  post.platform && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {post.platform}
+                                    </Badge>
+                                  )
                                 )}
                               </div>
                               {post.format && (

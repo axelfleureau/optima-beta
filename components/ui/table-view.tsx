@@ -79,14 +79,20 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
                   <TableCell className="text-slate-600 dark:text-slate-400">{post.format}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {post.platform.slice(0, 2).map((platform) => (
-                        <Badge key={platform} variant="outline" className="text-xs">
-                          {platform}
-                        </Badge>
-                      ))}
-                      {post.platform.length > 2 && (
+                      {Array.isArray(post.platform) &&
+                        post.platform.slice(0, 2).map((platform) => (
+                          <Badge key={platform} variant="outline" className="text-xs">
+                            {platform}
+                          </Badge>
+                        ))}
+                      {Array.isArray(post.platform) && post.platform.length > 2 && (
                         <Badge variant="outline" className="text-xs">
                           +{post.platform.length - 2}
+                        </Badge>
+                      )}
+                      {!Array.isArray(post.platform) && post.platform && (
+                        <Badge variant="outline" className="text-xs">
+                          {post.platform}
                         </Badge>
                       )}
                     </div>
@@ -149,7 +155,7 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
         <Button
           variant="outline"
           onClick={onNewPost}
-          className="w-full border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-pink-500 hover:text-pink-500 transition-colors"
+          className="w-full border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-pink-500 hover:text-pink-500 transition-colors bg-transparent"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
           Aggiungi nuovo post

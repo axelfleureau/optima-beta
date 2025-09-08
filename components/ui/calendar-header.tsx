@@ -4,6 +4,7 @@ import { Search, Plus, Calendar, Sparkles, PlayCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { normalizeEditorialPosts } from "@/scripts/normalize-editorial-posts"
 
 interface CalendarHeaderProps {
   searchTerm: string
@@ -90,7 +91,7 @@ export function CalendarHeader({
 
           {/* New Post Button */}
           <Button
-            onClick={onNewPost}
+            onClick={normalizeEditorialPosts}//{onNewPost}
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           >
             <Plus className="h-4 w-4 mr-2" />

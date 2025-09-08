@@ -70,11 +70,23 @@ export function useEditorialPosts(clientId?: string | null) {
   }
 
   const updatePost = async (postId: string, updates: Partial<EditorialPost>) => {
-    const postRef = doc(db, "editorialPosts", postId)
-    await updateDoc(postRef, {
-      ...updates,
-      updatedAt: Timestamp.now(),
-    })
+    console.log("[v0] Attempting to update post:", { postId, updates })
+
+    try {
+      const postRef = doc(db, "editorialPosts", postId)
+      await updateDoc(postRef, {
+        ...updates,
+        updatedAt: Timestamp.now(),
+      })
+      console.log("[v0] Post updated successfully:", postId)
+    } catch (error: any) {
+      console.error("[v0] Error updating post:", { postId, error: error.message })
+
+      if (error.code === "not-found") {
+        throw new Error(`No document to update: ${postId}`)
+      }
+      throw error
+    }
   }
 
   const deletePost = async (postId: string) => {
@@ -83,6 +95,19 @@ export function useEditorialPosts(clientId?: string | null) {
   }
 
   const updatePostStatus = async (postId: string, status: EditorialPostStatus) => {
+    console.log("[v0] Updating post status:", { postId, status })
+
+    const postExists = posts.find((p) => p.id === postId)
+    if (!postExists) {
+      console.error("[v0] Post not found in local state:", postId)
+      throw new Error(`Post non trovato nella lista locale: ${postId}`)
+    }
+
+    if (postId.startsWith("post_") && postId.includes(Date.now().toString().slice(0, 10))) {
+      console.error("[v0] Attempting to update with temporary ID:", postId)
+      throw new Error("Impossibile aggiornare: ID temporaneo rilevato. Ricarica la pagina.")
+    }
+
     await updatePost(postId, { status })
   }
 

@@ -14,7 +14,6 @@ import {
 } from "@/lib/types"
 import { Timestamp } from "firebase/firestore"
 import type { DropResult } from "@hello-pangea/dnd"
-import { Calendar, Sparkles } from "lucide-react"
 
 import { CalendarHeader } from "../../../components/ui/calendar-header"
 import { CalendarTabs } from "../../../components/ui/calendar-tabs"
@@ -118,18 +117,35 @@ export default function EditorialCalendarClient() {
       }
 
       if (editingPost) {
+        const postExists = posts.find((p) => p.id === editingPost.id)
+        if (!postExists) {
+          toast({
+            title: "Errore",
+            description: "Il post non esiste più. Ricarica la pagina.",
+            variant: "destructive",
+          })
+          return
+        }
         await updatePost(editingPost.id, values)
         toast({ title: "Successo", description: "Post aggiornato con successo." })
       } else {
         const newPostData = {
-          name: values.name || "Nuovo Post",
+          name: values.name || values.title || "Nuovo Post",
+          title: values.title || "Nuovo Post",
+          content: values.content || "",
+          description: values.description || "",
           date: values.date || Timestamp.now(),
           status: values.status || PostStatusEnum.IDEA,
           platform: values.platform || [PlatformEnum.INSTAGRAM],
           format: values.format || PostFormatEnum.POST_SINGOLO,
           clientId: values.clientId,
-          ...values,
+          scheduledDate: values.scheduledDate,
+          scheduledTime: values.scheduledTime,
+          tags: values.tags || [],
+          attachments: values.attachments || [],
+          type: values.type || "post",
         } as Omit<EditorialPost, "id" | "createdAt" | "updatedAt" | "tenantId" | "createdBy">
+
         await addPost(newPostData)
         toast({ title: "Successo", description: "Post creato con successo." })
       }
@@ -169,15 +185,41 @@ export default function EditorialCalendarClient() {
     if (!destination) return
     if (source.droppableId === destination.droppableId && source.index === destination.index) return
 
+    const postExists = posts.find((post) => post.id === draggableId)
+    if (!postExists) {
+      console.error("[v0] Post not found in local state:", draggableId)
+      toast({
+        title: "Errore",
+        description: "Il post non è più disponibile. Ricarica la pagina.",
+        variant: "destructive",
+      })
+      return
+    }
+
     const newStatus = destination.droppableId as EditorialPostStatus
+
+    console.log("[v0] Updating post status:", { postId: draggableId, newStatus, postName: postExists.name })
 
     updatePostStatus(draggableId, newStatus)
       .then(() => {
+        console.log("[v0] Post status updated successfully")
         toast({ title: "Aggiornato", description: `Stato del post aggiornato a ${statusConfig[newStatus].label}.` })
       })
       .catch((err) => {
-        console.error("Failed to update post status:", err)
-        toast({ title: "Errore", description: "Impossibile aggiornare lo stato del post.", variant: "destructive" })
+        console.error("[v0] Failed to update post status:", err)
+        if (err.message?.includes("No document to update")) {
+          toast({
+            title: "Errore",
+            description: "Il post non esiste più nel database. Ricarica la pagina.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Errore",
+            description: "Impossibile aggiornare lo stato del post.",
+            variant: "destructive",
+          })
+        }
       })
   }
 
