@@ -108,6 +108,7 @@ export async function normalizeEditorialPosts() {
 }
 
 async function extractAndSaveAIContent(post: LegacyEditorialPost) {
+  const { db } = await import("@/lib/firebase")
   try {
     const aiData = post.aiGenerated
 
