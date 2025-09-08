@@ -284,10 +284,19 @@ export function PostFormDialog({
   }
 
   const handleSavePost = () => {
-    if (!formData.title.trim() || !formData.content.trim()) {
+    if (!formData.title.trim()) {
       toast({
         title: "Errore",
-        description: "Titolo e contenuto sono obbligatori",
+        description: "Il titolo del post è obbligatorio",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!formData.content.trim()) {
+      toast({
+        title: "Errore",
+        description: "Il contenuto del post è obbligatorio",
         variant: "destructive",
       })
       return
@@ -375,18 +384,26 @@ export function PostFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl">
-        <DialogHeader>
+      <DialogContent
+        className="max-w-6xl h-[85vh] flex flex-col overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl"
+        aria-describedby="post-form-description"
+      >
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
             {editingPost ? "Modifica Post" : "Nuovo Post"} con AI Assistant
           </DialogTitle>
+          <p id="post-form-description" className="text-sm text-gray-600 dark:text-gray-400">
+            {editingPost
+              ? "Modifica i dettagli del post e utilizza l'AI per migliorare contenuto e visual"
+              : "Crea un nuovo post utilizzando l'AI Assistant per generare contenuto e visual ottimizzati"}
+          </p>
         </DialogHeader>
 
-        <div className="flex gap-6 h-[calc(90vh-120px)]">
+        <div className="flex gap-6 flex-1 min-h-0">
           {/* Colonna sinistra - Form */}
-          <div className="flex-1">
-            <Tabs defaultValue="basic" className="h-full">
-              <TabsList className="grid w-full grid-cols-3">
+          <div className="flex-1 min-h-0">
+            <Tabs defaultValue="basic" className="h-full flex flex-col">
+              <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
                 <TabsTrigger value="basic" className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
                   Informazioni Base
@@ -401,7 +418,7 @@ export function PostFormDialog({
                 </TabsTrigger>
               </TabsList>
 
-              <ScrollArea className="h-[calc(100%-60px)] mt-4">
+              <ScrollArea className="flex-1 mt-4 min-h-0">
                 <TabsContent value="basic" className="space-y-6">
                   {(userRole === "admin" || userRole === "agency") && clients.length > 0 && (
                     <div className="space-y-2">
@@ -459,15 +476,18 @@ export function PostFormDialog({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Descrizione</Label>
+                    <Label htmlFor="description">Descrizione Interna</Label>
                     <Textarea
                       id="description"
                       value={formData.description}
                       onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                      placeholder="Breve descrizione del post (opzionale)..."
+                      placeholder="Note interne o breve descrizione del post per il team (non verrà pubblicata)..."
                       rows={2}
                       className="bg-white/50 dark:bg-slate-800/50"
                     />
+                    <p className="text-xs text-gray-500">
+                      Questo campo è per uso interno e non verrà pubblicato sui social media
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -515,15 +535,18 @@ export function PostFormDialog({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="content">Contenuto *</Label>
+                    <Label htmlFor="content">Contenuto del Post *</Label>
                     <Textarea
                       id="content"
                       value={formData.content}
                       onChange={(e) => setFormData((prev) => ({ ...prev, content: e.target.value }))}
-                      placeholder="Scrivi il contenuto del post..."
+                      placeholder="Scrivi qui il testo che apparirà sui social media..."
                       rows={6}
                       className="bg-white/50 dark:bg-slate-800/50"
                     />
+                    <p className="text-xs text-gray-500">
+                      Questo è il testo principale che verrà pubblicato sui social media
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -924,25 +947,33 @@ export function PostFormDialog({
             </Tabs>
           </div>
 
-          <div className="w-80 border-l pl-6">
-            <div className="sticky top-0">
-              <PostPreview
-                title={formData.title}
-                content={formData.content}
-                description={formData.description}
-                platform={formData.platform}
-                hashtags={formData.hashtags}
-                scheduledDate={formData.scheduledDate}
-                scheduledTime={formData.scheduledTime}
-                clientName={getClientName()}
-              />
+          <div className="w-72 border-l pl-4 flex-shrink-0">
+            <div className="sticky top-0 max-h-[calc(85vh-200px)] overflow-hidden">
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg p-3 border">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Anteprima Post
+                </h3>
+                <div className="scale-90 origin-top">
+                  <PostPreview
+                    title={formData.title}
+                    content={formData.content}
+                    description={formData.description}
+                    platform={formData.platform}
+                    hashtags={formData.hashtags}
+                    scheduledDate={formData.scheduledDate}
+                    scheduledTime={formData.scheduledTime}
+                    clientName={getClientName()}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <Separator className="my-4" />
+        <Separator className="my-4 flex-shrink-0" />
 
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annulla
           </Button>
