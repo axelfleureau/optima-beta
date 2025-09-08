@@ -949,11 +949,7 @@ export function PostFormDialog({
 
           <div className="w-72 border-l pl-4 flex-shrink-0">
             <div className="sticky top-0 max-h-[calc(85vh-200px)] overflow-hidden">
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg p-3 border">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
-                  <Eye className="w-4 h-4" />
-                  Anteprima Post
-                </h3>
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg p-4 border">
                 <div className="scale-90 origin-top">
                   <PostPreview
                     title={formData.title}
