@@ -1,5 +1,5 @@
 import { generateAIText, getOrganizationAdminId, logTokenUsage, SYSTEM_PROMPTS } from "./ai-service"
-import { fetch } from 'undici'
+// Note: fetch is now global in Node.js 18+, no import needed
 
 export interface VisualGenerationOptions {
   description: string
