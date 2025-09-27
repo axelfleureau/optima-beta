@@ -28,8 +28,14 @@ export interface Client {
   company?: string
   tenantId: string
   clientTenantId?: string
-  createdAt: Timestamp
-  updatedAt: Timestamp
+  color?: string
+  industry?: string
+  contactEmail?: string
+  contactPhone?: string
+  address?: string
+  status?: string
+  createdAt: Timestamp | Date
+  updatedAt: Timestamp | Date
 }
 
 export interface Campaign {
@@ -52,21 +58,25 @@ export interface Task {
   id: string
   title: string
   description?: string
+  richDescription?: string
   status: "todo" | "in-progress" | "review" | "done"
   columnId: string
   priority: "low" | "medium" | "high" | "urgent"
-  dueDate?: Timestamp
+  type?: string
+  dueDate?: Timestamp | Date | null
   assignee?: string
+  assignedUserId?: string | null
   clientId: string
   clientName?: string
   tenantId: string
-  createdAt: Timestamp
-  updatedAt: Timestamp
-  createdBy: string
+  createdAt: Timestamp | Date
+  updatedAt: Timestamp | Date
+  createdBy?: string
   tags?: string[]
   attachments?: TaskAttachment[]
   comments?: TaskComment[]
-  subItems?: TaskSubItem[]
+  subItems?: SubItem[]
+  parentItemId?: string | null
   dependencies?: string[] // IDs of tasks this task depends on
   estimatedHours?: number
   actualHours?: number
@@ -88,8 +98,9 @@ export interface TaskComment {
   text: string
   authorId: string
   authorName: string
-  authorAvatar?: string
-  createdAt: Timestamp
+  authorAvatar?: string | null
+  createdAt: Timestamp | Date
+  updatedAt?: Timestamp | Date
 }
 
 export interface TaskSubItem {
@@ -97,6 +108,13 @@ export interface TaskSubItem {
   title: string
   completed: boolean
   createdAt: Timestamp
+}
+
+export interface SubItem {
+  id: string
+  title: string
+  completed: boolean
+  createdAt: Timestamp | Date
 }
 
 // AI Task Optimization Types

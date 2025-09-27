@@ -47,10 +47,11 @@ import {
 } from "lucide-react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import { useClients } from "@/hooks/use-clients"
-import { useWorkspaceData, type Task } from "@/hooks/use-workspace-data"
+import { useWorkspaceData } from "@/hooks/use-workspace-data"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { TaskDetailDialog } from "@/components/task-detail-dialog"
+import type { Task, Client } from "@/lib/types"
 
 const defaultColumns = [
   { id: "to-do", title: "To Do", color: "border-blue-200", bgColor: "bg-blue-50", iconColor: "text-blue-600" },

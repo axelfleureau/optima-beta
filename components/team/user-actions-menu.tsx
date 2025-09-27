@@ -81,7 +81,7 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
       }
     } catch (error) {
       console.error("Error sending email:", error)
-      toast.info("Sistema email non ancora configurato - Sarà disponibile a breve")
+      toast.info("Funzionalità email in preparazione - Sistema SMTP in configurazione")
     }
   }
 
