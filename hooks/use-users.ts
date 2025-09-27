@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
-import type { UserData } from "@/lib/types"
+import type { User } from "@/lib/types"
 
 export function useUsers() {
   const { userData } = useAuth()
-  const [users, setUsers] = useState<UserData[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!userData?.tenantId) {
       setLoading(false)
+      setError(null)
       return
     }
 
@@ -19,8 +21,11 @@ export function useUsers() {
     if (userData.role !== "super-admin" && userData.role !== "admin") {
       setUsers([])
       setLoading(false)
+      setError("Non hai i permessi per visualizzare gli utenti")
       return
     }
+
+    setError(null)
 
     let unsubscribe: (() => void) | undefined
 
@@ -45,6 +50,7 @@ export function useUsers() {
           default:
             setUsers([])
             setLoading(false)
+            setError("Ruolo non autorizzato")
             return
         }
 
@@ -57,7 +63,7 @@ export function useUsers() {
             }))
             .sort((a: any, b: any) => {
               return b.createdAt.getTime() - a.createdAt.getTime()
-            }) as UserData[]
+            }) as User[]
 
           console.log(`Users loaded for role ${userData.role}:`, usersData.length)
           setUsers(usersData)
@@ -65,6 +71,7 @@ export function useUsers() {
         })
       } catch (err) {
         console.error("Error loading users:", err)
+        setError("Errore nel caricamento degli utenti")
         setLoading(false)
       }
     }
@@ -76,5 +83,5 @@ export function useUsers() {
     }
   }, [userData])
 
-  return { users, loading }
+  return { users, loading, error }
 }

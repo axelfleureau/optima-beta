@@ -2,27 +2,17 @@
 
 import { useState } from "react"
 import { useUsers } from "@/hooks/use-users"
+import { UserInviteDialog } from "@/components/team/user-invite-dialog"
+import { UserActionsMenu } from "@/components/team/user-actions-menu"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Plus,
   Search,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  Mail,
   Shield,
   Users,
   Crown,
@@ -76,6 +66,7 @@ const statusConfig = {
 export default function TeamPage() {
   const { users, loading, error } = useUsers()
   const [searchTerm, setSearchTerm] = useState("")
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
 
   const filteredUsers = users.filter(
     (user) =>
@@ -174,7 +165,10 @@ export default function TeamPage() {
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">Gestisci il tuo team e i permessi</p>
             </div>
-            <Button className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg">
+            <Button 
+              className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg"
+              onClick={() => setInviteDialogOpen(true)}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Invita Utente
             </Button>
@@ -269,7 +263,10 @@ export default function TeamPage() {
                     ? "Nessun utente corrisponde ai criteri di ricerca."
                     : "Non ci sono ancora utenti nel team."}
                 </p>
-                <Button className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg">
+                <Button 
+                  className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg"
+                  onClick={() => setInviteDialogOpen(true)}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Invita il primo utente
                 </Button>
@@ -304,36 +301,7 @@ export default function TeamPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {getStatusBadge(user.status)}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-sm border-gray-200/50">
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualizza
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Modifica
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Mail className="mr-2 h-4 w-4" />
-                              Invia Email
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Rimuovi
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <UserActionsMenu user={user} />
                       </div>
                     </div>
                   </CardHeader>
@@ -380,6 +348,12 @@ export default function TeamPage() {
               ))}
             </div>
           )}
+
+          {/* Invite Dialog */}
+          <UserInviteDialog 
+            open={inviteDialogOpen}
+            onOpenChange={setInviteDialogOpen}
+          />
         </div>
       </div>
     </div>
