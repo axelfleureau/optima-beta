@@ -30,10 +30,8 @@ const nextConfig = {
       },
     ]
   },
-  experimental: {
-    // Disable static optimization for specific routes that use client-only features
-    skipTrailingSlashRedirect: true,
-  },
+  // Move skipTrailingSlashRedirect out of experimental as per Next.js 15 requirements
+  skipTrailingSlashRedirect: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -42,10 +40,6 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
-  },
-  // Disable static generation for AI assistant page
-  async generateStaticParams() {
-    return []
   },
 }
 
