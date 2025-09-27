@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Sparkles, Zap, MessageSquare, TrendingUp, Activity, CheckCircle, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useRealTimeTokens } from "@/hooks/use-real-time-tokens"
+import { TokenUsageAlert, TokenUsageStats } from "@/components/ai/token-usage-alert"
 
 // Dynamic imports for client-side dependencies
 import dynamic from "next/dynamic"
@@ -174,6 +175,14 @@ export default function AIAssistantClient() {
               {showSidebar ? "Nascondi" : "Mostra"} Cronologia
             </Button>
           </div>
+
+          {/* Token Usage Alert */}
+          <TokenUsageAlert 
+            tokensUsed={tokensUsed} 
+            tokensLimit={tokensTotal} 
+            loading={tokenData.loading}
+            className="mb-2"
+          />
 
           {/* Token Status Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

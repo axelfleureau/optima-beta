@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Send, Bot, User, MessageSquare, Sparkles, Copy, CheckCircle2, Clock } from "lucide-react"
+import { Loader2, Send, Bot, User, MessageSquare, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, RefreshCw, AlertTriangle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/lib/chat-service"
@@ -19,6 +19,9 @@ interface Message {
   role: "user" | "assistant"
   timestamp: Date
   isStreaming?: boolean
+  feedback?: 'positive' | 'negative' | null
+  canRegenerate?: boolean
+  error?: boolean
 }
 
 interface AIChatProps {
@@ -43,6 +46,7 @@ export function AIChat({
   const [isLoading, setIsLoading] = useState(false)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId || null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
@@ -251,6 +255,132 @@ export function AIChat({
         description: "Impossibile copiare il testo",
         variant: "destructive",
       })
+    }
+  }
+
+  const handleFeedback = async (messageId: string, feedback: 'positive' | 'negative') => {
+    try {
+      // Update message feedback locally
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, feedback } : msg
+        )
+      )
+
+      // Send feedback to API for analytics
+      await fetch("/api/ai/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId,
+          feedback,
+          userId,
+          sessionId: currentSessionId,
+        }),
+      }).catch(() => {}) // Silently handle errors for feedback
+
+      toast({
+        description: feedback === 'positive' 
+          ? "✨ Grazie! Il tuo feedback ci aiuta a migliorare" 
+          : "📝 Feedback ricevuto. Lavoreremo per migliorare",
+      })
+    } catch (error) {
+      console.error("Failed to submit feedback:", error)
+    }
+  }
+
+  const regenerateResponse = async (messageId: string) => {
+    try {
+      setRegeneratingId(messageId)
+      
+      // Find the user message that preceded this assistant message
+      const messageIndex = messages.findIndex(msg => msg.id === messageId)
+      if (messageIndex === -1 || messageIndex === 0) return
+      
+      const userMessage = messages[messageIndex - 1]
+      if (userMessage.role !== 'user') return
+
+      // Mark the current message as regenerating
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, isStreaming: true, content: "" } : msg
+        )
+      )
+
+      // Call API to regenerate with same user message
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userMessage.content,
+          userId: userId,
+          sessionId: currentSessionId,
+          regenerate: true,
+        }),
+      })
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Errore API: ${response.status}`)
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split("\n")
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6).trim()
+            if (jsonStr) {
+              const data = JSON.parse(jsonStr)
+              if (data.content) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === messageId) {
+                      const newContent = (msg.content || "") + data.content
+                      return { ...msg, content: newContent }
+                    }
+                    return msg
+                  })
+                )
+              }
+            }
+          }
+        }
+      }
+
+      // Mark streaming as complete
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, isStreaming: false, canRegenerate: true }
+            : msg
+        )
+      )
+
+      toast({
+        description: "🔄 Risposta rigenerata con successo",
+      })
+
+    } catch (error) {
+      console.error("Failed to regenerate response:", error)
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, error: true, isStreaming: false } : msg
+        )
+      )
+      toast({
+        title: "Errore",
+        description: "Errore nella rigenerazione della risposta",
+        variant: "destructive",
+      })
+    } finally {
+      setRegeneratingId(null)
     }
   }
 
@@ -499,11 +629,13 @@ export function AIChat({
 
                   {message.role === "assistant" && !message.isStreaming && message.content && (
                     <div className="flex items-center gap-1">
+                      {/* Copy button */}
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => copyToClipboard(message.content, message.id)}
+                        title="Copia messaggio"
                       >
                         {copiedId === message.id ? (
                           <CheckCircle2 className="h-3 w-3 text-green-500" />
@@ -511,6 +643,57 @@ export function AIChat({
                           <Copy className="h-3 w-3" />
                         )}
                       </Button>
+
+                      {/* Feedback buttons */}
+                      <div className="flex items-center gap-1 ml-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700",
+                            message.feedback === 'positive' && "text-green-500 bg-green-50 hover:bg-green-100"
+                          )}
+                          onClick={() => handleFeedback(message.id, 'positive')}
+                          title="Risposta utile"
+                        >
+                          <ThumbsUp className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700",
+                            message.feedback === 'negative' && "text-red-500 bg-red-50 hover:bg-red-100"
+                          )}
+                          onClick={() => handleFeedback(message.id, 'negative')}
+                          title="Risposta non utile"
+                        >
+                          <ThumbsDown className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      {/* Regenerate button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700 ml-1"
+                        onClick={() => regenerateResponse(message.id)}
+                        disabled={regeneratingId === message.id}
+                        title="Rigenera risposta"
+                      >
+                        {regeneratingId === message.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3" />
+                        )}
+                      </Button>
+
+                      {/* Error indicator */}
+                      {message.error && (
+                        <div className="flex items-center gap-1 ml-1 text-red-500" title="Errore nella generazione">
+                          <AlertTriangle className="h-3 w-3" />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
