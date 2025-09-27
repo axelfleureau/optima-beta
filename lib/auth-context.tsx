@@ -2,15 +2,15 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
-import { type User, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth"
+import { type User as FirebaseUser, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
 import { auth, db } from "./firebase"
 import { useRouter } from "next/navigation"
-import type { UserData } from "./types"
+import type { User } from "./types"
 
 interface AuthContextType {
-  user: User | null
-  userData: UserData | null
+  user: FirebaseUser | null
+  userData: User | null
   loading: boolean
   isSuperAdmin: boolean
   isAdmin: boolean
@@ -23,8 +23,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [userData, setUserData] = useState<UserData | null>(null)
+  const [user, setUser] = useState<FirebaseUser | null>(null)
+  const [userData, setUserData] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -34,13 +34,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(user)
 
         try {
+          // Ottieni il token ID e salvalo nelle cookie per il middleware
+          const token = await user.getIdToken()
+          document.cookie = `firebase-auth-token=${token}; path=/; max-age=3600; samesite=strict`
+
           const userDoc = await getDoc(doc(db, "users", user.uid))
           if (userDoc.exists()) {
-            const data = userDoc.data() as UserData
-            const processedData: UserData = {
+            const data = userDoc.data() as any
+            const processedData: User = {
               ...data,
-              createdAt: data.createdAt?.toDate?.() || new Date(),
-              updatedAt: data.updatedAt?.toDate?.() || undefined,
+              id: user.uid,
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt || new Date(),
+              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
             }
             setUserData(processedData)
 
@@ -57,6 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null)
         setUserData(null)
+        // Rimuovi il token dalle cookie quando l'utente fa logout
+        document.cookie = "firebase-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
       }
       setLoading(false)
     })
@@ -66,6 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Rimuovi il token dalle cookie
+      document.cookie = "firebase-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
       await firebaseSignOut(auth)
       router.push("/login")
     } catch (error) {

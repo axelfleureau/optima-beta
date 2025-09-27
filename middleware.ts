@@ -8,45 +8,31 @@ export function middleware(request: NextRequest) {
   const protectedPaths = [
     "/dashboard",
     "/campagne",
-    "/preventivi",
+    "/preventivi", 
     "/workspace",
     "/ai-assistant",
     "/clienti",
-    "/calendario",
-    "/admin",
-    "/tenanti",
-    "/billing",
+    "/calendario-editoriale",
+    "/team",
+    "/settings",
+    "/super-admin"
   ]
-
-  // Percorsi riservati solo agli admin/agency (non ai clienti)
-  const agencyOnlyPaths = [
-    "/campagne",
-    "/preventivi",
-    "/clienti",
-    "/calendario",
-    "/admin",
-    "/tenanti",
-    "/billing",
-    "/workspace",
-  ]
-
-  // Percorsi riservati solo ai clienti
-  const clientOnlyPaths = ["/workspace"]
 
   // Verifica se il percorso richiede autenticazione
   const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path))
 
   if (isProtectedPath) {
-    // Qui dovresti verificare il token di autenticazione
-    // Per ora, assumiamo che l'autenticazione sia gestita lato client
+    // Controlla se esiste un token di autenticazione
+    const token = request.cookies.get("firebase-auth-token")?.value ||
+                 request.headers.get("authorization")?.replace("Bearer ", "")
 
-    // Se il percorso è riservato ai clienti, reindirizza gli utenti non-client
-    const isClientOnlyPath = clientOnlyPaths.some((path) => pathname.startsWith(path))
-    const isAgencyOnlyPath = agencyOnlyPaths.some((path) => pathname.startsWith(path))
+    if (!token) {
+      // Reindirizza al login se non c'è token
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
 
-    // Nota: Il controllo del ruolo effettivo dovrebbe essere fatto con il token JWT
-    // Questo è un esempio di come strutturare il middleware
-
+    // Se c'è un token, lascia che l'applicazione gestisca l'autorizzazione lato client
+    // La verifica JWT vera verrà fatta nelle API routes usando Firebase Admin
     return NextResponse.next()
   }
 

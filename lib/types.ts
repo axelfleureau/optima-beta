@@ -11,10 +11,13 @@ export interface User {
   parentTenantId?: string
   clientId?: string
   companyName?: string
-  createdAt: Timestamp
-  updatedAt: Timestamp
+  createdAt: Timestamp | Date
+  updatedAt?: Timestamp | Date
   aiTokensUsed?: number
   aiTokensLimit?: number
+  isSuspended?: boolean
+  assignedClientIds?: string[]
+  plan?: string
 }
 
 export interface Client {

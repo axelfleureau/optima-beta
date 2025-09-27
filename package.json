@@ -50,6 +50,7 @@
     "date-fns": "latest",
     "embla-carousel-react": "latest",
     "firebase": "latest",
+    "firebase-admin": "^13.5.0",
     "immer": "latest",
     "input-otp": "latest",
     "lucide-react": "^0.454.0",
