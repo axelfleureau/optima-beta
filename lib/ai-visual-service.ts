@@ -1,4 +1,5 @@
 import { generateAIText, getOrganizationAdminId, logTokenUsage, SYSTEM_PROMPTS } from "./ai-service"
+import { fetch } from 'undici'
 
 export interface VisualGenerationOptions {
   description: string
@@ -91,27 +92,156 @@ Restituisci SOLO il prompt per l'AI, senza spiegazioni.
   }
 }
 
-// Generate multiple visuals (simulated - in real implementation would call image generation API)
+// Generate visuals using direct OpenAI calls with proper server-side implementation
+async function callOpenAIDallE(prompt: string, format: string): Promise<string | null> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    console.warn("⚠️ OPENAI_API_KEY non trovata")
+    return null
+  }
+
+  // Get appropriate image size based on format
+  const sizeMap = {
+    square: "1024x1024",     // 1:1 per Instagram feed
+    story: "1024x1792",      // 9:16 per Stories
+    landscape: "1792x1024",  // 16:9 per Facebook/LinkedIn 
+    portrait: "1024x1280",   // 4:5 per Instagram
+    reel: "1024x1792"        // 9:16 per Reels/TikTok
+  }
+
+  const imageSize = sizeMap[format as keyof typeof sizeMap] || "1024x1024"
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: prompt,
+        n: 1,
+        size: imageSize,
+        quality: "standard",
+        response_format: "url"
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      console.error(`❌ Errore DALL-E:`, error)
+      return null
+    }
+
+    const data = await response.json() as {
+      data?: Array<{ url?: string }>
+    }
+    
+    if (data.data?.[0]?.url) {
+      return data.data[0].url
+    }
+
+    return null
+  } catch (error) {
+    console.error("Errore chiamata DALL-E:", error)
+    return null
+  }
+}
+
+// Generate multiple visuals (with proper server-side handling)
 export async function generateVisuals(options: VisualGenerationOptions, userId: string): Promise<GeneratedVisual[]> {
   try {
+    const { adminId } = await getOrganizationAdminId(userId)
     const prompt = await generateVisualPrompt(options, userId)
-
+    
     const count = options.isCarousel ? options.carouselCount || 3 : 1
     const visuals: GeneratedVisual[] = []
 
+    console.log(`🎨 Generazione ${count} visual AI...`)
+
+    // Check if we have OpenAI API key
+    const hasAPIKey = !!process.env.OPENAI_API_KEY
+
+    // Generate each visual individually for better error handling
     for (let i = 0; i < count; i++) {
-      // In a real implementation, this would call an image generation API like DALL-E, Midjourney, or Stable Diffusion
-      // For now, we'll return placeholder data
-      visuals.push({
-        id: `visual_${Date.now()}_${i}`,
-        imageUrl: `/placeholder.svg?height=400&width=400&text=Generated+Visual+${i + 1}`,
-        prompt: prompt,
-        style: options.style,
-        format: options.format,
-        platform: options.platform,
-      })
+      try {
+        let currentPrompt = prompt
+        
+        // Add variation for carousel images
+        if (options.isCarousel && count > 1) {
+          const variations = [
+            "focus on product details",
+            "show broader context", 
+            "highlight key benefits",
+            "include call to action elements",
+            "show different angle or perspective"
+          ]
+          const variation = variations[i % variations.length]
+          currentPrompt = `${prompt}, ${variation}`
+        }
+
+        let imageUrl: string | null = null
+
+        if (hasAPIKey) {
+          console.log(`🎨 Generazione AI per visual ${i + 1}/${count}`)
+          imageUrl = await callOpenAIDallE(currentPrompt, options.format)
+        }
+
+        if (imageUrl) {
+          console.log(`✅ Visual ${i + 1} generato con successo`)
+          
+          visuals.push({
+            id: `visual_${Date.now()}_${i}`,
+            imageUrl: imageUrl,
+            prompt: currentPrompt,
+            style: options.style,
+            format: options.format,
+            platform: options.platform,
+          })
+
+          // Log token usage for image generation (estimated)
+          try {
+            await logTokenUsage(adminId, userId, 100, "image_generation")
+          } catch (logError) {
+            console.warn("Warning: could not log token usage:", logError)
+          }
+        } else {
+          console.log(`⚠️ Fallback a placeholder per visual ${i + 1}`)
+          
+          // Fallback to placeholder
+          visuals.push({
+            id: `visual_${Date.now()}_${i}`,
+            imageUrl: `/api/placeholder/image?width=400&height=400&text=Visual+${i + 1}`,
+            prompt: currentPrompt,
+            style: options.style,
+            format: options.format,
+            platform: options.platform,
+          })
+        }
+
+        // Add small delay between generations to avoid rate limiting
+        if (i < count - 1 && hasAPIKey) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+
+      } catch (imageError) {
+        console.error(`❌ Errore generazione immagine ${i + 1}:`, imageError)
+        
+        // Add placeholder for failed generation
+        visuals.push({
+          id: `visual_${Date.now()}_${i}`,
+          imageUrl: `/api/placeholder/image?width=400&height=400&text=Errore+${i + 1}`,
+          prompt: prompt,
+          style: options.style,
+          format: options.format,
+          platform: options.platform,
+        })
+      }
     }
 
+    console.log(`🎨 Completata generazione: ${visuals.length}/${count} visual`)
+    
     return visuals
   } catch (error) {
     console.error("Error generating visuals:", error)
