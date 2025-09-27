@@ -25,12 +25,8 @@ export default function LoginPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Set a timeout to ensure Firebase is ready
-    const timer = setTimeout(() => {
-      setReady(true)
-    }, 2000)
-
-    return () => clearTimeout(timer)
+    // Firebase is ready immediately, no need for artificial delay
+    setReady(true)
   }, [])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -45,7 +41,9 @@ export default function LoginPage() {
     setError("")
 
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      console.log('🔄 Attempting login for:', email)
+      const result = await signInWithEmailAndPassword(auth, email, password)
+      console.log('✅ Firebase login successful:', result.user.uid)
       router.push("/dashboard")
     } catch (err: any) {
       console.error("Login error:", err)
