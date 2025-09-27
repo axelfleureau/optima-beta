@@ -44,7 +44,28 @@ export default function LoginPage() {
       console.log('🔄 Attempting login for:', email)
       const result = await signInWithEmailAndPassword(auth, email, password)
       console.log('✅ Firebase login successful:', result.user.uid)
-      router.push("/dashboard")
+      
+      // Aspetta che il token sia impostato tramite AuthContext prima del redirect
+      const token = await result.user.getIdToken()
+      
+      try {
+        console.log('🔐 Setting secure token...')
+        const tokenResponse = await fetch("/api/auth/set-secure-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token })
+        })
+        
+        if (tokenResponse.ok) {
+          console.log('✅ Token set successfully, redirecting to dashboard')
+          router.push("/dashboard")
+        } else {
+          throw new Error("Errore nell'impostazione del token di sicurezza")
+        }
+      } catch (tokenError) {
+        console.error("Token setting error:", tokenError)
+        setError("Errore durante l'autenticazione sicura")
+      }
     } catch (err: any) {
       console.error("Login error:", err)
       if (err.code === "auth/user-not-found") {
@@ -74,8 +95,30 @@ export default function LoginPage() {
 
     try {
       const provider = new GoogleAuthProvider()
-      await signInWithPopup(auth, provider)
-      router.push("/dashboard")
+      const result = await signInWithPopup(auth, provider)
+      console.log('✅ Google login successful:', result.user.uid)
+      
+      // Aspetta che il token sia impostato prima del redirect
+      const token = await result.user.getIdToken()
+      
+      try {
+        console.log('🔐 Setting secure token...')
+        const tokenResponse = await fetch("/api/auth/set-secure-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token })
+        })
+        
+        if (tokenResponse.ok) {
+          console.log('✅ Token set successfully, redirecting to dashboard')
+          router.push("/dashboard")
+        } else {
+          throw new Error("Errore nell'impostazione del token di sicurezza")
+        }
+      } catch (tokenError) {
+        console.error("Token setting error:", tokenError)
+        setError("Errore durante l'autenticazione sicura")
+      }
     } catch (err: any) {
       console.error("Google login error:", err)
       setError(err.message || "Errore durante il login con Google")
