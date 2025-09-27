@@ -34,9 +34,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(user)
 
         try {
-          // Ottieni il token ID e salvalo nelle cookie per il middleware
+          // Ottieni il token ID e salvalo tramite API sicura
           const token = await user.getIdToken()
-          document.cookie = `firebase-auth-token=${token}; path=/; max-age=3600; samesite=strict`
+          
+          try {
+            await fetch("/api/auth/set-secure-token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token })
+            })
+          } catch (error) {
+            console.error("Errore nell'impostazione del token sicuro:", error)
+          }
 
           const userDoc = await getDoc(doc(db, "users", user.uid))
           if (userDoc.exists()) {
@@ -62,8 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null)
         setUserData(null)
-        // Rimuovi il token dalle cookie quando l'utente fa logout
-        document.cookie = "firebase-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+        // Le cookie HttpOnly saranno rimosse automaticamente dal middleware
+        // quando il token scade o viene invalidato
       }
       setLoading(false)
     })
@@ -73,8 +82,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Rimuovi il token dalle cookie
-      document.cookie = "firebase-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+      // Chiama API per rimuovere token sicuro
+      try {
+        await fetch("/api/auth/logout", { method: "POST" })
+      } catch (error) {
+        console.error("Errore nel logout sicuro:", error)
+      }
       await firebaseSignOut(auth)
       router.push("/login")
     } catch (error) {
