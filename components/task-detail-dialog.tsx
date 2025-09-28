@@ -471,7 +471,7 @@ export function TaskDetailDialog({
           <div className="space-y-4">
             {/* Status */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Status</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Stato</Label>
               <Select
                 value={task.status || task.columnId}
                 onValueChange={(value) => handleUpdateField("status", value)}

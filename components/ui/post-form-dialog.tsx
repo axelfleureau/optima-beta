@@ -513,7 +513,7 @@ export function PostFormDialog({
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="status">Status</Label>
+                      <Label htmlFor="status">Stato</Label>
                       <Select
                         value={formData.status}
                         onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value }))}
