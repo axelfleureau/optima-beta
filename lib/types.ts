@@ -6,7 +6,7 @@ export interface User {
   email: string
   firstName: string
   lastName: string
-  role: "super-admin" | "admin" | "user" | "client"
+  role: "super-admin" | "admin" | "direzione" | "capo-reparto" | "junior" | "client"
   tenantId: string
   parentTenantId?: string
   clientId?: string

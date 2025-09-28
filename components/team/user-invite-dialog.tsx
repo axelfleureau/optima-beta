@@ -31,14 +31,14 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useAuth } from "@/lib/auth-context"
-import { Mail, Loader2, UserPlus, Shield, User, Users } from "lucide-react"
+import { Mail, Loader2, UserPlus, Shield, User, Users, Crown, Settings } from "lucide-react"
 import { toast } from "sonner"
 
 const inviteUserSchema = z.object({
   email: z.string().email("Inserisci un indirizzo email valido"),
   firstName: z.string().min(1, "Nome è obbligatorio"),
   lastName: z.string().min(1, "Cognome è obbligatorio"),
-  role: z.enum(["admin", "user", "client"], {
+  role: z.enum(["admin", "direzione", "capo-reparto", "junior"], {
     required_error: "Seleziona un ruolo",
   }),
   companyName: z.string().optional(),
@@ -55,21 +55,27 @@ interface UserInviteDialogProps {
 const roleOptions = [
   {
     value: "admin" as const,
-    label: "Amministratore",
-    description: "Accesso completo alla gestione agenzia",
+    label: "Admin",
+    description: "Gestione completa del tenant (agenzia cliente)",
     icon: Shield,
   },
   {
-    value: "user" as const,
-    label: "Utente",
-    description: "Accesso ai progetti assegnati",
-    icon: User,
+    value: "direzione" as const,
+    label: "Direzione",
+    description: "Privilegi Admin con account personale soci-lavoratori",
+    icon: Crown,
   },
   {
-    value: "client" as const,
-    label: "Cliente",
-    description: "Accesso solo al proprio workspace",
-    icon: Users,
+    value: "capo-reparto" as const,
+    label: "Capo Reparto",
+    description: "Gestione di uno o più reparti",
+    icon: Settings,
+  },
+  {
+    value: "junior" as const,
+    label: "Junior",
+    description: "Gestione esclusiva delle task assegnate",
+    icon: User,
   },
 ]
 
@@ -83,7 +89,7 @@ export function UserInviteDialog({ open, onOpenChange }: UserInviteDialogProps) 
       email: "",
       firstName: "",
       lastName: "",
-      role: "user",
+      role: "junior",
       companyName: "",
       message: "",
     },
@@ -112,11 +118,21 @@ export function UserInviteDialog({ open, onOpenChange }: UserInviteDialogProps) 
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Errore nell'invito utente")
+        const contentType = response.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Errore nell'invito utente")
+        } else {
+          throw new Error("Errore nell'invito utente")
+        }
       }
 
-      const result = await response.json()
+      // Only parse JSON if response has content and is JSON
+      const contentType = response.headers.get("content-type")
+      if (response.status !== 204 && contentType && contentType.includes("application/json")) {
+        const result = await response.json()
+      }
+      
       toast.success(`Invito inviato con successo a ${data.email}`)
       
       // Reset form and close dialog
