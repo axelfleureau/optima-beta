@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,10 +23,54 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [ready, setReady] = useState(false)
   const router = useRouter()
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     // Firebase is ready immediately, no need for artificial delay
     setReady(true)
+    
+    // Listen for auth success events from AuthContext
+    const handleAuthSuccess = () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+      setLoading(false)
+      console.log("✅ Login: AuthContext ha completato con successo")
+    }
+    
+    const handleAuthFallback = () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+      setLoading(false)
+      console.log("⚠️ Login: AuthContext usa fallback")
+    }
+    
+    const handleAuthError = (event: any) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+      setLoading(false)
+      setError("Login completato ma problemi con sicurezza. Redirect in corso...")
+      console.log("❌ Login: AuthContext ha errori:", event.detail)
+    }
+    
+    window.addEventListener('auth-success', handleAuthSuccess)
+    window.addEventListener('auth-fallback', handleAuthFallback)
+    window.addEventListener('auth-error', handleAuthError)
+    
+    // Cleanup timeout and listeners on unmount
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+      window.removeEventListener('auth-success', handleAuthSuccess)
+      window.removeEventListener('auth-fallback', handleAuthFallback)
+      window.removeEventListener('auth-error', handleAuthError)
+    }
   }, [])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -45,27 +89,13 @@ export default function LoginPage() {
       const result = await signInWithEmailAndPassword(auth, email, password)
       console.log('✅ Firebase login successful:', result.user.uid)
       
-      // Aspetta che il token sia impostato tramite AuthContext prima del redirect
-      const token = await result.user.getIdToken()
+      // AuthContext gestirà automaticamente token e redirect via onAuthStateChanged
+      // Aggiungiamo un timeout di fallback se AuthContext non riesce
+      timeoutRef.current = setTimeout(() => {
+        setLoading(false)
+        setError("Login riuscito ma caricamento lento. Prova a ricaricare la pagina.")
+      }, 8000)
       
-      try {
-        console.log('🔐 Setting secure token...')
-        const tokenResponse = await fetch("/api/auth/set-secure-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token })
-        })
-        
-        if (tokenResponse.ok) {
-          console.log('✅ Token set successfully, redirecting to dashboard')
-          router.push("/dashboard")
-        } else {
-          throw new Error("Errore nell'impostazione del token di sicurezza")
-        }
-      } catch (tokenError) {
-        console.error("Token setting error:", tokenError)
-        setError("Errore durante l'autenticazione sicura")
-      }
     } catch (err: any) {
       console.error("Login error:", err)
       if (err.code === "auth/user-not-found") {
@@ -79,7 +109,6 @@ export default function LoginPage() {
       } else {
         setError(err.message || "Errore durante il login")
       }
-    } finally {
       setLoading(false)
     }
   }
@@ -98,31 +127,16 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, provider)
       console.log('✅ Google login successful:', result.user.uid)
       
-      // Aspetta che il token sia impostato prima del redirect
-      const token = await result.user.getIdToken()
+      // AuthContext gestirà automaticamente token e redirect via onAuthStateChanged
+      // Aggiungiamo un timeout di fallback se AuthContext non riesce
+      timeoutRef.current = setTimeout(() => {
+        setLoading(false)
+        setError("Login riuscito ma caricamento lento. Prova a ricaricare la pagina.")
+      }, 8000)
       
-      try {
-        console.log('🔐 Setting secure token...')
-        const tokenResponse = await fetch("/api/auth/set-secure-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token })
-        })
-        
-        if (tokenResponse.ok) {
-          console.log('✅ Token set successfully, redirecting to dashboard')
-          router.push("/dashboard")
-        } else {
-          throw new Error("Errore nell'impostazione del token di sicurezza")
-        }
-      } catch (tokenError) {
-        console.error("Token setting error:", tokenError)
-        setError("Errore durante l'autenticazione sicura")
-      }
     } catch (err: any) {
       console.error("Google login error:", err)
       setError(err.message || "Errore durante il login con Google")
-    } finally {
       setLoading(false)
     }
   }

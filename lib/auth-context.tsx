@@ -56,17 +56,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(user)
 
         try {
-          // Ottieni il token ID e salvalo tramite API sicura
+          // Ottieni il token ID e salvalo tramite API sicura con timeout
           const token = await user.getIdToken()
           
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 secondi timeout
+          
           try {
-            await fetch("/api/auth/set-secure-token", {
+            const response = await fetch("/api/auth/set-secure-token", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token })
+              body: JSON.stringify({ token }),
+              signal: controller.signal
             })
+            
+            clearTimeout(timeoutId)
+            
+            if (response.ok) {
+              console.log("✅ AuthContext: Token impostato con successo")
+              
+              // Solo ora fai il redirect se siamo nella pagina di login
+              if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+                console.log("🔄 AuthContext: Reindirizzamento alla dashboard")
+                // Comunica al login page che il processo è completato con successo
+                window.dispatchEvent(new CustomEvent('auth-success'))
+                router.push("/dashboard")
+              }
+            } else {
+              console.error("❌ AuthContext: Errore response token:", response.status)
+              // Fallback: prova a fare il redirect comunque dopo 2 secondi
+              if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+                console.log("🔄 AuthContext: Fallback redirect dopo errore token")
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('auth-fallback'))
+                  router.push("/dashboard")
+                }, 2000)
+              }
+            }
           } catch (error) {
-            console.error("Errore nell'impostazione del token sicuro:", error)
+            clearTimeout(timeoutId)
+            if (error instanceof Error && error.name === 'AbortError') {
+              console.error("⏱️ AuthContext: Timeout impostazione token")
+            } else {
+              console.error("❌ AuthContext: Errore nell'impostazione del token sicuro:", error)
+            }
+            
+            // Fallback: prova a fare il redirect comunque dopo 3 secondi
+            if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+              console.log("🔄 AuthContext: Fallback redirect dopo errore/timeout")
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('auth-error', { 
+                  detail: 'Token setting failed but login succeeded' 
+                }))
+                router.push("/dashboard")
+              }, 3000)
+            }
           }
 
           const userDoc = await getDoc(doc(db, "users", user.uid))
