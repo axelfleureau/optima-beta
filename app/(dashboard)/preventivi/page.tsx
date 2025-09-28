@@ -154,36 +154,39 @@ export default function PreventiviPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        <div className="space-y-8">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
+        <div className="space-y-6 md:space-y-8">
           {/* Header */}
-          <div className="flex justify-between items-center">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-r from-orange-500 to-amber-600 rounded-2xl shadow-lg">
-                  <FileText className="h-8 w-8 text-white" />
+          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+            <div className="space-y-1 md:space-y-2">
+              <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
+                <div className="p-2 md:p-3 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl md:rounded-2xl shadow-lg">
+                  <FileText className="h-6 w-6 md:h-8 md:w-8 text-white" />
                 </div>
-                Preventivi
+                <span className="leading-tight">Preventivi</span>
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">Gestisci i tuoi preventivi e offerte</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg ml-11 md:ml-0">Gestisci i tuoi preventivi e offerte</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2 md:gap-3">
               <Button 
                 onClick={() => setShowAIGenerator(true)}
-                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg"
+                size="sm"
+                className="flex-1 md:flex-none bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Genera con AI
+                <span className="hidden sm:inline">Genera con AI</span>
+                <span className="sm:hidden">AI</span>
               </Button>
-              <Button className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg">
+              <Button size="sm" className="flex-1 md:flex-none bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg">
                 <Plus className="mr-2 h-4 w-4" />
-                Nuovo Preventivo
+                <span className="hidden sm:inline">Nuovo Preventivo</span>
+                <span className="sm:hidden">Nuovo</span>
               </Button>
             </div>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">

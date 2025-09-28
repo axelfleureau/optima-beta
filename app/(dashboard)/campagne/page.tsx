@@ -151,18 +151,18 @@ export default function CampagnePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        <div className="space-y-8">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
+        <div className="space-y-6 md:space-y-8">
           {/* Header */}
-          <div className="flex justify-between items-center">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
-                  <Target className="h-8 w-8 text-white" />
+          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+            <div className="space-y-1 md:space-y-2">
+              <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
+                <div className="p-2 md:p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl md:rounded-2xl shadow-lg">
+                  <Target className="h-6 w-6 md:h-8 md:w-8 text-white" />
                 </div>
-                Campagne
+                <span className="leading-tight">Campagne</span>
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">Gestisci le tue campagne di marketing</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg ml-11 md:ml-0">Gestisci le tue campagne di marketing</p>
             </div>
             <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg">
               <Plus className="mr-2 h-4 w-4" />
@@ -171,7 +171,7 @@ export default function CampagnePage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
@@ -250,11 +250,11 @@ export default function CampagnePage() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="bg-white/80 backdrop-blur-sm border-gray-200/50">
-              <TabsTrigger value="all">Tutte ({stats.total})</TabsTrigger>
-              <TabsTrigger value="draft">Bozze ({stats.draft})</TabsTrigger>
-              <TabsTrigger value="active">Attive ({stats.active})</TabsTrigger>
-              <TabsTrigger value="completed">Completate ({stats.completed})</TabsTrigger>
+            <TabsList className="bg-white/80 backdrop-blur-sm border-gray-200/50 grid w-full grid-cols-2 md:grid-cols-4 gap-1 md:gap-0 h-auto md:h-10">
+              <TabsTrigger value="all" className="text-xs md:text-sm">Tutte ({stats.total})</TabsTrigger>
+              <TabsTrigger value="draft" className="text-xs md:text-sm">Bozze ({stats.draft})</TabsTrigger>
+              <TabsTrigger value="active" className="text-xs md:text-sm">Attive ({stats.active})</TabsTrigger>
+              <TabsTrigger value="completed" className="text-xs md:text-sm">Completate ({stats.completed})</TabsTrigger>
             </TabsList>
 
             <TabsContent value={activeTab} className="space-y-6">
@@ -279,17 +279,17 @@ export default function CampagnePage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-6">
+                <div className="grid gap-4 sm:gap-6">
                   {filteredCampaigns.map((campaign) => (
                     <Card
                       key={campaign.id}
                       className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300 overflow-hidden"
                     >
                       <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0">
                           <div className="space-y-2">
                             <CardTitle className="text-xl text-gray-900 dark:text-white">{campaign.title}</CardTitle>
-                            <CardDescription className="flex items-center gap-6 text-gray-600 dark:text-gray-400">
+                            <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-gray-600 dark:text-gray-400">
                               {campaign.clientName && (
                                 <span className="flex items-center gap-2">
                                   <Users className="h-4 w-4" />
@@ -309,7 +309,7 @@ export default function CampagnePage() {
                               )}
                             </CardDescription>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 self-end sm:self-start">
                             {getStatusBadge(campaign.status)}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
