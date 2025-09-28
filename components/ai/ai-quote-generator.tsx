@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { useQuotes } from "@/hooks/use-quotes"
 import { convertToQuoteFormat, type GeneratedQuoteData } from "@/lib/ai-quote-service"
+import { downloadQuotePDF } from "@/lib/pdf-generator"
 import {
   Wand2,
   FileText,
@@ -160,6 +161,25 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
     }
   }
 
+  const handleDownloadPDF = () => {
+    if (!generatedQuote) return
+
+    try {
+      downloadQuotePDF(generatedQuote)
+      toast({
+        title: "PDF generato!",
+        description: "Il preventivo PDF è stato scaricato con successo"
+      })
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      toast({
+        title: "Errore PDF",
+        description: "Non è stato possibile generare il PDF",
+        variant: "destructive"
+      })
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       projectDescription: '',
@@ -297,7 +317,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                   </CardContent>
                 </Card>
 
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex justify-end gap-3 pt-4 flex-shrink-0">
                   <Button variant="outline" onClick={handleClose}>
                     Annulla
                   </Button>
@@ -651,10 +671,18 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <div className="flex justify-end gap-3 mt-4 pt-4 border-t">
+              <div className="flex justify-end gap-3 mt-4 pt-4 border-t flex-shrink-0">
                 <Button variant="outline" onClick={() => setStep('input')}>
                   <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
                   Modifica
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleDownloadPDF}
+                  className="border-pink-200 text-pink-700 hover:bg-pink-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Scarica PDF
                 </Button>
                 <Button onClick={handleSaveQuote} className="bg-green-600 hover:bg-green-700">
                   <Save className="w-4 h-4 mr-2" />
