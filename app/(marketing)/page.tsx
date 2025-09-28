@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Target, Users, BarChart3, Bot, Calendar, FileText, ArrowRight, Check, Star, Play } from "lucide-react"
+import { Target, Users, BarChart3, Bot, Calendar, FileText, ArrowRight, Check, Star, Play, Menu, X } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import Image from "next/image"
@@ -131,6 +131,7 @@ const testimonials = [
 
 export default function HomePage() {
   const [email, setEmail] = useState("")
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
@@ -154,6 +155,7 @@ export default function HomePage() {
               </Badge>
             </div>
 
+            {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6">
               <Link href="#features" className="text-gray-300 hover:text-white transition-colors">
                 Funzionalità
@@ -171,7 +173,61 @@ export default function HomePage() {
                 <Button className="bg-pink-500 hover:bg-pink-600">Inizia Gratis</Button>
               </Link>
             </nav>
+
+            {/* Mobile Menu Button */}
+            <button
+              className="md:hidden p-2"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? (
+                <X className="h-6 w-6 text-white" />
+              ) : (
+                <Menu className="h-6 w-6 text-white" />
+              )}
+            </button>
           </div>
+
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <div className="md:hidden mt-4 border-t border-gray-700 pt-4">
+              <nav className="flex flex-col gap-4">
+                <Link
+                  href="#features"
+                  className="text-gray-300 hover:text-white transition-colors py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Funzionalità
+                </Link>
+                <Link
+                  href="#pricing"
+                  className="text-gray-300 hover:text-white transition-colors py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Prezzi
+                </Link>
+                <Link
+                  href="#testimonials"
+                  className="text-gray-300 hover:text-white transition-colors py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Testimonianze
+                </Link>
+                <div className="flex flex-col gap-3 pt-4">
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full bg-gray-700 hover:bg-gray-600 text-white">
+                      Accedi
+                    </Button>
+                  </Link>
+                  <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full bg-pink-500 hover:bg-pink-600">
+                      Inizia Gratis
+                    </Button>
+                  </Link>
+                </div>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
 
