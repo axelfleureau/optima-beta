@@ -50,7 +50,10 @@ import { useClients } from "@/hooks/use-clients"
 import { useWorkspaceData } from "@/hooks/use-workspace-data"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
+import { useNotifications } from "@/lib/notification-context"
+import { useUsers } from "@/hooks/use-users"
 import { TaskDetailDialog } from "@/components/task-detail-dialog"
+import { UserAssignmentSelect } from "@/components/ui/user-assignment-select"
 import type { Task, Client } from "@/lib/types"
 
 const defaultColumns = [
@@ -166,6 +169,8 @@ export function DynamicWorkspace() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [uploadingFiles, setUploadingFiles] = useState(false)
   const { toast } = useToast()
+  const { addNotification } = useNotifications()
+  const { users } = useUsers()
 
   // Client form state
   const [clientForm, setClientForm] = useState({
@@ -512,7 +517,13 @@ export function DynamicWorkspace() {
       const { db } = await import("@/lib/firebase")
       const { collection, addDoc } = await import("firebase/firestore")
 
-      await addDoc(collection(db, "tasks"), {
+      // Trova l'ID dell'utente assegnato se presente
+      const assignedUser = users.find(u => 
+        `${u.firstName} ${u.lastName}`.trim() === taskForm.assignee.trim()
+      )
+      const assignedUserId = assignedUser?.id || null
+
+      const taskDocRef = await addDoc(collection(db, "tasks"), {
         title: taskForm.title,
         description: taskForm.description,
         richDescription: taskForm.richDescription,
@@ -522,6 +533,7 @@ export function DynamicWorkspace() {
         columnId: taskForm.columnId,
         status: taskForm.columnId,
         assignee: taskForm.assignee,
+        assignedUserId: assignedUserId,
         clientId: targetClientId,
         clientName: targetClientName,
         tenantId: user?.uid,
@@ -534,6 +546,34 @@ export function DynamicWorkspace() {
         createdAt: new Date(),
         updatedAt: new Date(),
       })
+
+      // Invia notifica all'utente assegnato se presente
+      if (assignedUser && assignedUserId) {
+        try {
+          await addNotification({
+            userId: assignedUserId,
+            title: "Nuovo task assegnato",
+            message: `Ti è stato assegnato il task: "${taskForm.title}"`,
+            type: "task_assigned",
+            taskId: taskDocRef.id,
+            metadata: {
+              taskTitle: taskForm.title,
+              priority: taskForm.priority,
+              dueDate: taskForm.dueDate,
+              assignedBy: userData?.firstName + " " + userData?.lastName,
+              clientName: targetClientName
+            }
+          })
+        } catch (notificationError) {
+          console.error("Errore nell'invio della notifica:", notificationError)
+          // Non interrompere il flusso per un errore di notifica
+          toast({
+            title: "Avvertenza",
+            description: "Task creato ma notifica non inviata",
+            variant: "default",
+          })
+        }
+      }
 
       toast({
         title: "Successo",
@@ -1407,12 +1447,11 @@ export function DynamicWorkspace() {
                 <Label htmlFor="assignee" className="text-right font-medium">
                   Assegnato a
                 </Label>
-                <Input
-                  id="assignee"
+                <UserAssignmentSelect
                   value={taskForm.assignee}
-                  onChange={(e) => setTaskForm({ ...taskForm, assignee: e.target.value })}
+                  onValueChange={(value) => setTaskForm({ ...taskForm, assignee: value })}
                   className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
-                  placeholder="Nome dell'assegnatario..."
+                  placeholder="Seleziona utente..."
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">

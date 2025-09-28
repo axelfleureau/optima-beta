@@ -43,8 +43,8 @@ export function useUsers() {
             break
 
           case "admin":
-            // Admin vede solo i propri user e client
-            usersQuery = query(collection(db, "users"), where("parentTenantId", "==", userData.tenantId))
+            // Admin vede tutti gli utenti del proprio tenant (incluso se stesso)
+            usersQuery = query(collection(db, "users"), where("tenantId", "==", userData.tenantId))
             break
 
           default:

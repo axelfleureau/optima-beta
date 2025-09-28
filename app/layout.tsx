@@ -1,5 +1,6 @@
 import type React from "react"
 import { AuthProvider } from "@/lib/auth-context"
+import { NotificationProvider } from "@/lib/notification-context"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
@@ -19,10 +20,12 @@ export default function RootLayout({
     <html lang="it">
       <body>
         <AuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-            {children}
-            <Toaster />
-          </ThemeProvider>
+          <NotificationProvider>
+            <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </NotificationProvider>
         </AuthProvider>
       </body>
     </html>
