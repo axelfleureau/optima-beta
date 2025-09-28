@@ -181,17 +181,17 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-pink-500" />
             Genera Preventivo con AI
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
           {step === 'input' && (
-            <ScrollArea className="h-[600px] pr-4">
+            <ScrollArea className="h-full max-h-[60vh] pr-4">
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -311,7 +311,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
           )}
 
           {step === 'generating' && (
-            <div className="flex flex-col items-center justify-center h-[600px] space-y-6">
+            <div className="flex flex-col items-center justify-center h-full min-h-[300px] max-h-[60vh] space-y-6">
               <div className="relative">
                 <Loader2 className="w-12 h-12 animate-spin text-pink-500" />
                 <Sparkles className="w-6 h-6 text-pink-300 absolute -top-2 -right-2 animate-pulse" />
@@ -326,7 +326,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
           )}
 
           {step === 'review' && generatedQuote && (
-            <Tabs defaultValue="overview" className="h-[600px]">
+            <Tabs defaultValue="overview" className="h-full flex flex-col">
               <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview">Riepilogo</TabsTrigger>
                 <TabsTrigger value="project">Progetto</TabsTrigger>
@@ -336,7 +336,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               </TabsList>
 
               <TabsContent value="overview" className="mt-4">
-                <ScrollArea className="h-[520px]">
+                <ScrollArea className="h-full max-h-[50vh]">
                   <div className="space-y-6">
                     <Card>
                       <CardHeader>
@@ -393,7 +393,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               </TabsContent>
 
               <TabsContent value="details" className="mt-4">
-                <ScrollArea className="h-[520px]">
+                <ScrollArea className="h-full max-h-[50vh]">
                   <div className="space-y-6">
                     <Card>
                       <CardHeader>
@@ -481,7 +481,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               </TabsContent>
 
               <TabsContent value="client" className="mt-4">
-                <ScrollArea className="h-[520px]">
+                <ScrollArea className="h-full max-h-[50vh]">
                   <Card>
                     <CardHeader>
                       <CardTitle>Informazioni Cliente</CardTitle>
@@ -529,7 +529,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               </TabsContent>
 
               <TabsContent value="project" className="mt-4">
-                <ScrollArea className="h-[520px]">
+                <ScrollArea className="h-full max-h-[50vh]">
                   <div className="space-y-6">
                     {generatedQuote.preventivo.settore && (
                       <Card>
@@ -609,7 +609,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               </TabsContent>
 
               <TabsContent value="legal" className="mt-4">
-                <ScrollArea className="h-[520px]">
+                <ScrollArea className="h-full max-h-[50vh]">
                   <div className="space-y-6">
                     {generatedQuote.sezioniStandard && (
                       <>
