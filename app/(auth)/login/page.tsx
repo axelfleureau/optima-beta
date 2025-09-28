@@ -90,11 +90,18 @@ export default function LoginPage() {
       console.log('✅ Firebase login successful:', result.user.uid)
       
       // AuthContext gestirà automaticamente token e redirect via onAuthStateChanged
-      // Aggiungiamo un timeout di fallback se AuthContext non riesce
+      // Timeout più lungo per dare tempo all'AuthContext
       timeoutRef.current = setTimeout(() => {
-        setLoading(false)
-        setError("Login riuscito ma caricamento lento. Prova a ricaricare la pagina.")
-      }, 8000)
+        if (loading) {
+          setLoading(false)
+          setError("Autenticazione completata. Redirect in corso...")
+          // Prova a forzare il redirect se AuthContext non l'ha fatto
+          setTimeout(() => {
+            console.log("🔄 Login: Forced redirect to dashboard")
+            router.push("/dashboard")
+          }, 2000)
+        }
+      }, 3000) // Ridotto a 3 secondi per essere più reattivo
       
     } catch (err: any) {
       console.error("Login error:", err)
@@ -128,11 +135,18 @@ export default function LoginPage() {
       console.log('✅ Google login successful:', result.user.uid)
       
       // AuthContext gestirà automaticamente token e redirect via onAuthStateChanged
-      // Aggiungiamo un timeout di fallback se AuthContext non riesce
+      // Timeout più lungo per dare tempo all'AuthContext
       timeoutRef.current = setTimeout(() => {
-        setLoading(false)
-        setError("Login riuscito ma caricamento lento. Prova a ricaricare la pagina.")
-      }, 8000)
+        if (loading) {
+          setLoading(false)
+          setError("Autenticazione completata. Redirect in corso...")
+          // Prova a forzare il redirect se AuthContext non l'ha fatto
+          setTimeout(() => {
+            console.log("🔄 Login: Forced redirect to dashboard")
+            router.push("/dashboard")
+          }, 2000)
+        }
+      }, 3000) // Ridotto a 3 secondi per essere più reattivo
       
     } catch (err: any) {
       console.error("Google login error:", err)
@@ -230,7 +244,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-pink-500 hover:bg-pink-600 text-white"
+                className="w-full bg-pink-500 hover:bg-pink-600 text-white disabled:opacity-50"
                 disabled={loading || !ready}
               >
                 {loading ? (
@@ -256,7 +270,7 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full bg-gray-700/50 border-gray-600 text-white hover:bg-gray-600/50"
+              className="w-full bg-gray-700/50 border-gray-600 text-white hover:bg-gray-600/50 disabled:opacity-50"
               onClick={handleGoogleLogin}
               disabled={loading || !ready}
             >
