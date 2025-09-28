@@ -214,6 +214,33 @@ export const SYSTEM_PROMPTS = {
   TASK: "Sei un esperto project manager e consulente di produttività.",
 }
 
+// Helper function to get the base URL for server-side API calls
+function getBaseUrl(): string {
+  // In server environment, we need a full URL
+  if (typeof window === 'undefined') {
+    // 1. Check for explicit SITE_URL environment variable first
+    if (process.env.SITE_URL) {
+      return process.env.SITE_URL.replace(/\/$/, '') // Remove trailing slash
+    }
+    
+    // 2. Check for deployment environment variables
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`
+    }
+    if (process.env.REPLIT_DOMAINS) {
+      const domains = process.env.REPLIT_DOMAINS.split(',')
+      return `https://${domains[0]}`
+    }
+    
+    // 3. Development fallback - check PORT or use standard Next.js dev port
+    const port = process.env.PORT || '3000'
+    const host = process.env.HOST || 'localhost'
+    return `http://${host}:${port}`
+  }
+  // Client-side can use relative URLs
+  return ''
+}
+
 async function callCaptionAPI(
   prompt: string,
   systemPrompt: string,
@@ -221,7 +248,8 @@ async function callCaptionAPI(
   maxTokens = 1000,
   temperature = 0.7,
 ): Promise<any> {
-  const response = await fetch("/api/ai/caption", {
+  const baseUrl = getBaseUrl()
+  const response = await fetch(`${baseUrl}/api/ai/caption`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -252,7 +280,8 @@ async function callOpenAI(
 ): Promise<any> {
   try {
     // Call our API route instead of OpenAI directly
-    const response = await fetch("/api/ai/generate", {
+    const baseUrl = getBaseUrl()
+    const response = await fetch(`${baseUrl}/api/ai/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
