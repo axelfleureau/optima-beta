@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useClients } from "@/hooks/use-clients"
+import { ClientFormDialog } from "@/components/clients/client-form-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -58,6 +59,7 @@ const statusConfig = {
 export default function ClientiPage() {
   const { clients, loading, error } = useClients()
   const [searchTerm, setSearchTerm] = useState("")
+  const [clientDialogOpen, setClientDialogOpen] = useState(false)
 
   const filteredClients = clients.filter(
     (client) =>
@@ -148,7 +150,10 @@ export default function ClientiPage() {
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">Gestisci i tuoi clienti e prospect</p>
             </div>
-            <Button className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg">
+            <Button 
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg"
+              onClick={() => setClientDialogOpen(true)}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Nuovo Cliente
             </Button>
@@ -245,7 +250,10 @@ export default function ClientiPage() {
                     ? "Nessun cliente corrisponde ai criteri di ricerca."
                     : "Non hai ancora aggiunto nessun cliente."}
                 </p>
-                <Button className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg">
+                <Button 
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg"
+                  onClick={() => setClientDialogOpen(true)}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Aggiungi il tuo primo cliente
                 </Button>
@@ -368,6 +376,11 @@ export default function ClientiPage() {
           )}
         </div>
       </div>
+
+      <ClientFormDialog 
+        open={clientDialogOpen} 
+        onOpenChange={setClientDialogOpen} 
+      />
     </div>
   )
 }
