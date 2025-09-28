@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useQuotes } from "@/hooks/use-quotes"
+import { AIQuoteGenerator } from "@/components/ai/ai-quote-generator"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +34,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Sparkles,
+  Wand2,
 } from "lucide-react"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
@@ -74,6 +77,7 @@ export default function PreventiviPage() {
   const { quotes, loading, error, getQuotesByStatus, getQuoteStats } = useQuotes()
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("all")
+  const [showAIGenerator, setShowAIGenerator] = useState(false)
 
   const stats = getQuoteStats()
 
@@ -163,26 +167,19 @@ export default function PreventiviPage() {
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">Gestisci i tuoi preventivi e offerte</p>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nuovo Preventivo
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-white/95 backdrop-blur-sm border-gray-200/50">
-                <DropdownMenuLabel>Azioni</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Crea Preventivo
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Download className="mr-2 h-4 w-4" />
-                  Importa da Template
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => setShowAIGenerator(true)}
+                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Genera con AI
+              </Button>
+              <Button className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Nuovo Preventivo
+              </Button>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -395,6 +392,15 @@ export default function PreventiviPage() {
           </Tabs>
         </div>
       </div>
+      
+      {/* AI Quote Generator Dialog */}
+      <AIQuoteGenerator 
+        open={showAIGenerator}
+        onOpenChange={setShowAIGenerator}
+        onQuoteGenerated={() => {
+          // Quote salvato, ricarica la lista se necessario
+        }}
+      />
     </div>
   )
 }

@@ -107,26 +107,38 @@ export function useQuotes() {
 
   const createQuote = async (quoteData: Omit<Quote, "id" | "createdAt" | "updatedAt">) => {
     try {
-      if (!userData?.tenantId || !user?.uid) {
-        throw new Error("Dati utente mancanti")
+      // SECURITY: Use secure API endpoint instead of direct Firestore writes
+      const response = await fetch('/api/quotes/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // CRITICAL: Send firebase-auth-token cookie
+        body: JSON.stringify({
+          title: quoteData.title,
+          description: quoteData.description,
+          clientId: quoteData.clientId,
+          clientName: quoteData.clientName,
+          status: quoteData.status,
+          currency: quoteData.currency,
+          items: quoteData.items,
+          total: quoteData.total,
+          validUntil: quoteData.validUntil.toISOString()
+          // SECURITY: Do NOT send tenantId or createdBy - server will derive from auth
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.details || 'Errore nella creazione del preventivo')
       }
 
-      const now = Timestamp.now()
-      const newQuote = {
-        ...quoteData,
-        tenantId: userData.tenantId,
-        createdBy: user.uid,
-        createdAt: now,
-        updatedAt: now,
-        validUntil: Timestamp.fromDate(quoteData.validUntil),
-      }
-
-      const docRef = await addDoc(collection(db, "quotes"), newQuote)
+      const result = await response.json()
       await fetchQuotes() // Refresh the list
-      return docRef.id
+      return result.id
     } catch (err) {
       console.error("Error creating quote:", err)
-      throw new Error("Errore nella creazione del preventivo")
+      throw new Error(err instanceof Error ? err.message : "Errore nella creazione del preventivo")
     }
   }
 
