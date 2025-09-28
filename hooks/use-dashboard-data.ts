@@ -64,7 +64,21 @@ export function useDashboardData() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user?.uid || !userData?.tenantId) {
+    if (!user?.uid) {
+      console.log("❌ useDashboardData: No user logged in")
+      setLoading(false)
+      return
+    }
+    
+    if (!userData) {
+      console.log("⏳ useDashboardData: User data not loaded yet")
+      setLoading(true)
+      return
+    }
+    
+    if (!userData.tenantId) {
+      console.log("❌ useDashboardData: No tenantId in userData:", userData)
+      setError("Configurazione utente incompleta - tenantId mancante")
       setLoading(false)
       return
     }

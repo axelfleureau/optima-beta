@@ -20,16 +20,22 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
-import { useState } from "react"
+import { 
+  Sidebar, 
+  SidebarContent, 
+  SidebarFooter, 
+  SidebarHeader, 
+  SidebarMenu, 
+  SidebarMenuButton, 
+  SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar
+} from "@/components/ui/sidebar"
 
 export function AppSidebar() {
-  const { userData, isSuperAdmin, isAdmin, isUser, isClient, signOut } = useAuth()
+  const { userData, isSuperAdmin, isAdmin, isJunior, isClient, signOut } = useAuth()
   const pathname = usePathname()
-  const [isCollapsed, setIsCollapsed] = useState(false)
-
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed)
-  }
+  const { state } = useSidebar()
 
   const superAdminMenuItems = [
     {
@@ -126,7 +132,7 @@ export function AppSidebar() {
     },
   ]
 
-  let menuItems = []
+  let menuItems: typeof superAdminMenuItems = []
   let menuLabel = "MENU"
 
   if (isSuperAdmin) {
@@ -135,7 +141,7 @@ export function AppSidebar() {
   } else if (isAdmin) {
     menuItems = agencyMenuItems
     menuLabel = "AGENZIA"
-  } else if (isUser) {
+  } else if (isJunior) {
     menuItems = userMenuItems
     menuLabel = "TEAM MEMBER"
   } else if (isClient) {
@@ -153,7 +159,7 @@ export function AppSidebar() {
         return "Super Admin"
       case "admin":
         return "Admin"
-      case "user":
+      case "junior":
         return "Team Member"
       case "client":
         return "Cliente"
@@ -162,38 +168,21 @@ export function AppSidebar() {
     }
   }
 
+  const isCollapsed = state === "collapsed"
+
   return (
-    <div
-      className={`h-screen sticky top-0 bg-white dark:bg-gray-900 border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col transition-all duration-300 ${
-        isCollapsed ? "w-20" : "w-64"
-      }`}
-    >
-      {/* Header */}
-      <div className="p-6 border-b border-gray-200/30 dark:border-gray-700/30">
+    <Sidebar>
+      <SidebarHeader className="border-b border-gray-200/30 dark:border-gray-700/30">
         <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
-          <div
-            className={`flex items-center group/logo-container relative ${isCollapsed ? "w-full justify-center" : "gap-2"}`}
-          >
-            <div
-              className={`${isCollapsed ? "w-12 h-12" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0 relative transition-all duration-200 ${
-                isCollapsed ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" : ""
-              }`}
-              onClick={() => {
-                if (isCollapsed) {
-                  toggleSidebar()
-                }
-              }}
-            >
+          <div className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}>
+            <div className={`${isCollapsed ? "w-12 h-12" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0`}>
               <Image
                 src="/assets/logos/righello-logo.svg"
                 alt="Righello Logo"
                 width={isCollapsed ? 40 : 32}
                 height={isCollapsed ? 40 : 32}
-                className={`transition-all duration-200 ${isCollapsed ? "group-hover/logo-container:opacity-0" : ""}`}
+                style={{ width: 'auto', height: 'auto' }}
               />
-              {isCollapsed && (
-                <PanelLeft className="w-6 h-6 absolute inset-0 m-auto opacity-0 transition-opacity duration-200 group-hover/logo-container:opacity-100 text-gray-600 dark:text-gray-400" />
-              )}
             </div>
             {!isCollapsed && (
               <div className="flex flex-col min-w-0">
@@ -202,43 +191,32 @@ export function AppSidebar() {
               </div>
             )}
           </div>
-          {!isCollapsed && (
-            <button
-              onClick={toggleSidebar}
-              className="h-6 w-6 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center"
-            >
-              <PanelLeft className="w-5 h-5" />
-            </button>
-          )}
+          {!isCollapsed && <SidebarTrigger />}
         </div>
-      </div>
+      </SidebarHeader>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <SidebarContent className="p-6">
         {/* Main menu section */}
         <div className="mb-4">
           {!isCollapsed && (
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-2">{menuLabel}</div>
           )}
-          <div className="space-y-1">
+          <SidebarMenu>
             {menuItems.map((item) => (
-              <Link
-                key={item.title}
-                href={item.url}
-                className={`flex items-center rounded-lg transition-colors w-full ${
-                  isCollapsed ? "justify-center p-2" : "gap-3 px-3 py-2"
-                } ${
-                  isActive(item.url)
-                    ? "bg-pink-50 text-pink-600 border border-pink-200"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                }`}
-                title={isCollapsed ? item.title : undefined}
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
-              </Link>
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton 
+                  asChild
+                  isActive={isActive(item.url)}
+                  tooltip={isCollapsed ? item.title : undefined}
+                >
+                  <Link href={item.url} className="flex items-center gap-3">
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             ))}
-          </div>
+          </SidebarMenu>
         </div>
 
         {/* Admin section */}
@@ -248,60 +226,56 @@ export function AppSidebar() {
             {!isCollapsed && (
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-2">AMMINISTRAZIONE</div>
             )}
-            <div className="space-y-1">
+            <SidebarMenu>
               {adminItems.map((item) => (
-                <Link
-                  key={item.title}
-                  href={item.url}
-                  className={`flex items-center rounded-lg transition-colors w-full ${
-                    isCollapsed ? "justify-center p-2" : "gap-3 px-3 py-2"
-                  } ${
-                    isActive(item.url)
-                      ? "bg-pink-50 text-pink-600 border border-pink-200"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
-                  title={isCollapsed ? item.title : undefined}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
-                </Link>
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={isCollapsed ? item.title : undefined}
+                  >
+                    <Link href={item.url} className="flex items-center gap-3">
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               ))}
-            </div>
+            </SidebarMenu>
           </div>
         )}
-      </div>
+      </SidebarContent>
 
-      {/* Footer */}
-      <div className="border-t border-gray-200/30 dark:border-gray-700/30 p-6">
-        <div className="space-y-1">
-          <div
-            className={`flex items-center text-sm text-gray-600 rounded-lg transition-colors ${
-              isCollapsed ? "justify-center p-2" : "gap-3 px-3 py-2"
-            }`}
-            title={isCollapsed ? `${userData?.firstName} ${userData?.lastName}` : undefined}
-          >
-            <User className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && (
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium">
-                  {userData?.firstName} {userData?.lastName}
-                </span>
-                <span className="text-xs text-gray-400">{getRoleDisplayName()}</span>
-              </div>
-            )}
-          </div>
-          <button
-            onClick={() => signOut()}
-            className={`flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 w-full ${
-              isCollapsed ? "justify-center p-2" : "gap-3 px-3 py-2"
-            }`}
-            title={isCollapsed ? "Logout" : undefined}
-          >
-            <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && <span className="font-medium">Logout</span>}
-          </button>
-        </div>
-      </div>
-    </div>
+      <SidebarFooter className="border-t border-gray-200/30 dark:border-gray-700/30 p-6">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div
+              className={`flex items-center text-sm text-gray-600 rounded-lg transition-colors ${
+                isCollapsed ? "justify-center p-2" : "gap-3 px-3 py-2"
+              }`}
+            >
+              <User className="w-5 h-5 flex-shrink-0" />
+              {!isCollapsed && (
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium">
+                    {userData?.firstName} {userData?.lastName}
+                  </span>
+                  <span className="text-xs text-gray-400">{getRoleDisplayName()}</span>
+                </div>
+              )}
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              onClick={() => signOut()}
+              tooltip={isCollapsed ? "Logout" : undefined}
+            >
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              {!isCollapsed && <span className="font-medium">Logout</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
   )
 }

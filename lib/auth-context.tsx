@@ -86,28 +86,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          // CRITICAL: Imposta loading false PRIMA del redirect
-          setLoading(false)
-          
-          // Fai il redirect solo se siamo nella pagina di login
-          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-            console.log("🔄 AuthContext: Reindirizzamento alla dashboard")
-            // Comunica al login page che il processo è completato con successo
-            window.dispatchEvent(new CustomEvent('auth-success'))
-            router.push("/dashboard")
-            return // Exit early per evitare ulteriori elaborazioni
-          }
-
-          // Carica i dati utente in background (dopo il redirect)
+          // Carica i dati utente PRIMA del redirect
           const userDoc = await getDoc(doc(db, "users", user.uid))
           if (userDoc.exists()) {
             const data = userDoc.data() as any
+            console.log("🔍 AuthContext: Raw user data from Firestore:", data)
+            
             const processedData: User = {
               ...data,
               id: user.uid,
               createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt || new Date(),
               updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
             }
+            
+            console.log("🔍 AuthContext: Processed user data:", {
+              id: processedData.id,
+              email: processedData.email,
+              role: processedData.role,
+              tenantId: processedData.tenantId,
+              parentTenantId: processedData.parentTenantId,
+              firstName: processedData.firstName,
+              lastName: processedData.lastName
+            })
+            
             setUserData(processedData)
 
             // Verifica sospensione account
@@ -116,6 +117,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               router.push("/suspended")
               return
             }
+          } else {
+            console.log("❌ AuthContext: User document not found in Firestore")
+          }
+
+          // DOPO aver caricato i dati utente, imposta loading false
+          setLoading(false)
+
+          // Fai il redirect solo se siamo nella pagina di login
+          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+            console.log("🔄 AuthContext: Reindirizzamento alla dashboard")
+            // Comunica al login page che il processo è completato con successo
+            window.dispatchEvent(new CustomEvent('auth-success'))
+            router.push("/dashboard")
           }
         } catch (error) {
           console.error("Errore nel caricamento dati utente:", error)
