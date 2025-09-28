@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
       // Log token usage
       try {
-        await logTokenUsage(adminId, userId, totalTokensUsed, "caption_generation")
+        await logTokenUsage(adminId, userId, totalTokensUsed, "other")
         console.log("✅ Successfully logged token usage for caption generation")
       } catch (error) {
         console.error("❌ Error logging token usage:", error)

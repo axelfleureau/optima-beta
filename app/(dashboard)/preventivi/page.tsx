@@ -36,6 +36,7 @@ import {
   AlertCircle,
   Sparkles,
   Wand2,
+  ChevronDown,
 } from "lucide-react"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
@@ -78,6 +79,7 @@ export default function PreventiviPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [showAIGenerator, setShowAIGenerator] = useState(false)
+  const [showNewQuoteMenu, setShowNewQuoteMenu] = useState(false)
 
   const stats = getQuoteStats()
 
@@ -177,11 +179,46 @@ export default function PreventiviPage() {
                 <span className="hidden sm:inline">Genera con AI</span>
                 <span className="sm:hidden">AI</span>
               </Button>
-              <Button size="sm" className="flex-1 md:flex-none bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg">
-                <Plus className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Nuovo Preventivo</span>
-                <span className="sm:hidden">Nuovo</span>
-              </Button>
+              <DropdownMenu open={showNewQuoteMenu} onOpenChange={setShowNewQuoteMenu}>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="flex-1 md:flex-none bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg">
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">Nuovo Preventivo</span>
+                    <span className="sm:hidden">Nuovo</span>
+                    <ChevronDown className="ml-1 h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="bg-white/95 backdrop-blur-sm border-gray-200/50 w-56"
+                >
+                  <DropdownMenuLabel>Crea Nuovo Preventivo</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Preventivo Vuoto
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Da Template Settore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Duplica Esistente
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setShowNewQuoteMenu(false)
+                      setShowAIGenerator(true)
+                    }}
+                    className="cursor-pointer text-pink-600 dark:text-pink-400"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Genera con AI
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
