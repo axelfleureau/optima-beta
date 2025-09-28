@@ -33,6 +33,7 @@ import * as z from "zod"
 import { useAuth } from "@/lib/auth-context"
 import { Mail, Loader2, UserPlus, Shield, User, Users, Crown, Settings } from "lucide-react"
 import { toast } from "sonner"
+import { getManageableRoles, getRoleDisplayName } from "@/lib/role-hierarchy"
 
 const inviteUserSchema = z.object({
   email: z.string().email("Inserisci un indirizzo email valido"),
@@ -82,6 +83,14 @@ const roleOptions = [
 export function UserInviteDialog({ open, onOpenChange }: UserInviteDialogProps) {
   const { userData } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Get roles that current user can manage based on hierarchy
+  const manageableRoles = userData?.role ? getManageableRoles(userData.role as any) : []
+  
+  // Filter role options based on what current user can manage
+  const availableRoleOptions = roleOptions.filter(role => 
+    manageableRoles.includes(role.value as any)
+  )
 
   const form = useForm<InviteUserForm>({
     resolver: zodResolver(inviteUserSchema),
@@ -235,20 +244,26 @@ export function UserInviteDialog({ open, onOpenChange }: UserInviteDialogProps) 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {roleOptions.map((option) => {
-                        const Icon = option.icon
-                        return (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex items-center gap-2">
-                              <Icon className="h-4 w-4" />
-                              <div>
-                                <div className="font-medium">{option.label}</div>
-                                <div className="text-xs text-gray-500">{option.description}</div>
+                      {availableRoleOptions.length > 0 ? (
+                        availableRoleOptions.map((option) => {
+                          const Icon = option.icon
+                          return (
+                            <SelectItem key={option.value} value={option.value}>
+                              <div className="flex items-center gap-2">
+                                <Icon className="h-4 w-4" />
+                                <div>
+                                  <div className="font-medium">{option.label}</div>
+                                  <div className="text-xs text-gray-500">{option.description}</div>
+                                </div>
                               </div>
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
+                            </SelectItem>
+                          )
+                        })
+                      ) : (
+                        <SelectItem value="" disabled>
+                          Nessun ruolo disponibile per l'invito
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

@@ -7,6 +7,17 @@ import { doc, getDoc } from "firebase/firestore"
 import { auth, db } from "./firebase"
 import { useRouter } from "next/navigation"
 import type { User } from "./types"
+import { 
+  hasPermission, 
+  canManageUser, 
+  canAssignTaskTo, 
+  getAssignableRoles, 
+  getManageableRoles, 
+  canViewResource,
+  getRoleDisplayName,
+  getRoleColor,
+  type UserRole 
+} from "@/lib/role-hierarchy"
 
 interface AuthContextType {
   user: FirebaseUser | null
@@ -14,10 +25,21 @@ interface AuthContextType {
   loading: boolean
   isSuperAdmin: boolean
   isAdmin: boolean
-  isUser: boolean
+  isDirezione: boolean
+  isCapoReparto: boolean
+  isJunior: boolean
   isClient: boolean
   isSuspended: boolean
   signOut: () => Promise<void>
+  // Role hierarchy functions
+  hasPermission: (permission: any) => boolean
+  canManageUser: (targetRole: UserRole) => boolean
+  canAssignTaskTo: (assigneeRole: UserRole) => boolean
+  getAssignableRoles: () => UserRole[]
+  getManageableRoles: () => UserRole[]
+  canViewResource: (resourceOwnerId: string) => boolean
+  getRoleDisplayName: () => string
+  getRoleColor: () => string
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -98,9 +120,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Computed properties per i ruoli
   const isSuperAdmin = userData?.role === "super-admin"
   const isAdmin = userData?.role === "admin"
-  const isUser = userData?.role === "user"
+  const isDirezione = userData?.role === "direzione"
+  const isCapoReparto = userData?.role === "capo-reparto"
+  const isJunior = userData?.role === "junior"
   const isClient = userData?.role === "client"
   const isSuspended = userData?.isSuspended || false
+  
+  // Role hierarchy helper functions
+  const userRole = userData?.role as UserRole
+  const userId = userData?.id || ""
+  
+  const roleHelpers = {
+    hasPermission: (permission: any) => userRole ? hasPermission(userRole, permission) : false,
+    canManageUser: (targetRole: UserRole) => userRole ? canManageUser(userRole, targetRole) : false,
+    canAssignTaskTo: (assigneeRole: UserRole) => userRole ? canAssignTaskTo(userRole, assigneeRole) : false,
+    getAssignableRoles: () => userRole ? getAssignableRoles(userRole) : [],
+    getManageableRoles: () => userRole ? getManageableRoles(userRole) : [],
+    canViewResource: (resourceOwnerId: string) => userRole ? canViewResource(userRole, resourceOwnerId, userId) : false,
+    getRoleDisplayName: () => userRole ? getRoleDisplayName(userRole) : "",
+    getRoleColor: () => userRole ? getRoleColor(userRole) : ""
+  }
 
   // Reindirizzamento automatico per clienti
   useEffect(() => {
@@ -127,10 +166,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     isSuperAdmin,
     isAdmin,
-    isUser,
+    isDirezione,
+    isCapoReparto,
+    isJunior,
     isClient,
     isSuspended,
     signOut,
+    ...roleHelpers,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

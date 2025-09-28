@@ -81,24 +81,18 @@ export function useWorkspaceData() {
             tasksQuery = query(collection(db, "tasks"), where("tenantId", "==", userData.tenantId))
             break
 
-          case "user":
-            // User vede solo le task dei clienti assegnati E che sono assegnate a lui
-            if (!userData.assignedClientIds || userData.assignedClientIds.length === 0) {
-              console.log("User has no assigned clients")
-              setTasks([])
-              setLoading(false)
-              return
-            }
+          case "direzione":
+          case "capo-reparto":
+            // Direzione e Capo Reparto vedono le task del proprio tenant
+            tasksQuery = query(collection(db, "tasks"), where("tenantId", "==", userData.tenantId))
+            break
 
-            // Prima ottieni tutti i clienti assegnati
-            const clientQueries = userData.assignedClientIds.map((clientId) => where("clientId", "==", clientId))
-
-            // Query per task dei clienti assegnati E assegnate all'utente
+          case "junior":
+            // Junior vede solo le task assegnate a lui
             tasksQuery = query(
               collection(db, "tasks"),
-              where("tenantId", "==", userData.parentTenantId),
-              or(...clientQueries),
-              where("assignedUserId", "==", userData.tenantId),
+              where("tenantId", "==", userData.parentTenantId || userData.tenantId),
+              where("assignedUserId", "==", userData.id)
             )
             break
 

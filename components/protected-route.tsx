@@ -25,7 +25,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
       // Se è richiesto un ruolo specifico, verifica che l'utente lo abbia
       if (requiredRole && userData) {
-        const userRole = userData.role || "user"
+        const userRole = userData.role || "junior"
         const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
 
         if (!requiredRoles.includes(userRole)) {

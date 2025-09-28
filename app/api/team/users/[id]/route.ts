@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken, getUserData, adminAuth, adminDb } from "@/lib/firebase-admin"
+import { canManageUser, hasPermission, type UserRole } from "@/lib/role-hierarchy"
 
 // PATCH - Aggiorna utente
 export async function PATCH(
@@ -16,7 +17,7 @@ export async function PATCH(
     const decodedToken = await verifyFirebaseToken(token)
     const editorData = await getUserData(decodedToken.uid)
 
-    if (!editorData || !["admin", "super-admin"].includes(editorData.role || "")) {
+    if (!editorData || !hasPermission(editorData.role as UserRole, "canModifyUserRoles")) {
       return NextResponse.json({ error: "Non hai i permessi per modificare utenti" }, { status: 403 })
     }
 
@@ -29,7 +30,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Campi obbligatori mancanti" }, { status: 400 })
     }
 
-    if (!["super-admin", "admin", "user", "client"].includes(role)) {
+    if (!["super-admin", "admin", "direzione", "capo-reparto", "junior", "client"].includes(role)) {
       return NextResponse.json({ error: "Ruolo non valido" }, { status: 400 })
     }
 
@@ -44,13 +45,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Dati utente non trovati" }, { status: 404 })
     }
 
-    // Verifica permessi - solo super-admin può modificare altri admin/super-admin
-    if (currentUserData.role === "admin" || currentUserData.role === "super-admin") {
-      if (editorData.role !== "super-admin") {
-        return NextResponse.json({ 
-          error: "Solo i Super Admin possono modificare amministratori" 
-        }, { status: 403 })
-      }
+    // Verifica permessi usando la gerarchia dei ruoli
+    if (!canManageUser(editorData.role as UserRole, currentUserData.role as UserRole)) {
+      return NextResponse.json({ 
+        error: "Non hai i permessi per modificare questo utente" 
+      }, { status: 403 })
     }
 
     // Se l'email è cambiata, verifica che non sia già in uso
@@ -115,7 +114,7 @@ export async function DELETE(
     const decodedToken = await verifyFirebaseToken(token)
     const editorData = await getUserData(decodedToken.uid)
 
-    if (!editorData || !["admin", "super-admin"].includes(editorData.role || "")) {
+    if (!editorData || !hasPermission(editorData.role as UserRole, "canDeleteUsers")) {
       return NextResponse.json({ error: "Non hai i permessi per rimuovere utenti" }, { status: 403 })
     }
 
@@ -137,13 +136,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Dati utente non trovati" }, { status: 404 })
     }
 
-    // Verifica permessi - solo super-admin può eliminare altri admin/super-admin
-    if (userData.role === "admin" || userData.role === "super-admin") {
-      if (editorData.role !== "super-admin") {
-        return NextResponse.json({ 
-          error: "Solo i Super Admin possono eliminare amministratori" 
-        }, { status: 403 })
-      }
+    // Verifica permessi usando la gerarchia dei ruoli
+    if (!canManageUser(editorData.role as UserRole, userData.role as UserRole)) {
+      return NextResponse.json({ 
+        error: "Non hai i permessi per eliminare questo utente" 
+      }, { status: 403 })
     }
 
     // Elimina da Firebase Auth
