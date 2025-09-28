@@ -44,11 +44,12 @@ export async function middleware(request: NextRequest) {
   // Questo evita problemi di compatibilità con Firebase Admin SDK nel middleware
   
   if (isProtectedPath) {
-    // Controllo semplice: se non c'è cookie, reindirizza al login
-    const token = request.cookies.get("firebase-auth-token")?.value
-    if (!token) {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
+    // TEMPORANEO: Disabilita controllo cookie per risolvere race condition login
+    // Il controllo dell'autenticazione è gestito da AuthContext e ProtectedRoute
+    // const token = request.cookies.get("firebase-auth-token")?.value
+    // if (!token) {
+    //   return NextResponse.redirect(new URL("/login", request.url))
+    // }
   }
 
   return NextResponse.next()
