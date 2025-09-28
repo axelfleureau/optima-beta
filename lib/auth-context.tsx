@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const token = await user.getIdToken()
           
           const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 secondi timeout
+          const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 secondi timeout ridotto
           
           try {
             const response = await fetch("/api/auth/set-secure-token", {
@@ -74,24 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             if (response.ok) {
               console.log("✅ AuthContext: Token impostato con successo")
-              
-              // Solo ora fai il redirect se siamo nella pagina di login
-              if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-                console.log("🔄 AuthContext: Reindirizzamento alla dashboard")
-                // Comunica al login page che il processo è completato con successo
-                window.dispatchEvent(new CustomEvent('auth-success'))
-                router.push("/dashboard")
-              }
             } else {
               console.error("❌ AuthContext: Errore response token:", response.status)
-              // Fallback: prova a fare il redirect comunque dopo 2 secondi
-              if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-                console.log("🔄 AuthContext: Fallback redirect dopo errore token")
-                setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('auth-fallback'))
-                  router.push("/dashboard")
-                }, 2000)
-              }
             }
           } catch (error) {
             clearTimeout(timeoutId)
@@ -100,19 +84,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
               console.error("❌ AuthContext: Errore nell'impostazione del token sicuro:", error)
             }
-            
-            // Fallback: prova a fare il redirect comunque dopo 3 secondi
-            if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-              console.log("🔄 AuthContext: Fallback redirect dopo errore/timeout")
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('auth-error', { 
-                  detail: 'Token setting failed but login succeeded' 
-                }))
-                router.push("/dashboard")
-              }, 3000)
-            }
           }
 
+          // CRITICAL: Imposta loading false PRIMA del redirect
+          setLoading(false)
+          
+          // Fai il redirect solo se siamo nella pagina di login
+          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+            console.log("🔄 AuthContext: Reindirizzamento alla dashboard")
+            // Comunica al login page che il processo è completato con successo
+            window.dispatchEvent(new CustomEvent('auth-success'))
+            router.push("/dashboard")
+            return // Exit early per evitare ulteriori elaborazioni
+          }
+
+          // Carica i dati utente in background (dopo il redirect)
           const userDoc = await getDoc(doc(db, "users", user.uid))
           if (userDoc.exists()) {
             const data = userDoc.data() as any
@@ -133,14 +119,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (error) {
           console.error("Errore nel caricamento dati utente:", error)
+          setLoading(false)
         }
       } else {
         setUser(null)
         setUserData(null)
+        setLoading(false)
         // Le cookie HttpOnly saranno rimosse automaticamente dal middleware
         // quando il token scade o viene invalidato
       }
-      setLoading(false)
     })
 
     return () => unsubscribe()
