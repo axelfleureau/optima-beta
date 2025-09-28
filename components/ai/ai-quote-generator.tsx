@@ -136,7 +136,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       const quoteToCreate = convertToQuoteFormat(
         generatedQuote,
         userData.tenantId,
-        userData.uid || userData.tenantId // Use actual user ID for createdBy
+        userData.id || userData.tenantId // Use actual user ID for createdBy
       )
 
       await createQuote(quoteToCreate)
@@ -327,10 +327,12 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
           {step === 'review' && generatedQuote && (
             <Tabs defaultValue="overview" className="h-[600px]">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview">Riepilogo</TabsTrigger>
+                <TabsTrigger value="project">Progetto</TabsTrigger>
                 <TabsTrigger value="details">Dettagli</TabsTrigger>
                 <TabsTrigger value="client">Cliente</TabsTrigger>
+                <TabsTrigger value="legal">Legale</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="mt-4">
@@ -447,6 +449,33 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                         </div>
                       </CardContent>
                     </Card>
+
+                    {generatedQuote.gestioneAnnuale && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Gestione Annuale</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="space-y-2">
+                            {generatedQuote.gestioneAnnuale.costiMensili.map((costo, index) => (
+                              <div key={index} className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                                <span className="text-sm">{costo.descrizione}</span>
+                                <span className="text-sm font-medium">€{costo.costo}/mese</span>
+                              </div>
+                            ))}
+                          </div>
+                          <Separator />
+                          <div className="flex justify-between items-center font-medium">
+                            <span>Totale Mensile:</span>
+                            <span>€{generatedQuote.gestioneAnnuale.totaleMensile}/mese</span>
+                          </div>
+                          <div className="flex justify-between items-center font-bold text-lg">
+                            <span>Totale Annuale:</span>
+                            <span className="text-orange-600">€{generatedQuote.gestioneAnnuale.totaleAnnuale}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 </ScrollArea>
               </TabsContent>
@@ -496,6 +525,129 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                       )}
                     </CardContent>
                   </Card>
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="project" className="mt-4">
+                <ScrollArea className="h-[520px]">
+                  <div className="space-y-6">
+                    {generatedQuote.preventivo.settore && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Settore e Timeline</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div>
+                            <Label className="font-medium">Settore identificato:</Label>
+                            <p className="text-sm">{generatedQuote.preventivo.settore}</p>
+                          </div>
+                          {generatedQuote.preventivo.timeline && (
+                            <div>
+                              <Label className="font-medium">Timeline progetto:</Label>
+                              <p className="text-sm">{generatedQuote.preventivo.timeline}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {generatedQuote.obiettivi && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Obiettivi del Progetto</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {generatedQuote.obiettivi.map((obiettivo, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <div className="w-2 h-2 bg-pink-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm">{obiettivo}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {generatedQuote.attivita && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Attività Principali</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {generatedQuote.attivita.map((attivita, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm">{attivita}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {generatedQuote.sitemap && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Struttura Sito (Sitemap)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 gap-2">
+                            {generatedQuote.sitemap.map((pagina, index) => (
+                              <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm">{pagina}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="legal" className="mt-4">
+                <ScrollArea className="h-[520px]">
+                  <div className="space-y-6">
+                    {generatedQuote.sezioniStandard && (
+                      <>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Utilizzo Materiali</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {generatedQuote.sezioniStandard.utilizzoMateriali}
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Variazione Costi</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                              {generatedQuote.sezioniStandard.variazioneCosti}
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Oggetto del Contratto</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                              {generatedQuote.sezioniStandard.oggettoContratto}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </>
+                    )}
+                  </div>
                 </ScrollArea>
               </TabsContent>
 
