@@ -6,6 +6,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { RouteError } from "@/components/route-error"
 import { Provider } from "react-redux"
 import { store } from "@/app/store/store"
+import { MobileHeader } from "@/components/mobile-header"
 
 export default function DashboardLayout({
   children,
@@ -15,12 +16,15 @@ export default function DashboardLayout({
   return (
     <Provider store={store}>
       <ProtectedRoute>
-        <SidebarProvider defaultOpen={true}>
+        <SidebarProvider>
           <div className="flex min-h-screen w-full">
             <AppSidebar />
             <main className="flex-1 overflow-hidden">
+              <MobileHeader />
               <RouteError />
-              {children}
+              <div className="p-4 md:p-6">
+                {children}
+              </div>
             </main>
           </div>
         </SidebarProvider>
