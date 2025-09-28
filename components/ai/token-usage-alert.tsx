@@ -17,12 +17,8 @@ interface TokenUsageAlertProps {
 export function TokenUsageAlert({ tokensUsed, tokensLimit, className, loading }: TokenUsageAlertProps) {
   const [dismissed, setDismissed] = useState<string[]>([])
   
-  // Guard against division by zero and loading states
-  if (loading || tokensLimit <= 0 || tokensUsed < 0) {
-    return null
-  }
-
-  const usagePercentage = (tokensUsed / tokensLimit) * 100
+  // Calcola sempre i valori per evitare violazioni delle regole dei hooks
+  const usagePercentage = tokensLimit > 0 ? (tokensUsed / tokensLimit) * 100 : 0
 
   const getAlertLevel = () => {
     if (usagePercentage >= 95) return "critical"
@@ -34,12 +30,17 @@ export function TokenUsageAlert({ tokensUsed, tokensLimit, className, loading }:
   const alertLevel = getAlertLevel()
   const alertId = `token-alert-${alertLevel}-${Math.floor(usagePercentage / 5) * 5}`
 
-  // Reset dismissed alerts when usage drops to lower levels
+  // Reset dismissed alerts when usage drops to lower levels - SEMPRE chiamato
   useEffect(() => {
     if (usagePercentage < 60) {
       setDismissed([])
     }
   }, [usagePercentage])
+
+  // Guard condizionale DOPO tutti i hooks
+  if (loading || tokensLimit <= 0 || tokensUsed < 0) {
+    return null
+  }
 
   if (alertLevel === "normal" || dismissed.includes(alertId)) {
     return null
