@@ -137,18 +137,18 @@ export default function ClientiPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        <div className="space-y-8">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
+        <div className="space-y-6 md:space-y-8">
           {/* Header */}
-          <div className="flex justify-between items-center">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg">
-                  <Users className="h-8 w-8 text-white" />
+          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+            <div className="space-y-1 md:space-y-2">
+              <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
+                <div className="p-2 md:p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl md:rounded-2xl shadow-lg">
+                  <Users className="h-6 w-6 md:h-8 md:w-8 text-white" />
                 </div>
-                Clienti
+                <span className="leading-tight">Clienti</span>
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">Gestisci i tuoi clienti e prospect</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg ml-11 md:ml-0">Gestisci i tuoi clienti e prospect</p>
             </div>
             <Button 
               className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg"
@@ -160,7 +160,7 @@ export default function ClientiPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
@@ -260,7 +260,7 @@ export default function ClientiPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               {filteredClients.map((client) => (
                 <Card
                   key={client.id}

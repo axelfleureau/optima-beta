@@ -99,24 +99,26 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        <div className="space-y-8">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
+        <div className="space-y-6 md:space-y-8">
           {/* Header Section */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="space-y-2">
-                <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
-                  <div className="p-3 bg-gradient-to-r from-pink-500 to-rose-600 rounded-2xl shadow-lg">
-                    <Sparkles className="h-8 w-8 text-white" />
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start md:items-center gap-3 md:gap-4">
+              <div className="space-y-1 md:space-y-2">
+                <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
+                  <div className="p-2 md:p-3 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl md:rounded-2xl shadow-lg">
+                    <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-white" />
                   </div>
-                  Benvenuto, {userData?.firstName || "Utente"}!
+                  <span className="leading-tight">Benvenuto, {userData?.firstName || "Utente"}!</span>
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 text-lg">
+                <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg ml-11 md:ml-0">
                   {userData?.companyName} • Piano {userData?.plan || "Base"}
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            
+            {/* Desktop Actions */}
+            <div className="hidden md:flex items-center space-x-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -129,10 +131,21 @@ export default function Dashboard() {
                 Nuovo
               </Button>
             </div>
+
+            {/* Mobile Actions */}
+            <div className="md:hidden flex gap-2">
+              <Button size="sm" variant="outline" className="flex-1">
+                <Search className="h-4 w-4" />
+              </Button>
+              <Button size="sm" className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Nuovo
+              </Button>
+            </div>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
@@ -195,7 +208,7 @@ export default function Dashboard() {
           </div>
 
           {/* Secondary Stats */}
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
             <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 backdrop-blur-xl border-orange-200/50 dark:border-orange-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
@@ -261,8 +274,8 @@ export default function Dashboard() {
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-            <Card className="col-span-4 border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-7">
+            <Card className="lg:col-span-4 border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-b border-gray-200/50 dark:border-gray-700/50">
                 <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
                   <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl shadow-sm">
@@ -271,13 +284,13 @@ export default function Dashboard() {
                   Attività Recenti
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-4 md:p-6">
                 {recentActivities.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3 md:space-y-4">
                     {recentActivities.map((activity) => (
                       <div
                         key={activity.id}
-                        className="flex items-start space-x-4 p-4 rounded-xl hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-all duration-200 border border-gray-200/30 dark:border-gray-700/30"
+                        className="flex items-start space-x-3 md:space-x-4 p-3 md:p-4 rounded-xl hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-all duration-200 border border-gray-200/30 dark:border-gray-700/30"
                       >
                         <div className="mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
                           {getActivityIcon(activity.type)}
@@ -333,7 +346,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="col-span-3 border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 backdrop-blur-xl border-purple-200/50 dark:border-purple-700/50 overflow-hidden">
+            <Card className="lg:col-span-3 border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 backdrop-blur-xl border-purple-200/50 dark:border-purple-700/50 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-800/50 dark:to-violet-800/50 border-b border-purple-200/50 dark:border-purple-700/50">
                 <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
                   <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
