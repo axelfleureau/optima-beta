@@ -21,6 +21,7 @@ import {
   Calendar,
   Clock,
   Sparkles,
+  Mail,
 } from "lucide-react"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
