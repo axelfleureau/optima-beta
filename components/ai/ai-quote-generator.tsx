@@ -211,7 +211,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
         <div className="flex-1 min-h-0 overflow-hidden">
           {step === 'input' && (
-            <ScrollArea className="h-full max-h-[60vh] pr-4">
+            <ScrollArea className="h-full max-h-[calc(90vh-120px)] pr-4">
               <div className="space-y-6">
                 <Card>
                   <CardHeader>

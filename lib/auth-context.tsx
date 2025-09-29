@@ -56,41 +56,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(user)
 
         try {
-          // Ottieni il token ID e salvalo tramite API sicura con timeout
-          const token = await user.getIdToken()
-          
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 secondi timeout ridotto
-          
-          try {
-            const response = await fetch("/api/auth/set-secure-token", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token }),
-              signal: controller.signal
-            })
-            
-            clearTimeout(timeoutId)
-            
-            if (response.ok) {
-              console.log("✅ AuthContext: Token impostato con successo")
-            } else {
-              console.error("❌ AuthContext: Errore response token:", response.status)
-            }
-          } catch (error) {
-            clearTimeout(timeoutId)
-            if (error instanceof Error && error.name === 'AbortError') {
-              console.error("⏱️ AuthContext: Timeout impostazione token")
-            } else {
-              console.error("❌ AuthContext: Errore nell'impostazione del token sicuro:", error)
-            }
-          }
+          // ⚡ PERFORMANCE: Esegui token API e Firestore fetch in PARALLELO
+          const [tokenResponse, userDocResponse] = await Promise.allSettled([
+            // Token API call con timeout ridotto
+            (async () => {
+              const token = await user.getIdToken()
+              const controller = new AbortController()
+              const timeoutId = setTimeout(() => controller.abort(), 3000) // Ridotto a 3 secondi
+              
+              try {
+                const response = await fetch("/api/auth/set-secure-token", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ token }),
+                  signal: controller.signal
+                })
+                clearTimeout(timeoutId)
+                return response.ok
+              } catch (error) {
+                clearTimeout(timeoutId)
+                return false
+              }
+            })(),
+            // Firestore fetch in parallelo
+            getDoc(doc(db, "users", user.uid))
+          ])
 
           // Carica i dati utente PRIMA del redirect
-          const userDoc = await getDoc(doc(db, "users", user.uid))
-          if (userDoc.exists()) {
+          const userDoc = userDocResponse.status === 'fulfilled' ? userDocResponse.value : null
+          if (userDoc?.exists()) {
             const data = userDoc.data() as any
-            console.log("🔍 AuthContext: Raw user data from Firestore:", data)
             
             const processedData: User = {
               ...data,
@@ -99,37 +94,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
             }
             
-            console.log("🔍 AuthContext: Processed user data:", {
-              id: processedData.id,
-              email: processedData.email,
-              role: processedData.role,
-              tenantId: processedData.tenantId,
-              parentTenantId: processedData.parentTenantId,
-              firstName: processedData.firstName,
-              lastName: processedData.lastName
-            })
-            
             setUserData(processedData)
+
+            // ⚡ PERFORMANCE: Imposta loading=false SUBITO per migliorare UX
+            setLoading(false)
 
             // Verifica sospensione account
             if (processedData.isSuspended) {
-              console.log("Account sospeso, reindirizzamento...")
               router.push("/suspended")
               return
             }
+
+            // Fai il redirect solo se siamo nella pagina di login
+            if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+              // Comunica al login page che il processo è completato con successo
+              window.dispatchEvent(new CustomEvent('auth-success'))
+              router.push("/dashboard")
+            }
           } else {
-            console.log("❌ AuthContext: User document not found in Firestore")
-          }
-
-          // DOPO aver caricato i dati utente, imposta loading false
-          setLoading(false)
-
-          // Fai il redirect solo se siamo nella pagina di login
-          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-            console.log("🔄 AuthContext: Reindirizzamento alla dashboard")
-            // Comunica al login page che il processo è completato con successo
-            window.dispatchEvent(new CustomEvent('auth-success'))
-            router.push("/dashboard")
+            setLoading(false)
           }
         } catch (error) {
           console.error("Errore nel caricamento dati utente:", error)

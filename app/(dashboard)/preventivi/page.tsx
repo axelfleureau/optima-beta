@@ -194,15 +194,36 @@ export default function PreventiviPage() {
                 >
                   <DropdownMenuLabel>Crea Nuovo Preventivo</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer">
+                  <DropdownMenuItem 
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setShowNewQuoteMenu(false)
+                      // TODO: Implementare creazione preventivo vuoto
+                      console.log('Creazione preventivo vuoto')
+                    }}
+                  >
                     <FileText className="mr-2 h-4 w-4" />
                     Preventivo Vuoto
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">
+                  <DropdownMenuItem 
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setShowNewQuoteMenu(false)
+                      // TODO: Implementare template settore
+                      console.log('Template settore')
+                    }}
+                  >
                     <Wand2 className="mr-2 h-4 w-4" />
                     Da Template Settore
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">
+                  <DropdownMenuItem 
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setShowNewQuoteMenu(false)
+                      // TODO: Implementare duplicazione
+                      console.log('Duplica esistente')
+                    }}
+                  >
                     <User className="mr-2 h-4 w-4" />
                     Duplica Esistente
                   </DropdownMenuItem>

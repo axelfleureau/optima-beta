@@ -1,0 +1,43 @@
+Descrizione ignora le cose già fatte.
+Attualmente la piattaforma presenta le seguenti criticità:
+1. Gestione Team: i pulsanti di aggiunta utenti non funzionano, non è possibile creare nuovi account.
+2. Task Workspace: le task non possono essere assegnate in modo univoco agli utenti del team.
+3. Gestione utenti: non è ancora implementata una struttura gerarchica coerente.
+Occorre:
+* Abilitare la creazione e gestione utenti nella pagina “Gestione Team”.
+* Implementare un sistema chiaro e oggettivo di assegnazione delle task ad un singolo utente.
+* Definire e sviluppare i ruoli utente secondo la gerarchia richiesta (incluso nuovo ruolo Direzione).
+
+Ruoli utente e privilegi
+Super Admin
+* Controllo totale a livello di piattaforma (Righello Srl).
+Admin (conto agenzia)
+* Gestione completa del tenant (agenzia cliente).
+* Può creare e gestire utenti, definire reparti, assegnare task.
+Direzione (conto personale)
+* Stessi privilegi dell’Admin, ma associato ad account personale dei soci-lavoratori.
+* Visione globale e possibilità di lavorare alle task.
+Capo Reparto
+* Gestione di uno o più reparti.
+* Può assegnare e monitorare le task dei reparti di competenza.
+Junior
+* Può gestire esclusivamente le task assegnate a sé.
+* In casi specifici può essere referente cliente per task minori.
+Cliente
+* Può vedere solo le proprie task.
+* Può interagire con l’agenzia inviando task in approvazione, ma non assegnarle direttamente.
+
+Regole di visibilità
+* Admin e Direzione: visione globale, con filtri per le proprie task.
+* Capo Reparto: visione e gestione delle task dei reparti assegnati.
+* Junior: visione e gestione solo delle proprie task.
+* Cliente: visione esclusiva delle proprie task.
+
+Regole di assegnazione
+* Ogni task deve essere assegnata a un utente specifico.
+* Solo un utente con rango superiore o uguale può assegnare task ad altri.
+
+Funzionalità richieste
+1. Gestione Team: attivare la funzione di aggiunta utenti (Super Admin, Admin, Direzione, Capo Reparto, Junior, Cliente).
+2. Workspace: implementare la selezione univoca degli utenti per l’assegnazione delle task.
+3. Notifiche interne: introdurre un sistema di notifica che avvisi ogni utente di eventi e task a lui correlati.

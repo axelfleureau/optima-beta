@@ -171,7 +171,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed"
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-gray-200/30 dark:border-gray-700/30">
         <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
           <div className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}>
