@@ -7,6 +7,7 @@ import { RouteError } from "@/components/route-error"
 import { Provider } from "react-redux"
 import { store } from "@/app/store/store"
 import { MobileHeader } from "@/components/mobile-header"
+import { AuthInitializer } from "@/components/auth-initializer"
 
 export default function DashboardLayout({
   children,
@@ -15,6 +16,7 @@ export default function DashboardLayout({
 }) {
   return (
     <Provider store={store}>
+      <AuthInitializer />
       <ProtectedRoute>
         <SidebarProvider>
           <div className="flex min-h-screen w-full">
