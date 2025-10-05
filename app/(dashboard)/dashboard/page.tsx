@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useAuth } from "@/lib/auth-context"
+import { TokenUsageWidget } from "@/components/dashboard/token-usage-widget"
 
 export default function Dashboard() {
   const { userData } = useAuth()
@@ -245,36 +246,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 backdrop-blur-xl border-purple-200/50 dark:border-purple-700/50 overflow-hidden">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
-                    <Brain className="h-4 w-4 text-white" />
-                  </div>
-                  Token AI
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                  {Math.round(stats.aiTokensUsed / 1000)}K
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                    <span>Utilizzo</span>
-                    <span>{Math.round(tokenUsagePercentage)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-purple-500 to-violet-600 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, tokenUsagePercentage)}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {stats.aiTokensUsed.toLocaleString()} / {stats.aiTokensLimit.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
+            <TokenUsageWidget />
           </div>
 
           {/* Main Content Grid */}

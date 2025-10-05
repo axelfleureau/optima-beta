@@ -126,6 +126,11 @@ export function AppSidebar() {
 
   const adminItems = [
     {
+      title: "Fatturazione",
+      url: "/dashboard/settings/billing",
+      icon: CreditCard,
+    },
+    {
       title: "Impostazioni",
       url: "/settings",
       icon: Settings,

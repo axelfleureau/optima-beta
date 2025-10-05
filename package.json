@@ -43,6 +43,7 @@
     "@react-pdf/renderer": "^4.3.1",
     "@reduxjs/toolkit": "latest",
     "@stripe/stripe-js": "^7.9.0",
+    "@types/nodemailer": "^7.0.2",
     "ai": "latest",
     "autoprefixer": "^10.4.20",
     "child_process": "latest",

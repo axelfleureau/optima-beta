@@ -160,7 +160,7 @@ export default function HomePage() {
               <Link href="#features" className="text-gray-300 hover:text-white transition-colors">
                 Funzionalità
               </Link>
-              <Link href="#pricing" className="text-gray-300 hover:text-white transition-colors">
+              <Link href="/pricing" className="text-gray-300 hover:text-white transition-colors">
                 Prezzi
               </Link>
               <Link href="#testimonials" className="text-gray-300 hover:text-white transition-colors">
@@ -200,7 +200,7 @@ export default function HomePage() {
                   Funzionalità
                 </Link>
                 <Link
-                  href="#pricing"
+                  href="/pricing"
                   className="text-gray-300 hover:text-white transition-colors py-2"
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -467,7 +467,7 @@ export default function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#pricing" className="hover:text-white transition-colors">
+                  <Link href="/pricing" className="hover:text-white transition-colors">
                     Prezzi
                   </Link>
                 </li>

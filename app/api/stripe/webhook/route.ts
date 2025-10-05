@@ -15,8 +15,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { adminDb } from "@/lib/firebase-admin"
 import { stripeService } from "@/lib/services/stripe.service"
 import { updatePayment, findPaymentByStripeId } from "@/collections/payments"
+import { SubscriptionEmailService } from "@/lib/services/subscription-email.service"
+import { getPlanById, getAllPlans } from "@/lib/constants/token-plans"
+import Stripe from "stripe"
 
 // Webhook event processing tracker (in production, use Redis or database)
 const processedEvents = new Set<string>()
@@ -191,6 +195,142 @@ async function processPaymentCancellation(paymentIntentId: string, metadata: any
   }
 }
 
+async function handleSubscriptionEvent(event: Stripe.Event) {
+  try {
+    const subscription = event.data.object as any
+    const metadata = subscription.metadata
+    
+    if (!metadata.userId || !metadata.tenantId) {
+      console.error("Missing userId/tenantId in subscription event:", event.type)
+      return
+    }
+    
+    const userId = metadata.userId
+    const tenantId = metadata.tenantId
+    
+    // DERIVE PLAN FROM PRICE ID (not metadata)
+    const priceId = subscription.items.data[0]?.price.id
+    if (!priceId) {
+      console.error("No price ID found in subscription")
+      return
+    }
+    
+    // Find plan by matching stripePriceId
+    const allPlans = getAllPlans()
+    const plan = allPlans.find(p => p.stripePriceId === priceId)
+    
+    if (!plan) {
+      console.error(`No plan found for price ID: ${priceId}`)
+      return
+    }
+    
+    const planId = plan.id
+    const tokenLimit = plan.tokenLimit
+    
+    if (!adminDb) {
+      console.error("Firebase Admin DB not initialized")
+      return
+    }
+    
+    // Get user data for email
+    const userDoc = await adminDb.collection("users").doc(userId).get()
+    const userData = userDoc.data()
+    const userEmail = userData?.email
+    const userName = userData?.name || userEmail
+    
+    console.log(`📋 Processing subscription event: ${event.type} for user ${userId}, plan ${planId} (from price ${priceId})`)
+    
+    switch (event.type) {
+      case "customer.subscription.created":
+        await adminDb.collection("users").doc(userId).update({
+          plan: planId,
+          aiTokensLimit: tokenLimit,
+          stripeSubscriptionId: subscription.id,
+          subscriptionStatus: subscription.status,
+          billingCycleStart: new Date(subscription.current_period_start * 1000),
+          billingCycleEnd: new Date(subscription.current_period_end * 1000),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          updatedAt: new Date()
+        })
+        
+        console.log(`✅ Created subscription for user ${userId} with plan ${planId}`)
+        
+        if (userEmail) {
+          await SubscriptionEmailService.sendSubscriptionConfirmation({
+            userEmail,
+            userName,
+            plan,
+            billingCycleEnd: new Date(subscription.current_period_end * 1000)
+          })
+        }
+        break
+        
+      case "customer.subscription.updated":
+        const previousPlanId = userData?.plan
+        const previousPlan = getPlanById(previousPlanId)
+        
+        await adminDb.collection("users").doc(userId).update({
+          plan: planId,
+          aiTokensLimit: tokenLimit,
+          subscriptionStatus: subscription.status,
+          billingCycleStart: new Date(subscription.current_period_start * 1000),
+          billingCycleEnd: new Date(subscription.current_period_end * 1000),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          updatedAt: new Date()
+        })
+        
+        const currentCycleStart = userData?.billingCycleStart?.toDate()
+        const newCycleStart = new Date(subscription.current_period_start * 1000)
+        
+        if (currentCycleStart && newCycleStart > currentCycleStart) {
+          await adminDb.collection("users").doc(userId).update({
+            aiTokensUsed: 0
+          })
+          console.log(`🔄 Reset tokens for user ${userId} - new billing cycle`)
+        }
+        
+        if (userEmail && previousPlan && previousPlanId !== planId) {
+          await SubscriptionEmailService.sendUpgradeNotification({
+            userEmail,
+            userName,
+            plan,
+            previousPlan
+          })
+        }
+        
+        console.log(`✅ Updated subscription for user ${userId} - plan ${planId} (derived from price ${priceId})`)
+        break
+        
+      case "customer.subscription.deleted":
+        await adminDb.collection("users").doc(userId).update({
+          plan: null,
+          subscriptionStatus: "canceled",
+          canceledAt: new Date(),
+          updatedAt: new Date()
+        })
+        
+        console.log(`❌ Canceled subscription for user ${userId}`)
+        
+        if (userEmail) {
+          await SubscriptionEmailService.sendCancellationConfirmation({
+            userEmail,
+            userName,
+            plan,
+            billingCycleEnd: userData?.billingCycleEnd?.toDate()
+          })
+        }
+        break
+        
+      default:
+        console.log(`⚠️ Unhandled subscription event: ${event.type}`)
+    }
+  } catch (error) {
+    const err = error as Error
+    console.error("Error handling subscription event:", err)
+    throw error
+  }
+}
+
 export async function POST(request: NextRequest) {
   console.log("🔄 Processing Stripe webhook")
 
@@ -234,6 +374,19 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`✅ Webhook processed: ${result.data?.eventType}`)
+
+    // Handle subscription events
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+    if (webhookSecret) {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: "2025-08-27.basil"
+      })
+      const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
+      
+      if (event.type.startsWith("customer.subscription.")) {
+        await handleSubscriptionEvent(event)
+      }
+    }
 
     // Return success response
     return NextResponse.json({

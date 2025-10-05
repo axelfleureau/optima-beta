@@ -49,16 +49,20 @@ export interface TenantData {
   name: string
   type: "agency" | "client"
   parentTenantId?: string
-  settings: {
-    aiTokensLimit: number
+  aiTokensLimit?: number
+  aiTokensUsed?: number
+  settings?: {
     maxUsers: number
     features: string[]
   }
-  subscription?: {
-    plan: string
-    status: "active" | "suspended" | "expired"
-    expiresAt?: Date
-  }
+  plan?: "90" | "180" | "360" | null
+  stripeCustomerId?: string
+  stripeSubscriptionId?: string
+  subscriptionStatus?: "active" | "canceled" | "past_due" | "trialing" | null
+  billingCycleStart?: Timestamp | Date
+  billingCycleEnd?: Timestamp | Date
+  cancelAtPeriodEnd?: boolean
+  canceledAt?: Timestamp | Date
   createdAt: Date
   updatedAt: Date
 }
