@@ -53,6 +53,7 @@
     "embla-carousel-react": "latest",
     "firebase": "latest",
     "firebase-admin": "^13.5.0",
+    "framer-motion": "^12.23.22",
     "html2canvas": "^1.4.1",
     "immer": "latest",
     "input-otp": "latest",

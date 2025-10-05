@@ -329,3 +329,55 @@ export interface PostFormData {
   targetAudience?: string
   notes?: string
 }
+
+// Command Bar Types
+export enum CommandIntent {
+  CREATE_TASK = "CREATE_TASK",
+  SEARCH_TASK = "SEARCH_TASK",
+  ASSIGN_TASK = "ASSIGN_TASK",
+  UPDATE_TASK = "UPDATE_TASK",
+  DELETE_TASK = "DELETE_TASK",
+  GENERATE_IMAGE = "GENERATE_IMAGE",
+  PLAN_CAMPAIGN = "PLAN_CAMPAIGN",
+  NAVIGATE = "NAVIGATE",
+  SEARCH_GLOBAL = "SEARCH_GLOBAL",
+  SHOW_ANALYTICS = "SHOW_ANALYTICS",
+  CREATE_CLIENT = "CREATE_CLIENT",
+  UNKNOWN = "UNKNOWN",
+}
+
+export interface CommandSuggestion {
+  id: string
+  title: string
+  description?: string
+  icon?: string
+  intent: CommandIntent
+  shortcut?: string
+  category?: "task" | "client" | "campaign" | "navigation" | "ai"
+}
+
+export interface CommandContext {
+  tenantId: string
+  userId: string
+  userRole: string
+  currentView?: string
+  selectedClient?: string
+  availableClients?: Client[]
+  availableUsers?: User[]
+}
+
+export interface NLPResponse {
+  intent: CommandIntent
+  confidence: number
+  entities: Record<string, any>
+  missingParams?: string[]
+  suggestedAction?: string
+  reasoning?: string
+}
+
+export interface CommandExecutionResult {
+  success: boolean
+  message: string
+  data?: any
+  error?: string
+}

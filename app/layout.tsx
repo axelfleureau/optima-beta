@@ -3,6 +3,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { NotificationProvider } from "@/lib/notification-context"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
+import { CommandBar } from "@/components/command-bar/command-bar"
 import "./globals.css"
 
 export const metadata = {
@@ -24,6 +25,7 @@ export default function RootLayout({
             <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
               {children}
               <Toaster />
+              <CommandBar />
             </ThemeProvider>
           </NotificationProvider>
         </AuthProvider>
