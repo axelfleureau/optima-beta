@@ -23,6 +23,32 @@ Optima is an AI Operations Platform (evolved from marketing intelligence SaaS) f
 - **Smart Automation**: Quote-to-payment workflows with intelligent team assignment
 
 ## Recent Changes
+- **2025-10-05**: Token Economy System - Subscription Management, Stripe Integration, Email Notifications
+  - ✅ **Token Economy System**: Production-ready subscription management with 3 tiered plans (core differentiator)
+    - **Plan Structure**: Piano 90° (€14.99/1M tokens), Piano 180° (€39.99/3.5M), Piano 360° (€99.99/10M)
+    - **Feature Comparison**: 11-feature matrix (DALL-E 3, GPT-4, Command Bar, Analytics, Support, etc.)
+    - **Glassmorphic UI**: Pricing cards, comparison grid, upgrade dialogs con liquid animations
+    - **Public Page**: /pricing landing page con hero, pricing cards, FAQ, CTAs
+    - **Billing Dashboard**: /dashboard/settings/billing con current plan, token usage, upgrade flow
+    - **Token Widget**: Real-time usage display con progress bar, warnings at 80% consumption
+  - ✅ **Stripe Subscription Integration**: End-to-end checkout and lifecycle management
+    - **Create Subscription**: POST /api/stripe/create-subscription con Firebase auth, Stripe checkout session
+    - **Update Subscription**: POST /api/stripe/update-subscription per upgrade/downgrade (NO double billing)
+    - **Webhook Handler**: Processes subscription.created/updated/deleted events
+    - **Plan Derivation**: Uses subscription.items[].price.id (resilient to Stripe portal changes)
+    - **Proration**: always_invoice setting per immediate billing adjustments
+    - **Security**: Server-side auth, subscription ownership verification, metadata sync
+  - ✅ **Email Notification Service**: Automated subscription lifecycle communications
+    - **Confirmation**: Welcome email con plan details, features, billing cycle info
+    - **Upgrade**: Notification email con comparison table (previous vs new plan)
+    - **Cancellation**: Confirmation email con reactivation CTA, access info
+    - **Templates**: Glassmorphic HTML design in Italian, responsive layout
+    - **Integration**: Triggered by webhook events, Nodemailer with SMTP
+  - 🔧 **Dependencies**: @types/nodemailer for email service type safety
+  - 🐛 **Critical Fix**: Double billing bug - subscription update flow prevents parallel subscriptions
+  - 🔐 **Security**: All endpoints use Firebase Admin SDK token verification, tenant isolation enforced
+  - 🎯 Architect-reviewed: Pass after double billing fix, production-ready subscription system
+
 - **2025-10-05**: AI Platform Transformation - Liquid Glass Design System + Command Bar + DALL-E Content Agent
   - ✅ **Liquid Glass Design System**: Complete glassmorphic component library production-ready
     - GlassCard, GlassButton, GlassInput components with backdrop blur, gradient borders, multi-shadow depth
