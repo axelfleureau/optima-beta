@@ -198,13 +198,14 @@ export async function POST(request: NextRequest) {
             await logTokenUsage(adminId, userId, actualTokensUsed, "chat")
             console.log("✅ Successfully logged token usage for chat")
           } catch (error) {
+            const err = error as Error
             console.error("❌ CRITICAL ERROR logging token usage:", error)
             // Log detailed error info for debugging
             console.error("Token logging error details:", {
               adminId,
               userId,
               fullTextLength: fullText.length,
-              error: error.message,
+              error: err.message,
             })
           }
 
@@ -215,8 +216,9 @@ export async function POST(request: NextRequest) {
           controller.close()
           console.log("🏁 Stream closed successfully")
         } catch (error) {
+          const err = error as Error
           console.error("❌ Streaming error:", error)
-          const errorChunk = `data: ${JSON.stringify({ error: "Errore durante la generazione della risposta: " + error.message })}\n\n`
+          const errorChunk = `data: ${JSON.stringify({ error: "Errore durante la generazione della risposta: " + err.message })}\n\n`
           controller.enqueue(new TextEncoder().encode(errorChunk))
           controller.close()
         }
@@ -234,8 +236,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    const err = error as Error
     console.error("❌ AI Chat POST handler error:", error)
-    return new Response(JSON.stringify({ error: "Errore interno del server: " + error.message }), {
+    return new Response(JSON.stringify({ error: "Errore interno del server: " + err.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     })

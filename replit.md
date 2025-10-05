@@ -1,28 +1,46 @@
 # Optima - Marketing Intelligence Platform
 
 ## Overview
-Optima by Righello is a comprehensive Italian marketing intelligence platform that enables users to optimize campaigns with artificial intelligence and advanced analytics. The platform features multi-client management, AI-powered content generation, editorial calendar, automated quotes, and integrated billing.
+Optima is an AI Operations Platform (evolved from marketing intelligence SaaS) for international service businesses, featuring autonomous AI agents with conversational Command Bar interface, multi-tenant architecture, automated quote-to-payment workflows with Stripe, and content generation via DALL-E/Sora 2. The platform targets agencies and SMEs globally with a disruptive glassmorphic/liquid glass design aesthetic.
 
 ## Project Architecture
 - **Framework**: Next.js 15.2.4 with TypeScript
-- **Styling**: Tailwind CSS with custom dark theme
-- **UI Components**: Radix UI components with custom styling
+- **Styling**: Tailwind CSS with Liquid Glass Design System
+- **UI Components**: Custom glassmorphic components (GlassCard, GlassButton, GlassInput) with Radix UI primitives
+- **Animations**: Framer Motion with liquid transitions and microinteractions
 - **Authentication**: Firebase Auth with Google integration
-- **Database**: Firebase Firestore
-- **AI Integration**: OpenAI GPT-4o with ai-sdk
-- **State Management**: Redux Toolkit and Zustand
+- **Database**: Firebase Firestore with multi-tenant isolation
+- **AI Integration**: OpenAI GPT-4 with ai-sdk for NLP intent recognition
+- **State Management**: Redux Toolkit and Zustand (Command Bar, UI state)
+- **Design System**: Glassmorphism with purple/pink/blue gradients, backdrop blur, liquid animations
 - **Development Port**: 5000 (configured for Replit environment)
 
-## Key Features
-- Marketing campaign management with advanced metrics
-- Multi-client workspace management
-- AI Assistant for content generation and strategy optimization
-- Editorial calendar for social media planning
-- Automated quote generation with Stripe integration
-- Advanced analytics with customizable dashboards
-- Multi-role support (Agency, Client, Super-admin)
+## Core Differentiators
+- **AI Command Bar**: Conversational interface with GPT-4 NLP for multi-step campaign orchestration (Cmd+K)
+- **Liquid Glass Design**: Glassmorphic aesthetic inspired by Linear, Vercel, Framer, Apple Vision OS
+- **Autonomous Agents**: Content Agent (DALL-E), Video Agent (Sora 2), Task Orchestrator
+- **Token Economy**: 3x markup on API costs with tiered packages (Starter/Growth/Enterprise)
+- **Smart Automation**: Quote-to-payment workflows with intelligent team assignment
 
 ## Recent Changes
+- **2025-10-05**: AI Platform Transformation - Liquid Glass Design System + Command Bar
+  - ✅ **Liquid Glass Design System**: Complete glassmorphic component library production-ready
+    - GlassCard, GlassButton, GlassInput components with backdrop blur, gradient borders, multi-shadow depth
+    - Animation library: liquidExpand, liquidMorph, glowPulse, fluidSlide, particleBurst, shimmer
+    - Gradient system: purple/pink/blue AI theme, status gradients, animated mesh backgrounds
+    - Tailwind config enhanced: glass shadows, glow utilities, liquid timings, custom keyframes
+    - Demo page at /design-preview for visual testing
+  - ✅ **AI Command Bar**: Conversational interface with GPT-4 NLP (core differentiator)
+    - Cmd+K / Ctrl+K keyboard shortcut for instant access across all pages
+    - NLP intent recognition: 11 supported intents (CREATE_TASK, SEARCH_TASK, ASSIGN_TASK, etc.)
+    - Context gathering: dynamic form for missing parameters with auto-complete
+    - Search results persistence: dialog stays open for non-terminal intents
+    - Integration: useWorkspaceData, useClients, useUsers hooks for context-aware operations
+    - Zustand store for global state management
+    - Tenant isolation: all operations respect tenantId for multi-tenant security
+  - 🔧 **Dependencies Added**: framer-motion for liquid animations
+  - 🎯 Architect-reviewed: Both features pass with zero regressions
+
 - **2025-09-29**: Critical performance and UX improvements implemented
   - ✅ **Sidebar Desktop**: Fixed collapsible behavior to show icons instead of disappearing completely
   - ✅ **AI Quote Dialog**: Enhanced scroll area from 60vh to calc(90vh-120px) for better mobile experience

@@ -8,12 +8,18 @@ import { Provider } from "react-redux"
 import { store } from "@/app/store/store"
 import { MobileHeader } from "@/components/mobile-header"
 import { AuthInitializer } from "@/components/auth-initializer"
+import { ImageGenerator } from "@/components/content-agent/image-generator"
+import { useImageGeneratorStore } from "@/lib/stores/image-generator-store"
+import { GlassButton } from "@/components/ui/glass-button"
+import { Sparkles } from "lucide-react"
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const { isOpen, open, close } = useImageGeneratorStore()
+
   return (
     <Provider store={store}>
       <AuthInitializer />
@@ -27,10 +33,25 @@ export default function DashboardLayout({
               <div className="p-4 md:p-6">
                 {children}
               </div>
+
+              <div className="fixed bottom-6 right-6 z-40">
+                <GlassButton
+                  variant="primary"
+                  size="lg"
+                  onClick={open}
+                  glow="medium"
+                  className="shadow-glass-lg"
+                >
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Generate Image
+                </GlassButton>
+              </div>
             </main>
           </div>
         </SidebarProvider>
       </ProtectedRoute>
+
+      <ImageGenerator open={isOpen} onOpenChange={(open) => open ? null : close()} />
     </Provider>
   )
 }

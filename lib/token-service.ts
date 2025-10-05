@@ -313,13 +313,14 @@ export async function logTokenUsage(
       console.log(`🔍 Token Service: After update - aiTokensUsed: ${updatedData.aiTokensUsed}`)
     }
   } catch (error) {
+    const err = error as Error
     console.error("❌ Error logging token usage:", error)
     console.error("Error details:", {
       adminId,
       userId,
       tokensUsed,
       feature,
-      errorMessage: error.message,
+      errorMessage: err.message,
     })
   }
 }
