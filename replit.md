@@ -23,6 +23,46 @@ Optima is an AI Operations Platform (evolved from marketing intelligence SaaS) f
 - **Smart Automation**: Quote-to-payment workflows with intelligent team assignment
 
 ## Recent Changes
+- **2025-10-06**: AI Agent Orchestration System - Dashboard Command Input + NLP Enhanced + Autonomous Content Creation
+  - ✅ **Dashboard Command Input**: Central conversational interface on dashboard (core differentiator)
+    - **Permanent Text Field**: Always-visible above fold con placeholder animato (rotola esempi ogni 3s)
+    - **Glassmorphic Design**: GlassCard with Sparkles icon, ArrowRight submit button, mobile responsive
+    - **Dual Interface**: Dashboard field + Cmd+K overlay entrambi usano stesso NLP engine
+    - **Integration**: Triggers orchestration quando NLP completo, context gathering per parametri mancanti
+  - ✅ **NLP Intent Recognition Enhanced**: 4 nuovi content creation intents con entity extraction
+    - **New Intents**: CREATE_CONTENT_POST, CREATE_CONTENT_REEL, CREATE_CONTENT_VIDEO, CREATE_CONTENT_BATCH
+    - **Entity Extraction**: contentType, platform, clientName, topic, publishDate, quantity
+    - **Pattern Recognition**: "Crea post Instagram per cliente X" → entities estratte con confidence
+    - **GPT-4 Integration**: System prompt con pattern italiani, temperature 0.3 per precisione
+  - ✅ **Context Gathering Conversazionale**: Multi-step dialog fluido con computed step approach
+    - **Smart Step Navigation**: Computed currentStep sempre in sync con state (no blocking)
+    - **Auto-Advance**: Step avanza automaticamente quando values popolati (auto-selection support)
+    - **Client Selector**: Command-based con search real-time, filterHint pre-filtering, auto-select 1 match
+    - **Date Picker**: Calendario integrato con locale italiana
+    - **Platform Selector**: Grid piattaforme (Instagram, Facebook, LinkedIn, TikTok)
+    - **Liquid Animations**: AnimatePresence con easeInOut transitions tra steps
+  - ✅ **Content Agent Orchestrator**: Servizio coordinatore workflow end-to-end (core differentiator)
+    - **Workflow**: Task creation → Calendar insert → Token consent → Media generation
+    - **Task Auto-Creation API** (/api/tasks/create-auto): Firestore workspace integration, linkedTaskId
+    - **Calendar Auto-Insert API** (/api/calendar/create-auto): Draft status, date scheduling, task link
+    - **Token Cost Calculation**: Post (25t), Reel (110t), Video (165t) con GPT-4 + DALL-E/Sora breakdown
+    - **executeGeneration()**: GPT-4 copy + media (DALL-E per post, Sora placeholder per video)
+  - ✅ **Token Consent Dialog**: Mandatory user approval prima di ogni generation
+    - **Glassmorphic Preview**: Breakdown trasparente costi (GPT-4: X, DALL-E/Sora: Y, Total: Z)
+    - **User Control**: Conferma/Annulla in ogni step, no surprise charges
+    - **Cost Transparency**: Token → Euro conversion con 3x markup visibility
+  - 🔐 **Enterprise Security**: Multi-tenant isolation enforcement con server-side auth
+    - **Firebase Admin SDK**: Token verification su tutti gli endpoints AI/task/calendar
+    - **Server-Derived TenantId**: Zero client trust, tenantId derivato da token (not body)
+    - **Client Ownership Verification**: Check client.tenantId === user.tenantId before writes
+    - **Cross-Tenant Protection**: 401 auth fails, 403 unauthorized access, no data leaks
+  - 🐛 **Critical Fixes**: 3 iterazioni bug-fixing per production readiness
+    - **Fix 1**: DashboardCommandInput ora trigger orchestration con complete intent (primary flow)
+    - **Fix 2**: ContextGatheringDialog client selection sempre richiesta con auto-select support
+    - **Fix 3**: Computed currentStep approach elimina blocking states dopo auto-selection
+    - **Security**: TenantId server-verification eliminates cross-tenant write vulnerabilities
+  - 🎯 **Architect-reviewed**: Pass dopo 3 round di fixes, workflow funziona end-to-end senza blocking states
+
 - **2025-10-05**: Token Economy System - Subscription Management, Stripe Integration, Email Notifications
   - ✅ **Token Economy System**: Production-ready subscription management with 3 tiered plans (core differentiator)
     - **Plan Structure**: Piano 90° (€14.99/1M tokens), Piano 180° (€39.99/3.5M), Piano 360° (€99.99/10M)
