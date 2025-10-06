@@ -1,29 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase-admin'
-import type { DecodedIdToken } from 'firebase-admin/auth'
 import { analyzeWorkspaceCompleteness } from '@/lib/ai/completeness-scorer'
 import { analyzeTaskDependencies } from '@/lib/ai/dependency-detector'
 
+async function getUserFromToken(req: NextRequest) {
+  const authHeader = req.headers.get("Authorization")
+  if (!authHeader?.startsWith("Bearer ")) return null
+  
+  const token = authHeader.split("Bearer ")[1]
+  try {
+    if (!adminAuth || !adminDb) return null
+    
+    const decodedToken = await adminAuth.verifyIdToken(token)
+    const userDoc = await adminDb.collection("users").doc(decodedToken.uid).get()
+    
+    if (!userDoc.exists) return null
+    
+    return {
+      uid: decodedToken.uid,
+      data: userDoc.data()
+    }
+  } catch (error) {
+    return null
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = await getUserFromToken(request)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const token = authHeader.split('Bearer ')[1]
-    let decodedToken: DecodedIdToken
-    try {
-      if (!adminAuth) {
-        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
-      }
-      decodedToken = await adminAuth.verifyIdToken(token)
-    } catch (error) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-    }
-
-    const userId = decodedToken.uid
-    const tenantId = (decodedToken as any).tenant_id || userId
+    const tenantId = user.data?.tenantId || user.uid
     
     if (!adminDb) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
