@@ -23,7 +23,7 @@ const IntentSchema = z.object({
     "UNKNOWN",
   ]),
   confidence: z.number().min(0).max(1),
-  entities: z.record(z.any()),
+  entities: z.record(z.any()).optional().default({}),
   missingParams: z.array(z.string()).optional(),
   suggestedAction: z.string().optional(),
   reasoning: z.string().optional(),
@@ -113,7 +113,7 @@ Rispondi SEMPRE in JSON con lo schema richiesto.`
 
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4-turbo"),
+      model: openai("gpt-4o"),
       schema: IntentSchema,
       prompt: `${systemPrompt}\n\nComando utente: "${message}"`,
       temperature: 0.3,
