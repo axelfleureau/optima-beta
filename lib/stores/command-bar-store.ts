@@ -77,6 +77,38 @@ const defaultSuggestions: CommandSuggestion[] = [
     intent: "PLAN_CAMPAIGN" as CommandIntent,
     category: "campaign",
   },
+  {
+    id: "create-content-post",
+    title: "Crea post Instagram per [cliente]...",
+    description: "Genera post social con AI",
+    icon: "FileText",
+    intent: "CREATE_CONTENT_POST" as CommandIntent,
+    category: "ai",
+  },
+  {
+    id: "create-content-reel",
+    title: "Genera reel TikTok su [topic]...",
+    description: "Crea reel/short video per social",
+    icon: "Video",
+    intent: "CREATE_CONTENT_REEL" as CommandIntent,
+    category: "ai",
+  },
+  {
+    id: "create-content-video",
+    title: "Crea video YouTube per [cliente]...",
+    description: "Genera video lungo per piattaforma",
+    icon: "Film",
+    intent: "CREATE_CONTENT_VIDEO" as CommandIntent,
+    category: "ai",
+  },
+  {
+    id: "create-content-batch",
+    title: "Pianifica 3 post social per questa settimana...",
+    description: "Crea batch di contenuti multipli",
+    icon: "Layers",
+    intent: "CREATE_CONTENT_BATCH" as CommandIntent,
+    category: "ai",
+  },
 ]
 
 export const useCommandBarStore = create<CommandBarState>((set, get) => ({

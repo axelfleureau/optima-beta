@@ -20,6 +20,7 @@ import {
 import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useAuth } from "@/lib/auth-context"
 import { TokenUsageWidget } from "@/components/dashboard/token-usage-widget"
+import { DashboardCommandInput } from "@/components/dashboard/dashboard-command-input"
 
 export default function Dashboard() {
   const { userData } = useAuth()
@@ -148,6 +149,9 @@ export default function Dashboard() {
               </Button>
             </div>
           </div>
+
+          {/* Command Input */}
+          <DashboardCommandInput />
 
           {/* Stats Cards */}
           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

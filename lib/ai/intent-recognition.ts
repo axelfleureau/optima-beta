@@ -16,6 +16,10 @@ const IntentSchema = z.object({
     "SEARCH_GLOBAL",
     "SHOW_ANALYTICS",
     "CREATE_CLIENT",
+    "CREATE_CONTENT_POST",
+    "CREATE_CONTENT_REEL",
+    "CREATE_CONTENT_VIDEO",
+    "CREATE_CONTENT_BATCH",
     "UNKNOWN",
   ]),
   confidence: z.number().min(0).max(1),
@@ -48,9 +52,15 @@ Analizza i comandi dell'utente ed estrai:
    - SEARCH_GLOBAL: Ricerca globale
    - SHOW_ANALYTICS: Mostrare analytics
    - CREATE_CLIENT: Creare un nuovo cliente
+   - CREATE_CONTENT_POST: Creare post social (immagine/testo per Instagram/Facebook/LinkedIn)
+   - CREATE_CONTENT_REEL: Creare reel/short video (Instagram Reels, TikTok, YouTube Shorts)
+   - CREATE_CONTENT_VIDEO: Creare video lungo (YouTube, Facebook Video)
+   - CREATE_CONTENT_BATCH: Creare batch di contenuti multipli
    - UNKNOWN: Non riconosciuto
 
 2. **Entities** (parametri estratti dal messaggio):
+   
+   Per TASK intents:
    - title: titolo della task
    - description: descrizione
    - clientId/clientName: nome del cliente
@@ -58,6 +68,16 @@ Analizza i comandi dell'utente ed estrai:
    - assignee/assignedUserId: utente assegnatario
    - dueDate: data di scadenza
    - status: todo, in-progress, review, done
+   
+   Per CONTENT CREATION intents:
+   - contentType: "post" | "reel" | "video" (tipo di contenuto)
+   - platform: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube" (piattaforma social)
+   - clientName: nome del cliente per cui creare il contenuto
+   - topic: argomento/tema del contenuto
+   - publishDate: data di pubblicazione (formato ISO: YYYY-MM-DD)
+   - quantity: numero di contenuti da creare (per batch)
+   
+   Per altri intents:
    - route: percorso di navigazione
    - any other relevant params
 
@@ -73,10 +93,19 @@ Contesto disponibile:
 - Clienti disponibili: ${clientNames}
 - Team members: ${userNames}
 
-Esempi:
+Esempi TASK:
 - "crea task per Acme con priorità alta" → CREATE_TASK, entities: {clientName: "Acme", priority: "high"}
 - "cerca task di Stark Industries" → SEARCH_TASK, entities: {clientName: "Stark Industries"}
 - "assegna task a Mario Rossi" → ASSIGN_TASK, entities: {assignee: "Mario Rossi"}
+
+Esempi CONTENT CREATION:
+- "Crea post Instagram per cliente Acme" → CREATE_CONTENT_POST, entities: {contentType: "post", platform: "instagram", clientName: "Acme"}
+- "Genera reel per Stark Industries sul prodotto Arc Reactor" → CREATE_CONTENT_REEL, entities: {contentType: "reel", clientName: "Stark Industries", topic: "prodotto Arc Reactor"}
+- "Pianifica TikTok per domani su nuovo servizio" → CREATE_CONTENT_REEL, entities: {contentType: "reel", platform: "tiktok", topic: "nuovo servizio", publishDate: "2025-10-07"}
+- "Fai 3 post social per cliente X questa settimana" → CREATE_CONTENT_BATCH, entities: {contentType: "post", clientName: "cliente X", quantity: 3}
+- "Crea video YouTube per lancio prodotto" → CREATE_CONTENT_VIDEO, entities: {contentType: "video", platform: "youtube", topic: "lancio prodotto"}
+
+Altri esempi:
 - "vai al calendario" → NAVIGATE, entities: {route: "/calendario-editoriale"}
 - "mostra analytics" → SHOW_ANALYTICS
 
