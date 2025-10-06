@@ -159,57 +159,77 @@ export const useCommandBarStore = create<CommandBarState>((set, get) => ({
 
   setError: (error) => set({ error }),
 
-  setContext: (context) => set({ context }),
+  setContext: (context) => {
+    console.log("💾 Setting context in store:", context)
+    set({ context })
+  },
 
   setSearchResults: (results) => set({ searchResults: results }),
 
   executeCommand: async (message: string, context: CommandContext) => {
+    console.log("🚀 executeCommand started")
+    console.log("📝 Message:", message)
+    console.log("📍 Context:", context)
+    
     const state = get()
     set({ status: "processing", error: null })
 
     try {
+      console.log("📡 Sending POST to /api/ai/command")
       const response = await fetch("/api/ai/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, context }),
       })
 
+      console.log("📥 Response status:", response.status)
+
       if (!response.ok) {
-        throw new Error("Failed to process command")
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ API error:", errorData)
+        throw new Error(errorData.error || "Failed to process command")
       }
 
       const nlpResponse: NLPResponse = await response.json()
+      console.log("🧠 NLP Response:", nlpResponse)
       set({ nlpResponse, intent: nlpResponse.intent })
 
       if (nlpResponse.missingParams && nlpResponse.missingParams.length > 0) {
+        console.log("📝 Missing params detected:", nlpResponse.missingParams)
         set({
           status: "gathering",
           missingParams: nlpResponse.missingParams,
         })
       } else {
+        console.log("⚡ Executing intent:", nlpResponse.intent)
         set({ status: "executing" })
         const { executeIntent } = await import("@/lib/command-bar/handlers")
         const result = await executeIntent(nlpResponse.intent, nlpResponse.entities, context)
+
+        console.log("📊 Intent execution result:", result)
 
         const searchIntents = ["SEARCH_TASK", "SEARCH_GLOBAL"]
         const isSearchIntent = searchIntents.includes(nlpResponse.intent)
 
         if (result.success && result.data && isSearchIntent) {
+          console.log("🔍 Search results:", result.data)
           set({ 
             status: "idle",
             searchResults: Array.isArray(result.data) ? result.data : [result.data]
           })
         } else if (result.success) {
+          console.log("✅ Command executed successfully")
           set({ status: "idle" })
           setTimeout(() => {
             get().close()
           }, 1000)
         } else {
+          console.error("❌ Command execution failed:", result.error)
           set({ status: "idle", error: result.error || "Command execution failed" })
         }
       }
     } catch (error: any) {
-      console.error("Command execution error:", error)
+      console.error("💥 Command execution error:", error)
       set({
         status: "idle",
         error: error.message || "Failed to execute command",

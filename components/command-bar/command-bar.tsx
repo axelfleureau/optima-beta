@@ -20,14 +20,23 @@ export function CommandBar() {
   const { users } = useUsers()
 
   useEffect(() => {
+    console.log("🔧 Command Bar context useEffect triggered")
+    console.log("👤 userData:", userData ? "loaded" : "null")
+    console.log("👥 clients:", clients ? `${clients.length} clients` : "null")
+    console.log("🧑‍💼 users:", users ? `${users.length} users` : "null")
+
     if (userData && clients) {
-      setContext({
+      const newContext = {
         tenantId: userData.tenantId,
         userId: userData.id,
         userRole: userData.role,
         availableClients: clients,
         availableUsers: users || [],
-      })
+      }
+      console.log("✅ Setting context:", newContext)
+      setContext(newContext)
+    } else {
+      console.log("⚠️ Cannot set context yet - waiting for userData and clients")
     }
   }, [userData, clients, users, setContext])
 
