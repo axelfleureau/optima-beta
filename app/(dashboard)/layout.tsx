@@ -28,7 +28,7 @@ export default function DashboardLayout({
             <main className="flex-1 overflow-hidden">
               <MobileHeader />
               <RouteError />
-              <div className="p-4 md:p-6">
+              <div className="h-full">
                 {children}
               </div>
             </main>
