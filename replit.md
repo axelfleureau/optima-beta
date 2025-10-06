@@ -18,7 +18,8 @@ Key architectural decisions include:
 - **Token Economy System**: Implements a tiered subscription model with a 3x markup on API costs, ensuring cost transparency and user consent for token usage.
 - **Workspace Intelligence System**: Provides task completeness and dependency analysis using GPT-4, offering actionable insights and smart badge indicators.
 - **Enterprise Security**: Strict multi-tenant isolation enforced via Firebase Admin SDK for server-side authentication, ensuring data integrity and preventing cross-tenant data leaks across all AI and core functionalities.
-- **RAG Query Planning System**: A multi-step AI system designed for 90% token savings by intelligently planning Firestore queries, retrieving only relevant data, and then generating contextual responses.
+- **RAG Query Planning System**: A multi-step AI system designed for 90% token savings by intelligently planning Firestore queries, retrieving only relevant data, and then generating contextual responses. Supports "all clients" queries (e.g., "Mostra tutti i progetti") via `clientId: "all"` filter that skips client-specific filtering while maintaining strict tenant isolation through force-merged tenantId enforcement.
+- **Intent Recognition System**: Uses GPT-4o (upgraded from GPT-4 turbo) for improved NLP accuracy. Schema made entities field optional with default {} to prevent Zod validation crashes. Supports confidence scoring, entity extraction, and missing parameter detection.
 
 ## External Dependencies
 - **Firebase**: Used for Authentication (Firebase Auth) and Database (Firestore).

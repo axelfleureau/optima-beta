@@ -66,6 +66,11 @@ export async function retrieveData(
     Object.entries(queryPlan.filters).forEach(([field, value]) => {
       if (value === undefined || value === null) return
       
+      if (field === 'clientId' && value === 'all') {
+        console.log('🌍 Skipping clientId filter: querying ALL clients')
+        return
+      }
+      
       if (typeof value === 'string') {
         if (value.startsWith('>=')) {
           constraints.push(where(field, '>=', value.substring(2)))

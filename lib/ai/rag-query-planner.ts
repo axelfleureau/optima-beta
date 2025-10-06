@@ -65,11 +65,26 @@ User: "Analizza progetti di Stark Industries"
 User: "Contenuti Instagram pubblicati questo mese"
 → { collection: "editorialPosts", filters: { "platform": "instagram", "scheduledDate": ">=2025-10-01" }, fields: ["title","scheduledDate","status"], limit: 50 }
 
+User: "Mostra tutti i progetti"
+→ { collection: "tasks", filters: { "clientId": "all" }, fields: ["title","description","status","clientName"], limit: 50 }
+
+User: "Tutti i clienti attivi"
+→ { collection: "clients", filters: { "clientId": "all", "status": "active" }, fields: ["name","email","company","industry"], limit: 50 }
+
+User: "Elenco clienti"
+→ { collection: "clients", filters: { "clientId": "all" }, fields: ["name","email","company"], limit: 50 }
+
+User: "Progetti in corso"
+→ { collection: "tasks", filters: { "status": "in-progress" }, fields: ["title","status","assignee"], limit: 50 }
+
 REGOLE:
 - Includi SEMPRE tenantId filter (multi-tenant isolation)
 - Limita a max 50 records per performance
 - Seleziona solo fields necessari per la risposta
-- Se menziona cliente, usa "clientName" o "clientId"
+- GESTIONE CLIENTI:
+  * Se utente chiede "tutti i clienti", "all clients", "mostra tutti i progetti", "elenco clienti" → aggiungi "clientId": "all"
+  * Se utente menziona un cliente specifico (es. "Stark", "Acme") → usa "clientName": "NomeCliente"
+  * Se utente NON menziona clienti → NON aggiungere filtro clientId
 - Se menziona date, usa ISO format (YYYY-MM-DD)
 - Se menziona "in ritardo", filtra dueDate < today
 
