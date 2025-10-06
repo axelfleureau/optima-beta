@@ -2,11 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
-  Plus,
-  Search,
   Users,
   Target,
   FileText,
@@ -104,49 +101,17 @@ export default function Dashboard() {
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
         <div className="space-y-6 md:space-y-8">
           {/* Header Section */}
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-start md:items-center gap-3 md:gap-4">
-              <div className="space-y-1 md:space-y-2">
-                <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
-                  <div className="p-2 md:p-3 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl md:rounded-2xl shadow-lg">
-                    <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-white" />
-                  </div>
-                  <span className="leading-tight">Benvenuto, {userData?.firstName || "Utente"}!</span>
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg ml-11 md:ml-0">
-                  {userData?.companyName} • Piano {userData?.plan || "Base"}
-                </p>
-              </div>
-            </div>
-            
-            {/* Desktop Actions */}
-            <div className="hidden md:flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Cerca..."
-                  className="pl-10 w-[300px] bg-white/80 backdrop-blur-sm border-gray-200/50"
-                />
-              </div>
-              <Button className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg">
-                <Plus className="mr-2 h-4 w-4" />
-                Nuovo
-              </Button>
-            </div>
-
-            {/* Mobile Actions */}
-            <div className="md:hidden flex flex-col gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Cerca..."
-                  className="pl-10 bg-white/80 backdrop-blur-sm border-gray-200/50"
-                />
-              </div>
-              <Button size="sm" className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg">
-                <Plus className="mr-2 h-4 w-4" />
-                Nuovo
-              </Button>
+          <div className="flex items-start md:items-center gap-3 md:gap-4">
+            <div className="space-y-1 md:space-y-2">
+              <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
+                <div className="p-2 md:p-3 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl md:rounded-2xl shadow-lg">
+                  <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-white" />
+                </div>
+                <span className="leading-tight">Benvenuto, {userData?.firstName || "Utente"}!</span>
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg ml-11 md:ml-0">
+                {userData?.companyName} • Piano {userData?.plan || "Base"}
+              </p>
             </div>
           </div>
 

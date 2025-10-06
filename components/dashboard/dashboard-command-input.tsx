@@ -175,6 +175,31 @@ export function DashboardCommandInput() {
     }
   }
 
+  const firstClient = clients?.[0]?.name || "il tuo cliente"
+
+  const suggestions = [
+    { 
+      label: "📸 Crea post Instagram", 
+      value: firstClient !== "il tuo cliente" 
+        ? `Crea post Instagram per ${firstClient}` 
+        : "Crea post Instagram"
+    },
+    { 
+      label: "📊 Analizza progetti", 
+      value: "Mostra analytics"
+    },
+    { 
+      label: "📝 Genera preventivo", 
+      value: firstClient !== "il tuo cliente"
+        ? `Crea preventivo per ${firstClient}`
+        : "Crea preventivo"
+    },
+    { 
+      label: "🎯 Pianifica campagna", 
+      value: "Pianifica campagna social per questa settimana"
+    }
+  ]
+
   return (
     <>
       <GlassCard
@@ -237,6 +262,30 @@ export function DashboardCommandInput() {
           </div>
         </form>
       </GlassCard>
+
+      {/* Quick Suggestions */}
+      <div className="mt-4 flex flex-wrap gap-2 justify-center">
+        <p className="w-full text-center text-sm text-gray-500 dark:text-gray-400 mb-2">
+          Non sai da dove iniziare? Prova:
+        </p>
+        {suggestions.map((suggestion) => (
+          <Button
+            key={suggestion.label}
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setInput(suggestion.value)
+              setTimeout(() => {
+                const form = document.querySelector('form') as HTMLFormElement
+                form?.requestSubmit()
+              }, 100)
+            }}
+            className="text-xs bg-white/50 dark:bg-black/30 hover:bg-white/70 dark:hover:bg-black/50 border border-purple-200/50 dark:border-purple-700/50 transition-all"
+          >
+            {suggestion.label}
+          </Button>
+        ))}
+      </div>
 
       <ContextGatheringDialog
         open={gatheringOpen}
