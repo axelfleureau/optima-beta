@@ -38,8 +38,6 @@ export function TokenConsentDialog({
 }: TokenConsentDialogProps) {
   if (!tokenCost) return null
   
-  const costInEuros = (tokenCost.total * 0.003).toFixed(2)
-  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md bg-white/80 dark:bg-black/50 backdrop-blur-lg border border-white/40 dark:border-white/20 shadow-glass-lg">
@@ -82,10 +80,7 @@ export function TokenConsentDialog({
             
             <div className="flex justify-between text-lg font-bold">
               <span>Totale</span>
-              <div className="flex items-center gap-2">
-                <span>{tokenCost.total} tokens</span>
-                <span className="text-muted-foreground text-sm">(~€{costInEuros})</span>
-              </div>
+              <span>{tokenCost.total} tokens</span>
             </div>
           </div>
         </GlassCard>

@@ -221,13 +221,12 @@ export function ImageGenerator({ open, onOpenChange }: ImageGeneratorProps) {
                   <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      Cost Estimation
+                      Costo Token
                     </p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Zap className="h-4 w-4" />
                       <span>
-                        This generation will use <strong className="text-foreground">{costEstimate.tokens} tokens</strong>
-                        {' '}(~€{costEstimate.cost.toFixed(2)})
+                        Questa generazione utilizzerà <strong className="text-foreground">{costEstimate.tokens} tokens</strong>
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">

@@ -26,7 +26,7 @@ import {
   Pause,
   BarChart3,
   Calendar,
-  Euro,
+  DollarSign,
   Users,
   AlertCircle,
   Instagram,
@@ -221,7 +221,7 @@ export default function CampagnePage() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
                   <div className="p-2 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl shadow-sm">
-                    <Euro className="h-4 w-4 text-white" />
+                    <DollarSign className="h-4 w-4 text-white" />
                   </div>
                   Budget Totale
                 </CardTitle>
@@ -303,7 +303,7 @@ export default function CampagnePage() {
                               </span>
                               {campaign.budget && (
                                 <span className="flex items-center gap-2">
-                                  <Euro className="h-4 w-4" />
+                                  <DollarSign className="h-4 w-4" />
                                   {formatCurrency(campaign.budget)}
                                 </span>
                               )}

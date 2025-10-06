@@ -28,7 +28,7 @@ import {
   MapPin,
   Building,
   Calendar,
-  Euro,
+  DollarSign,
   Users,
   AlertCircle,
   Sparkles,
@@ -210,7 +210,7 @@ export default function ClientiPage() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
                   <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
-                    <Euro className="h-4 w-4 text-white" />
+                    <DollarSign className="h-4 w-4 text-white" />
                   </div>
                   Valore Totale
                 </CardTitle>

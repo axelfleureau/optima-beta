@@ -28,7 +28,7 @@ import {
   Send,
   Download,
   Calendar,
-  Euro,
+  DollarSign,
   User,
   Clock,
   CheckCircle,
@@ -296,7 +296,7 @@ export default function PreventiviPage() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
                   <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
-                    <Euro className="h-4 w-4 text-white" />
+                    <DollarSign className="h-4 w-4 text-white" />
                   </div>
                   Valore Totale
                 </CardTitle>
@@ -375,7 +375,7 @@ export default function PreventiviPage() {
                                 {format(quote.createdAt, "dd MMM yyyy", { locale: it })}
                               </span>
                               <span className="flex items-center gap-2">
-                                <Euro className="h-4 w-4" />
+                                <DollarSign className="h-4 w-4" />
                                 {formatCurrency(quote.total, quote.currency)}
                               </span>
                             </CardDescription>

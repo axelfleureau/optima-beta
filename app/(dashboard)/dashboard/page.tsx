@@ -9,7 +9,7 @@ import {
   FileText,
   CheckCircle,
   Clock,
-  Euro,
+  DollarSign,
   Brain,
   TrendingUp,
   Sparkles,
@@ -115,8 +115,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Command Input */}
-          <DashboardCommandInput />
+          {/* Command Bar Glassmorphic Section */}
+          <div className="relative backdrop-blur-xl bg-white/5 dark:bg-black/10 border border-white/10 rounded-2xl shadow-2xl p-6 md:p-8 before:content-[''] before:absolute before:inset-0 before:rounded-2xl before:p-[1px] before:bg-gradient-to-r before:from-purple-500/50 before:via-pink-500/50 before:to-purple-500/50 before:-z-10">
+            <DashboardCommandInput />
+          </div>
 
           {/* Stats Cards */}
           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -202,7 +204,7 @@ export default function Dashboard() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
                   <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-sm">
-                    <Euro className="h-4 w-4 text-white" />
+                    <DollarSign className="h-4 w-4 text-white" />
                   </div>
                   Fatturato
                 </CardTitle>

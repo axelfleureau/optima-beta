@@ -223,7 +223,7 @@ export function useDashboardData() {
       // Fetch all tasks without orderBy to avoid composite index requirement
       const q = query(collection(db, "tasks"), where("tenantId", "==", userData?.tenantId))
       const snapshot = await getDocs(q)
-      const tasks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      const tasks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as any))
 
       console.log(
         "Raw tasks data:",
@@ -266,7 +266,7 @@ export function useDashboardData() {
       )
 
       let snapshot = await getDocs(q)
-      let aiUsageData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      let aiUsageData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as any))
 
       console.log("🔍 AI usage found with adminId:", aiUsageData.length)
 
@@ -276,7 +276,7 @@ export function useDashboardData() {
         q = query(collection(db, "ai_usage"), where("userId", "==", user.uid), orderBy("createdAt", "desc"), limit(10))
 
         snapshot = await getDocs(q)
-        aiUsageData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+        aiUsageData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as any))
         console.log("🔍 AI usage found with userId fallback:", aiUsageData.length)
       }
 
@@ -286,7 +286,7 @@ export function useDashboardData() {
         q = query(collection(db, "ai_usage"), where("adminId", "==", adminId), limit(10))
 
         snapshot = await getDocs(q)
-        aiUsageData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+        aiUsageData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as any))
         console.log("🔍 AI usage found without orderBy:", aiUsageData.length)
       }
 
@@ -312,7 +312,7 @@ export function useDashboardData() {
         console.log("🔍 Trying simple query fallback...")
         const simpleQuery = query(collection(db, "ai_usage"), limit(5))
         const simpleSnapshot = await getDocs(simpleQuery)
-        const fallbackData = simpleSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+        const fallbackData = simpleSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as any))
         console.log("🔍 Fallback AI usage data:", fallbackData.length)
         return fallbackData.filter((item: any) => item.adminId === adminId || item.userId === user?.uid)
       } catch (fallbackError) {
@@ -428,7 +428,7 @@ export function useDashboardData() {
         id: latestQuote.id,
         type: "quote",
         title: latestQuote.status === "sent" ? "Preventivo Inviato" : "Preventivo Creato",
-        details: `€${latestQuote.amount?.toLocaleString() || 0} - ${latestQuote.title || "Preventivo"}`,
+        details: `${latestQuote.title || "Preventivo"}`,
         timestamp: safeToDate(latestQuote.createdAt),
         client: latestQuote.clientName,
         status: latestQuote.status,
