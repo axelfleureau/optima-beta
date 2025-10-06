@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Target, Users, BarChart3, Bot, Calendar, FileText, ArrowRight, Check, Star, Play, Menu, X } from "lucide-react"
+import { Target, Users, BarChart3, Bot, Calendar, FileText, ArrowRight, Check, Star, Play, Menu, X, Sparkles, Zap } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import Image from "next/image"
@@ -234,21 +234,23 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto text-center">
-          <Badge variant="secondary" className="bg-pink-500/20 text-pink-300 border-pink-500/30 mb-6">
-            🚀 Nuova versione disponibile
+          <Badge variant="secondary" className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border-purple-500/30 mb-6">
+            🤖 AI Agents Platform
           </Badge>
 
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
-            Misura il tuo marketing
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-purple-200 to-pink-400 bg-clip-text text-transparent">
+            Il tuo team AI
             <br />
-            con precisione
+            sempre attivo
             <br />
-            <span className="text-pink-400">millimetrica</span>
+            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              24/7
+            </span>
           </h1>
 
           <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-            Ottimizza le tue campagne con l'intelligenza artificiale e analisi avanzate per massimizzare il ROI.
-            Gestisci clienti, progetti e contenuti da un'unica piattaforma.
+            Agenti AI autonomi che creano contenuti, analizzano dati e ottimizzano i tuoi progetti automaticamente.
+            Gestisci tutto da un'unica piattaforma conversazionale.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
@@ -259,7 +261,7 @@ export default function HomePage() {
               className="max-w-sm bg-gray-800/50 border-gray-600 text-white placeholder:text-gray-400"
             />
             <Link href="/register">
-              <Button className="bg-pink-500 hover:bg-pink-600 px-8">
+              <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8">
                 Inizia gratis
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -268,14 +270,76 @@ export default function HomePage() {
 
           <p className="text-sm text-gray-400">Prova gratuita di 14 giorni. Nessuna carta di credito richiesta.</p>
 
-          {/* Hero Image/Video Placeholder */}
-          <div className="mt-16 relative">
-            <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 rounded-2xl p-8 backdrop-blur-sm border border-gray-700">
-              <div className="aspect-video bg-gray-800/50 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <Play className="h-16 w-16 text-pink-400 mx-auto mb-4" />
-                  <p className="text-gray-300">Guarda la demo della piattaforma</p>
+          {/* AI Agents Cards */}
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Content Agent */}
+            <Card className="border-0 shadow-lg bg-white/5 dark:bg-gray-800/30 backdrop-blur-xl border-purple-500/20 hover:shadow-glow-purple transition-all">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mb-4 mx-auto">
+                  <Sparkles className="h-6 w-6 text-white" />
                 </div>
+                <CardTitle className="text-xl text-white">Content Agent</CardTitle>
+              </CardHeader>
+              <CardContent className="text-gray-300 text-sm">
+                Genera post, reel e video con DALL-E 3 e Sora 2. Pianifica automaticamente su calendario editoriale.
+              </CardContent>
+            </Card>
+
+            {/* Analytics Agent */}
+            <Card className="border-0 shadow-lg bg-white/5 dark:bg-gray-800/30 backdrop-blur-xl border-blue-500/20 hover:shadow-glow-purple transition-all">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center mb-4 mx-auto">
+                  <BarChart3 className="h-6 w-6 text-white" />
+                </div>
+                <CardTitle className="text-xl text-white">Analytics Agent</CardTitle>
+              </CardHeader>
+              <CardContent className="text-gray-300 text-sm">
+                Analizza task, progetti e contenuti con RAG. Risponde in conversazione naturale alle tue domande.
+              </CardContent>
+            </Card>
+
+            {/* Automation Agent */}
+            <Card className="border-0 shadow-lg bg-white/5 dark:bg-gray-800/30 backdrop-blur-xl border-green-500/20 hover:shadow-glow-purple transition-all">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mb-4 mx-auto">
+                  <Zap className="h-6 w-6 text-white" />
+                </div>
+                <CardTitle className="text-xl text-white">Automation Agent</CardTitle>
+              </CardHeader>
+              <CardContent className="text-gray-300 text-sm">
+                Assegna task, ottimizza workflow, identifica dipendenze. Suggerisce azioni smart per il team.
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof Stats */}
+      <section className="py-12 px-4 border-t border-gray-800">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+                10,000+
+              </div>
+              <div className="text-gray-400 text-sm">
+                Task ottimizzati con AI
+              </div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+                5,000+
+              </div>
+              <div className="text-gray-400 text-sm">
+                Contenuti generati automaticamente
+              </div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-2">
+                2.5M+
+              </div>
+              <div className="text-gray-400 text-sm">
+                Token AI processati
               </div>
             </div>
           </div>
