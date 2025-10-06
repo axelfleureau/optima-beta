@@ -144,6 +144,8 @@ export class ContentAgentOrchestrator {
   private static async generateCopy(req: ContentCreationRequest, token: string): Promise<string> {
     console.log('✍️ Generating copy with GPT-4...')
     
+    const prompt = `Crea una caption ${req.contentType} per ${req.platform} sul tema: "${req.topic}". Cliente: ${req.clientName}. La caption deve essere coinvolgente, professionale e ottimizzata per ${req.platform}.`
+    
     const response = await fetch('/api/ai/caption', {
       method: 'POST',
       headers: { 
@@ -151,10 +153,10 @@ export class ContentAgentOrchestrator {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        topic: req.topic,
-        platform: req.platform,
-        contentType: req.contentType,
-        clientName: req.clientName
+        prompt: prompt,
+        userId: req.userId,
+        maxTokens: 500,
+        temperature: 0.8
       })
     })
     
@@ -164,7 +166,7 @@ export class ContentAgentOrchestrator {
     }
     
     const data = await response.json()
-    return data.caption || `Caption per ${req.topic}`
+    return data.text || `Caption per ${req.topic}`
   }
   
   private static async generateImage(req: ContentCreationRequest, token: string): Promise<string> {
