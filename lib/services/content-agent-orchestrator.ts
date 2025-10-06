@@ -1,4 +1,6 @@
 import { auth } from '@/lib/firebase'
+import { useOrchestrationStore } from '@/lib/stores/orchestration-store'
+import { ORCHESTRATION_MESSAGES, ORCHESTRATION_PROGRESS } from '@/lib/utils/orchestration-messages'
 
 export interface ContentCreationRequest {
   intent: string
@@ -30,25 +32,40 @@ export class ContentAgentOrchestrator {
   static async orchestrateContentCreation(req: ContentCreationRequest): Promise<OrchestrationResult> {
     console.log('🤖 Content Agent Orchestrator START:', req)
     
-    const token = await auth.currentUser?.getIdToken()
-    if (!token) {
-      throw new Error('User not authenticated')
-    }
+    const store = useOrchestrationStore.getState()
+    
+    try {
+      store.setStep('analyzing', ORCHESTRATION_MESSAGES.analyzing, ORCHESTRATION_PROGRESS.analyzing)
+      
+      const token = await auth.currentUser?.getIdToken()
+      if (!token) {
+        throw new Error('User not authenticated')
+      }
 
-    const task = await this.createTask(req, token)
-    console.log('✅ Task created:', task.id)
-    
-    const calendarEntry = await this.insertCalendarEntry(req, task.task.id, token)
-    console.log('✅ Calendar entry created:', calendarEntry.id)
-    
-    const tokenCost = this.calculateTokenCost(req.contentType)
-    console.log('💰 Token cost:', tokenCost)
-    
-    return {
-      task: task.task,
-      calendarEntry: calendarEntry.entry,
-      tokenCost,
-      canGenerate: true
+      store.setStep('creating_task', ORCHESTRATION_MESSAGES.creating_task, ORCHESTRATION_PROGRESS.creating_task)
+      const task = await this.createTask(req, token)
+      console.log('✅ Task created:', task.id)
+      
+      store.setStep('creating_calendar', ORCHESTRATION_MESSAGES.creating_calendar, ORCHESTRATION_PROGRESS.creating_calendar)
+      const calendarEntry = await this.insertCalendarEntry(req, task.task.id, token)
+      console.log('✅ Calendar entry created:', calendarEntry.id)
+      
+      const tokenCost = this.calculateTokenCost(req.contentType)
+      console.log('💰 Token cost:', tokenCost)
+      
+      store.setTokenCost(tokenCost.total)
+      store.setStep('completed', `Completato! (${tokenCost.total} token)`, 100)
+      
+      return {
+        task: task.task,
+        calendarEntry: calendarEntry.entry,
+        tokenCost,
+        canGenerate: true
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore'
+      store.setError(errorMessage)
+      throw error
     }
   }
   
@@ -122,23 +139,37 @@ export class ContentAgentOrchestrator {
   static async executeGeneration(req: ContentCreationRequest, calendarEntryId: string, taskId: string) {
     console.log('🎨 Starting content generation...', { contentType: req.contentType })
     
-    const token = await auth.currentUser?.getIdToken()
-    if (!token) {
-      throw new Error('User not authenticated')
-    }
+    const store = useOrchestrationStore.getState()
+    
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      if (!token) {
+        throw new Error('User not authenticated')
+      }
 
-    const copy = await this.generateCopy(req, token)
-    
-    let mediaUrl: string | null = null
-    if (req.contentType === 'post') {
-      mediaUrl = await this.generateImage(req, token)
-    } else {
-      mediaUrl = await this.generateVideo(req, token)
+      store.setStep('generating_copy', ORCHESTRATION_MESSAGES.generating_copy, ORCHESTRATION_PROGRESS.generating_copy)
+      const copy = await this.generateCopy(req, token)
+      
+      let mediaUrl: string | null = null
+      if (req.contentType === 'post') {
+        store.setStep('generating_image', ORCHESTRATION_MESSAGES.generating_image, ORCHESTRATION_PROGRESS.generating_image)
+        mediaUrl = await this.generateImage(req, token)
+      } else {
+        store.setStep('generating_video', ORCHESTRATION_MESSAGES.generating_video, ORCHESTRATION_PROGRESS.generating_video)
+        mediaUrl = await this.generateVideo(req, token)
+      }
+      
+      store.setStep('updating_content', ORCHESTRATION_MESSAGES.updating_content, ORCHESTRATION_PROGRESS.updating_content)
+      await this.updateCalendarWithMedia(calendarEntryId, taskId, copy, mediaUrl, token)
+      
+      store.setStep('completed', ORCHESTRATION_MESSAGES.completed, ORCHESTRATION_PROGRESS.completed)
+      
+      return { copy, mediaUrl }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore durante la generazione'
+      store.setError(errorMessage)
+      throw error
     }
-    
-    await this.updateCalendarWithMedia(calendarEntryId, taskId, copy, mediaUrl, token)
-    
-    return { copy, mediaUrl }
   }
   
   private static async generateCopy(req: ContentCreationRequest, token: string): Promise<string> {

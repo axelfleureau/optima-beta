@@ -179,7 +179,15 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-gray-200/30 dark:border-gray-700/30">
         <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
-          <div className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}>
+          <div 
+            className={`flex items-center ${isCollapsed ? "w-full justify-center cursor-pointer" : "gap-2"}`}
+            onMouseEnter={() => {
+              if (isCollapsed) {
+                const trigger = document.querySelector('[data-sidebar="trigger"]') as HTMLButtonElement;
+                trigger?.click();
+              }
+            }}
+          >
             <div className={`${isCollapsed ? "w-12 h-12" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0`}>
               <Image
                 src="/assets/logos/righello-logo.svg"
@@ -200,13 +208,13 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="p-6">
+      <SidebarContent className={isCollapsed ? "p-2" : "p-6"}>
         {/* Main menu section */}
         <div className="mb-4">
           {!isCollapsed && (
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-2">{menuLabel}</div>
           )}
-          <SidebarMenu>
+          <SidebarMenu className={isCollapsed ? "items-center" : ""}>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton 
@@ -214,7 +222,7 @@ export function AppSidebar() {
                   isActive={isActive(item.url)}
                   tooltip={isCollapsed ? item.title : undefined}
                 >
-                  <Link href={item.url} className="flex items-center gap-3">
+                  <Link href={item.url} className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
                     <item.icon className="w-5 h-5 flex-shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
                   </Link>
@@ -231,7 +239,7 @@ export function AppSidebar() {
             {!isCollapsed && (
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-2">AMMINISTRAZIONE</div>
             )}
-            <SidebarMenu>
+            <SidebarMenu className={isCollapsed ? "items-center" : ""}>
               {adminItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
@@ -239,7 +247,7 @@ export function AppSidebar() {
                     isActive={isActive(item.url)}
                     tooltip={isCollapsed ? item.title : undefined}
                   >
-                    <Link href={item.url} className="flex items-center gap-3">
+                    <Link href={item.url} className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
                       <item.icon className="w-5 h-5 flex-shrink-0" />
                       {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
                     </Link>
@@ -251,8 +259,8 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-gray-200/30 dark:border-gray-700/30 p-6">
-        <SidebarMenu>
+      <SidebarFooter className={`border-t border-gray-200/30 dark:border-gray-700/30 ${isCollapsed ? "p-2" : "p-6"}`}>
+        <SidebarMenu className={isCollapsed ? "items-center" : ""}>
           <SidebarMenuItem>
             <div
               className={`flex items-center text-sm text-gray-600 rounded-lg transition-colors ${
@@ -274,6 +282,7 @@ export function AppSidebar() {
             <SidebarMenuButton 
               onClick={() => signOut()}
               tooltip={isCollapsed ? "Logout" : undefined}
+              className={isCollapsed ? "justify-center" : ""}
             >
               <LogOut className="w-5 h-5 flex-shrink-0" />
               {!isCollapsed && <span className="font-medium">Logout</span>}
