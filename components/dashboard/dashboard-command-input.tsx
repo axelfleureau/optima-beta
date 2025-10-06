@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useDebouncedCallback } from "use-debounce"
 import { GlassCard } from "@/components/ui/glass-card"
 import { Button } from "@/components/ui/button"
 import { Sparkles, ArrowRight, Loader2 } from "lucide-react"
@@ -9,12 +10,16 @@ import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { useClients } from "@/hooks/use-clients"
 import { useUsers } from "@/hooks/use-users"
+import { useCommandContextStore } from "@/lib/stores/command-context-store"
 import { ContextGatheringDialog } from "@/components/content-agent/context-gathering-dialog"
 import { TokenConsentDialog } from "@/components/content-agent/token-consent-dialog"
 import { OrchestrationFeedback } from "@/components/command-bar/orchestration-feedback"
 import { ContentAgentOrchestrator, type OrchestrationResult } from "@/lib/services/content-agent-orchestrator"
 import { auth } from "@/lib/firebase"
 import type { CommandContext, NLPResponse } from "@/lib/types"
+import { parseDateExpression, formatDateForCommand } from "@/lib/utils/date-parser"
+import { format } from "date-fns"
+import { it } from "date-fns/locale"
 
 const placeholders = [
   "Cosa vuoi fare oggi?",
@@ -32,6 +37,8 @@ export function DashboardCommandInput() {
   const [currentIntent, setCurrentIntent] = useState<{ intent: string; entities: any } | null>(null)
   const [orchestrationResult, setOrchestrationResult] = useState<OrchestrationResult | null>(null)
   const [tokenConsentOpen, setTokenConsentOpen] = useState(false)
+  const [dateSuggestion, setDateSuggestion] = useState<Date | null>(null)
+  const [clientMatches, setClientMatches] = useState<string[]>([])
 
   const { userData } = useAuth()
   const { clients } = useClients()
@@ -47,6 +54,95 @@ export function DashboardCommandInput() {
     }
   }, [isFocused, input])
 
+  useEffect(() => {
+    const store = useCommandContextStore.getState()
+    const now = Date.now()
+    const CACHE_TTL = 5 * 60 * 1000
+    
+    if (clients && clients.length > 0) {
+      const shouldUpdateClients = !store.clients.length || 
+        (store.clientsLastFetched && now - store.clientsLastFetched > CACHE_TTL) ||
+        !store.clientsLastFetched
+      
+      if (shouldUpdateClients) {
+        store.setClients(clients)
+      }
+    }
+    
+    if (users && users.length > 0) {
+      const shouldUpdateUsers = !store.users.length || 
+        (store.usersLastFetched && now - store.usersLastFetched > CACHE_TTL) ||
+        !store.usersLastFetched
+      
+      if (shouldUpdateUsers) {
+        store.setUsers(users)
+      }
+    }
+    
+    if (clients?.length > 0 && users?.length > 0) {
+      store.setLoaded(true)
+    }
+  }, [clients, users])
+
+  const fuzzyMatchClients = useCallback((query: string) => {
+    const cached = useCommandContextStore.getState().clients
+    const availableClients = cached.length > 0 ? cached : (clients || [])
+    
+    if (!query || query.length < 2) return []
+    
+    const lower = query.toLowerCase()
+    
+    return availableClients
+      .filter(c => c.name.toLowerCase().includes(lower))
+      .slice(0, 5)
+      .map(c => c.name)
+  }, [clients])
+
+  const debouncedInputChange = useDebouncedCallback(
+    (value: string) => {
+      if (!value || value.trim().length === 0) {
+        setClientMatches([])
+        setDateSuggestion(null)
+        return
+      }
+      
+      const parsedDate = parseDateExpression(value)
+      if (parsedDate) {
+        setDateSuggestion(parsedDate)
+        console.log('📅 Parsed date:', formatDateForCommand(parsedDate))
+      } else {
+        setDateSuggestion(null)
+      }
+      
+      const matches = fuzzyMatchClients(value)
+      if (matches.length > 0) {
+        setClientMatches(matches)
+        console.log('👥 Client matches:', matches)
+      } else {
+        setClientMatches([])
+      }
+    },
+    150
+  )
+
+  const clearAutocomplete = useCallback(() => {
+    setClientMatches([])
+    setDateSuggestion(null)
+    debouncedInputChange.cancel()
+  }, [debouncedInputChange])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setInput(newValue)
+    
+    if (!newValue || newValue.trim().length === 0) {
+      clearAutocomplete()
+      return
+    }
+    
+    debouncedInputChange(newValue)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -59,14 +155,20 @@ export function DashboardCommandInput() {
       return
     }
 
+    const originalInput = input
+    
+    debouncedInputChange.cancel()
+    
     setIsProcessing(true)
     
+    const cachedStore = useCommandContextStore.getState()
     const context: CommandContext = {
       tenantId: userData.tenantId,
       userId: userData.id,
       userRole: userData.role,
-      availableClients: clients || [],
-      availableUsers: users || [],
+      availableClients: cachedStore.clients.length > 0 ? cachedStore.clients : (clients || []),
+      availableUsers: cachedStore.users.length > 0 ? cachedStore.users : (users || []),
+      ...(dateSuggestion && { suggestedDate: formatDateForCommand(dateSuggestion) })
     }
 
     console.log("📤 Dashboard Command Input:", input)
@@ -98,6 +200,9 @@ export function DashboardCommandInput() {
            nlpResponse.entities?.contentType === "reel" || 
            nlpResponse.entities?.contentType === "video")
 
+        const isHighConfidence = nlpResponse.confidence >= 0.95
+        const hasAllParams = !needsClient && !needsDate && !needsPlatform
+
         if (needsClient || needsDate || needsPlatform) {
           setCurrentIntent({ intent: nlpResponse.intent, entities: nlpResponse.entities })
           setGatheringOpen(true)
@@ -105,26 +210,40 @@ export function DashboardCommandInput() {
             description: "Compila i dettagli nel dialog",
           })
         } else {
-          // ✅ FIX: HAS ALL PARAMS → TRIGGER ORCHESTRATION DIRECTLY
           const user = auth.currentUser
           if (!user) {
             toast.error("Utente non autenticato")
+            setIsProcessing(false)
             return
           }
 
-          // Resolve client from clientName
-          const client = clients?.find(c => 
-            c.name.toLowerCase() === nlpResponse.entities.clientName.toLowerCase()
+          const clientName = nlpResponse.entities.clientName
+          
+          let availableClients = useCommandContextStore.getState().clients
+          
+          if (!availableClients || availableClients.length === 0) {
+            availableClients = clients || []
+          }
+          
+          const client = availableClients.find(c => 
+            c.name.toLowerCase().includes(clientName?.toLowerCase() || '')
           )
           
           if (!client) {
-            toast.error("Cliente non trovato", {
-              description: `"${nlpResponse.entities.clientName}" non esiste nel workspace`
+            toast.error(`Cliente "${clientName}" non trovato`, {
+              description: "Cliente non trovato nel workspace"
             })
+            setIsProcessing(false)
             return
           }
+
+          if (isHighConfidence && hasAllParams) {
+            console.log("🚀 Auto-submit: High confidence + all params present")
+            toast.success("Comando riconosciuto con alta confidenza!", {
+              description: "Procedo automaticamente..."
+            })
+          }
           
-          // Call orchestrator with complete context
           try {
             const result = await ContentAgentOrchestrator.orchestrateContentCreation({
               intent: nlpResponse.intent,
@@ -138,10 +257,8 @@ export function DashboardCommandInput() {
               tenantId: userData.tenantId
             })
             
-            // Store intent for token consent dialog
             setCurrentIntent({ intent: nlpResponse.intent, entities: nlpResponse.entities })
             
-            // Show token consent dialog
             setOrchestrationResult(result)
             setTokenConsentOpen(true)
           } catch (error: any) {
@@ -159,8 +276,10 @@ export function DashboardCommandInput() {
       }
 
       setInput("")
+      clearAutocomplete()
     } catch (error: any) {
       console.error("❌ NLP API error:", error)
+      setInput(originalInput)
       toast.error("Errore nell'elaborazione del comando", {
         description: error.message || "Riprova",
       })
@@ -170,6 +289,34 @@ export function DashboardCommandInput() {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Tab') {
+      const hasClientMatches = clientMatches.length > 0
+      
+      if (!hasClientMatches) {
+        return
+      }
+      
+      e.preventDefault()
+      debouncedInputChange.cancel()
+      setInput(clientMatches[0])
+      clearAutocomplete()
+      return
+    }
+
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault()
+      handleSubmit(e)
+      return
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault()
+      setInput("")
+      clearAutocomplete()
+      ;(e.target as HTMLInputElement).blur()
+      return
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSubmit(e)
@@ -207,9 +354,14 @@ export function DashboardCommandInput() {
         variant="elevated"
         glow="subtle"
         padding="none"
-        className="w-full max-w-4xl mx-auto"
+        className="w-full max-w-4xl mx-auto relative"
       >
         <form onSubmit={handleSubmit} className="relative">
+          {isProcessing && (
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-xl flex items-center justify-center z-50">
+              <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+            </div>
+          )}
           <div className="flex items-center gap-3 p-4 md:p-5">
             <div className="flex-shrink-0 p-2.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl shadow-lg">
               <Sparkles className="h-5 w-5 text-white" />
@@ -219,7 +371,7 @@ export function DashboardCommandInput() {
               <input
                 type="text"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleInputChange}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 onKeyDown={handleKeyDown}
@@ -264,6 +416,37 @@ export function DashboardCommandInput() {
         </form>
       </GlassCard>
 
+      {/* Smart Autocomplete Suggestions */}
+      {(clientMatches.length > 0 || dateSuggestion) && (
+        <div className="mt-3 space-y-2">
+          {clientMatches.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center justify-center">
+              <span className="text-xs text-muted-foreground">Clienti:</span>
+              {clientMatches.map((name, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setInput(prev => prev + (prev.endsWith(' ') ? '' : ' ') + name)
+                  }}
+                  className="px-2 py-1 text-xs bg-purple-500/10 text-purple-400 rounded-md hover:bg-purple-500/20 transition-colors"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+          
+          {dateSuggestion && (
+            <div className="flex items-center gap-2 justify-center">
+              <span className="text-xs text-muted-foreground">Data rilevata:</span>
+              <span className="px-2 py-1 text-xs bg-blue-500/10 text-blue-400 rounded-md">
+                {format(dateSuggestion, 'dd MMM yyyy', { locale: it })}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Quick Suggestions */}
       <div className="mt-4 flex flex-wrap gap-2 justify-center">
         <p className="w-full text-center text-sm text-gray-500 dark:text-gray-400 mb-2">
@@ -275,7 +458,9 @@ export function DashboardCommandInput() {
             variant="ghost"
             size="sm"
             onClick={() => {
+              debouncedInputChange.cancel()
               setInput(suggestion.value)
+              clearAutocomplete()
               setTimeout(() => {
                 const form = document.querySelector('form') as HTMLFormElement
                 form?.requestSubmit()
@@ -286,6 +471,19 @@ export function DashboardCommandInput() {
             {suggestion.label}
           </Button>
         ))}
+      </div>
+
+      {/* Keyboard Shortcuts Hint */}
+      <div className="mt-3 text-center">
+        <p className="text-xs text-muted-foreground">
+          {clientMatches.length > 0 && (
+            <>
+              <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Tab</kbd> accetta cliente • 
+            </>
+          )}
+          <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">⌘ Enter</kbd> invia • 
+          <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> cancella
+        </p>
       </div>
 
       <OrchestrationFeedback />
