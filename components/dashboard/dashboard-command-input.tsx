@@ -11,6 +11,7 @@ import { useClients } from "@/hooks/use-clients"
 import { useUsers } from "@/hooks/use-users"
 import { ContextGatheringDialog } from "@/components/content-agent/context-gathering-dialog"
 import { TokenConsentDialog } from "@/components/content-agent/token-consent-dialog"
+import { OrchestrationFeedback } from "@/components/command-bar/orchestration-feedback"
 import { ContentAgentOrchestrator, type OrchestrationResult } from "@/lib/services/content-agent-orchestrator"
 import { auth } from "@/lib/firebase"
 import type { CommandContext, NLPResponse } from "@/lib/types"
@@ -286,6 +287,8 @@ export function DashboardCommandInput() {
           </Button>
         ))}
       </div>
+
+      <OrchestrationFeedback />
 
       <ContextGatheringDialog
         open={gatheringOpen}
