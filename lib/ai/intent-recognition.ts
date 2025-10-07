@@ -20,6 +20,8 @@ const IntentSchema = z.object({
     "CREATE_CONTENT_REEL",
     "CREATE_CONTENT_VIDEO",
     "CREATE_CONTENT_BATCH",
+    "TASK_REFINEMENT",
+    "GENERATE_DELIVERABLE",
     "UNKNOWN",
   ]),
   confidence: z.number().min(0).max(1),
@@ -56,6 +58,8 @@ Analizza i comandi dell'utente ed estrai:
    - CREATE_CONTENT_REEL: Creare reel/short video (Instagram Reels, TikTok, YouTube Shorts)
    - CREATE_CONTENT_VIDEO: Creare video lungo (YouTube, Facebook Video)
    - CREATE_CONTENT_BATCH: Creare batch di contenuti multipli
+   - TASK_REFINEMENT: Raffinare una task con Technical Architect
+   - GENERATE_DELIVERABLE: Generare deliverable (copy o visual) per una task
    - UNKNOWN: Non riconosciuto
 
 2. **Entities** (parametri estratti dal messaggio):
@@ -76,6 +80,15 @@ Analizza i comandi dell'utente ed estrai:
    - topic: argomento/tema del contenuto
    - publishDate: data di pubblicazione (formato ISO: YYYY-MM-DD)
    - quantity: numero di contenuti da creare (per batch)
+   
+   Per TASK_REFINEMENT intent:
+   - task_name: nome/descrizione della task da raffinare
+   - task_id: ID della task (se noto)
+   
+   Per GENERATE_DELIVERABLE intent:
+   - task_name: nome/descrizione della task
+   - task_id: ID della task (se noto)
+   - deliverable_type: "copy" | "visual" (tipo di deliverable da generare)
    
    Per altri intents:
    - route: percorso di navigazione
@@ -104,6 +117,13 @@ Esempi CONTENT CREATION:
 - "Pianifica TikTok per domani su nuovo servizio" → CREATE_CONTENT_REEL, entities: {contentType: "reel", platform: "tiktok", topic: "nuovo servizio", publishDate: "2025-10-07"}
 - "Fai 3 post social per cliente X questa settimana" → CREATE_CONTENT_BATCH, entities: {contentType: "post", clientName: "cliente X", quantity: 3}
 - "Crea video YouTube per lancio prodotto" → CREATE_CONTENT_VIDEO, entities: {contentType: "video", platform: "youtube", topic: "lancio prodotto"}
+
+Esempi TASK REFINEMENT & DELIVERABLE:
+- "Raffina la task del post Instagram" → TASK_REFINEMENT, entities: {task_name: "post Instagram"}
+- "Raffina task landing page" → TASK_REFINEMENT, entities: {task_name: "landing page"}
+- "Genera copy per la task newsletter" → GENERATE_DELIVERABLE, entities: {task_name: "newsletter", deliverable_type: "copy"}
+- "Genera visual per task social media" → GENERATE_DELIVERABLE, entities: {task_name: "social media", deliverable_type: "visual"}
+- "Crea immagine per task banner" → GENERATE_DELIVERABLE, entities: {task_name: "banner", deliverable_type: "visual"}
 
 Altri esempi:
 - "vai al calendario" → NAVIGATE, entities: {route: "/calendario-editoriale"}

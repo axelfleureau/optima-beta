@@ -55,6 +55,7 @@ import { useUsers } from "@/hooks/use-users"
 import { TaskDetailDialog } from "@/components/task-detail-dialog"
 import { UserAssignmentSelect } from "@/components/ui/user-assignment-select"
 import { useAutoGenStore } from "@/lib/stores/auto-gen-store"
+import { useWorkspaceNav } from "@/lib/stores/workspace-nav-store"
 import type { Task, Client } from "@/lib/types"
 
 const defaultColumns = [
@@ -172,6 +173,7 @@ export function DynamicWorkspace() {
   const { toast } = useToast()
   const { addNotification } = useNotifications()
   const { users } = useUsers()
+  const { highlightedTaskId, setHighlight } = useWorkspaceNav()
 
   // Client form state
   const [clientForm, setClientForm] = useState({
@@ -777,15 +779,21 @@ export function DynamicWorkspace() {
                               .filter((task) => task.columnId === column.id)
                               .map((task, index) => (
                                 <Draggable key={task.id} draggableId={task.id} index={index}>
-                                  {(provided, snapshot) => (
+                                  {(provided, snapshot) => {
+                                    const isHighlighted = highlightedTaskId === task.id
+                                    
+                                    return (
                                     <Card
                                       ref={provided.innerRef}
                                       {...provided.draggableProps}
                                       {...provided.dragHandleProps}
-                                      className={`p-4 cursor-pointer transition-all duration-200 border-l-4 ${getPriorityColor(task.priority)} ${
+                                      id={`task-${task.id}`}
+                                      className={`p-4 cursor-pointer transition-all duration-300 border-l-4 ${getPriorityColor(task.priority)} ${
                                         snapshot.isDragging
                                           ? "shadow-2xl rotate-2 z-50 scale-105"
-                                          : "hover:shadow-lg hover:scale-102"
+                                          : isHighlighted
+                                            ? "shadow-xl shadow-purple-500/50 border-purple-500 bg-purple-500/10 dark:bg-purple-500/20 scale-105"
+                                            : "hover:shadow-lg hover:scale-102"
                                       } bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50`}
                                       onClick={() => handleTaskClick(task)}
                                     >
@@ -890,7 +898,8 @@ export function DynamicWorkspace() {
                                         </div>
                                       </div>
                                     </Card>
-                                  )}
+                                    )
+                                  }}
                                 </Draggable>
                               ))}
                             {provided.placeholder}

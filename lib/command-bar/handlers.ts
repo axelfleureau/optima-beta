@@ -25,6 +25,10 @@ export async function executeIntent(
         return await handleShowAnalytics(context)
       case "SEARCH_GLOBAL":
         return await handleSearchGlobal(entities, context)
+      case "TASK_REFINEMENT":
+        return await handleTaskRefinement(entities, context)
+      case "GENERATE_DELIVERABLE":
+        return await handleGenerateDeliverable(entities, context)
       default:
         return {
           success: false,
@@ -350,6 +354,97 @@ async function handleSearchGlobal(
     return {
       success: false,
       message: "Errore nella ricerca",
+      error: error.message,
+    }
+  }
+}
+
+async function handleTaskRefinement(
+  entities: Record<string, any>,
+  context: CommandContext
+): Promise<CommandExecutionResult> {
+  try {
+    const { findTaskByName } = await import("@/lib/utils/task-matcher")
+    const { useWorkspaceNav } = await import("@/lib/stores/workspace-nav-store")
+    
+    let taskId = entities.task_id
+    
+    if (!taskId && entities.task_name) {
+      taskId = await findTaskByName(entities.task_name, context.tenantId)
+    }
+    
+    if (!taskId) {
+      return {
+        success: false,
+        message: "Task non trovata",
+        error: "Impossibile trovare la task specificata",
+      }
+    }
+    
+    const { navigateToTask } = useWorkspaceNav.getState()
+    navigateToTask(taskId, 'refine')
+    
+    if (typeof window !== "undefined") {
+      window.location.href = `/workspace?taskId=${taskId}&action=refine`
+    }
+    
+    return {
+      success: true,
+      message: "Apertura workspace per raffinare la task...",
+      data: { taskId, action: 'refine' },
+    }
+  } catch (error: any) {
+    console.error("Task refinement error:", error)
+    return {
+      success: false,
+      message: "Errore nell'apertura del workspace",
+      error: error.message,
+    }
+  }
+}
+
+async function handleGenerateDeliverable(
+  entities: Record<string, any>,
+  context: CommandContext
+): Promise<CommandExecutionResult> {
+  try {
+    const { findTaskByName } = await import("@/lib/utils/task-matcher")
+    const { useWorkspaceNav } = await import("@/lib/stores/workspace-nav-store")
+    
+    let taskId = entities.task_id
+    
+    if (!taskId && entities.task_name) {
+      taskId = await findTaskByName(entities.task_name, context.tenantId)
+    }
+    
+    if (!taskId) {
+      return {
+        success: false,
+        message: "Task non trovata",
+        error: "Impossibile trovare la task specificata",
+      }
+    }
+    
+    const deliverableType = entities.deliverable_type || 'copy'
+    const action = deliverableType === 'visual' ? 'generate-visual' : 'generate-copy'
+    
+    const { navigateToTask } = useWorkspaceNav.getState()
+    navigateToTask(taskId, action)
+    
+    if (typeof window !== "undefined") {
+      window.location.href = `/workspace?taskId=${taskId}&action=${action}`
+    }
+    
+    return {
+      success: true,
+      message: `Generazione ${deliverableType === 'visual' ? 'visual' : 'copy'} per la task...`,
+      data: { taskId, action },
+    }
+  } catch (error: any) {
+    console.error("Generate deliverable error:", error)
+    return {
+      success: false,
+      message: "Errore nella generazione del deliverable",
       error: error.message,
     }
   }
