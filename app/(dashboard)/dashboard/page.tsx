@@ -18,6 +18,7 @@ import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useAuth } from "@/lib/auth-context"
 import { TokenUsageWidget } from "@/components/dashboard/token-usage-widget"
 import { DashboardCommandInput } from "@/components/dashboard/dashboard-command-input"
+import { TechnicalArchitectDialog } from "@/components/architect/technical-architect-dialog"
 
 export default function Dashboard() {
   const { userData } = useAuth()
@@ -343,6 +344,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      
+      {/* Technical Architect Dialog */}
+      <TechnicalArchitectDialog />
     </div>
   )
 }

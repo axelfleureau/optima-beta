@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useClients } from "@/hooks/use-clients"
 import { useUsers } from "@/hooks/use-users"
 import { useCommandContextStore } from "@/lib/stores/command-context-store"
+import { useArchitectStore } from "@/lib/stores/architect-store"
 import { ContextGatheringDialog } from "@/components/content-agent/context-gathering-dialog"
 import { TokenConsentDialog } from "@/components/content-agent/token-consent-dialog"
 import { OrchestrationFeedback } from "@/components/command-bar/orchestration-feedback"
@@ -191,6 +192,45 @@ export function DashboardCommandInput() {
       console.log("🎯 Intent:", nlpResponse.intent)
       console.log("📊 Entities:", nlpResponse.entities)
       console.log("💯 Confidence:", nlpResponse.confidence)
+
+      // Check if task is complex and should trigger Technical Architect
+      const complexKeywords = ['sito', 'website', 'landing', 'campagna', 'campaign', 'rebranding', 'brand', 'app', 'applicazione', 'piattaforma', 'sistema']
+      const hasComplexKeywords = complexKeywords.some(kw => input.toLowerCase().includes(kw))
+      
+      // Multi-deliverable detection
+      const deliverableKeywords = ['deliverable', 'fase', 'step', 'passaggio', 'componente']
+      const hasMultipleDeliverables = 
+        (nlpResponse.entities?.deliverables && Array.isArray(nlpResponse.entities.deliverables) && nlpResponse.entities.deliverables.length > 1) ||
+        (input.match(/e\s+(anche|poi|inoltre|più)/gi)?.length || 0) > 0 ||
+        deliverableKeywords.some(kw => input.toLowerCase().includes(kw))
+      
+      const isComplexTask = hasComplexKeywords || hasMultipleDeliverables
+      
+      if (isComplexTask && nlpResponse.intent === 'CREATE_TASK') {
+        console.log('🎯 Complex task detected, triggering Technical Architect')
+        
+        const { openArchitect } = useArchitectStore.getState()
+        
+        // Extract client info if available
+        const clientName = nlpResponse.entities?.clientName
+        let clientId = null
+        
+        if (clientName) {
+          const cachedStore = useCommandContextStore.getState()
+          const availableClients = cachedStore.clients.length > 0 ? cachedStore.clients : (clients || [])
+          const client = availableClients.find(c => 
+            c.name.toLowerCase().includes(clientName?.toLowerCase() || '')
+          )
+          clientId = client?.id || null
+        }
+        
+        await openArchitect(input, clientId || undefined, clientName || undefined, { ...context, entities: nlpResponse.entities })
+        
+        setInput("")
+        clearAutocomplete()
+        setIsProcessing(false)
+        return
+      }
 
       if (nlpResponse.intent.startsWith("CREATE_CONTENT_")) {
         const needsClient = !nlpResponse.entities?.clientName && !nlpResponse.entities?.clientId
