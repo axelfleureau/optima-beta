@@ -2,6 +2,7 @@
 
 import { Bot, User } from "lucide-react"
 import { cn } from "@/lib/utils"
+import DOMPurify from 'dompurify'
 
 export interface ChatMessageProps {
   role: 'user' | 'assistant'
@@ -75,6 +76,18 @@ export function ChatMessage({ role, content, timestamp, className }: ChatMessage
   )
 }
 
+// Sanitize HTML to prevent XSS attacks
+function sanitizeHTML(html: string): string {
+  if (typeof window === 'undefined') {
+    // Server-side: return plain text (strip all HTML tags)
+    return html.replace(/<[^>]*>/g, '')
+  }
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['strong', 'em', 'code', 'pre', 'br', 'p', 'ul', 'li'],
+    ALLOWED_ATTR: []
+  })
+}
+
 // Simple markdown formatter for AI responses
 function FormattedMessage({ content }: { content: string }) {
   // Format bold **text**
@@ -91,7 +104,10 @@ function FormattedMessage({ content }: { content: string }) {
   // Format numbered lists 1. item
   formatted = formatted.replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
   
-  return <div dangerouslySetInnerHTML={{ __html: formatted }} />
+  // Sanitize the formatted HTML before rendering
+  const sanitized = sanitizeHTML(formatted)
+  
+  return <div dangerouslySetInnerHTML={{ __html: sanitized }} />
 }
 
 // Typing Indicator Component

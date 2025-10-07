@@ -12,6 +12,7 @@ import { Loader2, Send, Bot, User, MessageSquare, Sparkles, Copy, CheckCircle2, 
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/lib/chat-service"
+import DOMPurify from 'dompurify'
 
 interface Message {
   id: string
@@ -391,6 +392,18 @@ export function AIChat({
     }
   }
 
+  // Sanitize HTML to prevent XSS attacks
+  const sanitizeHTML = (html: string): string => {
+    if (typeof window === 'undefined') {
+      // Server-side: return plain text (strip all HTML tags)
+      return html.replace(/<[^>]*>/g, '')
+    }
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['strong', 'em', 'code', 'pre', 'br', 'p'],
+      ALLOWED_ATTR: []
+    })
+  }
+
   const formatMessage = (content: string) => {
     if (!content || content.trim() === "") {
       return <span className="text-gray-400 italic">Contenuto vuoto</span>
@@ -455,7 +468,7 @@ export function AIChat({
             <div className="w-1.5 h-1.5 bg-pink-500 rounded-full mt-2 flex-shrink-0"></div>
             <span
               className="text-gray-700 dark:text-gray-300 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: processedText }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
         )
@@ -474,7 +487,7 @@ export function AIChat({
             <div className="w-1.5 h-1.5 bg-rose-500 rounded-full mt-2 flex-shrink-0"></div>
             <span
               className="text-gray-700 dark:text-gray-300 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: processedText }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
         )
@@ -496,7 +509,7 @@ export function AIChat({
             </div>
             <span
               className="text-gray-700 dark:text-gray-300 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: processedText }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
         )
@@ -528,7 +541,7 @@ export function AIChat({
 
         elements.push(
           <p key={i} className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed">
-            <span dangerouslySetInnerHTML={{ __html: processedLine }} />
+            <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedLine) }} />
           </p>,
         )
         continue
@@ -541,7 +554,7 @@ export function AIChat({
 
       elements.push(
         <p key={i} className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed">
-          <span dangerouslySetInnerHTML={{ __html: processedLine }} />
+          <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedLine) }} />
         </p>,
       )
     }
