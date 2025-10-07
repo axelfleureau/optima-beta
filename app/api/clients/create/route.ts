@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { verifyFirebaseToken, getUserData, adminAuth, adminDb } from "@/lib/firebase-admin"
 import { FieldValue } from "firebase-admin/firestore"
+
+const createClientSchema = z.object({
+  name: z.string().min(1, 'Nome richiesto').max(100),
+  email: z.string().email('Email non valida'),
+  phone: z.string().optional(),
+  company: z.string().max(200).optional(),
+  industry: z.string().optional(),
+  contactEmail: z.string().email('Email di contatto non valida').optional().or(z.literal('')),
+  contactPhone: z.string().optional(),
+  address: z.string().optional(),
+  status: z.string().min(1, 'Stato richiesto')
+})
 
 export async function POST(request: NextRequest) {
   let decodedToken: any = null
@@ -21,6 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    const validatedData = createClientSchema.parse(body)
     const {
       name,
       email,
@@ -31,32 +45,7 @@ export async function POST(request: NextRequest) {
       contactPhone,
       address,
       status,
-    } = body
-
-    // Validate required fields
-    if (!name || !email || !status) {
-      return NextResponse.json(
-        { error: "Nome, email e stato sono obbligatori" },
-        { status: 400 }
-      )
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "Formato email non valido" },
-        { status: 400 }
-      )
-    }
-
-    // Validate contactEmail if provided
-    if (contactEmail && contactEmail.trim() !== "" && !emailRegex.test(contactEmail)) {
-      return NextResponse.json(
-        { error: "Formato email di contatto non valido" },
-        { status: 400 }
-      )
-    }
+    } = validatedData
 
     if (!adminDb) {
       return NextResponse.json(
@@ -109,6 +98,19 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { 
+          error: 'Dati non validi', 
+          details: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        },
+        { status: 400 }
+      )
+    }
+
     console.error("Error creating client:", error)
     return NextResponse.json(
       { error: "Errore interno del server" },

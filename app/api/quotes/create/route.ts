@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
 import { db } from "@/lib/firebase"
 import { collection, addDoc, Timestamp } from "firebase/firestore"
+
+const quoteItemSchema = z.object({
+  name: z.string().min(1, 'Nome richiesto'),
+  description: z.string().optional(),
+  quantity: z.number().int().positive('Quantità deve essere positiva'),
+  unitPrice: z.number().positive('Prezzo deve essere positivo'),
+  total: z.number().positive()
+})
+
+const createQuoteSchema = z.object({
+  title: z.string().min(1, 'Titolo richiesto').max(200),
+  description: z.string().optional(),
+  clientId: z.string().optional(),
+  clientName: z.string().optional(),
+  status: z.enum(['draft', 'sent', 'approved', 'rejected']).optional(),
+  currency: z.string().optional(),
+  items: z.array(quoteItemSchema).min(1, 'Almeno un item richiesto'),
+  total: z.number().positive('Importo deve essere positivo'),
+  validUntil: z.string().optional()
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,14 +65,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { title, description, clientId, clientName, status, currency, items, total, validUntil } = body
-
-    if (!title || !items || !total) {
-      return NextResponse.json(
-        { error: "Missing required fields: title, items, total" },
-        { status: 400 }
-      )
-    }
+    const validatedData = createQuoteSchema.parse(body)
+    const { title, description, clientId, clientName, status, currency, items, total, validUntil } = validatedData
 
     // SECURITY: Use only server-verified tenantId and userId, ignore any client-sent identifiers
     const now = Timestamp.now()
@@ -81,10 +96,23 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { 
+          error: 'Dati non validi', 
+          details: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        },
+        { status: 400 }
+      )
+    }
+
     console.error("❌ Quote creation API error:", error)
     return NextResponse.json(
       { 
-        error: "Failed to create quote",
+        error: "Errore durante la creazione del preventivo",
         details: error instanceof Error ? error.message : "Unknown error"
       },
       { status: 500 }

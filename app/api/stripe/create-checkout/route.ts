@@ -12,12 +12,19 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { stripeService } from "@/lib/services/stripe.service"
 import { createPayment } from "@/collections/payments"
 import { verifyFirebaseToken, adminDb } from "@/lib/firebase-admin"
 import type { CreatePaymentIntentRequest, SecurePaymentContext } from "@/types/payment"
 import type { Quote } from "@/hooks/use-quotes"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+
+const createCheckoutSchema = z.object({
+  quoteId: z.string().min(1, 'Quote ID richiesto'),
+  clientEmail: z.string().email('Email non valida').optional(),
+  clientName: z.string().min(1).optional()
+})
 
 // SECURITY: Verify Firebase auth token using Firebase Admin SDK
 async function verifyAuthToken(request: NextRequest) {
@@ -167,25 +174,11 @@ export async function POST(request: NextRequest) {
   console.log("🔄 Processing Stripe checkout creation request")
 
   try {
-    // Parse request body
-    let requestData: CreatePaymentIntentRequest
-    try {
-      requestData = await request.json()
-    } catch (error) {
-      console.error("Invalid JSON in request body:", error)
-      return NextResponse.json(
-        { success: false, error: "Invalid JSON in request body" },
-        { status: 400 }
-      )
-    }
-
-    // Validate required fields
-    if (!requestData.quoteId) {
-      return NextResponse.json(
-        { success: false, error: "quoteId is required" },
-        { status: 400 }
-      )
-    }
+    // Parse and validate request body with Zod
+    const body = await request.json()
+    const validatedData = createCheckoutSchema.parse(body)
+    
+    const requestData = validatedData as CreatePaymentIntentRequest
 
     // SECURITY: Verify authentication with detailed error handling
     const authUser = await verifyAuthToken(request)
@@ -304,11 +297,25 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Dati non validi', 
+          details: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        },
+        { status: 400 }
+      )
+    }
+
     console.error("❌ Error creating checkout session:", error)
     return NextResponse.json(
       { 
         success: false, 
-        error: "Internal server error",
+        error: "Errore interno del server",
         details: error instanceof Error ? error.message : "Unknown error"
       },
       { status: 500 }
