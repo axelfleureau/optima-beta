@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { adminAuth, adminDb } from "@/lib/firebase-admin"
 import { getPlanById } from "@/lib/constants/token-plans"
 import Stripe from "stripe"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-08-27.basil"
@@ -42,6 +43,11 @@ async function getUserFromToken(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimitResult = await rateLimit(req, "STRIPE")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const user = await getUserFromToken(req)
     if (!user) {

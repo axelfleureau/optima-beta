@@ -3,6 +3,7 @@ import { streamText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { getOrganizationAdminId, logTokenUsage, estimateTokens } from "@/lib/token-service"
 import { createChatSession, saveChatMessage, getChatHistory } from "@/lib/chat-service"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 const SYSTEM_PROMPT = `Sei un assistente marketing esperto per Optima, una piattaforma di marketing digitale.
 Aiuti gli utenti con:
@@ -19,6 +20,11 @@ Usa un tono amichevole ma competente.
 Se l'utente fa riferimento a conversazioni precedenti, usa il contesto fornito per dare risposte coerenti e personalizzate.`
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const { message, userId, sessionId } = await request.json()
 

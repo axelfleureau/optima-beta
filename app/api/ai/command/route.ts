@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server"
 import { recognizeIntent } from "@/lib/ai/intent-recognition"
 import type { CommandContext } from "@/lib/types"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const body = await request.json()
     const { message, context } = body as { message: string; context: CommandContext }

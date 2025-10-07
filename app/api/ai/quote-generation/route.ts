@@ -4,8 +4,14 @@ import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
 import { db } from "@/lib/firebase"
 import { collection, query, where, getDocs } from "firebase/firestore"
 import type { Client } from "@/lib/types"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     // Get Firebase auth token from cookies
     const authToken = request.cookies.get("firebase-auth-token")?.value

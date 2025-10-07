@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken } from "@/lib/firebase-admin"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AUTH")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const body = await request.json()
     const { token } = body

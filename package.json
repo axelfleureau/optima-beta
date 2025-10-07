@@ -44,6 +44,8 @@
     "@reduxjs/toolkit": "latest",
     "@stripe/stripe-js": "^7.9.0",
     "@types/nodemailer": "^7.0.2",
+    "@upstash/ratelimit": "^2.0.6",
+    "@upstash/redis": "^1.35.5",
     "ai": "latest",
     "autoprefixer": "^10.4.20",
     "child_process": "latest",

@@ -1,7 +1,13 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const { content, templateId, templateName, userId } = await request.json()
 

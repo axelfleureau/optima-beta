@@ -3,6 +3,7 @@ import { generateObject } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 import { getOrganizationAdminId, logTokenUsage, estimateTokens } from "@/lib/token-service"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 const PhaseSchema = z.object({
   id: z.string(),
@@ -77,6 +78,11 @@ REGOLE OUTPUT:
 TONO: Professionale ma accessibile. Educa, non intimidire.`
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const { taskDescription, clientId, context, userId } = await request.json()
 

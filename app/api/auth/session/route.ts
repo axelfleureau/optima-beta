@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AUTH")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const token = request.cookies.get("firebase-auth-token")?.value
 

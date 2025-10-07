@@ -17,6 +17,7 @@ import { createPayment } from "@/collections/payments"
 import { verifyFirebaseToken, adminDb } from "@/lib/firebase-admin"
 import type { CreatePaymentIntentRequest, SecurePaymentContext } from "@/types/payment"
 import type { Quote } from "@/hooks/use-quotes"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 // SECURITY: Verify Firebase auth token using Firebase Admin SDK
 async function verifyAuthToken(request: NextRequest) {
@@ -153,6 +154,11 @@ async function getQuoteSecurely(quoteId: string, tenantId: string): Promise<Quot
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "STRIPE")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   console.log("🔄 Processing Stripe checkout creation request")
 
   try {

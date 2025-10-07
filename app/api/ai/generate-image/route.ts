@@ -6,8 +6,14 @@ import { generateImageWithDalle, getPlatformSize } from '@/lib/ai/dalle-service'
 import { estimateImageCost } from '@/lib/ai/cost-calculator'
 import { addDoc, collection } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     // 1. GET AUTH TOKEN FROM HEADERS
     const authHeader = request.headers.get('Authorization')

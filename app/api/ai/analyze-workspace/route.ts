@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase-admin'
 import { analyzeWorkspaceCompleteness } from '@/lib/ai/completeness-scorer'
 import { analyzeTaskDependencies } from '@/lib/ai/dependency-detector'
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit'
 
 async function getUserFromToken(req: NextRequest) {
   const authHeader = req.headers.get("Authorization")
@@ -26,6 +27,11 @@ async function getUserFromToken(req: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const user = await getUserFromToken(request)
     if (!user) {

@@ -1,8 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { optimizeTasksWithAI } from "@/lib/ai-task-optimizer"
 import type { TaskOptimizationRequest } from "@/lib/types"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const body = await request.json()
     const { tasks, columnId, optimizationType, userId } = body as TaskOptimizationRequest & { userId: string }

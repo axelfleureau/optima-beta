@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
-export async function POST() {
+export async function POST(request: Request) {
+  const rateLimitResult = await rateLimit(request, "AUTH")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const response = NextResponse.json({ success: true })
     

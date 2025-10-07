@@ -4,6 +4,7 @@ import { openai } from "@ai-sdk/openai"
 import { estimateTokens } from "@/lib/token-service"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, increment } from "firebase/firestore"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 // 🔧 NUOVA FUNZIONE: Trova l'ID documento Firebase basandosi su username/email
 async function findUserDocumentId(identifier: string): Promise<string | null> {
@@ -231,6 +232,11 @@ function getOpenAIClient() {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const { templateId, formData, userId } = await request.json()
 

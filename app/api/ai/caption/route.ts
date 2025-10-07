@@ -2,8 +2,14 @@ import type { NextRequest } from "next/server"
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { getOrganizationAdminId, logTokenUsage, estimateTokens } from "@/lib/token-service"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const { prompt, systemPrompt, userId, maxTokens = 1000, temperature = 0.7, postId } = await request.json()
 

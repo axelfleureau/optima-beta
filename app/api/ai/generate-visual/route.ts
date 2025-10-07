@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
 import { getOrganizationAdminId, logTokenUsage } from "@/lib/ai-service"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     // Verifica autenticazione
     const token = request.cookies.get("firebase-auth-token")?.value

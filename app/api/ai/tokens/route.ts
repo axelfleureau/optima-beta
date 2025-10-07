@@ -1,7 +1,13 @@
 import type { NextRequest } from "next/server"
 import { getAvailableTokens } from "@/lib/token-service"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AI")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get("userId")
