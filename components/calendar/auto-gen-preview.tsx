@@ -3,6 +3,7 @@
 import { useAutoGenStore } from '@/lib/stores/auto-gen-store'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { LiquidButton } from '@/components/ui/liquid-button'
 import { motion } from 'framer-motion'
 import { Sparkles, RefreshCw, Save, X } from 'lucide-react'
 import { OrchestrationFeedback } from '@/components/command-bar/orchestration-feedback'
@@ -78,13 +79,14 @@ export function AutoGenPreview() {
 
           {!isGenerating && !error && (generatedContent.copy || generatedContent.imageUrl) && (
             <div className="flex gap-3">
-              <Button 
+              <LiquidButton 
                 onClick={saveToTask}
-                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                variant="primary"
+                className="flex-1"
               >
                 <Save className="w-4 h-4 mr-2" />
                 Salva in Task
-              </Button>
+              </LiquidButton>
               <Button 
                 onClick={handleRegenerate}
                 variant="outline"

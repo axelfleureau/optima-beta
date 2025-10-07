@@ -104,10 +104,17 @@ const config = {
         },
         "gradient-shift": {
           "0%": { backgroundPosition: "0% 50%" },
-          "50%": { backgroundPosition: "100% 50%" },
-          "100%": { backgroundPosition: "0% 50%" },
+          "100%": { backgroundPosition: "100% 50%" },
         },
         "liquid-morph": {
+          "0%, 100%": { 
+            borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%"
+          },
+          "50%": { 
+            borderRadius: "30% 60% 70% 40% / 50% 60% 30% 60%"
+          },
+        },
+        "liquid-morph-card": {
           "0%, 100%": { borderRadius: "30% 70% 70% 30% / 30% 30% 70% 70%" },
           "50%": { borderRadius: "70% 30% 30% 70% / 70% 70% 30% 30%" },
         },
@@ -123,8 +130,9 @@ const config = {
         "righello-float": "righello-float 3s ease-in-out infinite",
         "liquid-shimmer": "liquid-shimmer 2s linear infinite",
         "liquid-glow": "liquid-glow 2s ease-in-out infinite",
-        "gradient-shift": "gradient-shift 3s ease infinite",
+        "gradient-shift": "gradient-shift 3s ease-in-out infinite",
         "liquid-morph": "liquid-morph 4s ease-in-out infinite",
+        "liquid-morph-card": "liquid-morph-card 4s ease-in-out infinite",
         "glass-hover": "glass-hover 200ms cubic-bezier(0.4, 0, 0.2, 1)",
       },
       fontFamily: {
@@ -153,6 +161,9 @@ const config = {
       },
       backdropBlur: {
         xs: "2px",
+      },
+      backgroundSize: {
+        "200": "200% 200%",
       },
       boxShadow: {
         righello:

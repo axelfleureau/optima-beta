@@ -3,6 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useArchitectStore } from '@/lib/stores/architect-store'
 import { Button } from '@/components/ui/button'
+import { LiquidButton } from '@/components/ui/liquid-button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, AlertTriangle, Clock, ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
@@ -157,12 +158,13 @@ export function TechnicalArchitectDialog() {
         {/* Actions */}
         {breakdown && !loading && (
           <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-purple-500/20">
-            <Button 
+            <LiquidButton 
               onClick={acceptRoadmap} 
-              className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+              variant="primary"
+              className="flex-1"
             >
               ✅ Accetta Roadmap
-            </Button>
+            </LiquidButton>
             <Button 
               onClick={() => {
                 toast.info('Modifica fasi in arrivo nella prossima versione')

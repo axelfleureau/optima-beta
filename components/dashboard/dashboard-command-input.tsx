@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useDebouncedCallback } from "use-debounce"
 import { GlassCard } from "@/components/ui/glass-card"
 import { Button } from "@/components/ui/button"
+import { LiquidButton } from "@/components/ui/liquid-button"
 import { Sparkles, ArrowRight, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
@@ -440,18 +441,18 @@ export function DashboardCommandInput() {
               )}
             </div>
 
-            <Button
+            <LiquidButton
               type="submit"
-              size="icon"
+              variant="primary"
               disabled={!input.trim() || isProcessing}
-              className="flex-shrink-0 h-11 w-11 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="flex-shrink-0 h-11 w-11 rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <ArrowRight className="h-5 w-5" />
               )}
-            </Button>
+            </LiquidButton>
           </div>
         </form>
       </GlassCard>
