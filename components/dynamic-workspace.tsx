@@ -261,7 +261,7 @@ export function DynamicWorkspace() {
         task.columnId === columnId &&
         (searchTerm === "" ||
           task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (task.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
           task.assignee?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           task.type?.toLowerCase().includes(searchTerm.toLowerCase())),
     )
@@ -845,15 +845,20 @@ export function DynamicWorkspace() {
                                             <Calendar className="h-3 w-3" />
                                             <span>
                                               {task.dueDate
-                                                ? new Date(task.dueDate).toLocaleDateString("it-IT")
+                                                ? (task.dueDate instanceof Date 
+                                                    ? task.dueDate 
+                                                    : task.dueDate?.toDate && typeof task.dueDate.toDate === 'function'
+                                                      ? task.dueDate.toDate()
+                                                      : new Date(task.dueDate as any)
+                                                  ).toLocaleDateString("it-IT")
                                                 : "Nessuna scadenza"}
                                             </span>
                                           </div>
                                           <div className="flex items-center gap-2">
-                                            {task.comments.length > 0 && (
+                                            {(task.comments || []).length > 0 && (
                                               <div className="flex items-center gap-1">
                                                 <MessageSquare className="h-3 w-3" />
-                                                <span>{task.comments.length}</span>
+                                                <span>{(task.comments || []).length}</span>
                                               </div>
                                             )}
                                             {task.attachments && task.attachments.length > 0 && (
@@ -873,7 +878,7 @@ export function DynamicWorkspace() {
                                             onClick={async () => {
                                               if (!user) return
                                               const { generateCopy } = useAutoGenStore.getState()
-                                              await generateCopy(task.id, task.title || task.description, task.clientName, user.uid)
+                                              await generateCopy(task.id, task.title || task.description || '', task.clientName || '', user.uid)
                                             }}
                                           >
                                             <Sparkles className="w-3 h-3 mr-1" />
@@ -1317,15 +1322,20 @@ export function DynamicWorkspace() {
                                           <Calendar className="h-3 w-3" />
                                           <span>
                                             {task.dueDate
-                                              ? new Date(task.dueDate).toLocaleDateString("it-IT")
+                                              ? (task.dueDate instanceof Date 
+                                                  ? task.dueDate 
+                                                  : task.dueDate?.toDate && typeof task.dueDate.toDate === 'function'
+                                                    ? task.dueDate.toDate()
+                                                    : new Date(task.dueDate as any)
+                                                ).toLocaleDateString("it-IT")
                                               : "Nessuna scadenza"}
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                          {task.comments.length > 0 && (
+                                          {(task.comments || []).length > 0 && (
                                             <div className="flex items-center gap-1">
                                               <MessageSquare className="h-3 w-3" />
-                                              <span>{task.comments.length}</span>
+                                              <span>{(task.comments || []).length}</span>
                                             </div>
                                           )}
                                           {task.attachments && task.attachments.length > 0 && (
@@ -1357,7 +1367,7 @@ export function DynamicWorkspace() {
                                           onClick={async () => {
                                             if (!user) return
                                             const { generateCopy } = useAutoGenStore.getState()
-                                            await generateCopy(task.id, task.title || task.description, task.clientName, user.uid)
+                                            await generateCopy(task.id, task.title || task.description || '', task.clientName || '', user.uid)
                                           }}
                                         >
                                           <Sparkles className="w-3 h-3 mr-1" />
