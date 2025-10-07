@@ -27,7 +27,7 @@ Key architectural decisions include:
 - **Liquid Animation System**: Framer Motion-powered microinteractions with accessibility compliance. GlassCard hover (scale 1.02, opacity 0.95, 200ms cubic-bezier), LiquidButton continuous border-radius pulse (1.5s) + gradient flow (2s) for primary CTAs. Reduced-motion fallbacks use opacity-only transitions (300ms). Legacy Tailwind animation tokens (`animate-liquid-morph` 4s infinite blob, `animate-gradient-shift` 3s infinite) preserved to prevent regressions. CSS isolation via `.liquid-morph-hover` class for button-specific animations.
 
 ## External Dependencies
-- **Firebase**: Used for Authentication (Firebase Auth) and Database (Firestore).
+- **Firebase**: Used for Authentication (Firebase Auth), Database (Firestore), and Storage (asset persistence with tenant isolation). **October 2025**: Added Firebase Storage utilities (`lib/utils/storage-upload.ts`) with auto-format detection (PNG/JPEG), tenant-scoped paths (`tenants/{tenantId}/assets/{type}/...`), and metadata tracking.
 - **OpenAI**: Integrated for AI capabilities (GPT-4 for NLP, DALL-E 3 for image generation, Sora 2 as a placeholder for video generation).
 - **Stripe**: Utilized for subscription management, payment processing, and webhooks for lifecycle events.
 - **Nodemailer**: For sending automated email notifications related to subscription lifecycle events.
