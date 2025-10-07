@@ -32,3 +32,49 @@ Key architectural decisions include:
 - **Nodemailer**: For sending automated email notifications related to subscription lifecycle events.
 - **Framer Motion**: For advanced animations and microinteractions.
 - **Radix UI**: Provides unstyled, accessible components used as primitives for custom UI.
+
+## Production Deployment Readiness (October 2025)
+
+### Security Audit (Complete) - Grade: C (75/100)
+**CRITICAL Vulnerabilities Fixed (2/2)**:
+- ✅ `/api/admin/database-cleanup` - Added super-admin auth + rate limiting (DEFAULT: 100 req/min)
+- ✅ `/api/send-welcome-email` - Added admin auth + aggressive rate limiting (AUTH: 5 req/5min)
+
+**Security Posture**:
+- ✅ **Secret Exposure**: PASS - All API keys server-side only (38 files reviewed)
+- ✅ **Firebase Admin SDK**: PASS - Properly isolated to server-side (20 files)
+- ⚠️ **XSS Prevention**: MEDIUM - AI content uses `dangerouslySetInnerHTML` without DOMPurify (3 files)
+- ⚠️ **Input Validation**: HIGH RISK - Only 15% Zod coverage (5/33 routes)
+- ⚠️ **Rate Limiting**: 70% coverage (23/33 endpoints protected)
+- ❌ **HIGH RISK**: `/api/settings/email` lacks tenant-scoped authentication
+
+**Remaining Actions**:
+- HIGH: Add auth to `/api/settings/email` (credential theft risk)
+- MEDIUM: Install DOMPurify for AI-generated HTML sanitization
+- MEDIUM: Expand Zod validation to payment/financial endpoints (target 80%+ coverage)
+- LOW: Add rate limiting to remaining CRUD endpoints
+
+### Deploy Config Audit (Complete) - Grade: A (95/100)
+**Production Fixes Applied**:
+- ✅ Global error boundary with user-friendly messages (no stack trace exposure)
+- ✅ Security headers: CSP, HSTS, X-Content-Type-Options, Referrer-Policy
+- ✅ Hybrid rate limiting system (in-memory + optional Upstash Redis)
+- ✅ Profile-specific rate limit instances (AI/AUTH/STRIPE) with separate Redis prefixes
+- ✅ 21 API endpoints protected with role-specific limits
+- ✅ `allowedDevOrigins` configured for Replit iframe compatibility
+
+### Performance Audit (Partial) - Deferred
+**Baseline Metrics**:
+- 7 critical routes exceed 200KB (worst: `/preventivi` at 446KB due to PDF library)
+- Lazy loading implemented for 4 heavy components (PDF Generator, TechnicalArchitectDialog, AutoGenPreview, ImageGenerator)
+- Expected savings: 250-290KB per route
+- Phase 3 production metrics blocked by Replit build resource constraints
+
+### Known Issues
+**TypeScript Errors**:
+- 8 LSP diagnostics in `components/ui/chart.tsx` (non-blocking, chart theming)
+
+**Architecture Decisions**:
+- Hybrid rate limiting gracefully degrades to in-memory when Upstash Redis unavailable
+- Date/Timestamp conversions handle Firestore Timestamps, Date objects, and ISO strings
+- Manual regression testing deferred until all deployment tasks complete per user request

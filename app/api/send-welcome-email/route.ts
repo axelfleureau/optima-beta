@@ -1,11 +1,70 @@
 import { type NextRequest, NextResponse } from "next/server"
 import nodemailer from "nodemailer"
+import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+
+async function verifyAuthToken(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("authorization")
+    const cookieToken = request.cookies.get("firebase-auth-token")?.value
+
+    let token: string | null = null
+
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.split("Bearer ")[1]
+    } else if (cookieToken) {
+      token = cookieToken
+    }
+
+    if (!token) {
+      return null
+    }
+
+    const decodedToken = await verifyFirebaseToken(token)
+    
+    if (!decodedToken || !decodedToken.uid) {
+      return null
+    }
+
+    return decodedToken
+  } catch (error) {
+    console.error("Error verifying auth token:", error)
+    return null
+  }
+}
 
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "AUTH")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
+  const authUser = await verifyAuthToken(request)
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Non autenticato" },
+      { status: 401 }
+    )
+  }
+
+  const userData = await getUserData(authUser.uid)
+  if (!userData) {
+    return NextResponse.json(
+      { error: "Dati utente non trovati" },
+      { status: 404 }
+    )
+  }
+
+  if (userData.role !== "admin" && userData.role !== "super-admin") {
+    return NextResponse.json(
+      { error: "Permessi insufficienti" },
+      { status: 403 }
+    )
+  }
+
   try {
     const { clientName, clientEmail, password, agencyName } = await request.json()
 
-    // Check if email is enabled in environment variables
     const emailEnabled = process.env.ENABLE_WELCOME_EMAILS === "true"
 
     if (!emailEnabled) {

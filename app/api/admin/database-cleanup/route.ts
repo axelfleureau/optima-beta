@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { initializeApp, getApps } from "firebase/app"
 import { getFirestore, collection, getDocs, doc, query, orderBy, writeBatch } from "firebase/firestore"
+import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 const firebaseConfig = {
   apiKey: "AIzaSyAEB8Vgc4C9iYLu02jdJ0AnQLNWVCmcSFE",
@@ -15,7 +17,65 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
 const db = getFirestore(app)
 
+async function verifyAuthToken(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("authorization")
+    const cookieToken = request.cookies.get("firebase-auth-token")?.value
+
+    let token: string | null = null
+
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.split("Bearer ")[1]
+    } else if (cookieToken) {
+      token = cookieToken
+    }
+
+    if (!token) {
+      return null
+    }
+
+    const decodedToken = await verifyFirebaseToken(token)
+    
+    if (!decodedToken || !decodedToken.uid) {
+      return null
+    }
+
+    return decodedToken
+  } catch (error) {
+    console.error("Error verifying auth token:", error)
+    return null
+  }
+}
+
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "DEFAULT")
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult.reset)
+  }
+
+  const authUser = await verifyAuthToken(request)
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Non autenticato" },
+      { status: 401 }
+    )
+  }
+
+  const userData = await getUserData(authUser.uid)
+  if (!userData) {
+    return NextResponse.json(
+      { error: "Dati utente non trovati" },
+      { status: 404 }
+    )
+  }
+
+  if (userData.role !== "super-admin") {
+    return NextResponse.json(
+      { error: "Accesso negato. Richiesti privilegi super-admin." },
+      { status: 403 }
+    )
+  }
+
   try {
     const { operation } = await request.json()
 
