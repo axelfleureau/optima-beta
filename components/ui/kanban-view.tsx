@@ -1,6 +1,6 @@
 "use client"
 
-import { Clock, PlusCircle } from "lucide-react"
+import { Clock, PlusCircle, Sparkles, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +9,8 @@ import { format } from "date-fns"
 import { it } from "date-fns/locale"
 import type { EditorialPost } from "@/lib/types"
 import { statusConfig, statusOrder } from "../../app/(dashboard)/calendario-editoriale/utils/status-config"
+import { useAutoGenStore } from "@/lib/stores/auto-gen-store"
+import { useAuth } from "@/lib/auth-context"
 
 interface KanbanViewProps {
   postsByStatus: Record<string, EditorialPost[]>
@@ -18,6 +20,8 @@ interface KanbanViewProps {
 }
 
 export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: KanbanViewProps) {
+  const { user } = useAuth()
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
@@ -100,6 +104,40 @@ export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: 
                                   {post.objective}
                                 </Badge>
                               )}
+
+                              <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 h-7 text-xs"
+                                  onClick={async () => {
+                                    if (!user) return
+                                    const { generateCopy } = useAutoGenStore.getState()
+                                    const description = post.description || post.name || post.title || ''
+                                    await generateCopy(post.id, description, post.clientId, user.uid)
+                                  }}
+                                >
+                                  <Sparkles className="w-3 h-3 mr-1" />
+                                  Genera Copy
+                                </Button>
+                                
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 h-7 text-xs"
+                                  onClick={async () => {
+                                    if (!user) return
+                                    const { generateVisual } = useAutoGenStore.getState()
+                                    const description = post.description || post.name || post.title || ''
+                                    const prompt = `${description}${post.clientId ? ` for client ${post.clientId}` : ''}`
+                                    const token = await user.getIdToken()
+                                    await generateVisual(post.id, prompt, user.uid, token)
+                                  }}
+                                >
+                                  <ImageIcon className="w-3 h-3 mr-1" />
+                                  Genera Visual
+                                </Button>
+                              </div>
                             </div>
                           </Card>
                         )}

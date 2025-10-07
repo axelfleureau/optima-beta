@@ -21,6 +21,7 @@ import { TableView } from "../../../components/ui/table-view"
 import { KanbanView } from "../../../components/ui/kanban-view"
 import { CalendarView } from "../../../components/ui/calendar-view"
 import { PostFormDialog as EditorialPostFormDialog } from "../../../components/ui/post-form-dialog"
+import { AutoGenPreview } from "../../../components/calendar/auto-gen-preview"
 import { statusConfig, statusOrder } from "./utils/status-config"
 
 export default function EditorialCalendarClient() {
@@ -301,6 +302,8 @@ export default function EditorialCalendarClient() {
         selectedClientId={selectedClientId}
         userRole={userData?.role}
       />
+
+      <AutoGenPreview />
     </div>
   )
 }
