@@ -298,10 +298,14 @@ export function DashboardCommandInput() {
               tenantId: userData.tenantId
             })
             
-            setCurrentIntent({ intent: nlpResponse.intent, entities: nlpResponse.entities })
+            // ✅ Successo: task + calendario creati, SENZA aprire dialog generazione
+            const dateStr = format(new Date(nlpResponse.entities.publishDate), "dd MMMM yyyy", { locale: it })
             
-            setOrchestrationResult(result)
-            setTokenConsentOpen(true)
+            toast.success("✅ Task creata!", {
+              description: `${nlpResponse.entities.contentType || 'Contenuto'} per ${client.name} schedulato il ${dateStr}. Vai al calendario per generare copy e media.`,
+              duration: 5000,
+            })
+            
           } catch (error: any) {
             console.error("❌ Orchestration error:", error)
             toast.error("Errore nell'orchestrazione", {
