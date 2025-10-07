@@ -22,6 +22,11 @@ const IntentSchema = z.object({
     "CREATE_CONTENT_BATCH",
     "TASK_REFINEMENT",
     "GENERATE_DELIVERABLE",
+    "CREATE_WEBSITE",
+    "CREATE_GRAPHIC_DESIGN",
+    "CREATE_VIDEO_PRODUCTION",
+    "CREATE_SOFTWARE_DEV",
+    "CREATE_CAMPAIGN_PROJECT",
     "UNKNOWN",
   ]),
   confidence: z.number().min(0).max(1),
@@ -60,6 +65,11 @@ Analizza i comandi dell'utente ed estrai:
    - CREATE_CONTENT_BATCH: Creare batch di contenuti multipli
    - TASK_REFINEMENT: Raffinare una task con Technical Architect
    - GENERATE_DELIVERABLE: Generare deliverable (copy o visual) per una task
+   - CREATE_WEBSITE: Creare sito web (landing page, corporate, e-commerce, portfolio)
+   - CREATE_GRAPHIC_DESIGN: Creare grafica vettoriale, logo, branding, materiali stampa
+   - CREATE_VIDEO_PRODUCTION: Organizzare shooting video professionale (location, regia, editing)
+   - CREATE_SOFTWARE_DEV: Sviluppo software (app, tool, feature, integrazione)
+   - CREATE_CAMPAIGN_PROJECT: Campagna completa con template e deliverable multipli
    - UNKNOWN: Non riconosciuto
 
 2. **Entities** (parametri estratti dal messaggio):
@@ -89,6 +99,38 @@ Analizza i comandi dell'utente ed estrai:
    - task_name: nome/descrizione della task
    - task_id: ID della task (se noto)
    - deliverable_type: "copy" | "visual" (tipo di deliverable da generare)
+   
+   Per WEBSITE intents:
+   - websiteType: "landing" | "corporate" | "ecommerce" | "portfolio" | "blog"
+   - clientName: nome del cliente
+   - features: array di feature richieste (es: ["form contatto", "gallery", "blog"])
+   - pages: numero di pagine (default: 1 per landing)
+   - deadline: data consegna
+   
+   Per GRAPHIC_DESIGN intents:
+   - designType: "logo" | "branding" | "brochure" | "packaging" | "vector"
+   - clientName: nome del cliente
+   - format: formato richiesto (es: "A4", "social", "web")
+   - deliverables: array di deliverable (es: ["logo primario", "varianti colore", "brandbook"])
+   
+   Per VIDEO_PRODUCTION intents:
+   - videoType: "corporate" | "commercial" | "interview" | "event" | "tutorial"
+   - clientName: nome del cliente
+   - duration: durata in minuti
+   - location: luogo shooting
+   - deliverables: array (es: ["raw footage", "edited video", "social cuts"])
+   
+   Per SOFTWARE_DEV intents:
+   - projectType: "app" | "feature" | "integration" | "api" | "tool"
+   - clientName: nome del cliente
+   - tech: tecnologie richieste (es: "React", "Python", "API REST")
+   - scope: scope del progetto
+   
+   Per CAMPAIGN_PROJECT intents:
+   - campaignType: "product_launch" | "rebranding" | "seasonal" | "awareness"
+   - clientName: nome del cliente
+   - channels: array canali (es: ["social", "email", "web"])
+   - duration: durata campagna in giorni
    
    Per altri intents:
    - route: percorso di navigazione
@@ -124,6 +166,30 @@ Esempi TASK REFINEMENT & DELIVERABLE:
 - "Genera copy per la task newsletter" → GENERATE_DELIVERABLE, entities: {task_name: "newsletter", deliverable_type: "copy"}
 - "Genera visual per task social media" → GENERATE_DELIVERABLE, entities: {task_name: "social media", deliverable_type: "visual"}
 - "Crea immagine per task banner" → GENERATE_DELIVERABLE, entities: {task_name: "banner", deliverable_type: "visual"}
+
+Esempi WEBSITE:
+- "crea landing page per cliente Acme" → CREATE_WEBSITE, entities: {websiteType: "landing", clientName: "Acme"}
+- "sito e-commerce per Stark Industries con 20 pagine" → CREATE_WEBSITE, entities: {websiteType: "ecommerce", clientName: "Stark Industries", pages: 20}
+- "portfolio per cliente X con gallery" → CREATE_WEBSITE, entities: {websiteType: "portfolio", clientName: "X", features: ["gallery"]}
+
+Esempi GRAPHIC_DESIGN:
+- "crea logo per cliente Acme" → CREATE_GRAPHIC_DESIGN, entities: {designType: "logo", clientName: "Acme"}
+- "branding completo per Stark Industries" → CREATE_GRAPHIC_DESIGN, entities: {designType: "branding", clientName: "Stark Industries"}
+- "brochure A4 per prodotto X" → CREATE_GRAPHIC_DESIGN, entities: {designType: "brochure", format: "A4", topic: "prodotto X"}
+
+Esempi VIDEO_PRODUCTION:
+- "shooting video corporate per cliente Acme" → CREATE_VIDEO_PRODUCTION, entities: {videoType: "corporate", clientName: "Acme"}
+- "video commerciale 30 secondi per prodotto Y" → CREATE_VIDEO_PRODUCTION, entities: {videoType: "commercial", duration: 0.5, topic: "prodotto Y"}
+- "intervista CEO Stark Industries" → CREATE_VIDEO_PRODUCTION, entities: {videoType: "interview", clientName: "Stark Industries"}
+
+Esempi SOFTWARE_DEV:
+- "sviluppa app mobile per cliente Acme" → CREATE_SOFTWARE_DEV, entities: {projectType: "app", clientName: "Acme"}
+- "integrazione API Stripe per cliente X" → CREATE_SOFTWARE_DEV, entities: {projectType: "integration", tech: "Stripe", clientName: "X"}
+- "feature login social per app Y" → CREATE_SOFTWARE_DEV, entities: {projectType: "feature", scope: "login social", clientName: "Y"}
+
+Esempi CAMPAIGN_PROJECT:
+- "campagna lancio prodotto per Acme su social ed email" → CREATE_CAMPAIGN_PROJECT, entities: {campaignType: "product_launch", clientName: "Acme", channels: ["social", "email"]}
+- "rebranding Stark Industries con sito e materiali" → CREATE_CAMPAIGN_PROJECT, entities: {campaignType: "rebranding", clientName: "Stark Industries", channels: ["web", "print"]}
 
 Altri esempi:
 - "vai al calendario" → NAVIGATE, entities: {route: "/calendario-editoriale"}
