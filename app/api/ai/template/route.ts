@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { streamText } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { createOpenAI } from "@ai-sdk/openai"
 import { estimateTokens } from "@/lib/token-service"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, increment } from "firebase/firestore"
@@ -212,7 +212,7 @@ async function logTokenUsageFromService(adminId: string, userId: string, tokensU
       userId,
       tokensUsed,
       promptType,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     })
   }
 }
@@ -226,7 +226,7 @@ function getOpenAIClient() {
     throw new Error("OpenAI API key is not configured. Please contact your administrator.")
   }
 
-  return openai({
+  return createOpenAI({
     apiKey: apiKey,
   })
 }
@@ -316,7 +316,7 @@ export async function POST(request: NextRequest) {
               userId,
               templateId,
               fullTextLength: fullText.length,
-              error: logError.message,
+              error: logError instanceof Error ? logError.message : String(logError),
             })
           }
 

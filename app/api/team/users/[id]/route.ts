@@ -5,7 +5,7 @@ import { canManageUser, hasPermission, type UserRole } from "@/lib/role-hierarch
 // PATCH - Aggiorna utente
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verifica autenticazione
@@ -21,7 +21,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Non hai i permessi per modificare utenti" }, { status: 403 })
     }
 
-    const userId = params.id
+    const { id: userId } = await params
     const body = await request.json()
     const { firstName, lastName, email, role, companyName, isSuspended } = body
 
@@ -102,7 +102,7 @@ export async function PATCH(
 // DELETE - Rimuovi utente
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verifica autenticazione
@@ -118,7 +118,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Non hai i permessi per rimuovere utenti" }, { status: 403 })
     }
 
-    const userId = params.id
+    const { id: userId } = await params
 
     // Non permettere l'auto-eliminazione
     if (userId === decodedToken.uid) {

@@ -1,8 +1,4 @@
-"use client";  // 👈 Trasforma tutto in Client Component
-
-// Force this page to be dynamic and never prerendered
-export const dynamicConfig = "force-dynamic";
-//export const revalidate = 30;
+"use client";
 
 import { Suspense } from "react";
 import dynamic from "next/dynamic";

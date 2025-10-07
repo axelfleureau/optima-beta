@@ -18,6 +18,11 @@ export interface User {
   isSuspended?: boolean
   assignedClientIds?: string[]
   plan?: string
+  stripeSubscriptionId?: string
+  stripeCustomerId?: string
+  billingCycleEnd?: string
+  status?: string
+  lastLoginAt?: Timestamp | Date
 }
 
 export interface Client {
@@ -36,6 +41,9 @@ export interface Client {
   status?: string
   createdAt: Timestamp | Date
   updatedAt: Timestamp | Date
+  projectsCount?: number
+  totalValue?: number
+  lastActivity?: Timestamp | Date
 }
 
 export interface Campaign {

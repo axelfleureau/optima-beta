@@ -404,15 +404,15 @@ export default function CampagnePage() {
                           <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
                             <div className="text-center">
                               <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                                {campaign.metrics.impressions?.toLocaleString() || 0}
+                                {campaign.metrics.reach?.toLocaleString() || 0}
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">Impressioni</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">Reach</div>
                             </div>
                             <div className="text-center">
                               <div className="text-lg font-semibold text-green-600 dark:text-green-400">
-                                {campaign.metrics.clicks?.toLocaleString() || 0}
+                                {campaign.metrics.engagement?.toLocaleString() || 0}
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">Click</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">Engagement</div>
                             </div>
                             <div className="text-center">
                               <div className="text-lg font-semibold text-purple-600 dark:text-purple-400">

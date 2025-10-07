@@ -60,9 +60,9 @@ export default function EditorialCalendarClient() {
   const filteredPosts = useMemo(() => {
     return posts.filter(
       (post) =>
-        post.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        post.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (post.caption && post.caption.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        post.platform.some((p) => p.toLowerCase().includes(searchTerm.toLowerCase())),
+        post.platform?.toLowerCase().includes(searchTerm.toLowerCase()),
     )
   }, [posts, searchTerm])
 
@@ -142,7 +142,6 @@ export default function EditorialCalendarClient() {
           clientId: values.clientId,
           scheduledDate: values.scheduledDate,
           scheduledTime: values.scheduledTime,
-          tags: values.tags || [],
           attachments: values.attachments || [],
           type: values.type || "post",
         } as Omit<EditorialPost, "id" | "createdAt" | "updatedAt" | "tenantId" | "createdBy">
@@ -257,7 +256,7 @@ export default function EditorialCalendarClient() {
 
       <div className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="space-y-6">
-          <CalendarTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <CalendarTabs activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as "table" | "kanban" | "calendar")} />
 
           <TabsContent value="table" className="space-y-6">
             <TableView
@@ -297,7 +296,7 @@ export default function EditorialCalendarClient() {
           if (!open) setEditingPost(null)
         }}
         onSave={handleAddOrEditPost}
-        post={editingPost}
+        editingPost={editingPost}
         clients={clientOptions}
         selectedClientId={selectedClientId}
         userRole={userData?.role}

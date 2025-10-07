@@ -65,7 +65,7 @@ export const updateTask = createAsyncThunk(
       const { id, ...dataToUpdate } = taskData
       const taskDocRef = doc(db, "tasks", id)
       await updateDoc(taskDocRef, { ...dataToUpdate, updatedAt: new Date() })
-      return { id, ...dataToUpdate, updatedAt: new Date().toISOString() } as Partial<Task> & { id: string }
+      return { id, ...dataToUpdate, updatedAt: new Date() } as Partial<Task> & { id: string }
     } catch (error: any) {
       return rejectWithValue(error.message)
     }

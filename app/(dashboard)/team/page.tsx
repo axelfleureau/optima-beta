@@ -118,10 +118,18 @@ export default function TeamPage() {
     return [firstName, lastName].filter(Boolean).join(" ") || "Utente"
   }
 
+  const toDate = (value: any): Date | null => {
+    if (!value) return null
+    if (value instanceof Date) return value
+    if (value?.toDate && typeof value.toDate === 'function') return value.toDate()
+    if (typeof value === 'string' || typeof value === 'number') return new Date(value)
+    return null
+  }
+
   const stats = {
     total: users.length,
     active: users.filter((u) => u.status === "active").length,
-    admins: users.filter((u) => u.role === "admin" || u.role === "super_admin").length,
+    admins: users.filter((u) => u.role === "admin" || u.role === "super-admin").length,
     clients: users.filter((u) => u.role === "client").length,
   }
 
@@ -288,14 +296,14 @@ export default function TeamPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredUsers.map((user) => (
                 <Card
-                  key={user.uid}
+                  key={user.id}
                   className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300 overflow-hidden"
                 >
                   <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-4">
                         <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
-                          <AvatarImage src={user.photoURL || ""} alt={getFullName(user.firstName, user.lastName)} />
+                          <AvatarImage src="" alt={getFullName(user.firstName, user.lastName)} />
                           <AvatarFallback className="bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold">
                             {getInitials(user.firstName, user.lastName)}
                           </AvatarFallback>
@@ -312,7 +320,7 @@ export default function TeamPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {getStatusBadge(user.status)}
+                        {user.status && getStatusBadge(user.status)}
                         <UserActionsMenu user={user} />
                       </div>
                     </div>
@@ -344,7 +352,7 @@ export default function TeamPage() {
                         <Clock className="h-3 w-3" />
                         Ultimo accesso
                       </span>
-                      <span>{user.lastLoginAt ? format(user.lastLoginAt, "dd MMM yyyy", { locale: it }) : "Mai"}</span>
+                      <span>{toDate(user.lastLoginAt) ? format(toDate(user.lastLoginAt)!, "dd MMM yyyy", { locale: it }) : "Mai"}</span>
                     </div>
 
                     {/* Registration Date */}
@@ -353,7 +361,7 @@ export default function TeamPage() {
                         <Calendar className="h-3 w-3" />
                         Registrato il
                       </span>
-                      <span>{user.createdAt ? format(user.createdAt, "dd MMM yyyy", { locale: it }) : "N/A"}</span>
+                      <span>{toDate(user.createdAt) ? format(toDate(user.createdAt)!, "dd MMM yyyy", { locale: it }) : "N/A"}</span>
                     </div>
                   </CardContent>
                 </Card>

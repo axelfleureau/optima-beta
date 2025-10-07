@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Calendar, Clock, User, Paperclip, Plus, X, Edit3, Check, GripVertical, Star, Tag, Send } from "lucide-react"
-import type { Task, SubItem, TaskComment } from "@/hooks/use-workspace-data"
+import type { Task, SubItem, TaskComment } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
@@ -73,9 +73,22 @@ export function TaskDetailDialog({
   useEffect(() => {
     if (task) {
       setTitle(task.title)
-      setDescription(task.description)
+      setDescription(task.description || "")
       setRichDescription(task.richDescription || "")
-      setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "")
+      const dueDateValue = task.dueDate
+      if (dueDateValue) {
+        let dateObj: Date
+        if (dueDateValue instanceof Date) {
+          dateObj = dueDateValue
+        } else if ((dueDateValue as any).toDate && typeof (dueDateValue as any).toDate === 'function') {
+          dateObj = (dueDateValue as any).toDate()
+        } else {
+          dateObj = new Date(dueDateValue as any)
+        }
+        setDueDate(dateObj.toISOString().split("T")[0])
+      } else {
+        setDueDate("")
+      }
       setSubItems(task.subItems || [])
     }
   }, [task])
@@ -124,7 +137,7 @@ export function TaskDetailDialog({
       text: newComment.trim(),
       authorId: userData.tenantId,
       authorName: `${userData.firstName} ${userData.lastName}`.trim() || userData.email,
-      authorAvatar: userData.avatar,
+      authorAvatar: null,
     })
 
     setNewComment("")
@@ -136,9 +149,8 @@ export function TaskDetailDialog({
 
     const newItem: SubItem = {
       id: `subitem_${Date.now()}`,
-      text: newSubItem.trim(),
+      title: newSubItem.trim(),
       completed: false,
-      order: subItems.length,
       createdAt: new Date(),
     }
 
@@ -244,11 +256,11 @@ export function TaskDetailDialog({
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              <span>Creata il {new Date(task.createdAt).toLocaleDateString("it-IT")}</span>
+              <span>Creata il {(task.createdAt instanceof Date ? task.createdAt : (task.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>Aggiornata il {new Date(task.updatedAt).toLocaleDateString("it-IT")}</span>
+              <span>Aggiornata il {(task.updatedAt instanceof Date ? task.updatedAt : (task.updatedAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
             </div>
             <div className="flex items-center gap-1">
               <User className="h-4 w-4" />
@@ -272,7 +284,7 @@ export function TaskDetailDialog({
                     placeholder="Descrizione breve della task..."
                     onKeyDown={(e) => {
                       if (e.key === "Escape") {
-                        setDescription(task.description)
+                        setDescription(task.description || "")
                         setEditingDescription(false)
                       }
                     }}
@@ -286,7 +298,7 @@ export function TaskDetailDialog({
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        setDescription(task.description)
+                        setDescription(task.description || "")
                         setEditingDescription(false)
                       }}
                     >
@@ -379,7 +391,7 @@ export function TaskDetailDialog({
                               </div>
                               <Checkbox checked={item.completed} onCheckedChange={() => handleToggleSubItem(item.id)} />
                               <span className={`flex-1 ${item.completed ? "line-through text-gray-500" : ""}`}>
-                                {item.text}
+                                {item.title}
                               </span>
                               <Button size="sm" variant="ghost" onClick={() => handleRemoveSubItem(item.id)}>
                                 <X className="h-3 w-3" />
@@ -412,7 +424,7 @@ export function TaskDetailDialog({
 
             {/* Comments Section */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Commenti ({task.comments.length})</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Commenti ({(task.comments || []).length})</Label>
 
               {/* Add new comment */}
               <div className="flex gap-2 mb-4">
@@ -442,7 +454,7 @@ export function TaskDetailDialog({
 
               {/* Comments list */}
               <div className="space-y-3 max-h-60 overflow-y-auto">
-                {task.comments.map((comment) => (
+                {(task.comments || []).map((comment) => (
                   <div key={comment.id} className="flex gap-3">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback>
@@ -456,7 +468,7 @@ export function TaskDetailDialog({
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm">{comment.authorName}</span>
                         <span className="text-xs text-gray-500">
-                          {new Date(comment.createdAt).toLocaleDateString("it-IT")}
+                          {(comment.createdAt instanceof Date ? comment.createdAt : (comment.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}
                         </span>
                       </div>
                       <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.text}</p>
@@ -563,7 +575,7 @@ export function TaskDetailDialog({
             <div>
               <Label className="text-sm font-medium text-gray-700 mb-2 block">Tags</Label>
               <div className="flex flex-wrap gap-1">
-                {task.tags.map((tag) => (
+                {(task.tags || []).map((tag) => (
                   <Badge key={tag} variant="secondary" className="text-xs">
                     <Tag className="h-3 w-3 mr-1" />
                     {tag}

@@ -125,6 +125,11 @@ async function getQuoteSecurely(quoteId: string, tenantId: string): Promise<Quot
 
     const quoteData = quoteDoc.data()
     
+    if (!quoteData) {
+      console.error(`❌ Quote ${quoteId} has no data`)
+      return null
+    }
+    
     // SECURITY: Validate tenant ownership
     if (quoteData.tenantId !== tenantId) {
       console.error(`Quote ${quoteId} does not belong to tenant ${tenantId}`)

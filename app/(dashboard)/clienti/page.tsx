@@ -95,7 +95,7 @@ export default function ClientiPage() {
     total: clients.length,
     active: clients.filter((c) => c.status === "active").length,
     prospects: clients.filter((c) => c.status === "prospect").length,
-    totalValue: clients.reduce((sum, c) => sum + (c.totalValue || 0), 0),
+    totalValue: 0,
   }
 
   if (loading) {
@@ -270,7 +270,7 @@ export default function ClientiPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-4">
                         <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
-                          <AvatarImage src={client.avatar || "/placeholder.svg"} alt={client.name} />
+                          <AvatarImage src="/placeholder.svg" alt={client.name} />
                           <AvatarFallback className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold">
                             {getInitials(client.name)}
                           </AvatarFallback>
@@ -286,7 +286,7 @@ export default function ClientiPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {getStatusBadge(client.status)}
+                        {client.status && getStatusBadge(client.status)}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -366,7 +366,7 @@ export default function ClientiPage() {
                           <Calendar className="h-3 w-3" />
                           Ultima attività
                         </span>
-                        <span>{format(client.lastActivity, "dd MMM yyyy", { locale: it })}</span>
+                        <span>{format(client.lastActivity instanceof Date ? client.lastActivity : (client.lastActivity as any).toDate(), "dd MMM yyyy", { locale: it })}</span>
                       </div>
                     )}
                   </CardContent>

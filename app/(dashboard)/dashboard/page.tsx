@@ -1,5 +1,6 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,7 +19,22 @@ import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useAuth } from "@/lib/auth-context"
 import { TokenUsageWidget } from "@/components/dashboard/token-usage-widget"
 import { DashboardCommandInput } from "@/components/dashboard/dashboard-command-input"
-import { TechnicalArchitectDialog } from "@/components/architect/technical-architect-dialog"
+
+// Lazy load Technical Architect Dialog - reduces initial bundle size
+const TechnicalArchitectDialog = dynamic(
+  () => import("@/components/architect/technical-architect-dialog").then(mod => ({ default: mod.TechnicalArchitectDialog })),
+  {
+    loading: () => (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl border border-purple-200/50">
+          <div className="animate-spin h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full" />
+          <p className="text-lg font-medium text-gray-900 dark:text-white animate-pulse">Caricamento...</p>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+)
 
 export default function Dashboard() {
   const { userData } = useAuth()

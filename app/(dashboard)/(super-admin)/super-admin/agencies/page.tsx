@@ -10,9 +10,9 @@ import { Building, Search, Ban, CheckCircle, AlertTriangle, Calendar, MoreHorizo
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import type { UserData } from "@/lib/types"
+import type { User } from "@/lib/types"
 
-interface Agency extends UserData {
+interface Agency extends User {
   id: string
   totalUsers: number
   totalClients: number
@@ -42,7 +42,7 @@ export default function AgenciesManagement() {
 
       const agenciesData = await Promise.all(
         agenciesSnapshot.docs.map(async (doc) => {
-          const agencyData = doc.data() as UserData
+          const agencyData = doc.data() as User
           const agencyId = doc.id
 
           // Conta utenti dell'agenzia
@@ -58,9 +58,11 @@ export default function AgenciesManagement() {
           const tasksSnapshot = await getDocs(tasksQuery)
 
           return {
-            id: agencyId,
             ...agencyData,
-            createdAt: agencyData.createdAt?.toDate?.() || new Date(),
+            id: agencyId,
+            createdAt: agencyData.createdAt instanceof Date 
+              ? agencyData.createdAt 
+              : (agencyData.createdAt?.toDate?.() || new Date()),
             totalUsers,
             totalClients,
             totalTasks: tasksSnapshot.size,
@@ -68,7 +70,11 @@ export default function AgenciesManagement() {
         }),
       )
 
-      setAgencies(agenciesData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()))
+      setAgencies(agenciesData.sort((a, b) => {
+        const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0
+        const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0
+        return timeB - timeA
+      }))
     } catch (error) {
       console.error("Error loading agencies:", error)
       toast({
@@ -267,7 +273,9 @@ export default function AgenciesManagement() {
                         <br />
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {agency.createdAt.toLocaleDateString("it-IT")}
+                          {(agency.createdAt instanceof Date 
+                            ? agency.createdAt 
+                            : new Date()).toLocaleDateString("it-IT")}
                         </div>
                       </div>
                     </div>

@@ -46,8 +46,8 @@ export const addClient = createAsyncThunk(
       return {
         id: docRef.id,
         ...clientData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as Client
     } catch (error: any) {
       return rejectWithValue(error.message)
@@ -63,7 +63,7 @@ export const updateClient = createAsyncThunk(
       const { id, ...dataToUpdate } = clientData
       const clientDocRef = doc(db, "clients", id)
       await updateDoc(clientDocRef, { ...dataToUpdate, updatedAt: new Date() })
-      return { id, ...dataToUpdate, updatedAt: new Date().toISOString() } as Partial<Client> & { id: string } // Ritorna i dati aggiornati
+      return { id, ...dataToUpdate, updatedAt: new Date() } as Partial<Client> & { id: string } // Ritorna i dati aggiornati
     } catch (error: any) {
       return rejectWithValue(error.message)
     }
