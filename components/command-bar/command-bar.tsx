@@ -65,12 +65,14 @@ export function CommandBar() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
       <DialogContent
         className={cn(
-          "max-w-2xl p-0 gap-0 overflow-hidden border-0",
-          "bg-white/70 dark:bg-black/40 backdrop-blur-xl",
+          "max-w-2xl p-0 gap-0 overflow-hidden relative",
+          "bg-white/80 dark:bg-black/50 backdrop-blur-2xl",
           "shadow-glass-lg",
           "animate-in fade-in-0 zoom-in-95"
         )}
       >
+        <div className="absolute -inset-[2px] bg-gradient-to-r from-purple-500/40 via-pink-500/40 to-blue-500/40 rounded-xl -z-10" />
+        
         <DialogTitle className="sr-only">Command Bar</DialogTitle>
         <DialogDescription className="sr-only">
           Usa il comando AI per eseguire azioni rapide nella piattaforma
@@ -86,7 +88,7 @@ export function CommandBar() {
             className="relative"
           >
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-blue-500/10 opacity-50 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/25 via-pink-500/25 to-blue-500/25 opacity-60 pointer-events-none" />
 
               <div className="relative z-10">
                 <CommandInput />

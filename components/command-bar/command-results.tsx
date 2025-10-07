@@ -118,48 +118,31 @@ export function CommandResults() {
       )}
 
       {showSuggestions && (
-        <div className="p-2">
-          <div className="px-3 py-2">
-            <p className="text-xs font-medium text-muted-foreground">Comandi suggeriti</p>
-          </div>
-          <div className="space-y-1">
+        <div className="px-4 pb-4">
+          <p className="text-xs text-muted-foreground mb-2">Suggerimenti:</p>
+          <div className="flex flex-wrap gap-2">
             {suggestions.map((suggestion: CommandSuggestion, index: number) => {
               const Icon = iconMap[suggestion.icon || "FileText"]
               return (
                 <motion.button
                   key={suggestion.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                   onClick={() => {
                     const { setInput } = useCommandBarStore.getState()
                     setInput(suggestion.title)
                   }}
                   className={cn(
-                    "w-full px-3 py-2 rounded-lg text-left",
-                    "hover:bg-white/60 dark:hover:bg-black/30",
-                    "transition-all duration-200",
-                    "group hover:shadow-glow-purple/30"
+                    "flex items-center gap-2 px-4 py-2 rounded-full",
+                    "bg-gradient-to-r from-purple-500/20 to-pink-500/20",
+                    "border border-purple-500/30",
+                    "hover:border-purple-500/60 hover:bg-purple-500/30",
+                    "transition-all duration-200"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                      {Icon && <Icon className="h-4 w-4 text-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{suggestion.title}</p>
-                      {suggestion.description && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {suggestion.description}
-                        </p>
-                      )}
-                    </div>
-                    {suggestion.category && (
-                      <span className="px-2 py-1 text-[10px] font-medium rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                        {suggestion.category}
-                      </span>
-                    )}
-                  </div>
+                  {Icon && <Icon className="h-4 w-4 text-purple-400 flex-shrink-0" />}
+                  <span className="text-sm font-medium whitespace-nowrap">{suggestion.title}</span>
                 </motion.button>
               )
             })}

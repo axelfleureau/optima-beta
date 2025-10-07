@@ -72,8 +72,10 @@ export function CommandInput() {
           placeholder="Chiedi qualsiasi cosa... es: 'crea task per cliente Acme con priorità alta'"
           className={cn(
             "pl-12 pr-4 text-base h-14",
-            "border-2 border-white/40 dark:border-white/20",
-            "focus-visible:border-purple-500/60 focus-visible:ring-4 focus-visible:ring-purple-500/20",
+            "border-4 border-purple-500/50 dark:border-purple-400/50",
+            "bg-black/80 dark:bg-black/90",
+            "focus-visible:border-purple-500 focus-visible:ring-8 focus-visible:ring-purple-500/30",
+            "focus-visible:shadow-[0_0_40px_rgba(168,85,247,0.4)]",
             isProcessing && "animate-pulse"
           )}
           disabled={isProcessing}
