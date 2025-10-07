@@ -1,9 +1,13 @@
+'use client'
+
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { motion, useReducedMotion, HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { glassCardVariants as motionVariants, glassCardVariantsReducedMotion } from "@/lib/animations/glass-variants";
 
 const glassCardVariants = cva(
-  "relative overflow-hidden rounded-xl transition-all duration-liquid-smooth ease-liquid-smooth",
+  "relative overflow-hidden rounded-xl transition-all duration-liquid-smooth ease-liquid-smooth will-change-transform",
   {
     variants: {
       variant: {
@@ -12,7 +16,7 @@ const glassCardVariants = cva(
         elevated:
           "bg-white/80 dark:bg-black/50 backdrop-blur-lg border border-white/40 dark:border-white/20 shadow-glass-lg",
         interactive:
-          "bg-white/70 dark:bg-black/40 backdrop-blur-md border border-white/30 dark:border-white/10 shadow-glass-md hover:shadow-glass-lg hover:border-purple-500/30 hover:-translate-y-0.5 cursor-pointer",
+          "bg-white/70 dark:bg-black/40 backdrop-blur-md border border-white/30 dark:border-white/10 shadow-glass-md hover:shadow-glass-lg hover:border-purple-500/30 cursor-pointer",
         gradient:
           "bg-gradient-to-br from-white/80 via-purple-50/50 to-pink-50/50 dark:from-black/50 dark:via-purple-950/30 dark:to-pink-950/30 backdrop-blur-lg border border-purple-500/20 shadow-glass-md hover:shadow-glow-purple",
       },
@@ -39,17 +43,26 @@ const glassCardVariants = cva(
 );
 
 export interface GlassCardProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends Omit<HTMLMotionProps<"div">, "ref" | "children">,
     VariantProps<typeof glassCardVariants> {
+  children?: React.ReactNode;
   asChild?: boolean;
   animated?: boolean;
+  hover?: boolean;
 }
 
 const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
-  ({ className, variant, glow, padding, animated = false, children, ...props }, ref) => {
+  ({ className, variant, glow, padding, animated = false, hover = true, children, ...props }, ref) => {
+    const shouldReduceMotion = useReducedMotion();
+    const variants = shouldReduceMotion ? glassCardVariantsReducedMotion : motionVariants;
+
     return (
-      <div
+      <motion.div
         ref={ref}
+        variants={hover ? variants : undefined}
+        initial="initial"
+        whileHover={hover ? "hover" : undefined}
+        whileTap={hover ? "tap" : undefined}
         className={cn(
           glassCardVariants({ variant, glow, padding }),
           animated && "animate-liquid-glow",
@@ -59,7 +72,7 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
       >
         <div className="absolute inset-0 bg-gradient-mesh-subtle opacity-50 pointer-events-none" />
         <div className="relative z-10">{children}</div>
-      </div>
+      </motion.div>
     );
   }
 );

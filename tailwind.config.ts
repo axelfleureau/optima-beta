@@ -111,6 +111,10 @@ const config = {
           "0%, 100%": { borderRadius: "30% 70% 70% 30% / 30% 30% 70% 70%" },
           "50%": { borderRadius: "70% 30% 30% 70% / 70% 70% 30% 30%" },
         },
+        "glass-hover": {
+          "0%": { transform: "scale(1)", opacity: "1" },
+          "100%": { transform: "scale(1.02)", opacity: "0.95" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -121,6 +125,7 @@ const config = {
         "liquid-glow": "liquid-glow 2s ease-in-out infinite",
         "gradient-shift": "gradient-shift 3s ease infinite",
         "liquid-morph": "liquid-morph 4s ease-in-out infinite",
+        "glass-hover": "glass-hover 200ms cubic-bezier(0.4, 0, 0.2, 1)",
       },
       fontFamily: {
         sans: ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
@@ -175,6 +180,7 @@ const config = {
         "liquid-slow": "600ms",
       },
       transitionTimingFunction: {
+        "liquid": "cubic-bezier(0.4, 0, 0.2, 1)",
         "liquid-default": "cubic-bezier(0.4, 0, 0.2, 1)",
         "liquid-smooth": "cubic-bezier(0.33, 1, 0.68, 1)",
         "liquid-bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
