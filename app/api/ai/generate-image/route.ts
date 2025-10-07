@@ -7,6 +7,7 @@ import { estimateImageCost } from '@/lib/ai/cost-calculator'
 import { addDoc, collection } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit'
+import { resizeImage, getInstagramResizeConfig } from '@/lib/utils/image-resize'
 
 export async function POST(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, "AI")
@@ -262,6 +263,27 @@ export async function POST(request: NextRequest) {
 
     const tokensUsed = costEstimate.tokens
 
+    // ✅ AUTO-RESIZE FOR INSTAGRAM FORMATS
+    const resizeConfig = getInstagramResizeConfig(platform || 'custom')
+    let finalImageUrl = result.imageUrl
+    let targetSize: string | undefined
+
+    if (resizeConfig) {
+      console.log(`🔄 Resizing image for ${platform}:`, resizeConfig)
+      
+      try {
+        const resizedBuffer = await resizeImage(result.imageUrl, resizeConfig)
+        
+        const base64 = resizedBuffer.toString('base64')
+        finalImageUrl = `data:image/jpeg;base64,${base64}`
+        targetSize = `${resizeConfig.targetWidth}x${resizeConfig.targetHeight}`
+        
+        console.log(`✅ Image resized to ${targetSize}`)
+      } catch (resizeError) {
+        console.error('❌ Resize failed, using original:', resizeError)
+      }
+    }
+
     // 9. SAVE METADATA TO FIRESTORE WITH SERVER-DERIVED IDs
     try {
       console.log(`💾 Saving image generation metadata to Firestore with server-derived IDs...`)
@@ -298,13 +320,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        imageUrl: result.imageUrl,
+        imageUrl: finalImageUrl,
         revisedPrompt: result.revisedPrompt,
         tokensUsed,
         cost: costEstimate.cost,
         platform: platform || 'custom',
         size: imageSize,
         quality: imageQuality,
+        targetSize,
       },
       { status: 200 }
     )

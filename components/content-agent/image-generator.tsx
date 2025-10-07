@@ -25,7 +25,7 @@ interface ImageGeneratorProps {
 
 export function ImageGenerator({ open, onOpenChange }: ImageGeneratorProps) {
   const { user } = useAuth()
-  const [platform, setPlatform] = useState<Platform>('instagram')
+  const [platform, setPlatform] = useState<Platform>('instagram-feed-grid')
   const [prompt, setPrompt] = useState('')
   const [quality, setQuality] = useState<'standard' | 'hd'>('standard')
   const [style, setStyle] = useState<'natural' | 'vivid'>('vivid')
@@ -103,7 +103,7 @@ export function ImageGenerator({ open, onOpenChange }: ImageGeneratorProps) {
         setImageUrl(null)
         setRevisedPrompt(null)
         setPrompt('')
-        setPlatform('instagram')
+        setPlatform('instagram-feed-grid')
         setQuality('standard')
         setStyle('vivid')
       }, 300)

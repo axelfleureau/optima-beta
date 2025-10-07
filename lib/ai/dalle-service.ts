@@ -98,24 +98,123 @@ export async function generateImageWithDalle(
   }
 }
 
-export function getPlatformSize(platform: 'instagram' | 'facebook' | 'linkedin' | 'custom'): '1024x1024' | '1792x1024' | '1024x1792' {
-  const sizeMap = {
-    instagram: '1024x1024' as const,
-    facebook: '1792x1024' as const,
-    linkedin: '1024x1024' as const,
-    custom: '1024x1024' as const,
+export function getPlatformSize(
+  platform: 
+    | 'instagram-feed-grid'
+    | 'instagram-feed-portrait'
+    | 'instagram-reels'
+    | 'instagram-stories'
+    | 'instagram'
+    | 'facebook'
+    | 'linkedin'
+    | 'custom'
+): '1024x1024' | '1792x1024' | '1024x1792' {
+  const sizeMap: Record<string, '1024x1024' | '1792x1024' | '1024x1792'> = {
+    // Instagram formats → Closest DALL-E sizes
+    'instagram-feed-grid': '1024x1024',     // 3:4 → 1:1 (closest, user crops)
+    'instagram-feed-portrait': '1024x1792', // 4:5 → 9:16 (crop slightly)
+    'instagram-reels': '1024x1792',         // 9:16 perfect match
+    'instagram-stories': '1024x1792',       // 9:16 perfect match
+    
+    // Legacy/Other platforms
+    'instagram': '1024x1024',               // legacy square
+    'facebook': '1792x1024',
+    'linkedin': '1024x1024',
+    'custom': '1024x1024',
   }
   
-  return sizeMap[platform]
+  return sizeMap[platform] || '1024x1024'
 }
 
-export function getPlatformAspectRatio(platform: 'instagram' | 'facebook' | 'linkedin' | 'custom'): string {
-  const aspectRatioMap = {
-    instagram: '1:1',
-    facebook: '16:9',
-    linkedin: '1.91:1',
-    custom: '1:1',
+export function getPlatformAspectRatio(
+  platform: 
+    | 'instagram-feed-grid'
+    | 'instagram-feed-portrait'
+    | 'instagram-reels'
+    | 'instagram-stories'
+    | 'instagram'
+    | 'facebook'
+    | 'linkedin'
+    | 'custom'
+): string {
+  const aspectRatioMap: Record<string, string> = {
+    'instagram-feed-grid': '3:4',
+    'instagram-feed-portrait': '4:5',
+    'instagram-reels': '9:16',
+    'instagram-stories': '9:16',
+    'instagram': '1:1',
+    'facebook': '16:9',
+    'linkedin': '1.91:1',
+    'custom': '1:1',
   }
   
-  return aspectRatioMap[platform]
+  return aspectRatioMap[platform] || '1:1'
+}
+
+export function getPlatformMetadata(
+  platform: 
+    | 'instagram-feed-grid'
+    | 'instagram-feed-portrait'
+    | 'instagram-reels'
+    | 'instagram-stories'
+    | 'instagram'
+    | 'facebook'
+    | 'linkedin'
+    | 'custom'
+) {
+  const metadataMap: Record<string, {
+    targetSize: string
+    dalleSize: string
+    safeZone?: string
+    safeArea?: string
+    notes?: string
+  }> = {
+    'instagram-feed-grid': {
+      targetSize: '1080×1440 (3:4)',
+      dalleSize: '1024×1024 (1:1)',
+      notes: 'DALL-E genera 1:1, il sistema ridimensiona automaticamente a 3:4. Pronto per Instagram!',
+    },
+    'instagram-feed-portrait': {
+      targetSize: '1080×1350 (4:5)',
+      dalleSize: '1024×1792 (9:16)',
+      notes: 'DALL-E genera 9:16, il sistema ritaglia automaticamente a 4:5. Pronto per Instagram!',
+    },
+    'instagram-reels': {
+      targetSize: '1080×1920 (9:16)',
+      dalleSize: '1024×1792 (9:16)',
+      safeZone: '1080×1440 (center)',
+      notes: 'Perfect match! Testo/elementi nella safe zone centrale.',
+    },
+    'instagram-stories': {
+      targetSize: '1080×1920 (9:16)',
+      dalleSize: '1024×1792 (9:16)',
+      safeArea: '1080×1610 (center)',
+      notes: 'Perfect match! Lascia 250px spazio top/bottom per UI Instagram.',
+    },
+    'instagram': {
+      targetSize: '1024×1024',
+      dalleSize: '1024×1024 (1:1)',
+      notes: 'Formato quadrato legacy',
+    },
+    'facebook': {
+      targetSize: '1792×1024',
+      dalleSize: '1792×1024 (16:9)',
+      notes: 'Formato landscape Facebook',
+    },
+    'linkedin': {
+      targetSize: '1024×1024',
+      dalleSize: '1024×1024 (1:1)',
+      notes: 'Formato LinkedIn',
+    },
+    'custom': {
+      targetSize: '1024×1024',
+      dalleSize: '1024×1024 (1:1)',
+      notes: 'Formato personalizzato',
+    },
+  }
+  
+  return metadataMap[platform] || { 
+    targetSize: '1024×1024',
+    dalleSize: '1024×1024 (1:1)',
+  }
 }

@@ -154,7 +154,7 @@ export function ContextGatheringDialog({
       const result = await ContentAgentOrchestrator.orchestrateContentCreation({
         intent,
         contentType: (entities?.contentType || "post") as "post" | "reel" | "video",
-        platform: platform || "instagram",
+        platform: platform || "instagram-feed-grid",
         clientId: selectedClientId,
         clientName: clientName,
         topic: entities?.topic || "contenuto",
@@ -186,7 +186,7 @@ export function ContextGatheringDialog({
         {
           intent,
           contentType: (entities?.contentType || "post") as "post" | "reel" | "video",
-          platform: platform || "instagram",
+          platform: platform || "instagram-feed-grid",
           clientId: selectedClientId,
           clientName: clientName,
           topic: entities?.topic || "contenuto",
