@@ -18,7 +18,7 @@ export interface Quote {
   description?: string
   clientId: string
   clientName: string
-  status: "draft" | "sent" | "pending" | "accepted" | "rejected" | "expired" | "paid"
+  status: "draft" | "sent" | "pending" | "accepted" | "rejected" | "expired" | "paid" | "approved"
   currency: string
   items: QuoteItem[]
   total: number
@@ -27,6 +27,26 @@ export interface Quote {
   updatedAt: Date
   tenantId: string
   createdBy: string
+  
+  // Public sharing and approval fields
+  shareToken?: string
+  sentAt?: Date
+  approvedAt?: Date
+  approvedBy?: string
+  clientEmail?: string
+  
+  // Payment plan (from Task 9)
+  paymentPlan?: {
+    type: 'full' | 'deposit_milestone'
+    depositPercentage?: number
+    milestones?: Array<{
+      id: string
+      name: string
+      percentage: number
+      amount: number
+      status: 'pending' | 'paid' | 'failed'
+    }>
+  }
 }
 
 // Helper function to safely convert Firestore timestamp to Date
@@ -89,6 +109,12 @@ export function useQuotes() {
           updatedAt: safeToDate(data.updatedAt),
           tenantId: data.tenantId || "",
           createdBy: data.createdBy || "",
+          shareToken: data.shareToken,
+          sentAt: data.sentAt ? safeToDate(data.sentAt) : undefined,
+          approvedAt: data.approvedAt ? safeToDate(data.approvedAt) : undefined,
+          approvedBy: data.approvedBy,
+          clientEmail: data.clientEmail,
+          paymentPlan: data.paymentPlan,
         } as Quote
       })
 
