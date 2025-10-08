@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { GlassButton } from "@/components/ui/glass-button"
 import { TokenPlan } from "@/lib/constants/token-plans"
-import { liquidExpand, particleBurst } from "@/lib/animations/liquid"
+import { liquidExpand } from "@/lib/animations/liquid"
 import { toast } from "sonner"
 
 interface PlanUpgradeDialogProps {

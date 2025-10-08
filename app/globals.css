@@ -285,50 +285,6 @@ body {
   box-shadow: 0 10px 40px -10px rgba(168, 85, 247, 0.4);
 }
 
-/* Liquid Button Animations */
-
-/* Continuous liquid morph pulse (border-radius) */
-@keyframes liquid-pulse {
-  0%, 100% { 
-    border-radius: 0.5rem; /* 8px */
-  }
-  50% { 
-    border-radius: 1rem; /* 16px */
-  }
-}
-
-/* Continuous gradient shift loop */
-@keyframes gradient-flow {
-  0% { 
-    background-position: 0% 50%; 
-  }
-  50% { 
-    background-position: 100% 50%; 
-  }
-  100% { 
-    background-position: 0% 50%; 
-  }
-}
-
-/* Base transition for smooth hover-out */
-.liquid-morph-hover {
-  transition: border-radius 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
-              background-position 300ms ease-in-out;
-}
-
-/* Apply continuous animations on hover */
-.liquid-morph-hover:hover {
-  animation: 
-    liquid-pulse 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) infinite,
-    gradient-flow 2s ease-in-out infinite;
-}
-
-/* Keep existing one-shot gradient-shift for fallback */
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 100% 50%; }
-}
-
 .bg-size-200 {
   background-size: 200% 200%;
 }

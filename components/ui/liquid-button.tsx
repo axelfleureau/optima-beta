@@ -52,20 +52,19 @@ export function LiquidButton({
     )
   }
 
-  // For full motion: continuous liquid morph via CSS + scale via Framer
+  // For full motion: subtle corporate scale
   return (
     <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
       transition={{
         duration: 0.2,
-        ease: [0.34, 1.56, 0.64, 1],
+        ease: [0.4, 0, 0.2, 1],
       }}
       className={cn(
         'font-medium transition-transform will-change-transform',
         sizeClasses[size],
         variantClasses[variant],
-        variant === 'primary' && 'liquid-morph-hover',
         className
       )}
       {...props}

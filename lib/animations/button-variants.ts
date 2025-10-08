@@ -3,22 +3,19 @@ import { Variants } from 'framer-motion'
 export const liquidButtonVariants: Variants = {
   initial: {
     scale: 1,
-    borderRadius: '0.5rem', // 8px
   },
   hover: {
-    scale: 1.05,
-    borderRadius: '1rem', // 16px
+    scale: 1.02,
     transition: {
-      duration: 0.3,
-      ease: [0.34, 1.56, 0.64, 1], // Overshoot bounce
+      duration: 0.2,
+      ease: [0.4, 0, 0.2, 1],
     },
   },
   tap: {
-    scale: 0.95,
-    borderRadius: '0.375rem', // 6px (squeeze effect)
+    scale: 0.98,
     transition: {
       duration: 0.15,
-      ease: [0.34, 1.56, 0.64, 1],
+      ease: [0.4, 0, 0.2, 1],
     },
   },
 }

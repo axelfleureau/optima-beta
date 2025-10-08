@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Download, Maximize2, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GlassButton } from '@/components/ui/glass-button'
-import { liquidExpand, particleBurst } from '@/lib/animations/liquid'
+import { liquidExpand, liquidScaleIn } from '@/lib/animations/liquid'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
@@ -139,8 +139,8 @@ export function ImagePreview({
 
               <motion.div
                 className="absolute inset-0 pointer-events-none"
-                initial={particleBurst.initial}
-                animate={particleBurst.animate}
+                initial={liquidScaleIn.initial}
+                animate={liquidScaleIn.animate}
                 transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1] }}
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20 rounded-lg" />

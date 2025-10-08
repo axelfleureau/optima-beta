@@ -78,18 +78,6 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "righello-pulse": {
-          "0%, 100%": {
-            boxShadow: "0 0 0 0 rgba(255, 0, 146, 0.7)",
-          },
-          "70%": {
-            boxShadow: "0 0 0 10px rgba(255, 0, 146, 0)",
-          },
-        },
-        "righello-float": {
-          "0%, 100%": { transform: "translateY(0px)" },
-          "50%": { transform: "translateY(-10px)" },
-        },
         "liquid-shimmer": {
           "0%": { backgroundPosition: "200% 0" },
           "100%": { backgroundPosition: "-200% 0" },
@@ -106,18 +94,6 @@ const config = {
           "0%": { backgroundPosition: "0% 50%" },
           "100%": { backgroundPosition: "100% 50%" },
         },
-        "liquid-morph": {
-          "0%, 100%": { 
-            borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%"
-          },
-          "50%": { 
-            borderRadius: "30% 60% 70% 40% / 50% 60% 30% 60%"
-          },
-        },
-        "liquid-morph-card": {
-          "0%, 100%": { borderRadius: "30% 70% 70% 30% / 30% 30% 70% 70%" },
-          "50%": { borderRadius: "70% 30% 30% 70% / 70% 70% 30% 30%" },
-        },
         "glass-hover": {
           "0%": { transform: "scale(1)", opacity: "1" },
           "100%": { transform: "scale(1.02)", opacity: "0.95" },
@@ -126,13 +102,9 @@ const config = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "righello-pulse": "righello-pulse 2s infinite",
-        "righello-float": "righello-float 3s ease-in-out infinite",
         "liquid-shimmer": "liquid-shimmer 2s linear infinite",
         "liquid-glow": "liquid-glow 2s ease-in-out infinite",
         "gradient-shift": "gradient-shift 3s ease-in-out infinite",
-        "liquid-morph": "liquid-morph 4s ease-in-out infinite",
-        "liquid-morph-card": "liquid-morph-card 4s ease-in-out infinite",
         "glass-hover": "glass-hover 200ms cubic-bezier(0.4, 0, 0.2, 1)",
       },
       fontFamily: {
@@ -194,8 +166,6 @@ const config = {
         "liquid": "cubic-bezier(0.4, 0, 0.2, 1)",
         "liquid-default": "cubic-bezier(0.4, 0, 0.2, 1)",
         "liquid-smooth": "cubic-bezier(0.33, 1, 0.68, 1)",
-        "liquid-bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
-        "liquid-elastic": "cubic-bezier(0.175, 0.885, 0.32, 1.275)",
       },
     },
   },

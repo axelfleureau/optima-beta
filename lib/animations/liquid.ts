@@ -21,43 +21,16 @@ export const liquidExpand = {
   },
 };
 
-export const liquidMorph = {
-  initial: { 
-    borderRadius: '50%', 
-    scale: 0.8,
-    rotate: -180,
-    opacity: 0 
-  },
-  animate: { 
-    borderRadius: '0.75rem', 
-    scale: 1,
-    rotate: 0,
-    opacity: 1 
-  },
-  exit: { 
-    borderRadius: '50%', 
-    scale: 0.8,
-    rotate: 180,
-    opacity: 0 
-  },
-  transition: {
-    duration: liquidTimings.smooth / 1000,
-    ease: liquidEasings.elastic,
-  },
-};
-
 export const glowPulse = {
   initial: { 
-    boxShadow: '0 0 0 0 rgba(168, 85, 247, 0.7)',
-    scale: 1 
+    boxShadow: '0 0 0 0 rgba(139, 92, 246, 0.5)',
   },
   animate: { 
     boxShadow: [
-      '0 0 0 0 rgba(168, 85, 247, 0.7)',
-      '0 0 0 10px rgba(168, 85, 247, 0)',
-      '0 0 0 0 rgba(168, 85, 247, 0)',
+      '0 0 0 0 rgba(139, 92, 246, 0.5)',
+      '0 0 0 8px rgba(139, 92, 246, 0)',
+      '0 0 0 0 rgba(139, 92, 246, 0)',
     ],
-    scale: [1, 1.02, 1],
   },
   transition: {
     duration: 2,
@@ -93,23 +66,10 @@ export const fluidSlide = {
   },
 };
 
-export const particleBurst = {
-  initial: { scale: 0, opacity: 0 },
-  animate: {
-    scale: [0, 1.5, 1],
-    opacity: [0, 1, 0],
-    rotate: [0, 180, 360],
-  },
-  transition: {
-    duration: liquidTimings.slow / 1000,
-    ease: liquidEasings.smooth,
-  },
-};
-
 export const liquidHover = {
   scale: 1.02,
   y: -2,
-  boxShadow: '0 10px 30px rgba(168, 85, 247, 0.3)',
+  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.15)',
   transition: {
     duration: liquidTimings.fast / 1000,
     ease: liquidEasings.smooth,

@@ -62,7 +62,7 @@ const GlassButton = React.forwardRef<HTMLButtonElement, GlassButtonProps>(
         {loading ? (
           <>
             <div className="relative h-4 w-4">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 animate-liquid-morph opacity-60" />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 animate-spin opacity-60" />
               <div className="absolute inset-1 rounded-full bg-white dark:bg-black" />
             </div>
             <span className="opacity-70">{children}</span>
