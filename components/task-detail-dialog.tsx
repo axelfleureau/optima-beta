@@ -209,7 +209,7 @@ export function TaskDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-full md:max-w-4xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
         <DialogHeader className="space-y-4">
           {/* Title - Inline Editable */}
           <div className="flex items-center gap-2">
@@ -228,18 +228,19 @@ export function TaskDetailDialog({
                   }}
                   autoFocus
                 />
-                <Button size="sm" onClick={handleSaveTitle}>
-                  <Check className="h-4 w-4" />
+                <Button size="sm" className="h-11 w-11 md:h-9 md:w-auto md:px-3" onClick={handleSaveTitle}>
+                  <Check className="h-5 w-5 md:h-4 md:w-4" />
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="h-11 w-11 md:h-9 md:w-auto md:px-3"
                   onClick={() => {
                     setTitle(task.title)
                     setEditingTitle(false)
                   }}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5 md:h-4 md:w-4" />
                 </Button>
               </div>
             ) : (
@@ -254,25 +255,25 @@ export function TaskDetailDialog({
           </div>
 
           {/* Meta Information Row */}
-          <div className="flex items-center gap-4 text-sm text-gray-600">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-600">
             <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span>Creata il {(task.createdAt instanceof Date ? task.createdAt : (task.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
+              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Creata il {(task.createdAt instanceof Date ? task.createdAt : (task.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              <span>Aggiornata il {(task.updatedAt instanceof Date ? task.updatedAt : (task.updatedAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
+              <Clock className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Aggiornata il {(task.updatedAt instanceof Date ? task.updatedAt : (task.updatedAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
             </div>
             <div className="flex items-center gap-1">
-              <User className="h-4 w-4" />
-              <span>{task.assignee || "Non assegnato"}</span>
+              <User className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">{task.assignee || "Non assegnato"}</span>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="flex flex-col md:grid md:grid-cols-3 gap-4 md:gap-6">
           {/* Main Content - 2/3 width */}
-          <div className="col-span-2 space-y-6">
+          <div className="order-2 md:order-1 md:col-span-2 space-y-4 md:space-y-6">
             {/* Description - Inline Editable */}
             <div>
               <Label className="text-sm font-medium text-gray-700 mb-2 block">Descrizione</Label>
@@ -291,13 +292,14 @@ export function TaskDetailDialog({
                     }}
                   />
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSaveDescription}>
-                      <Check className="h-4 w-4 mr-1" />
+                    <Button size="sm" className="h-11 md:h-9" onClick={handleSaveDescription}>
+                      <Check className="h-5 w-5 md:h-4 md:w-4 mr-1" />
                       Salva
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="h-11 md:h-9"
                       onClick={() => {
                         setDescription(task.description || "")
                         setEditingDescription(false)
@@ -339,13 +341,14 @@ export function TaskDetailDialog({
                     }}
                   />
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSaveRichDescription}>
-                      <Check className="h-4 w-4 mr-1" />
+                    <Button size="sm" className="h-11 md:h-9" onClick={handleSaveRichDescription}>
+                      <Check className="h-5 w-5 md:h-4 md:w-4 mr-1" />
                       Salva
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="h-11 md:h-9"
                       onClick={() => {
                         setRichDescription(task.richDescription || "")
                         setEditingRichDescription(false)
@@ -390,12 +393,14 @@ export function TaskDetailDialog({
                               <div {...provided.dragHandleProps}>
                                 <GripVertical className="h-4 w-4 text-gray-400" />
                               </div>
-                              <Checkbox checked={item.completed} onCheckedChange={() => handleToggleSubItem(item.id)} />
+                              <div className="p-2 md:p-0">
+                                <Checkbox checked={item.completed} onCheckedChange={() => handleToggleSubItem(item.id)} className="h-5 w-5 md:h-4 md:w-4" />
+                              </div>
                               <span className={`flex-1 ${item.completed ? "line-through text-gray-500" : ""}`}>
                                 {item.title}
                               </span>
-                              <Button size="sm" variant="ghost" onClick={() => handleRemoveSubItem(item.id)}>
-                                <X className="h-3 w-3" />
+                              <Button size="sm" variant="ghost" className="h-11 w-11 md:h-8 md:w-8 p-0" onClick={() => handleRemoveSubItem(item.id)}>
+                                <X className="h-5 w-5 md:h-3 md:w-3" />
                               </Button>
                             </div>
                           )}
@@ -416,9 +421,10 @@ export function TaskDetailDialog({
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleAddSubItem()
                   }}
+                  className="h-12 md:h-10"
                 />
-                <Button size="sm" onClick={handleAddSubItem}>
-                  <Plus className="h-4 w-4" />
+                <Button size="sm" className="h-12 w-12 md:h-10 md:w-10" onClick={handleAddSubItem}>
+                  <Plus className="h-5 w-5 md:h-4 md:w-4" />
                 </Button>
               </div>
             </div>
@@ -446,15 +452,16 @@ export function TaskDetailDialog({
                         handleAddComment()
                       }
                     }}
+                    className="h-11 md:h-10"
                   />
-                  <Button size="sm" onClick={handleAddComment} disabled={!newComment.trim()}>
-                    <Send className="h-4 w-4" />
+                  <Button size="sm" className="h-11 w-11 md:h-10 md:w-10" onClick={handleAddComment} disabled={!newComment.trim()}>
+                    <Send className="h-5 w-5 md:h-4 md:w-4" />
                   </Button>
                 </div>
               </div>
 
               {/* Comments list */}
-              <div className="space-y-3 max-h-60 overflow-y-auto">
+              <div className="space-y-2 md:space-y-3 max-h-48 md:max-h-60 overflow-y-auto">
                 {(task.comments || []).map((comment) => (
                   <div key={comment.id} className="flex gap-3">
                     <Avatar className="h-8 w-8">
@@ -492,15 +499,15 @@ export function TaskDetailDialog({
           </div>
 
           {/* Sidebar - 1/3 width */}
-          <div className="space-y-4">
+          <div className="order-1 md:order-2 space-y-3 md:space-y-4">
             {/* Status */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Stato</Label>
+              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Stato</Label>
               <Select
                 value={task.status || task.columnId}
                 onValueChange={(value) => handleUpdateField("status", value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11 md:h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -515,9 +522,9 @@ export function TaskDetailDialog({
 
             {/* Type/Category */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Tipologia</Label>
+              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Tipologia</Label>
               <Select value={task.type || ""} onValueChange={(value) => handleUpdateField("type", value)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11 md:h-10">
                   <SelectValue placeholder="Seleziona tipologia" />
                 </SelectTrigger>
                 <SelectContent>
@@ -532,9 +539,9 @@ export function TaskDetailDialog({
 
             {/* Priority */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Priorità</Label>
+              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Priorità</Label>
               <Select value={task.priority} onValueChange={(value) => handleUpdateField("priority", value)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11 md:h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -550,7 +557,7 @@ export function TaskDetailDialog({
 
             {/* Score */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Punteggio Valutazione</Label>
+              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Punteggio Valutazione</Label>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -558,7 +565,7 @@ export function TaskDetailDialog({
                   max="10"
                   value={task.score || 0}
                   onChange={(e) => handleUpdateField("score", Number.parseInt(e.target.value) || 0)}
-                  className="w-20"
+                  className="w-20 h-11 md:h-10"
                 />
                 <div className="flex items-center gap-1">
                   <Star className={`h-4 w-4 ${getScoreColor(task.score || 0)}`} />
@@ -569,23 +576,24 @@ export function TaskDetailDialog({
 
             {/* Due Date */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Scadenza</Label>
-              <Input type="date" value={dueDate} onChange={(e) => handleDueDateChange(e.target.value)} />
+              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Scadenza</Label>
+              <Input type="date" value={dueDate} onChange={(e) => handleDueDateChange(e.target.value)} className="h-11 md:h-10" />
             </div>
 
             {/* Assignee */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Assegnato a</Label>
+              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Assegnato a</Label>
               <Input
                 value={task.assignee || ""}
                 onChange={(e) => handleUpdateField("assignee", e.target.value)}
                 placeholder="Nome assegnatario"
+                className="h-11 md:h-10"
               />
             </div>
 
             {/* Tags */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Tags</Label>
+              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Tags</Label>
               <div className="flex flex-wrap gap-1">
                 {(task.tags || []).map((tag) => (
                   <Badge key={tag} variant="secondary" className="text-xs">
