@@ -62,6 +62,7 @@ export function PostFormDialog({
     description: "",
     content: "",
     platform: "instagram",
+    type: "post_singolo",
     postType: "post_singolo",
     scheduledDate: "",
     scheduledTime: "",
@@ -103,12 +104,14 @@ export function PostFormDialog({
 
   useEffect(() => {
     if (editingPost) {
+      const postTypeValue = editingPost.postType || editingPost.format || "post_singolo"
       setFormData({
         title: editingPost.title || "",
         description: editingPost.description || "",
         content: editingPost.content || "",
         platform: Array.isArray(editingPost.platform) ? editingPost.platform[0] : editingPost.platform || "instagram",
-        postType: editingPost.postType || editingPost.format || "post_singolo",
+        type: postTypeValue,
+        postType: postTypeValue,
         scheduledDate: editingPost.scheduledDate
           ? new Date(editingPost.scheduledDate.toDate()).toISOString().split("T")[0]
           : "",
@@ -193,6 +196,7 @@ export function PostFormDialog({
 
       const normalized: CaptionGenerationData = {
         title: captionOptions.title ?? "",
+        content: captionOptions.content ?? "",
         // 👇 array garantito
         platform: toArray(platformNormalized) as any,
         // 👇 mappo il tuo "type" al formato atteso dal service
@@ -200,7 +204,7 @@ export function PostFormDialog({
         // opzionali
         keywords: [], // se vuoi, prendi da tags: formData.tags
         targetAudience: captionOptions.targetAudience ?? "",
-        clientName: captionOptions.brandVoice ?? "",
+        clientName: "",
         date: dateNormalized,
         tone: toneNormalized ?? "professionale",
         length: captionOptions.length ?? "media",
@@ -251,7 +255,7 @@ export function PostFormDialog({
 
     setIsGeneratingVisuals(true)
     try {
-      const results = await aiVisualService.generateVisuals(visualOptions)
+      const results = await aiVisualService.generateVisuals(visualOptions, user?.uid || "system")
       setGeneratedVisuals(results)
       toast({
         title: "Visual generati!",
@@ -274,7 +278,7 @@ export function PostFormDialog({
       setFormData((prev) => ({
         ...prev,
         content: generatedCaption.caption,
-        hashtags: [...prev.hashtags, ...generatedCaption.hashtags.filter((tag) => !prev.hashtags.includes(tag))],
+        hashtags: [...(prev.hashtags || []), ...generatedCaption.hashtags.filter((tag) => !(prev.hashtags || []).includes(tag))],
       }))
       toast({
         title: "Caption applicata",
@@ -359,6 +363,7 @@ export function PostFormDialog({
       description: "",
       content: "",
       platform: "instagram",
+      type: "post_singolo",
       postType: "post_singolo",
       scheduledDate: "",
       scheduledTime: "",
@@ -496,7 +501,7 @@ export function PostFormDialog({
                       <Select
                         value={formData.postType}
                         onValueChange={(value) => {
-                          setFormData((prev) => ({ ...prev, postType: value }))
+                          setFormData((prev) => ({ ...prev, type: value, postType: value }))
                           setVisualOptions((prev) => ({ ...prev, isCarousel: value === "carosello" }))
                         }}
                       >
@@ -639,23 +644,13 @@ export function PostFormDialog({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Target Audience</Label>
-                          <Input
-                            value={captionOptions.targetAudience || ""}
-                            onChange={(e) => setCaptionOptions((prev) => ({ ...prev, targetAudience: e.target.value }))}
-                            placeholder="es. Giovani professionisti, Mamme, Imprenditori..."
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Brand Voice</Label>
-                          <Input
-                            value={captionOptions.brandVoice || ""}
-                            onChange={(e) => setCaptionOptions((prev) => ({ ...prev, brandVoice: e.target.value }))}
-                            placeholder="es. Innovativo, Tradizionale, Giovanile..."
-                          />
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Target Audience</Label>
+                        <Input
+                          value={captionOptions.targetAudience || ""}
+                          onChange={(e) => setCaptionOptions((prev) => ({ ...prev, targetAudience: e.target.value }))}
+                          placeholder="es. Giovani professionisti, Mamme, Imprenditori..."
+                        />
                       </div>
 
                       <div className="flex items-center justify-between">
