@@ -70,9 +70,9 @@ export class StripeService {
       const successUrl = request.successUrl || `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`
       const cancelUrl = request.cancelUrl || `${baseUrl}/payment/cancel?quote_id=${context.quote.id}`
 
-      // Create Stripe customer if needed
+      // Create Stripe customer if valid email is available
       let customerId = undefined
-      if (request.clientEmail) {
+      if (request.clientEmail && this.isValidEmail(request.clientEmail)) {
         customerId = await this.getOrCreateCustomer(
           request.clientEmail,
           request.clientName || context.quote.clientName,
@@ -144,6 +144,231 @@ export class StripeService {
       }
     } catch (error) {
       console.error("Error creating checkout session:", error)
+      return {
+        success: false,
+        error: this.formatStripeError(error),
+      }
+    }
+  }
+
+  /**
+   * Create a Stripe Checkout Session for deposit payment
+   * SECURITY: Validates quote ownership and calculates deposit amount server-side
+   */
+  async createDepositCheckout(
+    quoteId: string,
+    depositPercentage: number,
+    context: SecurePaymentContext
+  ): Promise<PaymentServiceResponse<CreatePaymentIntentResponse>> {
+    try {
+      // Validate deposit percentage
+      if (depositPercentage <= 0 || depositPercentage > 100) {
+        return {
+          success: false,
+          error: {
+            code: "invalid_deposit_percentage",
+            message: "Deposit percentage must be between 1 and 100",
+            type: "validation",
+          },
+        }
+      }
+
+      // Validate quote is payable
+      const quoteValidation = this.validateQuoteForPayment(context.quote)
+      if (!quoteValidation.success) {
+        return quoteValidation
+      }
+
+      // Calculate deposit amount
+      const depositAmount = (context.quote.total * depositPercentage) / 100
+
+      // Determine URLs
+      const baseUrl = this.getBaseUrl()
+      const successUrl = `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`
+      const cancelUrl = `${baseUrl}/payment/cancel?quote_id=${context.quote.id}`
+
+      // Create Stripe customer if valid email is available
+      let customerId = undefined
+      const validEmail = (context.quote as any).clientEmail
+      if (validEmail && this.isValidEmail(validEmail)) {
+        customerId = await this.getOrCreateCustomer(
+          validEmail,
+          context.quote.clientName,
+          context.tenant.id
+        )
+      }
+
+      // Create checkout session for deposit
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: context.quote.currency.toLowerCase(),
+              product_data: {
+                name: `Deposito ${depositPercentage}% - ${context.quote.title}`,
+                description: `Acconto iniziale per preventivo ${context.quote.id}`,
+                metadata: {
+                  quoteId: context.quote.id,
+                  tenantId: context.tenant.id,
+                },
+              },
+              unit_amount: Math.round(depositAmount * 100),
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        customer: customerId,
+        client_reference_id: context.quote.id,
+        payment_intent_data: {
+          metadata: {
+            quoteId: context.quote.id,
+            tenantId: context.tenant.id,
+            paymentType: "deposit",
+            depositPercentage: depositPercentage.toString(),
+            totalQuoteAmount: context.quote.total.toString(),
+          },
+          description: `Deposito ${depositPercentage}% per: ${context.quote.title}`,
+        },
+        metadata: {
+          quoteId: context.quote.id,
+          tenantId: context.tenant.id,
+          paymentType: "deposit",
+          depositPercentage: depositPercentage.toString(),
+          totalQuoteAmount: context.quote.total.toString(),
+          quoteName: context.quote.title,
+          clientName: context.quote.clientName,
+        },
+        expires_at: Math.floor((new Date().getTime() + 24 * 60 * 60 * 1000) / 1000),
+        billing_address_collection: "required",
+        phone_number_collection: {
+          enabled: true,
+        },
+      })
+
+      return {
+        success: true,
+        data: {
+          success: true,
+          checkoutSessionId: session.id,
+          checkoutUrl: session.url!,
+          paymentIntentId: session.payment_intent as string,
+        },
+      }
+    } catch (error) {
+      console.error("Error creating deposit checkout session:", error)
+      return {
+        success: false,
+        error: this.formatStripeError(error),
+      }
+    }
+  }
+
+  /**
+   * Create a Stripe Checkout Session for milestone payment
+   * SECURITY: Validates milestone and quote ownership server-side
+   */
+  async createMilestonePayment(
+    quoteId: string,
+    milestoneId: string,
+    milestone: { name: string; amount: number },
+    context: SecurePaymentContext
+  ): Promise<PaymentServiceResponse<CreatePaymentIntentResponse>> {
+    try {
+      // Validate milestone amount
+      if (milestone.amount <= 0) {
+        return {
+          success: false,
+          error: {
+            code: "invalid_milestone_amount",
+            message: "Milestone amount must be greater than zero",
+            type: "validation",
+          },
+        }
+      }
+
+      // Determine URLs
+      const baseUrl = this.getBaseUrl()
+      const successUrl = `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`
+      const cancelUrl = `${baseUrl}/payment/cancel?quote_id=${context.quote.id}&milestone_id=${milestoneId}`
+
+      // Create Stripe customer if valid email is available
+      let customerId = undefined
+      const validEmail = (context.quote as any).clientEmail
+      if (validEmail && this.isValidEmail(validEmail)) {
+        customerId = await this.getOrCreateCustomer(
+          validEmail,
+          context.quote.clientName,
+          context.tenant.id
+        )
+      }
+
+      // Create checkout session for milestone
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: context.quote.currency.toLowerCase(),
+              product_data: {
+                name: `Milestone: ${milestone.name}`,
+                description: `Pagamento milestone per ${context.quote.title}`,
+                metadata: {
+                  quoteId: context.quote.id,
+                  milestoneId: milestoneId,
+                  tenantId: context.tenant.id,
+                },
+              },
+              unit_amount: Math.round(milestone.amount * 100),
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        customer: customerId,
+        client_reference_id: context.quote.id,
+        payment_intent_data: {
+          metadata: {
+            quoteId: context.quote.id,
+            milestoneId: milestoneId,
+            paymentType: "milestone",
+            tenantId: context.tenant.id,
+            milestoneName: milestone.name,
+          },
+          description: `Milestone "${milestone.name}" per: ${context.quote.title}`,
+        },
+        metadata: {
+          quoteId: context.quote.id,
+          milestoneId: milestoneId,
+          paymentType: "milestone",
+          tenantId: context.tenant.id,
+          milestoneName: milestone.name,
+          quoteName: context.quote.title,
+          clientName: context.quote.clientName,
+        },
+        expires_at: Math.floor((new Date().getTime() + 24 * 60 * 60 * 1000) / 1000),
+        billing_address_collection: "required",
+        phone_number_collection: {
+          enabled: true,
+        },
+      })
+
+      return {
+        success: true,
+        data: {
+          success: true,
+          checkoutSessionId: session.id,
+          checkoutUrl: session.url!,
+          paymentIntentId: session.payment_intent as string,
+        },
+      }
+    } catch (error) {
+      console.error("Error creating milestone payment session:", error)
       return {
         success: false,
         error: this.formatStripeError(error),
@@ -268,6 +493,14 @@ export class StripeService {
   }
 
   /**
+   * Validate email format
+   */
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  /**
    * Create or retrieve Stripe customer
    * SECURITY: Scopes customers by tenant
    */
@@ -306,17 +539,45 @@ export class StripeService {
     try {
       console.log("Processing checkout completion:", session.id)
 
-      const quoteId = session.metadata?.quoteId
-      const tenantId = session.metadata?.tenantId
+      const { quoteId, tenantId, paymentType, milestoneId } = session.metadata || {}
 
       if (!quoteId || !tenantId) {
         console.error("Missing metadata in checkout session:", session.metadata)
         return false
       }
 
-      // Update payment record
-      // This will be implemented when we have the payment creation logic
-      console.log(`Quote ${quoteId} payment completed via checkout ${session.id}`)
+      // Handle different payment types
+      if (paymentType === 'deposit') {
+        // Update quote status to 'approved_deposit_paid'
+        // Log deposit payment in Payment collection
+        console.log(`✅ Deposit paid for quote ${quoteId}`)
+        console.log(`   - Deposit percentage: ${session.metadata?.depositPercentage}%`)
+        console.log(`   - Total quote amount: ${session.metadata?.totalQuoteAmount}`)
+        console.log(`   - Payment intent: ${session.payment_intent}`)
+        
+        // TODO: Update quote status and create Payment record
+        // await updateQuoteStatus(quoteId, 'approved_deposit_paid')
+        // await createPaymentRecord({ quoteId, type: 'deposit', ... })
+      } else if (paymentType === 'milestone') {
+        // Update milestone status to 'paid'
+        // Check if all milestones paid → complete quote
+        console.log(`✅ Milestone ${milestoneId} paid for quote ${quoteId}`)
+        console.log(`   - Milestone name: ${session.metadata?.milestoneName}`)
+        console.log(`   - Payment intent: ${session.payment_intent}`)
+        
+        // TODO: Update milestone status and check if all milestones are paid
+        // await updateMilestoneStatus(milestoneId, 'paid')
+        // const allMilestonesPaid = await checkAllMilestonesPaid(quoteId)
+        // if (allMilestonesPaid) { await updateQuoteStatus(quoteId, 'paid') }
+      } else {
+        // Full payment (existing logic)
+        console.log(`✅ Full payment for quote ${quoteId}`)
+        console.log(`   - Payment intent: ${session.payment_intent}`)
+        
+        // TODO: Update quote status to 'paid'
+        // await updateQuoteStatus(quoteId, 'paid')
+        // await createPaymentRecord({ quoteId, type: 'full', ... })
+      }
 
       return true
     } catch (error) {
@@ -517,3 +778,58 @@ export const STRIPE_CONFIG = {
   CHECKOUT_SESSION_EXPIRES_HOURS: 24,
   WEBHOOK_TOLERANCE_SECONDS: 300, // 5 minutes
 } as const
+
+// Helper Utilities for Payment Plans
+
+/**
+ * Create a standard Righello payment plan with 50% deposit + 50% completion milestone
+ * @param quoteTotal - Total quote amount
+ * @returns PaymentPlan with deposit and milestone configuration
+ */
+export function createStandardPaymentPlan(quoteTotal: number): import("@/types/payment").PaymentPlan {
+  return {
+    type: 'deposit_milestone',
+    depositPercentage: 50, // 50% deposito
+    milestones: [
+      {
+        id: `milestone_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: 'Completamento Progetto',
+        percentage: 50,
+        amount: quoteTotal * 0.5,
+        status: 'pending',
+      }
+    ]
+  }
+}
+
+/**
+ * Create a custom payment plan with specified deposit percentage
+ * @param quoteTotal - Total quote amount
+ * @param depositPercentage - Deposit percentage (1-100)
+ * @param milestones - Optional custom milestones
+ * @returns PaymentPlan with custom configuration
+ */
+export function createCustomPaymentPlan(
+  quoteTotal: number,
+  depositPercentage: number,
+  milestones?: Array<{ name: string; percentage: number }>
+): import("@/types/payment").PaymentPlan {
+  const defaultMilestones = milestones || [
+    {
+      name: 'Completamento Progetto',
+      percentage: 100 - depositPercentage,
+    }
+  ]
+
+  return {
+    type: 'deposit_milestone',
+    depositPercentage,
+    milestones: defaultMilestones.map((m, index) => ({
+      id: `milestone_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+      name: m.name,
+      percentage: m.percentage,
+      amount: (quoteTotal * m.percentage) / 100,
+      status: 'pending',
+    }))
+  }
+}

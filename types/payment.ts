@@ -225,3 +225,43 @@ export const PAYMENT_CONSTANTS = {
 } as const
 
 export type SupportedCurrency = typeof PAYMENT_CONSTANTS.SUPPORTED_CURRENCIES[number]
+
+// Payment Plan Types for Deposit + Milestone Payments
+
+export interface PaymentPlan {
+  type: 'full' | 'deposit_milestone' | 'subscription'
+  depositPercentage?: number // es: 50 per 50%
+  milestones?: Milestone[]
+}
+
+export interface Milestone {
+  id: string
+  name: string // es: "Completamento Design", "Lancio Sito"
+  percentage: number // es: 25 per 25% del totale
+  amount: number // calcolato da totale quote
+  dueDate?: Date | Timestamp
+  status: 'pending' | 'ready' | 'paid' | 'failed'
+  paymentIntentId?: string
+  paidAt?: Date | Timestamp
+}
+
+export interface QuoteWithPaymentPlan {
+  // Existing Quote fields
+  id: string
+  title: string
+  description?: string
+  clientId: string
+  clientName: string
+  status: "draft" | "sent" | "pending" | "accepted" | "rejected" | "expired" | "paid"
+  currency: string
+  total: number
+  validUntil: Date
+  createdAt: Date
+  updatedAt: Date
+  tenantId: string
+  createdBy: string
+  
+  // Payment plan extension
+  paymentPlan: PaymentPlan
+  payments: Payment[] // track all payments (deposit + milestones)
+}
