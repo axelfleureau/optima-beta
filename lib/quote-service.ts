@@ -104,16 +104,32 @@ export async function getQuoteByShareToken(shareToken: string): Promise<any | nu
  * Update quote status
  * 
  * @param quoteId - ID of quote to update
+ * @param tenantId - Tenant ID for security validation
  * @param status - New status
  * @param additionalData - Optional additional fields to update
  */
 export async function updateQuoteStatus(
   quoteId: string,
+  tenantId: string,
   status: string,
   additionalData?: Record<string, any>
 ): Promise<void> {
   if (!adminDb) {
     throw new Error('Firebase Admin DB not initialized')
+  }
+
+  // Fetch quote to validate tenant ownership
+  const quoteDoc = await adminDb.collection('quotes').doc(quoteId).get()
+  
+  if (!quoteDoc.exists) {
+    throw new Error('Quote not found')
+  }
+
+  const quoteData = quoteDoc.data()
+  
+  // SECURITY: Validate tenant ownership
+  if (quoteData?.tenantId !== tenantId) {
+    throw new Error('Unauthorized: Quote does not belong to tenant')
   }
 
   await adminDb.collection('quotes').doc(quoteId).update({

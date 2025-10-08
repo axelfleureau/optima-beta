@@ -17,7 +17,8 @@ import {
   FileText,
   Euro,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  RotateCcw
 } from 'lucide-react'
 
 interface QuoteItem {
@@ -186,6 +187,39 @@ export default function QuotePublicApprovalPage({
 
   if (!quote) {
     return null
+  }
+
+  // Handle pending_payment status - Allow retry after cancelled checkout
+  if (quote.status === 'pending_payment') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4">
+        <Card className="p-8 max-w-md w-full text-center">
+          <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Pagamento in sospeso
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Il preventivo è in attesa di completamento del pagamento. 
+            Se hai annullato il checkout, puoi ritentare.
+          </p>
+          
+          <Button
+            onClick={() => {
+              // Reset to show approval form - local state only, server remains pending_payment
+              setQuote({ ...quote, status: 'sent' })
+            }}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Riprova Pagamento
+          </Button>
+          
+          <p className="text-xs text-gray-500 mt-4">
+            Il sistema creerà una nuova sessione di pagamento
+          </p>
+        </Card>
+      </div>
+    )
   }
 
   const isApproved = quote.status === 'approved' || quote.status === 'accepted' || quote.status === 'paid'

@@ -18,7 +18,7 @@ export interface Quote {
   description?: string
   clientId: string
   clientName: string
-  status: "draft" | "sent" | "pending" | "accepted" | "rejected" | "expired" | "paid" | "approved"
+  status: "draft" | "sent" | "pending" | "pending_payment" | "accepted" | "rejected" | "expired" | "paid" | "approved"
   currency: string
   items: QuoteItem[]
   total: number
@@ -34,6 +34,10 @@ export interface Quote {
   approvedAt?: Date
   approvedBy?: string
   clientEmail?: string
+  
+  // Pending payment approval fields
+  pendingApprovalAt?: Date
+  pendingApprovalBy?: string
   
   // Payment plan (from Task 9)
   paymentPlan?: {

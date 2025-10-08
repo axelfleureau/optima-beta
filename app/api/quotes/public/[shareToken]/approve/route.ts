@@ -20,6 +20,7 @@ import { adminDb } from "@/lib/firebase-admin"
 import { stripeService } from "@/lib/services/stripe.service"
 import { validateShareToken, isValidEmail, isQuoteExpired, getBaseUrl } from "@/lib/quote-utils"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { updateQuoteStatus } from "@/lib/quote-service"
 import type { SecurePaymentContext } from "@/types/payment"
 
 export async function POST(
@@ -86,9 +87,13 @@ export async function POST(
     const quoteData = quoteDoc.data()
 
     // Validate quote is in correct status
-    if (quoteData.status !== 'sent' && quoteData.status !== 'pending') {
+    // Allow approval if status is "sent", "pending", OR "pending_payment" (retry case)
+    const allowedStatuses = ['sent', 'pending', 'pending_payment']
+    if (!allowedStatuses.includes(quoteData.status)) {
       return NextResponse.json(
-        { error: 'Preventivo non disponibile per approvazione' },
+        { 
+          error: `Quote status '${quoteData.status}' is not available for approval. Must be 'sent', 'pending', or 'pending_payment'.` 
+        },
         { status: 400 }
       )
     }
@@ -106,13 +111,12 @@ export async function POST(
       )
     }
 
-    // Update quote: status → approved, add approval details
-    await adminDb.collection('quotes').doc(quoteDoc.id).update({
-      status: 'approved',
+    // Update quote: status → pending_payment (NOT approved yet)
+    // Quote will only be approved after checkout.session.completed webhook
+    await updateQuoteStatus(quoteDoc.id, quoteData.tenantId, 'pending_payment', {
       clientEmail: clientEmail,
-      approvedAt: Timestamp.now(),
-      approvedBy: clientName,
-      updatedAt: Timestamp.now(),
+      pendingApprovalAt: Timestamp.now(),
+      pendingApprovalBy: clientName,
     })
 
     // Prepare quote data for Stripe
@@ -165,12 +169,10 @@ export async function POST(
     if (!checkoutResult.success) {
       console.error('Stripe checkout creation failed:', checkoutResult.error)
       
-      // Rollback quote approval on payment setup failure
-      await adminDb.collection('quotes').doc(quoteDoc.id).update({
-        status: quoteData.status, // Restore original status
-        approvedAt: null,
-        approvedBy: null,
-        updatedAt: Timestamp.now(),
+      // Rollback: pending_payment → sent
+      await updateQuoteStatus(quoteDoc.id, quoteData.tenantId, 'sent', {
+        pendingApprovalAt: null,
+        pendingApprovalBy: null,
       })
 
       return NextResponse.json(
@@ -180,6 +182,7 @@ export async function POST(
     }
 
     // Return checkout URL for redirect
+    // Status will become "approved" only via webhook (checkout.session.completed)
     return NextResponse.json({
       success: true,
       checkoutUrl: checkoutResult.data?.checkoutUrl,

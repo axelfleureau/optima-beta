@@ -6,6 +6,8 @@
  */
 
 import Stripe from "stripe"
+import { Timestamp } from "firebase-admin/firestore"
+import { updateQuoteStatus } from "@/lib/quote-service"
 import type { 
   Payment, 
   PaymentStatus, 
@@ -546,36 +548,41 @@ export class StripeService {
         return false
       }
 
+      // IMPORTANT: Update quote status to "approved" ONLY here
+      // This ensures quote is approved ONLY if Stripe checkout completed successfully
+      await updateQuoteStatus(quoteId, tenantId, 'approved', {
+        approvedAt: Timestamp.now(),
+        stripeSessionId: session.id,
+        stripePaymentIntentId: session.payment_intent as string,
+      })
+
       // Handle different payment types
       if (paymentType === 'deposit') {
-        // Update quote status to 'approved_deposit_paid'
-        // Log deposit payment in Payment collection
-        console.log(`✅ Deposit paid for quote ${quoteId}`)
+        console.log(`✅ Deposit checkout completed for quote ${quoteId}`)
+        console.log(`   - Quote approved via checkout: ${session.id}`)
         console.log(`   - Deposit percentage: ${session.metadata?.depositPercentage}%`)
         console.log(`   - Total quote amount: ${session.metadata?.totalQuoteAmount}`)
         console.log(`   - Payment intent: ${session.payment_intent}`)
         
-        // TODO: Update quote status and create Payment record
-        // await updateQuoteStatus(quoteId, 'approved_deposit_paid')
+        // TODO: Create Payment record for deposit
         // await createPaymentRecord({ quoteId, type: 'deposit', ... })
       } else if (paymentType === 'milestone') {
-        // Update milestone status to 'paid'
-        // Check if all milestones paid → complete quote
-        console.log(`✅ Milestone ${milestoneId} paid for quote ${quoteId}`)
+        console.log(`✅ Milestone checkout completed for quote ${quoteId}`)
+        console.log(`   - Quote approved via checkout: ${session.id}`)
+        console.log(`   - Milestone ID: ${milestoneId}`)
         console.log(`   - Milestone name: ${session.metadata?.milestoneName}`)
         console.log(`   - Payment intent: ${session.payment_intent}`)
         
         // TODO: Update milestone status and check if all milestones are paid
         // await updateMilestoneStatus(milestoneId, 'paid')
         // const allMilestonesPaid = await checkAllMilestonesPaid(quoteId)
-        // if (allMilestonesPaid) { await updateQuoteStatus(quoteId, 'paid') }
+        // if (allMilestonesPaid) { await updateQuoteStatus(quoteId, tenantId, 'paid') }
       } else {
-        // Full payment (existing logic)
-        console.log(`✅ Full payment for quote ${quoteId}`)
+        console.log(`✅ Full payment checkout completed for quote ${quoteId}`)
+        console.log(`   - Quote approved via checkout: ${session.id}`)
         console.log(`   - Payment intent: ${session.payment_intent}`)
         
-        // TODO: Update quote status to 'paid'
-        // await updateQuoteStatus(quoteId, 'paid')
+        // TODO: Create Payment record for full payment
         // await createPaymentRecord({ quoteId, type: 'full', ... })
       }
 
