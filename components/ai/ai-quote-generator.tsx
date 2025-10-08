@@ -351,24 +351,20 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                       <CardContent className="space-y-3">
                         <div>
                           <Label className="font-medium">Metodo di pagamento:</Label>
-                          <p className="text-sm">{generatedQuote.condizioni.metodoPagamento}</p>
+                          <p className="text-sm">{generatedQuote.condizioni.paymentTerms}</p>
                         </div>
                         <div>
-                          <Label className="font-medium">Tempi di consegna:</Label>
-                          <p className="text-sm">{generatedQuote.condizioni.tempiConsegna}</p>
+                          <Label className="font-medium">Variazione costi:</Label>
+                          <p className="text-sm">Fino a +{generatedQuote.condizioni.costVariation}%</p>
                         </div>
-                        {generatedQuote.condizioni.garanzia && (
-                          <div>
-                            <Label className="font-medium">Garanzia:</Label>
-                            <p className="text-sm">{generatedQuote.condizioni.garanzia}</p>
-                          </div>
-                        )}
-                        {generatedQuote.condizioni.note && (
-                          <div>
-                            <Label className="font-medium">Note:</Label>
-                            <p className="text-sm">{generatedQuote.condizioni.note}</p>
-                          </div>
-                        )}
+                        <div>
+                          <Label className="font-medium">Penale cancellazione:</Label>
+                          <p className="text-sm">{generatedQuote.condizioni.cancellationPenalty}% del totale</p>
+                        </div>
+                        <div>
+                          <Label className="font-medium">Validità:</Label>
+                          <p className="text-sm">{generatedQuote.condizioni.validityDays} giorni</p>
+                        </div>
                       </CardContent>
                     </Card>
 
@@ -406,21 +402,21 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div className="space-y-2">
-                            {generatedQuote.gestioneAnnuale.costiMensili.map((costo, index) => (
+                            {generatedQuote.gestioneAnnuale.items.map((item, index) => (
                               <div key={index} className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-800 rounded">
-                                <span className="text-sm">{costo.descrizione}</span>
-                                <span className="text-sm font-medium">€{costo.costo}/mese</span>
+                                <span className="text-sm">{item.description}</span>
+                                <span className="text-sm font-medium">€{item.monthly}/mese</span>
                               </div>
                             ))}
                           </div>
                           <Separator />
                           <div className="flex justify-between items-center font-medium">
                             <span>Totale Mensile:</span>
-                            <span>€{generatedQuote.gestioneAnnuale.totaleMensile}/mese</span>
+                            <span>€{generatedQuote.gestioneAnnuale.totalMonthly}/mese</span>
                           </div>
                           <div className="flex justify-between items-center font-bold text-lg">
                             <span>Totale Annuale:</span>
-                            <span className="text-orange-600">€{generatedQuote.gestioneAnnuale.totaleAnnuale}</span>
+                            <span className="text-orange-600">€{generatedQuote.gestioneAnnuale.totalAnnual}</span>
                           </div>
                         </CardContent>
                       </Card>

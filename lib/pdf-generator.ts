@@ -295,25 +295,25 @@ export class RighelloPDFGenerator {
     this.doc.setFontSize(10)
     this.doc.setFont('helvetica', 'normal')
 
-    data.gestioneAnnuale.costiMensili.forEach(costo => {
-      this.doc.text(`${costo.descrizione}:`, this.margin, this.currentY)
-      this.doc.text(`€${costo.costo}/mese`, this.pageWidth - this.margin - 30, this.currentY, { align: 'right' })
+    data.gestioneAnnuale.items.forEach(item => {
+      this.doc.text(`${item.description}:`, this.margin, this.currentY)
+      this.doc.text(`€${item.monthly}/mese`, this.pageWidth - this.margin - 30, this.currentY, { align: 'right' })
       this.currentY += 6
     })
 
     this.doc.setFont('helvetica', 'bold')
     this.doc.text('Totale Annuale:', this.margin, this.currentY)
-    this.doc.text(formatCurrency(data.gestioneAnnuale.totaleAnnuale), this.pageWidth - this.margin - 30, this.currentY, { align: 'right' })
+    this.doc.text(formatCurrency(data.gestioneAnnuale.totalAnnual), this.pageWidth - this.margin - 30, this.currentY, { align: 'right' })
     this.currentY += 15
   }
 
   private drawConditions(data: GeneratedQuoteData): void {
     // Calculate required space for all conditions
     const conditions = [
-      { label: 'Metodo di Pagamento', value: data.condizioni.metodoPagamento },
-      { label: 'Tempi di Consegna', value: data.condizioni.tempiConsegna },
-      { label: 'Garanzia', value: data.condizioni.garanzia },
-      { label: 'Validità', value: `${data.preventivo.validitaGiorni} giorni dalla data di emissione` }
+      { label: 'Metodo di Pagamento', value: data.condizioni.paymentTerms },
+      { label: 'Variazione Costi', value: `Fino a +${data.condizioni.costVariation}%` },
+      { label: 'Penale Cancellazione', value: `${data.condizioni.cancellationPenalty}% del totale` },
+      { label: 'Validità', value: `${data.condizioni.validityDays} giorni dalla data di emissione` }
     ]
 
     // Calculate total required space

@@ -695,6 +695,103 @@ export function calculateQuoteWithSectorAndTemplate(
   }
 }
 
+// DETERMINISTIC QUOTE CALCULATION WITH EXPLICIT PARAMETERS
+// Used for EnrichedPromptData - no inference, direct template selection
+export function calculateQuoteWithExplicitParams(
+  projectTypeId: string,
+  sectorId: string,
+  customizations?: {
+    includeOptionals?: string[]
+    excludeItems?: string[]
+    recurringMonths?: number
+    applyDiscount?: number
+    complexity?: 'basic' | 'standard' | 'advanced'
+  }
+): {
+  sector: SectorTemplate | null
+  template: ProjectTemplate | null
+  pricing: ReturnType<typeof calculateDynamicPrice> | null
+  quoteNumber: string
+  timeline: string
+  conditions: ProjectTemplate['standardClauses'] | null
+  managementCosts: ReturnType<typeof getStandardManagementCosts> | null
+  validityDays: number
+  items: Array<{
+    descrizione: string
+    quantita: number
+    prezzoUnitario: number
+    totale: number
+    categoria: 'base' | 'optional' | 'recurring'
+    tipo: 'one_time' | 'monthly' | 'annual'
+  }>
+  totals: {
+    subtotale: number
+    iva: number
+    percentualeIva: number
+    totale: number
+  }
+} {
+  // Get sector template explicitly by ID
+  const sector = SECTOR_TEMPLATES.find(s => s.id === sectorId) || null
+  
+  // Get project template explicitly by ID
+  const template = PROJECT_TEMPLATES.find(t => t.id === projectTypeId) || null
+  
+  if (!template) {
+    throw new Error(`Template not found for projectType: ${projectTypeId}`)
+  }
+  
+  // Calculate pricing from template
+  const pricing = calculateDynamicPrice(template, {
+    ...customizations,
+    recurringMonths: customizations?.recurringMonths || 12
+  })
+  
+  // Generate quote number
+  const quoteNumber = generateQuoteNumber()
+  
+  // Get management costs for websites
+  const isWebsite = template.type === 'website'
+  const managementCosts = isWebsite ? getStandardManagementCosts(false) : null
+  
+  // Convert pricing breakdown to quote items format
+  const items = pricing.breakdown
+    .filter(b => b.isIncluded)
+    .map(b => ({
+      descrizione: b.item.description,
+      quantita: b.item.quantity || 1,
+      prezzoUnitario: b.calculatedPrice,
+      totale: b.item.category === 'recurring' 
+        ? b.calculatedPrice * (customizations?.recurringMonths || 12)
+        : b.calculatedPrice * (b.item.quantity || 1),
+      categoria: b.item.category,
+      tipo: (b.item.unit || 'one_time') as 'one_time' | 'monthly' | 'annual'
+    }))
+  
+  // Calculate totals
+  const subtotale = pricing.total
+  const iva = subtotale * 0.22
+  const totale = subtotale + iva
+  
+  return {
+    sector,
+    template,
+    pricing,
+    quoteNumber,
+    timeline: template.timeline,
+    conditions: template.standardClauses,
+    managementCosts,
+    validityDays: template.standardClauses.validityDays,
+    items,
+    totals: {
+      subtotale: Number(subtotale.toFixed(2)),
+      iva: Number(iva.toFixed(2)),
+      percentualeIva: 22,
+      totale: Number(totale.toFixed(2))
+    }
+  }
+}
+
 export function getCostVariationRange(
   projectType: ProjectTemplate['type']
 ): { min: number; max: number } {

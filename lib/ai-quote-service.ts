@@ -2,7 +2,15 @@
 
 import { generateAIResponse, logTokenUsage } from "@/lib/ai-service"
 import type { Client } from "@/lib/types"
-import { identifySector, SECTOR_TEMPLATES, calculateTotalPrice, STANDARD_LEGAL_SECTIONS } from "@/lib/quote-templates"
+import type { EnrichedPromptData } from "@/components/quotes/prompt-enrichment-dialog"
+import { 
+  identifySector, 
+  SECTOR_TEMPLATES, 
+  calculateTotalPrice, 
+  STANDARD_LEGAL_SECTIONS,
+  calculateQuoteWithExplicitParams,
+  generateQuoteNumber
+} from "@/lib/quote-templates"
 
 export interface QuoteItem {
   description: string
@@ -68,18 +76,19 @@ export interface GeneratedQuoteData {
     tipo?: 'one_time' | 'monthly' | 'annual'
   }>
   gestioneAnnuale?: {
-    costiMensili: Array<{
-      descrizione: string
-      costo: number
+    items: Array<{
+      description: string
+      monthly: number
+      annual: number
     }>
-    totaleMensile: number
-    totaleAnnuale: number
+    totalMonthly: number
+    totalAnnual: number
   }
   condizioni: {
-    metodoPagamento: string
-    tempiConsegna: string
-    garanzia?: string
-    note?: string
+    costVariation: number
+    validityDays: number
+    paymentTerms: string
+    cancellationPenalty: number
   }
   sezioniStandard?: {
     utilizzoMateriali: string
@@ -196,6 +205,172 @@ FORMATO JSON:
   }
 }`
 
+// NEW SYSTEM PROMPT - AI GENERATES ONLY TEXTUAL CONTENT
+const CONTENT_ONLY_SYSTEM_PROMPT = `Sei un commerciale esperto di Righello. I PREZZI e le VOCI DI COSTO sono già stati calcolati dai template aziendali.
+
+IL TUO COMPITO È SOLO GENERARE CONTENUTI TESTUALI:
+1. Personalizzare OBIETTIVI basandoti sulla descrizione del progetto e settore del cliente
+2. Dettagliare ATTIVITÀ SPECIFICHE per il tipo di progetto
+3. Creare SITEMAP appropriata (solo per progetti website)
+4. Scrivere TITOLO e DESCRIZIONE accattivanti per il preventivo
+
+NON DEVI:
+- Calcolare prezzi (già forniti dai template)
+- Inventare voci di costo (già fornite dai template)
+- Modificare timeline (già fornita dal template)
+- Calcolare totali (già calcolati)
+
+FORMATO RISPOSTA (SOLO JSON):
+{
+  "titolo": "Titolo accattivante per il preventivo",
+  "descrizione": "Descrizione professionale del progetto (2-3 frasi)",
+  "obiettivi": ["Obiettivo 1 personalizzato", "Obiettivo 2 personalizzato", "..."],
+  "attivita": ["Attività 1 specifica", "Attività 2 specifica", "..."],
+  "sitemap": ["Homepage", "Chi siamo", "..."] // Solo per website
+}
+
+Restituisci SOLO il JSON con questi campi. NON includere prezzi o voci di costo.`
+
+// NEW FUNCTION - DETERMINISTIC TEMPLATE-BASED GENERATION
+export async function generateQuoteFromEnrichedData(
+  enrichedData: EnrichedPromptData,
+  userId: string
+): Promise<GeneratedQuoteData> {
+  try {
+    console.log("🎯 Generating quote with deterministic template-based pricing")
+    console.log("📊 Project Type:", enrichedData.projectType, "-", enrichedData.projectTypeLabel)
+    console.log("🏢 Sector:", enrichedData.sector, "-", enrichedData.sectorLabel)
+    
+    const today = new Date().toISOString().split('T')[0]
+    
+    // STEP 1: Calculate DETERMINISTIC pricing from templates
+    const templateResult = calculateQuoteWithExplicitParams(
+      enrichedData.projectType,
+      enrichedData.sector,
+      {
+        recurringMonths: 12,
+        complexity: enrichedData.complexity
+      }
+    )
+    
+    console.log("✅ Template calculation complete:", {
+      template: templateResult.template?.name,
+      sector: templateResult.sector?.name,
+      totalItems: templateResult.items.length,
+      subtotal: templateResult.totals.subtotale
+    })
+    
+    // STEP 2: Prepare AI prompt with TEMPLATE DATA pre-filled
+    const isWebsite = enrichedData.projectType.includes('website')
+    const aiPrompt = `Genera contenuti testuali personalizzati per questo preventivo Righello.
+
+INFORMAZIONI PROGETTO:
+- Tipo: ${enrichedData.projectTypeLabel}
+- Settore: ${enrichedData.sectorLabel}
+- Descrizione: ${enrichedData.description}
+- Cliente: ${enrichedData.clientName}
+- Complessità: ${enrichedData.complexity}
+- Budget: €${enrichedData.budgetRange.min} - €${enrichedData.budgetRange.max}
+
+VOCI DI COSTO GIÀ CALCOLATE (NON MODIFICARE):
+${JSON.stringify(templateResult.items.slice(0, 5), null, 2)}
+...e altre ${templateResult.items.length - 5} voci
+
+TIMELINE GIÀ DEFINITA: ${templateResult.timeline}
+
+GENERA SOLO:
+1. Titolo accattivante per il preventivo
+2. Descrizione professionale (2-3 frasi)
+3. Obiettivi personalizzati (3-5) basati su settore e descrizione
+4. Attività specifiche (4-6) per questo tipo di progetto
+${isWebsite ? '5. Sitemap appropriata per il sito web (5-8 pagine)' : ''}
+
+${templateResult.sector ? `
+RIFERIMENTI SETTORE ${templateResult.sector.name.toUpperCase()}:
+Obiettivi standard: ${templateResult.sector.standardSections.objectives.slice(0, 2).join(', ')}
+Attività standard: ${templateResult.sector.standardSections.activities.slice(0, 2).join(', ')}
+
+PERSONALIZZA questi elementi per il progetto specifico.
+` : ''}
+
+Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ? ', sitemap' : ''}`
+
+    console.log("🤖 Calling AI for textual content generation...")
+    
+    // STEP 3: AI generates ONLY textual content
+    const aiResponse = await generateAIResponse(aiPrompt, userId, CONTENT_ONLY_SYSTEM_PROMPT)
+    
+    let aiContent: {
+      titolo: string
+      descrizione: string
+      obiettivi: string[]
+      attivita: string[]
+      sitemap?: string[]
+    }
+    
+    try {
+      aiContent = JSON.parse(aiResponse.text)
+    } catch (parseError) {
+      console.error("❌ Failed to parse AI response:", parseError)
+      throw new Error("AI response was not valid JSON")
+    }
+    
+    console.log("✅ AI content generated:", {
+      titolo: aiContent.titolo,
+      obiettivi: aiContent.obiettivi.length,
+      attivita: aiContent.attivita.length,
+      hasSitemap: !!aiContent.sitemap
+    })
+    
+    // STEP 4: Merge TEMPLATE DATA (prices) + AI DATA (texts)
+    // ✅ USE TEMPLATE DATA DIRECTLY - NO RECALCULATION
+    const finalQuote: GeneratedQuoteData = {
+      cliente: {
+        nome: enrichedData.clientName,
+        email: enrichedData.clientEmail || '',
+        azienda: enrichedData.clientCompany || '',
+        telefono: '',
+        indirizzo: '',
+        partitaIva: ''
+      },
+      preventivo: {
+        titolo: aiContent.titolo,
+        descrizione: aiContent.descrizione,
+        numeroPreventivo: templateResult.quoteNumber,
+        dataCreazione: today,
+        validitaGiorni: templateResult.validityDays, // DA TEMPLATE ✅
+        settore: enrichedData.sectorLabel,
+        timeline: templateResult.timeline // DA TEMPLATE ✅
+      },
+      obiettivi: aiContent.obiettivi, // DA AI ✅
+      attivita: aiContent.attivita, // DA AI ✅
+      sitemap: aiContent.sitemap, // DA AI ✅ (opzionale)
+      voci: templateResult.items, // DA TEMPLATE ✅ NON RICALCOLARE
+      gestioneAnnuale: templateResult.managementCosts || undefined, // DA TEMPLATE ✅ DIRETTO
+      condizioni: templateResult.conditions || {
+        costVariation: 10,
+        validityDays: 30,
+        paymentTerms: "50% all'accettazione, 50% a completamento",
+        cancellationPenalty: 10
+      }, // DA TEMPLATE ✅ DIRETTO
+      sezioniStandard: STANDARD_LEGAL_SECTIONS, // Ok per sezioni legali
+      totali: templateResult.totals // DA TEMPLATE ✅ NON RICALCOLARE
+    }
+    
+    // Log token usage
+    await logTokenUsage(userId, userId, aiResponse.usage?.totalTokens || 0, "quote_generation")
+    
+    console.log("✅ Quote generated successfully with deterministic pricing")
+    console.log("💰 Final totals:", finalQuote.totali)
+    
+    return finalQuote
+
+  } catch (error) {
+    console.error("❌ Error generating quote from enriched data:", error)
+    throw error
+  }
+}
+
 export async function generateQuoteFromText(
   data: QuoteGenerationData,
   userId: string
@@ -278,13 +453,13 @@ Restituisci SOLO il JSON completo.`
     // Assicurati che ci sia la gestione annuale per siti web
     if (!quoteData.gestioneAnnuale && detectedSector?.id !== 'creativi') {
       quoteData.gestioneAnnuale = {
-        costiMensili: [
-          { descrizione: "Gestione Tecnica e Supporto", costo: 150 },
-          { descrizione: "Gestione Contenuti", costo: 170 },
-          { descrizione: "Hosting (Costo Esterno)", costo: 27 }
+        items: [
+          { description: "Gestione Tecnica e Supporto", monthly: 150, annual: 1800 },
+          { description: "Gestione Contenuti", monthly: 170, annual: 2040 },
+          { description: "Hosting (Costo Esterno)", monthly: 27, annual: 324 }
         ],
-        totaleMensile: 347,
-        totaleAnnuale: 4164
+        totalMonthly: 347,
+        totalAnnual: 4164
       }
     }
 
