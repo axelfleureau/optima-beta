@@ -47,6 +47,7 @@ export interface QuoteGenerationData {
 }
 
 export interface GeneratedQuoteData {
+  projectType?: string
   cliente: {
     nome: string
     email?: string
@@ -325,6 +326,7 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
     // STEP 4: Merge TEMPLATE DATA (prices) + AI DATA (texts)
     // ✅ USE TEMPLATE DATA DIRECTLY - NO RECALCULATION
     const finalQuote: GeneratedQuoteData = {
+      projectType: enrichedData.projectType, // ✅ Template type for PDF styling
       cliente: {
         nome: enrichedData.clientName,
         email: enrichedData.clientEmail || '',

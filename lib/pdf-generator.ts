@@ -2,13 +2,16 @@
 import jsPDF from 'jspdf'
 import type { GeneratedQuoteData } from '@/lib/ai-quote-service'
 
-// Righello Brand Colors
+// Righello Brand Colors - Corporate Palette
 const COLORS = {
-  primary: '#D946EF', // Pink
-  secondary: '#1F2937', // Dark gray
-  accent: '#F3F4F6', // Light gray
-  text: '#374151',
+  primary: '#D946EF', // Pink Righello
+  secondary: '#9333EA', // Purple
+  dark: '#1F2937',
+  light: '#F9FAFB',
+  accent: '#EC4899',
   border: '#E5E7EB',
+  text: '#374151',
+  textLight: '#6B7280',
   success: '#10B981'
 }
 
@@ -53,33 +56,60 @@ export class RighelloPDFGenerator {
   }
 
   private drawHeader(data: GeneratedQuoteData): void {
-    // Logo and company name
-    this.doc.setFontSize(24)
-    this.doc.setFont('helvetica', 'bold')
-    this.doc.setTextColor(212, 70, 239) // Pink color
-    this.doc.text('RIGHELLO', this.margin, this.currentY)
+    // Gradient-like header background (pink)
+    this.doc.setFillColor(212, 70, 239) // Pink
+    this.doc.rect(0, 0, this.pageWidth, 40, 'F')
     
-    this.doc.setFontSize(10)
-    this.doc.setTextColor(55, 65, 81) // Dark gray
-    this.doc.text('Marketing Intelligence', this.margin, this.currentY + 8)
-
-    // Quote info (right aligned)
-    const rightMargin = this.pageWidth - this.margin
-    this.doc.setFontSize(12)
+    // Logo + Brand (white on pink)
+    this.doc.setFontSize(28)
     this.doc.setFont('helvetica', 'bold')
-    this.doc.setTextColor(0, 0, 0)
-    this.doc.text('PREVENTIVO', rightMargin, this.currentY, { align: 'right' })
+    this.doc.setTextColor(255, 255, 255) // White
+    this.doc.text('RIGHELLO', this.margin, 20)
+    
+    this.doc.setFontSize(11)
+    this.doc.setFont('helvetica', 'normal')
+    this.doc.text('We Are Digital', this.margin, 28)
+    
+    // Quote info (right aligned, white)
+    const rightMargin = this.pageWidth - this.margin
+    this.doc.setFontSize(14)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.text('PREVENTIVO', rightMargin, 20, { align: 'right' })
     
     this.doc.setFontSize(10)
     this.doc.setFont('helvetica', 'normal')
-    this.doc.text(data.preventivo.numeroPreventivo, rightMargin, this.currentY + 6, { align: 'right' })
-    this.doc.text(`Data: ${formatDate(data.preventivo.dataCreazione)}`, rightMargin, this.currentY + 12, { align: 'right' })
+    this.doc.text(data.preventivo.numeroPreventivo, rightMargin, 28, { align: 'right' })
+    this.doc.text(formatDate(data.preventivo.dataCreazione), rightMargin, 34, { align: 'right' })
+    
+    this.currentY = 50 // After header
+  }
 
-    // Divider line
-    this.currentY += 25
-    this.doc.setDrawColor(212, 70, 239) // Pink
-    this.doc.setLineWidth(2)
-    this.doc.line(this.margin, this.currentY, this.pageWidth - this.margin, this.currentY)
+  private drawProjectTypeHeader(projectType: string): void {
+    this.addNewPageIfNeeded(20)
+    
+    // Template badge configuration
+    const templates: Record<string, { label: string; color: [number, number, number] }> = {
+      website_180: { label: 'Website 180°', color: [147, 51, 234] }, // Purple
+      website_360: { label: 'Website 360°', color: [212, 70, 239] }, // Pink
+      video_production: { label: 'Video Production', color: [236, 72, 153] }, // Rose
+      communication_150: { label: 'Comunicazione 150°', color: [124, 58, 237] },
+      communication_180: { label: 'Comunicazione 180°', color: [139, 92, 246] },
+    }
+    
+    const template = templates[projectType] || { label: projectType, color: [100, 100, 100] as [number, number, number] }
+    
+    // Badge background
+    this.doc.setFillColor(...template.color)
+    this.doc.roundedRect(this.margin, this.currentY, 60, 10, 2, 2, 'F')
+    
+    // Badge text
+    this.doc.setFontSize(9)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setTextColor(255, 255, 255)
+    this.doc.text(template.label.toUpperCase(), this.margin + 3, this.currentY + 7)
+    
+    // Reset text color
+    this.doc.setTextColor(0, 0, 0)
     this.currentY += 15
   }
 
@@ -157,6 +187,7 @@ export class RighelloPDFGenerator {
 
     this.doc.setFontSize(12)
     this.doc.setFont('helvetica', 'bold')
+    this.doc.setTextColor(31, 41, 55)
     this.doc.text('DETTAGLIO SERVIZI', this.margin, this.currentY)
     this.currentY += 10
 
@@ -170,30 +201,35 @@ export class RighelloPDFGenerator {
       total: tableWidth * 0.15
     }
 
-    // Header background
-    this.doc.setFillColor(212, 70, 239) // Pink
-    this.doc.rect(this.margin, this.currentY, tableWidth, 8, 'F')
+    // Header background with borders
+    this.doc.setFillColor(249, 250, 251) // Light gray
+    this.doc.rect(this.margin, this.currentY, tableWidth, 10, 'F')
+    
+    // Header borders
+    this.doc.setDrawColor(229, 231, 235)
+    this.doc.setLineWidth(0.5)
+    this.doc.line(this.margin, this.currentY, this.pageWidth - this.margin, this.currentY)
+    this.doc.line(this.margin, this.currentY + 10, this.pageWidth - this.margin, this.currentY + 10)
 
     // Header text
-    this.doc.setFontSize(10)
+    this.doc.setFontSize(9)
     this.doc.setFont('helvetica', 'bold')
-    this.doc.setTextColor(255, 255, 255) // White
+    this.doc.setTextColor(55, 65, 81)
     
     let headerX = this.margin + 2
-    this.doc.text('Codice', headerX, this.currentY + 5)
+    this.doc.text('CODICE', headerX, this.currentY + 7)
     headerX += colWidths.code
-    this.doc.text('Descrizione', headerX, this.currentY + 5)
+    this.doc.text('DESCRIZIONE', headerX, this.currentY + 7)
     headerX += colWidths.description
-    this.doc.text('Qtà', headerX, this.currentY + 5)
+    this.doc.text('Q.TÀ', headerX, this.currentY + 7)
     headerX += colWidths.quantity
-    this.doc.text('Prezzo Unit.', headerX, this.currentY + 5)
+    this.doc.text('PREZZO', headerX, this.currentY + 7)
     headerX += colWidths.price
-    this.doc.text('Totale', headerX, this.currentY + 5)
+    this.doc.text('TOTALE', headerX, this.currentY + 7)
 
-    this.currentY += 8
+    this.currentY += 12
 
     // Table rows
-    this.doc.setTextColor(0, 0, 0)
     this.doc.setFont('helvetica', 'normal')
 
     data.voci.forEach((voce, index) => {
@@ -207,13 +243,16 @@ export class RighelloPDFGenerator {
       this.addNewPageIfNeeded(rowHeight + 2)
 
       // Alternating row colors
-      if (index % 2 === 1) {
-        this.doc.setFillColor(243, 244, 246) // Light gray
+      if (index % 2 === 0) {
+        this.doc.setFillColor(249, 250, 251) // Light gray
         this.doc.rect(this.margin, this.currentY, tableWidth, rowHeight, 'F')
       }
 
       let rowX = this.margin + 2
       const rowY = this.currentY + 4
+
+      this.doc.setFontSize(9)
+      this.doc.setTextColor(55, 65, 81)
 
       // Code column
       this.doc.text(generateItemCode(index, voce.categoria), rowX, rowY + 2)
@@ -389,36 +428,123 @@ export class RighelloPDFGenerator {
     })
   }
 
-  private drawFooter(): void {
+  private drawTemplateObjectives(data: GeneratedQuoteData): void {
+    if (!data.obiettivi || data.obiettivi.length === 0) return
+    
+    this.addNewPageIfNeeded(30)
+    
+    // Section title
+    this.doc.setFontSize(14)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setTextColor(212, 70, 239) // Pink
+    this.doc.text('OBIETTIVI DEL PROGETTO', this.margin, this.currentY)
+    
+    this.currentY += 10
+    
+    this.doc.setFontSize(10)
+    this.doc.setFont('helvetica', 'normal')
+    this.doc.setTextColor(55, 65, 81)
+    
+    data.obiettivi.forEach((obiettivo) => {
+      this.addNewPageIfNeeded(10)
+      // Bullet point (pink circle)
+      this.doc.setFillColor(212, 70, 239)
+      this.doc.circle(this.margin + 2, this.currentY - 1, 1, 'F')
+      
+      // Objective text
+      const lines = this.doc.splitTextToSize(obiettivo, this.pageWidth - this.margin - 10)
+      lines.forEach((line: string, lineIndex: number) => {
+        this.doc.text(line, this.margin + 6, this.currentY + (lineIndex * 5))
+      })
+      this.currentY += Math.max(6, lines.length * 5)
+    })
+    
+    this.currentY += 5
+  }
+
+  private drawTemplateActivities(data: GeneratedQuoteData): void {
+    if (!data.attivita || data.attivita.length === 0) return
+    
+    this.addNewPageIfNeeded(30)
+    
+    // Section title
+    this.doc.setFontSize(14)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setTextColor(147, 51, 234) // Purple
+    this.doc.text('ATTIVITÀ PRINCIPALI', this.margin, this.currentY)
+    
+    this.currentY += 10
+    
+    this.doc.setFontSize(10)
+    this.doc.setFont('helvetica', 'normal')
+    this.doc.setTextColor(55, 65, 81)
+    
+    data.attivita.forEach((attivita) => {
+      this.addNewPageIfNeeded(10)
+      // Bullet point (purple circle)
+      this.doc.setFillColor(147, 51, 234)
+      this.doc.circle(this.margin + 2, this.currentY - 1, 1, 'F')
+      
+      // Activity text
+      const lines = this.doc.splitTextToSize(attivita, this.pageWidth - this.margin - 10)
+      lines.forEach((line: string, lineIndex: number) => {
+        this.doc.text(line, this.margin + 6, this.currentY + (lineIndex * 5))
+      })
+      this.currentY += Math.max(6, lines.length * 5)
+    })
+    
+    this.currentY += 5
+  }
+
+  private drawFooter(pageNumber: number): void {
     const footerY = this.pageHeight - 15
     
+    // Footer line (pink)
+    this.doc.setDrawColor(212, 70, 239)
+    this.doc.setLineWidth(1)
+    this.doc.line(this.margin, footerY - 5, this.pageWidth - this.margin, footerY - 5)
+    
+    // Footer text
     this.doc.setFontSize(8)
-    this.doc.setTextColor(55, 65, 81)
     this.doc.setFont('helvetica', 'normal')
+    this.doc.setTextColor(107, 114, 128) // Gray
     
-    const footerText1 = 'Righello S.r.l. | Via Example 123, 00100 Roma | Tel: +39 06 123456 | Email: info@righello.com'
-    const footerText2 = 'P.IVA: 12345678901 | www.righello.com'
+    const footerText = 'Righello Digital S.r.l. | Via Example 123, 00100 Roma | P.IVA 12345678901 | info@righello.com'
+    this.doc.text(footerText, this.pageWidth / 2, footerY, { align: 'center' })
     
-    this.doc.text(footerText1, this.pageWidth / 2, footerY - 5, { align: 'center' })
-    this.doc.text(footerText2, this.pageWidth / 2, footerY, { align: 'center' })
-
-    // Line above footer
-    this.doc.setDrawColor(229, 231, 235)
-    this.doc.setLineWidth(0.5)
-    this.doc.line(this.margin, footerY - 10, this.pageWidth - this.margin, footerY - 10)
+    // Page number
+    const pageNum = `Pagina ${pageNumber}`
+    this.doc.text(pageNum, this.pageWidth - this.margin, footerY, { align: 'right' })
   }
 
   public generatePDF(data: GeneratedQuoteData): jsPDF {
     this.drawHeader(data)
+    
+    // Project Type Badge (if provided)
+    if (data.projectType) {
+      this.drawProjectTypeHeader(data.projectType)
+    }
+    
     this.drawTitle(data)
     this.drawClientInfo(data)
     this.drawProjectDescription(data)
+    
+    // Template-specific objectives and activities
+    this.drawTemplateObjectives(data)
+    this.drawTemplateActivities(data)
+    
     this.drawItemsTable(data)
     this.drawTotals(data)
     this.drawAnnualManagement(data)
     this.drawConditions(data)
     this.drawLegalSections(data)
-    this.drawFooter()
+    
+    // Add footer to all pages
+    const totalPages = this.doc.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      this.doc.setPage(i)
+      this.drawFooter(i)
+    }
 
     return this.doc
   }
