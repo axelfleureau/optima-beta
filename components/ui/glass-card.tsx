@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { glassCardVariants as motionVariants, glassCardVariantsReducedMotion } from "@/lib/animations/glass-variants";
 
 const glassCardVariants = cva(
-  "relative overflow-hidden rounded-xl transition-all duration-liquid-smooth ease-liquid-smooth will-change-transform",
+  "relative overflow-hidden rounded-lg transition-all duration-liquid-smooth ease-liquid-smooth will-change-transform",
   {
     variants: {
       variant: {

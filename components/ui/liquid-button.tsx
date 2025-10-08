@@ -39,7 +39,7 @@ export function LiquidButton({
         whileHover="hover"
         whileTap="tap"
         className={cn(
-          'font-medium',
+          'rounded-md font-medium',
           'transition-opacity duration-300',
           sizeClasses[size],
           variantClasses[variant],
@@ -62,7 +62,7 @@ export function LiquidButton({
         ease: [0.4, 0, 0.2, 1],
       }}
       className={cn(
-        'font-medium transition-transform will-change-transform',
+        'rounded-md font-medium transition-transform will-change-transform',
         sizeClasses[size],
         variantClasses[variant],
         className
