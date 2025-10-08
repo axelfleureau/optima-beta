@@ -290,3 +290,86 @@ export async function regenerateShareToken(quoteId: string, tenantId: string): P
 
   return publicUrl
 }
+
+/**
+ * Update quote subscription plan data
+ * 
+ * @param quoteId - ID of the quote
+ * @param tenantId - Tenant ID for security validation
+ * @param subscriptionData - Partial subscription plan data to update
+ */
+export async function updateQuoteSubscription(
+  quoteId: string,
+  tenantId: string,
+  subscriptionData: {
+    monthlyAmount?: number
+    stripeSubscriptionId?: string
+    stripePriceId?: string
+    status?: 'active' | 'paused' | 'cancelled' | 'pending'
+    currentPeriodStart?: Date
+    currentPeriodEnd?: Date
+    cancelAt?: Date
+    canceledAt?: Date
+  }
+): Promise<void> {
+  if (!adminDb) {
+    throw new Error('Firebase Admin DB not initialized')
+  }
+
+  // Fetch quote to validate tenant ownership
+  const quoteDoc = await adminDb.collection('quotes').doc(quoteId).get()
+  
+  if (!quoteDoc.exists) {
+    throw new Error('Quote not found')
+  }
+
+  const quoteData = quoteDoc.data()
+  
+  // SECURITY: Validate tenant ownership
+  if (quoteData?.tenantId !== tenantId) {
+    throw new Error('Unauthorized: Quote does not belong to tenant')
+  }
+
+  // Convert Date objects to Firestore Timestamps
+  const subscriptionDataWithTimestamps = {
+    ...subscriptionData,
+    currentPeriodStart: subscriptionData.currentPeriodStart 
+      ? Timestamp.fromDate(subscriptionData.currentPeriodStart)
+      : undefined,
+    currentPeriodEnd: subscriptionData.currentPeriodEnd
+      ? Timestamp.fromDate(subscriptionData.currentPeriodEnd)
+      : undefined,
+    cancelAt: subscriptionData.cancelAt
+      ? Timestamp.fromDate(subscriptionData.cancelAt)
+      : undefined,
+    canceledAt: subscriptionData.canceledAt
+      ? Timestamp.fromDate(subscriptionData.canceledAt)
+      : undefined,
+  }
+
+  // FIX: Remove undefined fields (Firestore rejects them)
+  const cleanedData: any = {}
+  
+  Object.entries(subscriptionDataWithTimestamps).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanedData[key] = value
+    }
+  })
+
+  // FIX: MERGE with existing subscriptionPlan instead of replacing
+  const existingPlan = quoteData?.subscriptionPlan || {}
+  
+  // Merge: existing data + new data (new data overwrites conflicting keys)
+  const mergedData = {
+    ...existingPlan,
+    ...cleanedData,
+  }
+
+  // Update quote with merged subscription plan data
+  await adminDb.collection('quotes').doc(quoteId).update({
+    subscriptionPlan: mergedData,
+    updatedAt: Timestamp.now(),
+  })
+
+  console.log(`✅ Quote ${quoteId} subscription plan updated`)
+}

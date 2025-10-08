@@ -7,7 +7,7 @@
 
 import Stripe from "stripe"
 import { Timestamp } from "firebase-admin/firestore"
-import { updateQuoteStatus, updateMilestoneStatus, getQuoteById } from "@/lib/quote-service"
+import { updateQuoteStatus, updateMilestoneStatus, getQuoteById, updateQuoteSubscription } from "@/lib/quote-service"
 import { sendInvoiceEmail } from "@/lib/email-service"
 import type { InvoicePaymentData } from "@/lib/invoice-generator"
 import type { 
@@ -433,9 +433,20 @@ export class StripeService {
           processed = await this.handlePaymentCanceled(event.data.object as Stripe.PaymentIntent)
           break
 
+        case "customer.subscription.created":
+          processed = await this.handleSubscriptionCreated(event.data.object as Stripe.Subscription)
+          break
+
+        case "customer.subscription.updated":
+          processed = await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
+          break
+
         case "invoice.payment_succeeded":
-          // For future subscription support
-          console.log("Invoice payment succeeded (not implemented)")
+          processed = await this.handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice)
+          break
+
+        case "customer.subscription.deleted":
+          processed = await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
           break
 
         default:
@@ -723,6 +734,118 @@ export class StripeService {
       return true
     } catch (error) {
       console.error("Error handling payment cancellation:", error)
+      return false
+    }
+  }
+
+  // Subscription webhook handlers
+
+  private async handleSubscriptionCreated(subscription: Stripe.Subscription): Promise<boolean> {
+    try {
+      console.log("Processing subscription creation:", subscription.id)
+
+      const { quoteId, tenantId } = subscription.metadata || {}
+      
+      if (!quoteId || !tenantId) {
+        console.error('Missing metadata in subscription.created:', subscription.metadata)
+        return false
+      }
+      
+      await updateQuoteSubscription(quoteId, tenantId, {
+        stripeSubscriptionId: subscription.id,
+        status: subscription.status as any,
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      })
+      
+      console.log(`✅ Subscription created for quote ${quoteId}:`, subscription.id)
+      return true
+    } catch (error) {
+      console.error('Error handling subscription creation:', error)
+      return false
+    }
+  }
+
+  private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<boolean> {
+    try {
+      console.log("Processing subscription update:", subscription.id)
+
+      const { quoteId, tenantId } = subscription.metadata || {}
+      
+      if (!quoteId || !tenantId) {
+        console.error('Missing metadata in subscription.updated:', subscription.metadata)
+        return false
+      }
+      
+      await updateQuoteSubscription(quoteId, tenantId, {
+        status: subscription.status as any,
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : undefined,
+        canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : undefined,
+      })
+      
+      console.log(`✅ Subscription updated for quote ${quoteId}:`, subscription.status)
+      return true
+    } catch (error) {
+      console.error('Error handling subscription update:', error)
+      return false
+    }
+  }
+
+  private async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<boolean> {
+    try {
+      console.log("Processing invoice payment success:", invoice.id)
+
+      const subscriptionId = invoice.subscription as string
+      
+      if (!subscriptionId) {
+        console.log('No subscription ID in invoice, skipping')
+        return false
+      }
+      
+      // Get subscription to extract metadata
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+      const { quoteId, tenantId } = subscription.metadata || {}
+      
+      if (!quoteId || !tenantId) {
+        console.error('Missing metadata in subscription for invoice:', subscription.metadata)
+        return false
+      }
+      
+      // Update subscription to active
+      await updateQuoteSubscription(quoteId, tenantId, {
+        status: 'active',
+      })
+      
+      console.log(`✅ Invoice paid for subscription ${subscriptionId} - Quote ${quoteId}`)
+      return true
+    } catch (error) {
+      console.error('Error handling invoice payment succeeded:', error)
+      return false
+    }
+  }
+
+  private async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<boolean> {
+    try {
+      console.log("Processing subscription deletion:", subscription.id)
+
+      const { quoteId, tenantId } = subscription.metadata || {}
+      
+      if (!quoteId || !tenantId) {
+        console.error('Missing metadata in subscription.deleted:', subscription.metadata)
+        return false
+      }
+      
+      await updateQuoteSubscription(quoteId, tenantId, {
+        status: 'cancelled',
+        canceledAt: new Date(),
+      })
+      
+      console.log(`✅ Subscription deleted for quote ${quoteId}:`, subscription.id)
+      return true
+    } catch (error) {
+      console.error('Error handling subscription deletion:', error)
       return false
     }
   }
