@@ -142,6 +142,111 @@ export async function updateQuoteStatus(
 }
 
 /**
+ * Get quote by ID with tenant validation
+ * 
+ * @param quoteId - ID of the quote
+ * @param tenantId - Tenant ID for security validation
+ * @returns Quote data or null if not found
+ */
+export async function getQuoteById(quoteId: string, tenantId: string): Promise<any | null> {
+  if (!adminDb) {
+    throw new Error('Firebase Admin DB not initialized')
+  }
+
+  const quoteDoc = await adminDb.collection('quotes').doc(quoteId).get()
+  
+  if (!quoteDoc.exists) {
+    return null
+  }
+
+  const quoteData = quoteDoc.data()
+  
+  // SECURITY: Validate tenant ownership
+  if (quoteData?.tenantId !== tenantId) {
+    throw new Error('Unauthorized: Quote does not belong to tenant')
+  }
+
+  return {
+    id: quoteDoc.id,
+    ...quoteData,
+    // Convert Firestore timestamps to Date objects
+    validUntil: quoteData.validUntil?.toDate?.() || quoteData.validUntil,
+    createdAt: quoteData.createdAt?.toDate?.() || quoteData.createdAt,
+    updatedAt: quoteData.updatedAt?.toDate?.() || quoteData.updatedAt,
+    sentAt: quoteData.sentAt?.toDate?.() || quoteData.sentAt,
+    approvedAt: quoteData.approvedAt?.toDate?.() || quoteData.approvedAt,
+    depositPaidAt: quoteData.depositPaidAt?.toDate?.() || quoteData.depositPaidAt,
+  }
+}
+
+/**
+ * Update milestone status in a quote
+ * 
+ * @param quoteId - ID of the quote
+ * @param tenantId - Tenant ID for security validation
+ * @param milestoneId - ID of the milestone to update
+ * @param status - New milestone status
+ * @param additionalData - Optional additional fields to update on the milestone
+ */
+export async function updateMilestoneStatus(
+  quoteId: string,
+  tenantId: string,
+  milestoneId: string,
+  status: 'pending' | 'ready' | 'paid' | 'failed',
+  additionalData?: Record<string, any>
+): Promise<void> {
+  if (!adminDb) {
+    throw new Error('Firebase Admin DB not initialized')
+  }
+
+  const quoteDoc = await adminDb.collection('quotes').doc(quoteId).get()
+  
+  if (!quoteDoc.exists) {
+    throw new Error('Quote not found')
+  }
+
+  const quoteData = quoteDoc.data()
+  
+  // SECURITY: Validate tenant ownership
+  if (quoteData?.tenantId !== tenantId) {
+    throw new Error('Unauthorized: Tenant mismatch')
+  }
+
+  // Update milestone in array
+  const updatedMilestones = quoteData.paymentPlan?.milestones?.map((m: any) =>
+    m.id === milestoneId
+      ? { ...m, status, ...additionalData }
+      : m
+  )
+
+  if (!updatedMilestones) {
+    throw new Error('No milestones found in quote')
+  }
+
+  await adminDb.collection('quotes').doc(quoteId).update({
+    'paymentPlan.milestones': updatedMilestones,
+    updatedAt: Timestamp.now(),
+  })
+
+  console.log(`✅ Milestone ${milestoneId} status updated to: ${status}`)
+}
+
+/**
+ * Mark milestone as ready for payment (Admin action)
+ * 
+ * @param quoteId - ID of the quote
+ * @param tenantId - Tenant ID for security validation
+ * @param milestoneId - ID of the milestone to mark as ready
+ */
+export async function markMilestoneReady(
+  quoteId: string,
+  tenantId: string,
+  milestoneId: string
+): Promise<void> {
+  await updateMilestoneStatus(quoteId, tenantId, milestoneId, 'ready')
+}
+
+/**
  * Regenerate share token for a quote
  * Useful if the previous token was compromised or expired
  * 

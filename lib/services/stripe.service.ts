@@ -7,7 +7,7 @@
 
 import Stripe from "stripe"
 import { Timestamp } from "firebase-admin/firestore"
-import { updateQuoteStatus } from "@/lib/quote-service"
+import { updateQuoteStatus, updateMilestoneStatus, getQuoteById } from "@/lib/quote-service"
 import type { 
   Payment, 
   PaymentStatus, 
@@ -566,17 +566,36 @@ export class StripeService {
         
         // TODO: Create Payment record for deposit
         // await createPaymentRecord({ quoteId, type: 'deposit', ... })
-      } else if (paymentType === 'milestone') {
+      } else if (paymentType === 'milestone' && milestoneId) {
         console.log(`✅ Milestone checkout completed for quote ${quoteId}`)
         console.log(`   - Quote approved via checkout: ${session.id}`)
         console.log(`   - Milestone ID: ${milestoneId}`)
         console.log(`   - Milestone name: ${session.metadata?.milestoneName}`)
         console.log(`   - Payment intent: ${session.payment_intent}`)
         
-        // TODO: Update milestone status and check if all milestones are paid
-        // await updateMilestoneStatus(milestoneId, 'paid')
-        // const allMilestonesPaid = await checkAllMilestonesPaid(quoteId)
-        // if (allMilestonesPaid) { await updateQuoteStatus(quoteId, tenantId, 'paid') }
+        // Update milestone status to 'paid'
+        await updateMilestoneStatus(quoteId, tenantId, milestoneId, 'paid', {
+          paidAt: Timestamp.now(),
+          paymentIntentId: session.payment_intent as string,
+        })
+        
+        console.log(`   - Milestone ${milestoneId} marked as paid`)
+        
+        // Check if ALL milestones are paid → update quote status to 'completed'
+        const quote = await getQuoteById(quoteId, tenantId)
+        const allMilestonesPaid = quote?.paymentPlan?.milestones?.every((m: any) => m.status === 'paid')
+        
+        if (allMilestonesPaid) {
+          await updateQuoteStatus(quoteId, tenantId, 'completed', {
+            completedAt: Timestamp.now(),
+          })
+          console.log(`   - All milestones paid! Quote ${quoteId} marked as completed`)
+        } else {
+          console.log(`   - Some milestones still pending payment`)
+        }
+        
+        // TODO: Send email notification to client
+        // await sendMilestonePaymentConfirmationEmail(quote.clientEmail, milestone, quote)
       } else {
         console.log(`✅ Full payment checkout completed for quote ${quoteId}`)
         console.log(`   - Quote approved via checkout: ${session.id}`)

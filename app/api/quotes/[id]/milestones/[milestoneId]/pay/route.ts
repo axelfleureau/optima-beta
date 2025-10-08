@@ -1,0 +1,141 @@
+/**
+ * Milestone Payment API Route
+ * 
+ * POST /api/quotes/[id]/milestones/[milestoneId]/pay
+ * 
+ * Creates a Stripe Checkout session for paying a specific milestone
+ * 
+ * SECURITY:
+ * - Requires authentication
+ * - Rate limited with STRIPE profile
+ * - Tenant-scoped data access
+ * - Validates milestone status (must be 'ready')
+ */
+
+import { NextRequest, NextResponse } from "next/server"
+import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { getQuoteById } from "@/lib/quote-service"
+import { StripeService } from "@/lib/services/stripe.service"
+
+const stripeService = new StripeService()
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; milestoneId: string }> }
+) {
+  try {
+    // 1. RATE LIMITING - STRIPE profile
+    const rateLimitResult = await rateLimit(request, "STRIPE")
+    if (!rateLimitResult.success) {
+      return rateLimitResponse(rateLimitResult.reset)
+    }
+
+    // 2. AUTHENTICATION
+    const token = request.cookies.get("firebase-auth-token")?.value
+    if (!token) {
+      return NextResponse.json(
+        { error: "Non autorizzato" },
+        { status: 401 }
+      )
+    }
+
+    const decodedToken = await verifyFirebaseToken(token)
+    const userData = await getUserData(decodedToken.uid)
+
+    if (!userData) {
+      return NextResponse.json(
+        { error: "Utente non trovato" },
+        { status: 401 }
+      )
+    }
+
+    // 3. PARSE PARAMS - Next.js 15 async params
+    const { id: quoteId, milestoneId } = await params
+    
+    if (!quoteId || !milestoneId) {
+      return NextResponse.json(
+        { error: "Parametri mancanti" },
+        { status: 400 }
+      )
+    }
+
+    // 4. FETCH QUOTE (tenant-scoped)
+    const quote = await getQuoteById(quoteId, userData.tenantId)
+    
+    if (!quote) {
+      return NextResponse.json(
+        { error: "Preventivo non trovato" },
+        { status: 404 }
+      )
+    }
+
+    // 5. VALIDATE MILESTONE
+    const milestone = quote.paymentPlan?.milestones?.find(
+      (m: any) => m.id === milestoneId
+    )
+    
+    if (!milestone) {
+      return NextResponse.json(
+        { error: "Milestone non trovata" },
+        { status: 404 }
+      )
+    }
+
+    // 6. CHECK MILESTONE STATUS
+    if (milestone.status !== 'ready') {
+      return NextResponse.json(
+        { 
+          error: `La milestone con stato '${milestone.status}' non è pronta per il pagamento. Solo milestone con stato 'ready' possono essere pagate.` 
+        },
+        { status: 400 }
+      )
+    }
+
+    // 7. CREATE STRIPE CHECKOUT FOR MILESTONE
+    const result = await stripeService.createMilestonePayment(
+      quote.id,
+      milestone.id,
+      {
+        name: milestone.name,
+        amount: milestone.amount,
+      },
+      {
+        quote: {
+          id: quote.id,
+          title: quote.title,
+          total: quote.total,
+          currency: quote.currency,
+          clientName: quote.clientName,
+          tenantId: quote.tenantId,
+          status: quote.status,
+          validUntil: quote.validUntil,
+          clientEmail: quote.clientEmail || '',
+        },
+        tenant: { id: userData.tenantId },
+      }
+    )
+
+    if (!result.success) {
+      console.error('Failed to create milestone payment:', result.error)
+      return NextResponse.json(
+        { error: 'Impossibile creare il pagamento. Riprova più tardi.' },
+        { status: 500 }
+      )
+    }
+
+    // 8. RETURN CHECKOUT URL
+    return NextResponse.json({
+      success: true,
+      checkoutUrl: result.data?.checkoutUrl,
+      checkoutSessionId: result.data?.checkoutSessionId,
+    })
+
+  } catch (error) {
+    console.error('Error creating milestone payment:', error)
+    return NextResponse.json(
+      { error: 'Errore interno del server' },
+      { status: 500 }
+    )
+  }
+}
