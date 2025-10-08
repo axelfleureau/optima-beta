@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,7 @@ import { useAIActionState } from "@/hooks/use-ai-action-state"
 import { useAIFeedback } from "@/hooks/use-ai-feedback"
 import { convertToQuoteFormat, type GeneratedQuoteData } from "@/lib/ai-quote-service"
 import { downloadQuotePDF } from "@/lib/pdf-generator"
+import { PromptEnrichmentDialog, type EnrichedPromptData } from "@/components/quotes/prompt-enrichment-dialog"
 import {
   Wand2,
   FileText,
@@ -55,9 +56,16 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
   const actionState = useAIActionState('quote-gen')
   const feedback = useAIFeedback()
   
-  const [step, setStep] = useState<'input' | 'generating' | 'review'>('input')
+  const [step, setStep] = useState<'enrichment' | 'generating' | 'review'>('enrichment')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedQuote, setGeneratedQuote] = useState<GeneratedQuoteData | null>(null)
+  const [enrichmentDialogOpen, setEnrichmentDialogOpen] = useState(false)
+
+  useEffect(() => {
+    if (open && step === 'enrichment') {
+      setEnrichmentDialogOpen(true)
+    }
+  }, [open, step])
   
   const [formData, setFormData] = useState<QuoteFormData>({
     projectDescription: '',
@@ -73,12 +81,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleGenerateQuote = async () => {
-    if (!formData.projectDescription.trim()) {
-      feedback.error('Validazione', 'Inserisci almeno la descrizione del progetto', 'Il campo descrizione è obbligatorio')
-      return
-    }
-
+  const handleEnrichmentComplete = async (enrichedData: EnrichedPromptData) => {
     if (!userData?.tenantId) {
       feedback.error('Autenticazione', 'Dati utente non disponibili', 'Ricarica la pagina o effettua nuovamente il login')
       return
@@ -88,6 +91,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       actionState.start('Raccolta dati preventivo...')
       setIsGenerating(true)
       setStep('generating')
+      setEnrichmentDialogOpen(false)
 
       actionState.callAI('Generazione preventivo AI...')
       const response = await fetch('/api/ai/quote-generation', {
@@ -97,7 +101,18 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
         },
         credentials: 'include',
         body: JSON.stringify({
-          ...formData
+          projectDescription: enrichedData.description,
+          clientName: enrichedData.clientName,
+          clientEmail: enrichedData.clientEmail || '',
+          clientCompany: enrichedData.clientCompany || '',
+          budget: `${enrichedData.budgetRange.min}-${enrichedData.budgetRange.max}`,
+          deadline: enrichedData.timeline,
+          additionalRequirements: enrichedData.additionalNotes || '',
+          projectType: enrichedData.projectType,
+          projectTypeLabel: enrichedData.projectTypeLabel,
+          sector: enrichedData.sector,
+          sectorLabel: enrichedData.sectorLabel,
+          complexity: enrichedData.complexity
         })
       })
 
@@ -126,7 +141,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
         error instanceof Error ? error.message : 'Errore sconosciuto',
         'Controlla i dati inseriti e riprova'
       )
-      setStep('input')
+      setStep('enrichment')
+      setEnrichmentDialogOpen(true)
     } finally {
       setIsGenerating(false)
     }
@@ -191,7 +207,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       additionalRequirements: ''
     })
     setGeneratedQuote(null)
-    setStep('input')
+    setStep('enrichment')
+    setEnrichmentDialogOpen(false)
   }
 
   const handleClose = () => {
@@ -199,136 +216,48 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
     onOpenChange(false)
   }
 
+  const handleOpenEnrichmentDialog = () => {
+    setEnrichmentDialogOpen(true)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-pink-500" />
-            Genera Preventivo con AI
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <PromptEnrichmentDialog
+        open={open && enrichmentDialogOpen}
+        onOpenChange={(isOpen) => {
+          setEnrichmentDialogOpen(isOpen)
+          if (!isOpen && step === 'enrichment') {
+            onOpenChange(false)
+          }
+        }}
+        onComplete={handleEnrichmentComplete}
+      />
 
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {step === 'input' && (
-            <ScrollArea className="h-full max-h-[calc(90vh-120px)] pr-4">
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      Descrizione Progetto
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label htmlFor="description">Descrivi il progetto o servizio richiesto *</Label>
-                      <Textarea
-                        id="description"
-                        value={formData.projectDescription}
-                        onChange={(e) => handleInputChange('projectDescription', e.target.value)}
-                        placeholder="Es: Gestione social media per azienda nel settore tech, creazione contenuti per 3 mesi, advertising su Facebook e Instagram con budget mensile di 2000€..."
-                        className="mt-1 min-h-[120px]"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="requirements">Requisiti aggiuntivi</Label>
-                      <Textarea
-                        id="requirements"
-                        value={formData.additionalRequirements}
-                        onChange={(e) => handleInputChange('additionalRequirements', e.target.value)}
-                        placeholder="Specifiche tecniche, preferenze creative, vincoli di budget..."
-                        className="mt-1"
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
+      <Dialog open={open && !enrichmentDialogOpen && step !== 'enrichment'} onOpenChange={handleClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-pink-500" />
+              Preventivo Generato con AI
+            </DialogTitle>
+          </DialogHeader>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <User className="w-5 h-5" />
-                      Informazioni Cliente
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="clientName">Nome cliente</Label>
-                        <Input
-                          id="clientName"
-                          value={formData.clientName}
-                          onChange={(e) => handleInputChange('clientName', e.target.value)}
-                          placeholder="Mario Rossi"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="clientEmail">Email</Label>
-                        <Input
-                          id="clientEmail"
-                          type="email"
-                          value={formData.clientEmail}
-                          onChange={(e) => handleInputChange('clientEmail', e.target.value)}
-                          placeholder="mario@azienda.it"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="clientCompany">Azienda</Label>
-                      <Input
-                        id="clientCompany"
-                        value={formData.clientCompany}
-                        onChange={(e) => handleInputChange('clientCompany', e.target.value)}
-                        placeholder="Nome Azienda S.r.l."
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Calendar className="w-5 h-5" />
-                      Dettagli Progetto
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="budget">Budget indicativo</Label>
-                        <Input
-                          id="budget"
-                          value={formData.budget}
-                          onChange={(e) => handleInputChange('budget', e.target.value)}
-                          placeholder="€5000 - €10000"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="deadline">Scadenza</Label>
-                        <Input
-                          id="deadline"
-                          value={formData.deadline}
-                          onChange={(e) => handleInputChange('deadline', e.target.value)}
-                          placeholder="Entro fine mese"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="flex justify-end gap-3 pt-4 flex-shrink-0">
-                  <Button variant="outline" onClick={handleClose}>
-                    Annulla
-                  </Button>
-                  <Button onClick={handleGenerateQuote} className="bg-pink-600 hover:bg-pink-700">
-                    <Wand2 className="w-4 h-4 mr-2" />
-                    Genera Preventivo
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {step === 'enrichment' && (
+              <div className="flex flex-col items-center justify-center h-full min-h-[300px] max-h-[60vh] space-y-6">
+                <div className="text-center space-y-4">
+                  <Sparkles className="w-16 h-16 text-pink-500 mx-auto" />
+                  <h3 className="text-xl font-semibold">Inizia a creare il tuo preventivo</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Raccogli le informazioni essenziali per generare un preventivo accurato basato sui template Righello
+                  </p>
+                  <Button onClick={handleOpenEnrichmentDialog} className="bg-pink-600 hover:bg-pink-700 mt-4">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Inizia Raccolta Dati
                   </Button>
                 </div>
               </div>
-            </ScrollArea>
-          )}
+            )}
 
           {step === 'generating' && (
             <div className="flex flex-col items-center justify-center h-full min-h-[300px] max-h-[60vh] space-y-6">
@@ -672,7 +601,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               </TabsContent>
 
               <div className="flex justify-end gap-3 mt-4 pt-4 border-t flex-shrink-0">
-                <Button variant="outline" onClick={() => setStep('input')}>
+                <Button variant="outline" onClick={() => { setStep('enrichment'); setEnrichmentDialogOpen(true); }}>
                   <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
                   Modifica
                 </Button>
@@ -694,5 +623,6 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
         </div>
       </DialogContent>
     </Dialog>
+    </>
   )
 }
