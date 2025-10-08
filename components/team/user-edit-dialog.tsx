@@ -39,7 +39,7 @@ const editUserSchema = z.object({
   firstName: z.string().min(1, "Nome è obbligatorio"),
   lastName: z.string().min(1, "Cognome è obbligatorio"),
   email: z.string().email("Inserisci un indirizzo email valido"),
-  role: z.enum(["super-admin", "admin", "user", "client"], {
+  role: z.enum(["super-admin", "admin", "direzione", "capo-reparto", "junior", "client"], {
     required_error: "Seleziona un ruolo",
   }),
   companyName: z.string().optional(),
@@ -69,8 +69,20 @@ const roleOptions = [
     icon: Shield,
   },
   {
-    value: "user" as const,
-    label: "Utente",
+    value: "direzione" as const,
+    label: "Direzione",
+    description: "Gestione strategica e supervisione",
+    icon: Shield,
+  },
+  {
+    value: "capo-reparto" as const,
+    label: "Capo Reparto",
+    description: "Coordinamento team e progetti",
+    icon: Users,
+  },
+  {
+    value: "junior" as const,
+    label: "Junior",
     description: "Accesso ai progetti assegnati",
     icon: User,
   },
@@ -78,7 +90,7 @@ const roleOptions = [
     value: "client" as const,
     label: "Cliente",
     description: "Accesso solo al proprio workspace",
-    icon: Users,
+    icon: User,
   },
 ]
 
@@ -91,7 +103,7 @@ export function UserEditDialog({ user, open, onOpenChange, onUserUpdated }: User
       firstName: "",
       lastName: "",
       email: "",
-      role: "user",
+      role: "junior",
       companyName: "",
       isSuspended: false,
     },
@@ -104,7 +116,7 @@ export function UserEditDialog({ user, open, onOpenChange, onUserUpdated }: User
         firstName: user.firstName || "",
         lastName: user.lastName || "",
         email: user.email || "",
-        role: user.role || "user",
+        role: user.role || "junior",
         companyName: user.companyName || "",
         isSuspended: user.isSuspended || false,
       })
