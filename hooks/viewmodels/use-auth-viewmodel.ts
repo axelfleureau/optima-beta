@@ -101,14 +101,15 @@ export function useAuthViewModel(): AuthViewModel {
       const result = await dispatch(initializeAuth())
       return result.meta.requestStatus === 'fulfilled' 
         ? { data: result.payload } 
-        : { error: result.payload?.error || 'Initialization failed' }
+        : { error: typeof result.payload === 'string' ? result.payload : 'Initialization failed' }
     }
   }), [dispatch])
 
   // Memoized permission helpers (React hooks compliant)
   const permissionHelpers = useMemo(() => ({
     hasPermission: (permission: keyof UserPermissions) => {
-      return permissions?.[permission] || false
+      const value = permissions?.[permission]
+      return typeof value === 'boolean' ? value : false
     },
 
     canManageUser: (targetRole: UserRole) => {
@@ -328,7 +329,7 @@ export function useAuthActions() {
       const result = await dispatch(initializeAuth())
       return result.meta.requestStatus === 'fulfilled' 
         ? { data: result.payload } 
-        : { error: result.payload?.error || 'Initialization failed' }
+        : { error: typeof result.payload === 'string' ? result.payload : 'Initialization failed' }
     }
   }), [dispatch])
 }

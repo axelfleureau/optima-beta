@@ -183,15 +183,11 @@ export class FirebaseAuthService {
           id: tenantId,
           name: companyName || `${firstName} ${lastName}'s Agency`,
           type: "agency",
+          aiTokensLimit: 10000,
+          aiTokensUsed: 0,
           settings: {
-            aiTokensLimit: 10000,
             maxUsers: 50,
             features: ["quotes", "campaigns", "team", "ai_assistant"]
-          },
-          subscription: {
-            plan: "trial",
-            status: "active",
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days trial
           },
           createdAt: new Date(),
           updatedAt: new Date()

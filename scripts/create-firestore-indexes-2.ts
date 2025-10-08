@@ -5,6 +5,9 @@ const firebaseConfig = {
   // Your Firebase config here
 }
 
+// Make this file a module to avoid global scope conflicts
+export {}
+
 console.log(`
 🔥 FIRESTORE INDEXES REQUIRED
 

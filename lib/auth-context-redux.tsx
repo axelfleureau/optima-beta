@@ -120,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     displayName: `${reduxUser.firstName} ${reduxUser.lastName}`,
     photoURL: null,
     phoneNumber: null,
+    providerId: "firebase",
     tenantId: reduxUser.tenantId,
     metadata: {
       creationTime: reduxUser.createdAt.toString(),

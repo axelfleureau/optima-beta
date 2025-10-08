@@ -1,5 +1,6 @@
 import { generateAIResponse } from "./ai-service"
-import type { PostObjective, SocialPlatform, EditorialPostFormat } from "./types"
+import { SocialPlatform } from "./types"
+import type { PostObjective, EditorialPostFormat } from "./types"
 
 export interface CaptionGenerationData {
   title: string
@@ -107,7 +108,7 @@ export async function generateCaption(
     }
     if (!platforms.length) {
       // fallback di sicurezza per non far fallire la generazione
-      platforms.push("instagram")
+      platforms.push(SocialPlatform.INSTAGRAM)
     }
     if (!data.format) {
       throw new Error("Formato del post mancante.")

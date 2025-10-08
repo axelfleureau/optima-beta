@@ -163,7 +163,7 @@ const initialState: AuthState = {
 // Async Thunks
 
 // Initialize Auth State Listener
-export const initializeAuth = createAsyncThunk(
+export const initializeAuth = createAsyncThunk<AuthThunkReturn, void, { rejectValue: string }>(
   "auth/initializeAuth",
   async (_, { dispatch, rejectWithValue }) => {
     try {
@@ -256,7 +256,7 @@ export const initializeAuth = createAsyncThunk(
 )
 
 // Sign In Thunk
-export const signIn = createAsyncThunk<SignInThunkReturn, SignInPayload>(
+export const signIn = createAsyncThunk<SignInThunkReturn, SignInPayload, { rejectValue: { error: string } }>(
   "auth/signIn",
   async ({ email, password }, { dispatch, rejectWithValue }) => {
     try {
@@ -327,7 +327,7 @@ export const signIn = createAsyncThunk<SignInThunkReturn, SignInPayload>(
 )
 
 // Sign Up Thunk
-export const signUp = createAsyncThunk<SignUpThunkReturn, SignUpPayload>(
+export const signUp = createAsyncThunk<SignUpThunkReturn, SignUpPayload, { rejectValue: { error: string } }>(
   "auth/signUp",
   async ({ email, password, firstName, lastName, companyName, role = "junior" }, { rejectWithValue }) => {
     try {
@@ -370,7 +370,7 @@ export const signUp = createAsyncThunk<SignUpThunkReturn, SignUpPayload>(
 )
 
 // Sign Out Thunk
-export const signOut = createAsyncThunk(
+export const signOut = createAsyncThunk<null, void, { rejectValue: { error: string } }>(
   "auth/signOut",
   async (_, { rejectWithValue }) => {
     try {
@@ -390,7 +390,7 @@ export const signOut = createAsyncThunk(
 )
 
 // Update Profile Thunk
-export const updateProfile = createAsyncThunk<AuthThunkReturn, UpdateProfilePayload>(
+export const updateProfile = createAsyncThunk<AuthThunkReturn, UpdateProfilePayload, { rejectValue: { error: string } }>(
   "auth/updateProfile",
   async (updates, { getState, rejectWithValue }) => {
     try {
@@ -416,7 +416,7 @@ export const updateProfile = createAsyncThunk<AuthThunkReturn, UpdateProfilePayl
 )
 
 // Refresh Token Thunk
-export const refreshToken = createAsyncThunk(
+export const refreshToken = createAsyncThunk<AuthThunkReturn, void, { rejectValue: { error: string } }>(
   "auth/refreshToken",
   async (_, { getState, rejectWithValue }) => {
     try {

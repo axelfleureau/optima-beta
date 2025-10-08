@@ -40,6 +40,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    let unsubscribe: (() => void) | undefined
+
     const loadNotifications = async () => {
       try {
         const { db } = await import("@/lib/firebase")
@@ -51,7 +53,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           where("userId", "==", userData.id)
         )
 
-        const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+        unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
           const notificationsData = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
@@ -64,18 +66,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           setNotifications(notificationsData)
           setLoading(false)
         })
-
-        return unsubscribe
       } catch (error) {
         console.error("Errore nel caricamento notifiche:", error)
         setLoading(false)
       }
     }
 
-    const unsubscribe = loadNotifications()
+    loadNotifications()
 
     return () => {
-      if (unsubscribe && typeof unsubscribe === 'function') {
+      if (unsubscribe) {
         unsubscribe()
       }
     }

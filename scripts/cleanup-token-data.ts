@@ -72,8 +72,8 @@ export async function cleanupTokenData() {
     const aiUsageSnapshot = await getDocs(collection(db, "ai_usage"))
     const aiUsageBatch = writeBatch(db)
 
-    const validUsageRecords = []
-    const recordsToDelete = []
+    const validUsageRecords: any[] = []
+    const recordsToDelete: string[] = []
 
     for (const usageDoc of aiUsageSnapshot.docs) {
       const usageData = usageDoc.data()
