@@ -354,6 +354,7 @@ export interface PostFormData {
   content: string
   platform: string
   type: string
+  postType: string
   scheduledDate: string
   scheduledTime?: string
   status: string
