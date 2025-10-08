@@ -21,6 +21,17 @@ interface TableViewProps {
 }
 
 export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selectedClientId, userRole }: TableViewProps) {
+  // Helper per ottenere la data del post (compatibile con legacy)
+  const getPostDate = (post: EditorialPost): Date => {
+    if (post.date) {
+      return post.date.toDate()
+    }
+    // Usa scheduledDate e scheduledTime se disponibili
+    const dateStr = post.scheduledDate
+    const timeStr = post.scheduledTime || "00:00"
+    return new Date(`${dateStr}T${timeStr}:00`)
+  }
+
   return (
     <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 shadow-xl rounded-2xl overflow-hidden">
       <CardContent className="p-0">
@@ -66,9 +77,9 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
                   key={post.id}
                   className="border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
                 >
-                  <TableCell className="font-medium text-slate-900 dark:text-slate-100">{post.name}</TableCell>
+                  <TableCell className="font-medium text-slate-900 dark:text-slate-100">{post.name || post.title}</TableCell>
                   <TableCell className="text-slate-600 dark:text-slate-400">
-                    {format(post.date.toDate(), "dd MMM yyyy", { locale: it })}
+                    {format(getPostDate(post), "dd MMM yyyy", { locale: it })}
                   </TableCell>
                   <TableCell>
                     <Badge className={`${statusInfo.lightColor} dark:${statusInfo.darkColor} border font-medium`}>
@@ -79,18 +90,7 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
                   <TableCell className="text-slate-600 dark:text-slate-400">{post.format}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {Array.isArray(post.platform) &&
-                        post.platform.slice(0, 2).map((platform) => (
-                          <Badge key={platform} variant="outline" className="text-xs">
-                            {platform}
-                          </Badge>
-                        ))}
-                      {Array.isArray(post.platform) && post.platform.length > 2 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{post.platform.length - 2}
-                        </Badge>
-                      )}
-                      {!Array.isArray(post.platform) && post.platform && (
+                      {post.platform && (
                         <Badge variant="outline" className="text-xs">
                           {post.platform}
                         </Badge>
@@ -121,7 +121,9 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
                     )}
                   </TableCell>
                   <TableCell className="max-w-xs">
-                    <p className="truncate text-slate-600 dark:text-slate-400">{post.caption?.substring(0, 50)}...</p>
+                    <p className="truncate text-slate-600 dark:text-slate-400">
+                      {(post.caption || post.content)?.substring(0, 50)}...
+                    </p>
                   </TableCell>
                   <TableCell className="max-w-xs">
                     <p className="truncate text-slate-600 dark:text-slate-400">{post.notes?.substring(0, 50)}...</p>

@@ -22,6 +22,17 @@ interface KanbanViewProps {
 export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: KanbanViewProps) {
   const { user } = useAuth()
 
+  // Helper per ottenere la data del post (compatibile con legacy)
+  const getPostDate = (post: EditorialPost): Date => {
+    if (post.date) {
+      return post.date.toDate()
+    }
+    // Usa scheduledDate e scheduledTime se disponibili
+    const dateStr = post.scheduledDate
+    const timeStr = post.scheduledTime || "00:00"
+    return new Date(`${dateStr}T${timeStr}:00`)
+  }
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
@@ -66,32 +77,17 @@ export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: 
                           >
                             <div className="space-y-3">
                               <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 line-clamp-2">
-                                {post.name}
+                                {post.name || post.title}
                               </h4>
                               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                                 <Clock className="w-3 h-3" />
-                                {format(post.date.toDate(), "d MMM", { locale: it })}
+                                {format(getPostDate(post), "d MMM", { locale: it })}
                               </div>
                               <div className="flex flex-wrap gap-1">
-                                {Array.isArray(post.platform) ? (
-                                  <>
-                                    {post.platform.slice(0, 2).map((platform) => (
-                                      <Badge key={platform} variant="outline" className="text-xs">
-                                        {platform}
-                                      </Badge>
-                                    ))}
-                                    {post.platform.length > 2 && (
-                                      <Badge variant="outline" className="text-xs">
-                                        +{post.platform.length - 2}
-                                      </Badge>
-                                    )}
-                                  </>
-                                ) : (
-                                  post.platform && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {post.platform}
-                                    </Badge>
-                                  )
+                                {post.platform && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {post.platform}
+                                  </Badge>
                                 )}
                               </div>
                               {post.format && (
