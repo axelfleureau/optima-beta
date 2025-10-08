@@ -8,6 +8,8 @@
 import Stripe from "stripe"
 import { Timestamp } from "firebase-admin/firestore"
 import { updateQuoteStatus, updateMilestoneStatus, getQuoteById } from "@/lib/quote-service"
+import { sendInvoiceEmail } from "@/lib/email-service"
+import type { InvoicePaymentData } from "@/lib/invoice-generator"
 import type { 
   Payment, 
   PaymentStatus, 
@@ -556,6 +558,30 @@ export class StripeService {
         stripePaymentIntentId: session.payment_intent as string,
       })
 
+      // Fetch quote for invoice generation
+      const quote = await getQuoteById(quoteId, tenantId)
+      
+      if (!quote) {
+        console.error('Quote not found for invoice:', quoteId)
+        return false
+      }
+
+      // Generate unique invoice number
+      const invoiceNumber = `INV-${Date.now()}-${quoteId.substring(0, 8)}`
+      
+      // Prepare payment data for invoice
+      const paymentData: InvoicePaymentData = {
+        paymentIntentId: session.payment_intent as string,
+        paymentType: (paymentType || 'full') as 'deposit' | 'milestone' | 'full',
+        amount: (session.amount_total || 0) / 100, // Convert from cents to euros
+        currency: session.currency || 'eur',
+        status: 'succeeded',
+        paidAt: new Date(),
+        depositPercentage: session.metadata?.depositPercentage,
+        milestoneId: milestoneId,
+        milestoneName: session.metadata?.milestoneName,
+      }
+
       // Handle different payment types
       if (paymentType === 'deposit') {
         console.log(`✅ Deposit checkout completed for quote ${quoteId}`)
@@ -563,9 +589,6 @@ export class StripeService {
         console.log(`   - Deposit percentage: ${session.metadata?.depositPercentage}%`)
         console.log(`   - Total quote amount: ${session.metadata?.totalQuoteAmount}`)
         console.log(`   - Payment intent: ${session.payment_intent}`)
-        
-        // TODO: Create Payment record for deposit
-        // await createPaymentRecord({ quoteId, type: 'deposit', ... })
       } else if (paymentType === 'milestone' && milestoneId) {
         console.log(`✅ Milestone checkout completed for quote ${quoteId}`)
         console.log(`   - Quote approved via checkout: ${session.id}`)
@@ -581,9 +604,16 @@ export class StripeService {
         
         console.log(`   - Milestone ${milestoneId} marked as paid`)
         
-        // Check if ALL milestones are paid → update quote status to 'completed'
-        const quote = await getQuoteById(quoteId, tenantId)
-        const allMilestonesPaid = quote?.paymentPlan?.milestones?.every((m: any) => m.status === 'paid')
+        // FIX: RE-FETCH quote AFTER the update to get fresh data
+        const updatedQuote = await getQuoteById(quoteId, tenantId)
+        
+        if (!updatedQuote) {
+          console.error('Quote not found after milestone update:', quoteId)
+          return false
+        }
+        
+        // Check if ALL milestones are paid using FRESH quote data
+        const allMilestonesPaid = updatedQuote.paymentPlan?.milestones?.every((m: any) => m.status === 'paid')
         
         if (allMilestonesPaid) {
           await updateQuoteStatus(quoteId, tenantId, 'completed', {
@@ -594,15 +624,33 @@ export class StripeService {
           console.log(`   - Some milestones still pending payment`)
         }
         
-        // TODO: Send email notification to client
-        // await sendMilestonePaymentConfirmationEmail(quote.clientEmail, milestone, quote)
+        console.log(`   - Milestone payment processed. All milestones paid: ${allMilestonesPaid}`)
       } else {
         console.log(`✅ Full payment checkout completed for quote ${quoteId}`)
         console.log(`   - Quote approved via checkout: ${session.id}`)
         console.log(`   - Payment intent: ${session.payment_intent}`)
+      }
+
+      // Generate and send invoice email
+      const clientEmail = (quote as any).clientEmail || session.customer_email || ''
+      const clientName = quote.clientName
+      
+      if (clientEmail) {
+        const emailSent = await sendInvoiceEmail(
+          invoiceNumber,
+          paymentData,
+          quote,
+          clientName,
+          clientEmail
+        )
         
-        // TODO: Create Payment record for full payment
-        // await createPaymentRecord({ quoteId, type: 'full', ... })
+        if (emailSent) {
+          console.log(`   - Invoice ${invoiceNumber} sent successfully to ${clientEmail}`)
+        } else {
+          console.log(`   - Failed to send invoice ${invoiceNumber} (email might not be configured)`)
+        }
+      } else {
+        console.log(`   - No email available for invoice delivery`)
       }
 
       return true
