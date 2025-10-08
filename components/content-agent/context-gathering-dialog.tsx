@@ -23,7 +23,7 @@ import { TokenConsentDialog } from "./token-consent-dialog"
 import { ContentAgentOrchestrator, type OrchestrationResult } from "@/lib/services/content-agent-orchestrator"
 import { useAuth } from "@/lib/auth-context"
 import { useClients } from "@/hooks/use-clients"
-import { toast } from "sonner"
+import { useAIFeedback } from "@/hooks/use-ai-feedback"
 import { cn } from "@/lib/utils"
 
 type Step = "client" | "date" | "platform" | "confirm"
@@ -53,6 +53,7 @@ export function ContextGatheringDialog({
 }: ContextGatheringDialogProps) {
   const { userData } = useAuth()
   const { clients } = useClients()
+  const feedback = useAIFeedback()
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
   const [selectedClientName, setSelectedClientName] = useState<string | null>(null)
   const [publishDate, setPublishDate] = useState<Date | undefined>(undefined)
@@ -124,28 +125,28 @@ export function ContextGatheringDialog({
 
   const handleConfirm = async () => {
     if (!selectedClientId) {
-      toast.error("Seleziona un cliente")
+      feedback.error('Validazione', 'Seleziona un cliente', 'È necessario selezionare un cliente')
       return
     }
     
     if (!publishDate) {
-      toast.error("Seleziona una data di pubblicazione")
+      feedback.error('Validazione', 'Seleziona una data di pubblicazione', 'È necessario selezionare una data')
       return
     }
     
     if ((entities?.contentType === "post" || entities?.contentType === "reel" || entities?.contentType === "video") && !platform) {
-      toast.error("Seleziona una piattaforma")
+      feedback.error('Validazione', 'Seleziona una piattaforma', 'È necessario selezionare una piattaforma')
       return
     }
     
     if (!userData) {
-      toast.error("Dati utente non disponibili")
+      feedback.error('Autenticazione', 'Dati utente non disponibili', 'Ricarica la pagina')
       return
     }
     
     const client = clients.find(c => c.id === selectedClientId)
     if (!client) {
-      toast.error("Cliente non valido")
+      feedback.error('Validazione', 'Cliente non valido', 'Seleziona un cliente valido')
       return
     }
     const clientName = client.name || selectedClientName || "Unknown"
@@ -168,7 +169,11 @@ export function ContextGatheringDialog({
       onOpenChange(false)
     } catch (error) {
       console.error("Errore durante l'orchestrazione:", error)
-      toast.error("Errore durante la creazione del task e calendario")
+      feedback.error(
+        'Creazione task e calendario',
+        error instanceof Error ? error.message : 'Errore sconosciuto',
+        'Verifica i dati e riprova'
+      )
     }
   }
 
@@ -198,8 +203,9 @@ export function ContextGatheringDialog({
         orchestrationResult.task.id
       )
 
-      toast.success("✅ Contenuto creato e schedulato!", {
-        description: `Task e calendario aggiornati con ${entities?.contentType || "contenuto"}`,
+      feedback.success('Contenuto creato e schedulato', {
+        clientName: clientName,
+        taskName: `${entities?.contentType || "contenuto"} - ${entities?.topic || ""}`
       })
 
       setTokenConsentOpen(false)
@@ -218,7 +224,11 @@ export function ContextGatheringDialog({
       onComplete(completeContext)
     } catch (error) {
       console.error("Errore durante la generazione:", error)
-      toast.error("Errore durante la generazione del contenuto")
+      feedback.error(
+        'Generazione contenuto',
+        error instanceof Error ? error.message : 'Errore sconosciuto',
+        'Verifica i token disponibili e riprova'
+      )
     } finally {
       setIsGenerating(false)
     }

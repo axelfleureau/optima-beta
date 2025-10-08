@@ -34,6 +34,7 @@ const IntentSchema = z.object({
   missingParams: z.array(z.string()).optional(),
   suggestedAction: z.string().optional(),
   reasoning: z.string().optional(),
+  requiresConfirmation: z.boolean().optional().default(false),
 })
 
 export async function recognizeIntent(

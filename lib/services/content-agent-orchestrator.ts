@@ -1,6 +1,12 @@
 import { auth } from '@/lib/firebase'
 import { useOrchestrationStore } from '@/lib/stores/orchestration-store'
 import { ORCHESTRATION_MESSAGES, ORCHESTRATION_PROGRESS } from '@/lib/utils/orchestration-messages'
+import { gatherExtendedContext } from '@/lib/services/context-gatherer'
+import { getContextualPrompt } from '@/lib/prompt-templates'
+
+const CONTENT_AGENT_BASE_PROMPT = `Sei un esperto content creator specializzato in social media marketing.
+Crea contenuti coinvolgenti, professionali e ottimizzati per la piattaforma specifica.
+Usa un tono appropriato al brand e al pubblico target.`
 
 export interface ContentCreationRequest {
   intent: string
@@ -175,8 +181,46 @@ export class ContentAgentOrchestrator {
   private static async generateCopy(req: ContentCreationRequest, token: string): Promise<string> {
     console.log('✍️ Generating copy with GPT-4...')
     
-    const prompt = `Crea una caption ${req.contentType} per ${req.platform} sul tema: "${req.topic}". Cliente: ${req.clientName}. La caption deve essere coinvolgente, professionale e ottimizzata per ${req.platform}.`
+    // 1. GATHER EXTENDED CONTEXT
+    const extendedContext = await gatherExtendedContext(req.tenantId)
+    console.log('📊 Extended context gathered:', {
+      hasTenant: !!extendedContext.tenant,
+      recentActivityCount: extendedContext.recentActivity?.length || 0,
+      existingAssetsCount: extendedContext.existingAssets?.length || 0
+    })
     
+    // 2. BUILD CONTEXT OBJECT
+    const fullContext = {
+      ...extendedContext,
+      client: {
+        name: req.clientName
+      },
+      task: {
+        description: req.topic
+      }
+    }
+    
+    // 3. GET CONTEXTUAL PROMPT with tenant context
+    const taskPrompt = `Crea una caption ${req.contentType} per ${req.platform} sul tema: "${req.topic}". Cliente: ${req.clientName}. La caption deve essere coinvolgente, professionale e ottimizzata per ${req.platform}.`
+    const contextualPrompt = getContextualPrompt(taskPrompt, fullContext)
+    
+    console.log('✅ Context-enriched prompt created with tenant info')
+    
+    // 4. BUILD FULL SYSTEM PROMPT
+    const systemPrompt = `
+${CONTENT_AGENT_BASE_PROMPT}
+
+${contextualPrompt}
+
+TASK CORRENTE:
+${req.topic}
+
+FORMATO: ${req.contentType === 'post' ? 'Post Instagram' : req.contentType === 'reel' ? 'Reel' : 'Video'}
+PIATTAFORMA: ${req.platform}
+CLIENTE: ${req.clientName}
+`
+    
+    // 5. CALL AI with enriched prompt
     const response = await fetch('/api/ai/caption', {
       method: 'POST',
       headers: { 
@@ -184,7 +228,7 @@ export class ContentAgentOrchestrator {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        prompt: prompt,
+        prompt: systemPrompt,
         userId: req.userId,
         maxTokens: 500,
         temperature: 0.8

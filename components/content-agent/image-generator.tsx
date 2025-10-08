@@ -10,10 +10,10 @@ import { ImagePreview } from './image-preview'
 import { estimateImageCost } from '@/lib/ai/cost-calculator'
 import { getPlatformSize, getPlatformAspectRatio } from '@/lib/ai/dalle-service'
 import { useAuth } from '@/lib/auth-context'
+import { useAIFeedback } from '@/hooks/use-ai-feedback'
 import { motion, AnimatePresence } from 'framer-motion'
 import { liquidExpand } from '@/lib/animations/liquid'
 import { Sparkles, Info, Zap } from 'lucide-react'
-import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { cn } from '@/lib/utils'
@@ -25,6 +25,7 @@ interface ImageGeneratorProps {
 
 export function ImageGenerator({ open, onOpenChange }: ImageGeneratorProps) {
   const { user } = useAuth()
+  const feedback = useAIFeedback()
   const [platform, setPlatform] = useState<Platform>('instagram-feed-grid')
   const [prompt, setPrompt] = useState('')
   const [quality, setQuality] = useState<'standard' | 'hd'>('standard')
@@ -39,12 +40,12 @@ export function ImageGenerator({ open, onOpenChange }: ImageGeneratorProps) {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      toast.error('Please enter a prompt')
+      feedback.error('Validazione', 'Inserisci un prompt', 'Il campo prompt è obbligatorio')
       return
     }
 
     if (!user) {
-      toast.error('Authentication required')
+      feedback.error('Autenticazione', 'Autenticazione richiesta', 'Effettua il login e riprova')
       return
     }
 
@@ -80,14 +81,16 @@ export function ImageGenerator({ open, onOpenChange }: ImageGeneratorProps) {
       setImageUrl(data.imageUrl)
       setRevisedPrompt(data.revisedPrompt)
 
-      toast.success('Image generated successfully!', {
-        description: `Used ${data.tokensUsed} tokens`,
+      feedback.success('Immagine generata', { 
+        amount: data.tokensUsed 
       })
     } catch (error) {
       console.error('Error generating image:', error)
-      toast.error('Failed to generate image', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      })
+      feedback.error(
+        'Generazione immagine',
+        error instanceof Error ? error.message : 'Errore sconosciuto',
+        'Verifica il prompt e i token disponibili'
+      )
     } finally {
       setIsGenerating(false)
     }

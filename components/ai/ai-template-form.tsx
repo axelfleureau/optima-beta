@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Loader2, Wand2, Copy, Check } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useAIFeedback } from "@/hooks/use-ai-feedback"
 
 interface TemplateField {
   name: string
@@ -35,7 +35,7 @@ export function AITemplateForm({ template, userId }: AITemplateFormProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedContent, setGeneratedContent] = useState("")
   const [isCopied, setIsCopied] = useState(false)
-  const { toast } = useToast()
+  const feedback = useAIFeedback()
 
   const handleInputChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
@@ -50,11 +50,11 @@ export function AITemplateForm({ template, userId }: AITemplateFormProps) {
     // Check if all required fields are filled
     const missingFields = template.fields.filter((field) => !formData[field.name]?.trim())
     if (missingFields.length > 0) {
-      toast({
-        title: "Campi mancanti",
-        description: `Compila tutti i campi: ${missingFields.map((f) => f.label).join(", ")}`,
-        variant: "destructive",
-      })
+      feedback.error(
+        'Validazione',
+        `Compila tutti i campi: ${missingFields.map((f) => f.label).join(", ")}`,
+        'Tutti i campi sono obbligatori'
+      )
       return
     }
 
@@ -124,11 +124,11 @@ export function AITemplateForm({ template, userId }: AITemplateFormProps) {
       }
     } catch (error) {
       console.error("Error generating content:", error)
-      toast({
-        title: "Errore",
-        description: error instanceof Error ? error.message : "Errore durante la generazione del contenuto",
-        variant: "destructive",
-      })
+      feedback.error(
+        'Generazione contenuto',
+        error instanceof Error ? error.message : 'Errore sconosciuto',
+        'Verifica i dati e riprova'
+      )
     } finally {
       setIsGenerating(false)
     }
@@ -138,17 +138,10 @@ export function AITemplateForm({ template, userId }: AITemplateFormProps) {
     try {
       await navigator.clipboard.writeText(generatedContent)
       setIsCopied(true)
-      toast({
-        title: "Copiato!",
-        description: "Il contenuto è stato copiato negli appunti",
-      })
+      feedback.success('Contenuto copiato negli appunti')
       setTimeout(() => setIsCopied(false), 2000)
     } catch (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile copiare il contenuto",
-        variant: "destructive",
-      })
+      feedback.error('Copia contenuto', 'Impossibile copiare il contenuto', 'Verifica i permessi del browser')
     }
   }
 

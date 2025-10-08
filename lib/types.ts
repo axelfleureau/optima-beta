@@ -418,6 +418,7 @@ export interface NLPResponse {
   missingParams?: string[]
   suggestedAction?: string
   reasoning?: string
+  requiresConfirmation?: boolean
 }
 
 export interface CommandExecutionResult {

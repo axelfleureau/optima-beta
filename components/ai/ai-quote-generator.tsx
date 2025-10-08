@@ -14,6 +14,8 @@ import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { useQuotes } from "@/hooks/use-quotes"
+import { useAIActionState } from "@/hooks/use-ai-action-state"
+import { useAIFeedback } from "@/hooks/use-ai-feedback"
 import { convertToQuoteFormat, type GeneratedQuoteData } from "@/lib/ai-quote-service"
 import { downloadQuotePDF } from "@/lib/pdf-generator"
 import {
@@ -50,6 +52,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
   const { toast } = useToast()
   const { userData } = useAuth()
   const { createQuote } = useQuotes()
+  const actionState = useAIActionState('quote-gen')
+  const feedback = useAIFeedback()
   
   const [step, setStep] = useState<'input' | 'generating' | 'review'>('input')
   const [isGenerating, setIsGenerating] = useState(false)
@@ -71,33 +75,27 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
   const handleGenerateQuote = async () => {
     if (!formData.projectDescription.trim()) {
-      toast({
-        title: "Errore",
-        description: "Inserisci almeno la descrizione del progetto",
-        variant: "destructive"
-      })
+      feedback.error('Validazione', 'Inserisci almeno la descrizione del progetto', 'Il campo descrizione è obbligatorio')
       return
     }
 
     if (!userData?.tenantId) {
-      toast({
-        title: "Errore",
-        description: "Dati utente non disponibili",
-        variant: "destructive"
-      })
+      feedback.error('Autenticazione', 'Dati utente non disponibili', 'Ricarica la pagina o effettua nuovamente il login')
       return
     }
 
     try {
+      actionState.start('Raccolta dati preventivo...')
       setIsGenerating(true)
       setStep('generating')
 
+      actionState.callAI('Generazione preventivo AI...')
       const response = await fetch('/api/ai/quote-generation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // CRITICAL: Send firebase-auth-token cookie
+        credentials: 'include',
         body: JSON.stringify({
           ...formData
         })
@@ -110,20 +108,24 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
       const result = await response.json()
       setGeneratedQuote(result.data)
+      
+      actionState.apply('Preparazione anteprima...')
       setStep('review')
       
-      toast({
-        title: "Preventivo generato!",
-        description: "Il preventivo è stato creato con successo dall'AI"
+      actionState.complete()
+      feedback.success('Preventivo generato', {
+        quoteName: result.data.preventivo.titolo,
+        amount: result.data.totali.totale * 100
       })
 
     } catch (error) {
       console.error('Error generating quote:', error)
-      toast({
-        title: "Errore",
-        description: error instanceof Error ? error.message : "Errore sconosciuto",
-        variant: "destructive"
-      })
+      actionState.error(error instanceof Error ? error.message : 'Errore sconosciuto')
+      feedback.error(
+        'Generazione preventivo',
+        error instanceof Error ? error.message : 'Errore sconosciuto',
+        'Controlla i dati inseriti e riprova'
+      )
       setStep('input')
     } finally {
       setIsGenerating(false)
@@ -137,14 +139,13 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       const quoteToCreate = convertToQuoteFormat(
         generatedQuote,
         userData.tenantId,
-        userData.id || userData.tenantId // Use actual user ID for createdBy
+        userData.id || userData.tenantId
       )
 
       await createQuote(quoteToCreate)
       
-      toast({
-        title: "Preventivo salvato!",
-        description: "Il preventivo è stato salvato nel sistema"
+      feedback.success('Preventivo salvato', {
+        quoteName: generatedQuote.preventivo.titolo
       })
 
       onQuoteGenerated?.(generatedQuote)
@@ -153,11 +154,11 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
     } catch (error) {
       console.error('Error saving quote:', error)
-      toast({
-        title: "Errore nel salvataggio",
-        description: "Non è stato possibile salvare il preventivo",
-        variant: "destructive"
-      })
+      feedback.error(
+        'Salvataggio preventivo',
+        'Non è stato possibile salvare il preventivo',
+        'Riprova o contatta il supporto'
+      )
     }
   }
 
@@ -166,17 +167,16 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
     try {
       downloadQuotePDF(generatedQuote)
-      toast({
-        title: "PDF generato!",
-        description: "Il preventivo PDF è stato scaricato con successo"
+      feedback.success('PDF generato', {
+        quoteName: generatedQuote.preventivo.titolo
       })
     } catch (error) {
       console.error('Error generating PDF:', error)
-      toast({
-        title: "Errore PDF",
-        description: "Non è stato possibile generare il PDF",
-        variant: "destructive"
-      })
+      feedback.error(
+        'Generazione PDF',
+        'Non è stato possibile generare il PDF',
+        'Verifica i dati del preventivo'
+      )
     }
   }
 
