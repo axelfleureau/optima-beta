@@ -19,6 +19,7 @@ import { adminDb } from "@/lib/firebase-admin"
 import { stripeService } from "@/lib/services/stripe.service"
 import { updatePayment, findPaymentByStripeId } from "@/collections/payments"
 import { SubscriptionEmailService } from "@/lib/services/subscription-email.service"
+import { sendPaymentSuccessEmail, sendPaymentFailureEmail } from "@/lib/email-payment-service"
 import { getPlanById, getAllPlans } from "@/lib/constants/token-plans"
 import Stripe from "stripe"
 
@@ -369,6 +370,125 @@ async function handleConnectAccountEvent(event: Stripe.Event) {
   }
 }
 
+// PHASE 5C: Handle Payment Intent Events for Quote Auto-Payment
+async function handlePaymentIntentEvent(event: Stripe.Event): Promise<void> {
+  try {
+    const paymentIntent = event.data.object as any
+    const eventType = event.type
+    
+    // Extract metadata
+    const { quoteId, tenantId, clientId } = paymentIntent.metadata || {}
+    
+    if (!quoteId) {
+      console.log('⚠️ Payment intent without quoteId, skipping')
+      return
+    }
+    
+    console.log(`📋 Processing PaymentIntent event: ${eventType} for quote ${quoteId}`)
+    
+    // Find Payment record using Admin SDK (server-safe)
+    if (!adminDb) {
+      console.error('❌ adminDb not available')
+      return
+    }
+
+    const paymentsSnapshot = await adminDb
+      .collection('payments')
+      .where('stripePaymentIntentId', '==', paymentIntent.id)
+      .where('tenantId', '==', tenantId)
+      .limit(1)
+      .get()
+
+    if (paymentsSnapshot.empty) {
+      console.error('❌ Payment record not found for intent:', paymentIntent.id)
+      return
+    }
+
+    const paymentDoc = paymentsSnapshot.docs[0]
+    const paymentData = paymentDoc.data()
+    
+    // Update based on event type
+    switch (eventType) {
+      case 'payment_intent.succeeded':
+        // Update Payment status
+        await updatePayment(paymentDoc.id, {
+          status: 'succeeded',
+          paidAt: new Date()
+        })
+        
+        // Update Quote status → paid
+        if (adminDb) {
+          await adminDb.collection('quotes').doc(quoteId).update({
+            status: 'paid',
+            paidAt: new Date(),
+            updatedAt: new Date()
+          })
+        }
+        
+        // Send success email
+        try {
+          await sendPaymentSuccessEmail(
+            paymentData.clientEmail,
+            paymentData.clientName,
+            paymentData.quoteName,
+            paymentData.amount,
+            paymentData.currency
+          )
+        } catch (emailError) {
+          console.error(`⚠️ Failed to send payment success email:`, emailError)
+        }
+        
+        console.log(`✅ Payment succeeded for quote ${quoteId}`)
+        break
+        
+      case 'payment_intent.payment_failed':
+        // Update Payment status
+        await updatePayment(paymentDoc.id, {
+          status: 'failed',
+          lastError: paymentIntent.last_payment_error?.message || 'Payment failed'
+        })
+        
+        // Rollback quote to accepted (payment failed)
+        if (adminDb) {
+          await adminDb.collection('quotes').doc(quoteId).update({
+            status: 'accepted',
+            updatedAt: new Date()
+          })
+        }
+        
+        // Send failure email
+        try {
+          await sendPaymentFailureEmail(
+            paymentData.clientEmail,
+            paymentData.clientName,
+            paymentData.quoteName,
+            paymentIntent.last_payment_error?.message
+          )
+        } catch (emailError) {
+          console.error(`⚠️ Failed to send payment failure email:`, emailError)
+        }
+        
+        console.error(`❌ Payment failed for quote ${quoteId}`)
+        break
+        
+      case 'payment_intent.requires_action':
+        // Update Payment status
+        await updatePayment(paymentDoc.id, {
+          status: 'requires_action'
+        })
+        
+        console.log(`⚠️ Payment requires action for quote ${quoteId}`)
+        break
+        
+      default:
+        console.log(`⚠️ Unhandled PaymentIntent event: ${eventType}`)
+    }
+  } catch (error) {
+    console.error('Error handling PaymentIntent event:', error)
+    throw error
+  }
+}
+
 export async function POST(request: NextRequest) {
   console.log("🔄 Processing Stripe webhook")
 
@@ -417,7 +537,7 @@ export async function POST(request: NextRequest) {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
     if (webhookSecret) {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-        apiVersion: "2025-08-27.basil"
+        apiVersion: '2024-06-20' as Stripe.LatestApiVersion
       })
       const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
       
@@ -427,6 +547,11 @@ export async function POST(request: NextRequest) {
       
       if (event.type.startsWith("account.")) {
         await handleConnectAccountEvent(event)
+      }
+      
+      // PHASE 5C: Handle Payment Intent events for Quote Auto-Payment
+      if (event.type.startsWith("payment_intent.")) {
+        await handlePaymentIntentEvent(event)
       }
     }
 

@@ -32,7 +32,7 @@ if (!STRIPE_WEBHOOK_SECRET) {
 
 // Initialize Stripe with security best practices
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: "2025-08-27.basil", // Use latest supported version
+  apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
   typescript: true,
   telemetry: false, // Disable telemetry for privacy
   maxNetworkRetries: 3,
