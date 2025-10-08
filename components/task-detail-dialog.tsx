@@ -14,6 +14,7 @@ import { Calendar, Clock, User, Paperclip, Plus, X, Edit3, Check, GripVertical, 
 import type { Task, SubItem, TaskComment } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
+import { useUsers } from "@/hooks/use-users"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import { TaskAssetGallery } from '@/components/task-asset-gallery'
 
@@ -55,6 +56,7 @@ export function TaskDetailDialog({
   onUpdateSubItems,
 }: TaskDetailDialogProps) {
   const { userData } = useAuth()
+  const { users, loading: usersLoading } = useUsers()
   const { toast } = useToast()
 
   // Editing states
@@ -266,7 +268,9 @@ export function TaskDetailDialog({
             </div>
             <div className="flex items-center gap-1">
               <User className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">{task.assignee || "Non assegnato"}</span>
+              <span className="truncate">
+                {task.assignee || (task.assignedUserId ? "Assegnato" : "Non assegnato")}
+              </span>
             </div>
           </div>
         </DialogHeader>
@@ -583,12 +587,53 @@ export function TaskDetailDialog({
             {/* Assignee */}
             <div>
               <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Assegnato a</Label>
-              <Input
-                value={task.assignee || ""}
-                onChange={(e) => handleUpdateField("assignee", e.target.value)}
-                placeholder="Nome assegnatario"
-                className="h-11 md:h-10"
-              />
+              <Select
+                value={task.assignedUserId || "unassigned"}
+                onValueChange={(value) => {
+                  if (value === "unassigned") {
+                    handleUpdateField("assignedUserId", null)
+                    handleUpdateField("assignee", null)
+                  } else {
+                    const selectedUser = users.find(u => u.id === value)
+                    if (selectedUser) {
+                      handleUpdateField("assignedUserId", value)
+                      handleUpdateField("assignee", `${selectedUser.firstName || ""} ${selectedUser.lastName || ""}`.trim() || selectedUser.email)
+                    }
+                  }
+                }}
+              >
+                <SelectTrigger className="h-11 md:h-10">
+                  <SelectValue placeholder="Seleziona utente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-500 italic">Non assegnato</span>
+                    </div>
+                  </SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-xs">
+                            {user.firstName?.[0]}{user.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{`${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {usersLoading && (
+                <p className="text-xs text-gray-500 mt-1">Caricamento utenti...</p>
+              )}
+              
+              {users.length === 0 && !usersLoading && (
+                <p className="text-xs text-gray-500 mt-1">Nessun utente disponibile nel tenant</p>
+              )}
             </div>
 
             {/* Tags */}
