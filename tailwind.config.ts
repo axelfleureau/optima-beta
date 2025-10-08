@@ -55,9 +55,9 @@ const config = {
         },
         // Righello Brand Colors
         righello: {
-          pink: "#FF0092",
-          "pink-light": "#FF33A8",
-          "pink-dark": "#E6007A",
+          pink: "#D946A6",
+          "pink-light": "#E879B9",
+          "pink-dark": "#BE185D",
           charcoal: "#1A1A1A",
           "dark-gray": "#2C2C2C",
           "light-gray": "#F0F0EA",
@@ -84,10 +84,10 @@ const config = {
         },
         "liquid-glow": {
           "0%, 100%": { 
-            boxShadow: "0 0 20px rgba(168, 85, 247, 0.5)",
+            boxShadow: "0 0 16px rgba(139, 92, 246, 0.3)",
           },
           "50%": { 
-            boxShadow: "0 0 30px rgba(168, 85, 247, 0.8), 0 0 60px rgba(236, 72, 153, 0.4)",
+            boxShadow: "0 0 24px rgba(139, 92, 246, 0.6), 0 0 48px rgba(217, 70, 239, 0.3)",
           },
         },
         "gradient-shift": {
@@ -139,23 +139,23 @@ const config = {
       },
       boxShadow: {
         righello:
-          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 0, 146, 0.05)",
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(217, 70, 239, 0.05)",
         "righello-lg":
-          "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(255, 0, 146, 0.1)",
-        "righello-pink": "0 10px 20px rgba(255, 0, 146, 0.3)",
+          "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(217, 70, 239, 0.1)",
+        "righello-pink": "0 8px 16px rgba(217, 70, 239, 0.2)",
         "glass-sm": "0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
         "glass-md": "0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
         "glass-lg": "0 8px 32px rgba(0, 0, 0, 0.16), 0 4px 8px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-        "glow-purple": "0 0 20px rgba(168, 85, 247, 0.5), 0 0 40px rgba(168, 85, 247, 0.3)",
-        "glow-pink": "0 0 20px rgba(236, 72, 153, 0.5), 0 0 40px rgba(236, 72, 153, 0.3)",
-        "glow-blue": "0 0 20px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.3)",
+        "glow-purple": "0 0 16px rgba(139, 92, 246, 0.3), 0 0 32px rgba(139, 92, 246, 0.15)",
+        "glow-pink": "0 0 16px rgba(217, 70, 239, 0.3), 0 0 32px rgba(217, 70, 239, 0.15)",
+        "glow-blue": "0 0 16px rgba(37, 99, 235, 0.3), 0 0 32px rgba(37, 99, 235, 0.15)",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "gradient-mesh-purple": "radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.3) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.3) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.3) 0px, transparent 50%)",
-        "gradient-mesh-blue": "radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.3) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.3) 0px, transparent 50%), radial-gradient(at 50% 50%, rgba(236, 72, 153, 0.2) 0px, transparent 50%)",
-        "gradient-mesh-subtle": "radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%)",
-        "border-gradient": "linear-gradient(135deg, rgba(168, 85, 247, 0.6) 0%, rgba(236, 72, 153, 0.6) 50%, rgba(59, 130, 246, 0.6) 100%)",
+        "gradient-mesh-purple": "radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.3) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(217, 70, 239, 0.3) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.3) 0px, transparent 50%)",
+        "gradient-mesh-blue": "radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.3) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.3) 0px, transparent 50%), radial-gradient(at 50% 50%, rgba(217, 70, 239, 0.2) 0px, transparent 50%)",
+        "gradient-mesh-subtle": "radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(217, 70, 239, 0.15) 0px, transparent 50%)",
+        "border-gradient": "linear-gradient(135deg, rgba(139, 92, 246, 0.6) 0%, rgba(217, 70, 239, 0.6) 50%, rgba(37, 99, 235, 0.6) 100%)",
       },
       transitionDuration: {
         "liquid-fast": "200ms",

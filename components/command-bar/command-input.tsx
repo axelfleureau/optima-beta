@@ -58,9 +58,9 @@ export function CommandInput() {
       <div className="relative p-4">
         <div className="absolute left-7 top-1/2 -translate-y-1/2 pointer-events-none">
           {isProcessing ? (
-            <Loader2 className="h-5 w-5 text-purple-500 animate-spin" />
+            <Loader2 className="h-5 w-5 text-violet-500 animate-spin" />
           ) : (
-            <Sparkles className="h-5 w-5 text-purple-500" />
+            <Sparkles className="h-5 w-5 text-violet-500" />
           )}
         </div>
 
@@ -72,10 +72,10 @@ export function CommandInput() {
           placeholder="Chiedi qualsiasi cosa... es: 'crea task per cliente Acme con priorità alta'"
           className={cn(
             "pl-12 pr-4 text-base h-14",
-            "border-4 border-purple-500/50 dark:border-purple-400/50",
+            "border-4 border-violet-500/50 dark:border-violet-400/50",
             "bg-black/80 dark:bg-black/90",
-            "focus-visible:border-purple-500 focus-visible:ring-8 focus-visible:ring-purple-500/30",
-            "focus-visible:shadow-[0_0_40px_rgba(168,85,247,0.4)]",
+            "focus-visible:border-violet-500 focus-visible:ring-8 focus-visible:ring-violet-500/30",
+            "focus-visible:shadow-[0_0_40px_rgba(139,92,246,0.4)]",
             isProcessing && "animate-pulse"
           )}
           disabled={isProcessing}
@@ -86,7 +86,7 @@ export function CommandInput() {
 
         {isProcessing && (
           <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/20 to-transparent animate-shimmer" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-violet-500/20 to-transparent animate-shimmer" />
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 export const gradients = {
   primary: {
-    purple: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #3b82f6 100%)',
+    purple: 'linear-gradient(135deg, #8b5cf6 0%, #d946ef 50%, #2563eb 100%)',
     purpleDark: 'linear-gradient(135deg, #7c3aed 0%, #db2777 50%, #2563eb 100%)',
     purpleLight: 'linear-gradient(135deg, #c084fc 0%, #f472b6 50%, #60a5fa 100%)',
   },
@@ -13,15 +13,15 @@ export const gradients = {
   },
   
   mesh: {
-    purple: 'radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.3) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.3) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.3) 0px, transparent 50%)',
-    blue: 'radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.3) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.3) 0px, transparent 50%), radial-gradient(at 50% 50%, rgba(236, 72, 153, 0.2) 0px, transparent 50%)',
-    subtle: 'radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%)',
+    purple: 'radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.3) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(217, 70, 239, 0.3) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.3) 0px, transparent 50%)',
+    blue: 'radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.3) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.3) 0px, transparent 50%), radial-gradient(at 50% 50%, rgba(217, 70, 239, 0.2) 0px, transparent 50%)',
+    subtle: 'radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(217, 70, 239, 0.15) 0px, transparent 50%)',
   },
   
   glassBorder: {
     light: 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 100%)',
     dark: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%)',
-    colored: 'linear-gradient(135deg, rgba(168, 85, 247, 0.6) 0%, rgba(236, 72, 153, 0.6) 50%, rgba(59, 130, 246, 0.6) 100%)',
+    colored: 'linear-gradient(135deg, rgba(139, 92, 246, 0.6) 0%, rgba(217, 70, 239, 0.6) 50%, rgba(37, 99, 235, 0.6) 100%)',
   },
 } as const;
 
@@ -39,9 +39,9 @@ export const glassStyles = {
   },
   
   colored: {
-    background: 'rgba(168, 85, 247, 0.1)',
+    background: 'rgba(139, 92, 246, 0.1)',
     backdropFilter: 'blur(20px) saturate(180%)',
-    border: '1px solid rgba(168, 85, 247, 0.2)',
+    border: '1px solid rgba(139, 92, 246, 0.2)',
   },
 } as const;
 
@@ -59,9 +59,9 @@ export const shadowStyles = {
   },
   
   glow: {
-    purple: '0 0 20px rgba(168, 85, 247, 0.5), 0 0 40px rgba(168, 85, 247, 0.3)',
-    pink: '0 0 20px rgba(236, 72, 153, 0.5), 0 0 40px rgba(236, 72, 153, 0.3)',
-    blue: '0 0 20px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.3)',
+    purple: '0 0 20px rgba(139, 92, 246, 0.5), 0 0 40px rgba(139, 92, 246, 0.3)',
+    pink: '0 0 20px rgba(217, 70, 239, 0.5), 0 0 40px rgba(217, 70, 239, 0.3)',
+    blue: '0 0 20px rgba(37, 99, 235, 0.5), 0 0 40px rgba(37, 99, 235, 0.3)',
   },
 } as const;
 
