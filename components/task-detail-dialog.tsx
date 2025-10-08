@@ -15,6 +15,7 @@ import type { Task, SubItem, TaskComment } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
+import { TaskAssetGallery } from '@/components/task-asset-gallery'
 
 interface TaskDetailDialogProps {
   task: Task | null
@@ -476,6 +477,17 @@ export function TaskDetailDialog({
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Generated Assets Gallery */}
+            <div className="mt-6">
+              <TaskAssetGallery
+                assets={task.generatedAssets ?? []}
+                onDelete={async (assetId) => {
+                  const updatedAssets = task.generatedAssets?.filter(a => a.id !== assetId) || []
+                  await onUpdateTask(task.id, { generatedAssets: updatedAssets })
+                }}
+              />
             </div>
           </div>
 

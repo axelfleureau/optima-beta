@@ -89,6 +89,24 @@ export interface Task {
   estimatedHours?: number
   actualHours?: number
   score?: number // For AI optimization
+  generatedAssets?: GeneratedAsset[] // DALL-E generated assets
+}
+
+export interface GeneratedAsset {
+  id: string
+  url: string // Firebase Storage download URL
+  storagePath: string // For delete operation
+  type: 'image' | 'video' // Type of asset
+  format: 'png' | 'jpg' | 'mp4' // File format
+  metadata: {
+    prompt?: string // DALL-E prompt
+    dalleModel?: string // dall-e-3
+    platform?: string // instagram-feed-grid, etc
+    dalleSourceSize?: string // Original DALL-E size
+    targetFormat?: string // Final Instagram format
+    generatedAt: string // ISO timestamp
+    generatedBy: string // User ID
+  }
 }
 
 export interface TaskAttachment {
