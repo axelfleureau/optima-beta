@@ -360,6 +360,7 @@ export interface PostFormData {
   status: string
   keywords?: string[]
   hashtags?: string[]
+  mediaUrls?: string[]
   clientId: string
   objective?: string
   targetAudience?: string
