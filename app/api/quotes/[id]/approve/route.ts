@@ -25,7 +25,7 @@ import { db } from "@/lib/firebase"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 1. RATE LIMITING - STRIPE profile
@@ -54,8 +54,8 @@ export async function POST(
       )
     }
 
-    // 4. PARSE PARAMS
-    const quoteId = params.id
+    // 4. PARSE PARAMS - Next.js 15 async params
+    const quoteId = (await params).id
     if (!quoteId) {
       return NextResponse.json(
         { error: "ID preventivo mancante" },
