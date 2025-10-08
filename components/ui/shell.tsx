@@ -15,7 +15,7 @@ function Shell({ as: Comp = "section", className, layout = "default", ...props }
           "container max-w-screen-2xl": layout === "default",
           "container max-w-screen-xl": layout === "dashboard",
           "container max-w-lg": layout === "auth",
-          "container max-w-screen-xl": layout === "marketing",
+          "container max-w-7xl": layout === "marketing",
           "w-full": layout === "full",
         },
         className,
