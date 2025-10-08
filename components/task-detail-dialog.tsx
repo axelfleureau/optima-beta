@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,16 +59,20 @@ export function TaskDetailDialog({
   const { userData } = useAuth()
   const { users, loading: usersLoading } = useUsers()
   const { toast } = useToast()
+  const router = useRouter()
 
   // Editing states
   const [editingTitle, setEditingTitle] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
   const [editingRichDescription, setEditingRichDescription] = useState(false)
+  const [editingDeliverable, setEditingDeliverable] = useState(false)
 
   // Form states
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [richDescription, setRichDescription] = useState("")
+  const [deliverable, setDeliverable] = useState("")
+  const [deliverableType, setDeliverableType] = useState<string>("other")
   const [dueDate, setDueDate] = useState("")
   const [newComment, setNewComment] = useState("")
   const [newSubItem, setNewSubItem] = useState("")
@@ -78,6 +83,8 @@ export function TaskDetailDialog({
       setTitle(task.title)
       setDescription(task.description || "")
       setRichDescription(task.richDescription || "")
+      setDeliverable(task.expectedDeliverable || "")
+      setDeliverableType(task.deliverableType || "other")
       const dueDateValue = task.dueDate
       if (dueDateValue) {
         let dateObj: Date
@@ -209,6 +216,12 @@ export function TaskDetailDialog({
     return "text-green-600"
   }
 
+  const calculateProgress = () => {
+    if (!subItems || subItems.length === 0) return 0
+    const completed = subItems.filter(item => item.completed).length
+    return Math.round((completed / subItems.length) * 100)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-full md:max-w-4xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
@@ -274,6 +287,53 @@ export function TaskDetailDialog({
             </div>
           </div>
         </DialogHeader>
+
+        {/* Contextual Links - Interactive */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {/* Client Link - Clickable */}
+          {task.clientId && (
+            <button
+              onClick={() => {
+                router.push(`/clienti?clientId=${task.clientId}`)
+                onOpenChange(false)
+              }}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-100 transition-colors"
+            >
+              <User className="h-3 w-3" />
+              <span>{task.clientName || "Cliente"}</span>
+            </button>
+          )}
+
+          {/* Calendar Entry Link - Clickable (if calendarId exists) */}
+          {(task as any).calendarId && (
+            <button
+              onClick={() => {
+                router.push(`/calendario-editoriale?entryId=${(task as any).calendarId}`)
+                onOpenChange(false)
+              }}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition-colors"
+            >
+              <Calendar className="h-3 w-3" />
+              <span>Collegato a calendario</span>
+            </button>
+          )}
+
+          {/* Dependencies Link - Show count, future: open dependency dialog */}
+          {task.dependencies && task.dependencies.length > 0 && (
+            <button
+              onClick={() => {
+                toast({
+                  title: "Dipendenze",
+                  description: `Questa task dipende da ${task.dependencies?.length || 0} altre task`
+                })
+              }}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-xs font-medium hover:bg-orange-100 transition-colors"
+            >
+              <Star className="h-3 w-3" />
+              <span>{task.dependencies.length} dipendenze</span>
+            </button>
+          )}
+        </div>
 
         <div className="flex flex-col md:grid md:grid-cols-3 gap-4 md:gap-6">
           {/* Main Content - 2/3 width */}
@@ -375,6 +435,108 @@ export function TaskDetailDialog({
                   <Edit3 className="h-4 w-4 ml-2 inline opacity-50" />
                 </div>
               )}
+            </div>
+
+            {/* Deliverable Section with Save/Cancel */}
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Deliverable Atteso</Label>
+              
+              <div className="space-y-3">
+                {/* Type Select - Sempre editabile */}
+                <Select
+                  value={deliverableType}
+                  onValueChange={setDeliverableType}
+                >
+                  <SelectTrigger className="h-11 md:h-10">
+                    <SelectValue placeholder="Tipo deliverable..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="file">
+                      <div className="flex items-center gap-2">
+                        <Paperclip className="h-4 w-4" />
+                        <span>File</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="design">
+                      <div className="flex items-center gap-2">
+                        <Edit3 className="h-4 w-4" />
+                        <span>Design</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="feature">
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4" />
+                        <span>Feature</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="content">
+                      <div className="flex items-center gap-2">
+                        <Send className="h-4 w-4" />
+                        <span>Contenuto</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="other">
+                      <div className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        <span>Altro</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Description - Editable con Save */}
+                {editingDeliverable ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder="Descrivi cosa deve produrre questa task..."
+                      value={deliverable}
+                      onChange={(e) => setDeliverable(e.target.value)}
+                      rows={2}
+                      className="text-sm"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        className="h-11 md:h-9"
+                        onClick={async () => {
+                          await handleUpdateField("expectedDeliverable", deliverable)
+                          await handleUpdateField("deliverableType", deliverableType)
+                          setEditingDeliverable(false)
+                          toast({ title: "Deliverable aggiornato" })
+                        }}
+                      >
+                        <Check className="h-5 w-5 md:h-4 md:w-4 mr-1" />
+                        Salva
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-11 md:h-9"
+                        onClick={() => {
+                          setDeliverable(task.expectedDeliverable || "")
+                          setDeliverableType(task.deliverableType || "other")
+                          setEditingDeliverable(false)
+                        }}
+                      >
+                        Annulla
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="p-3 border rounded-md cursor-pointer hover:bg-gray-50 min-h-[60px]"
+                    onClick={() => setEditingDeliverable(true)}
+                  >
+                    {task.expectedDeliverable ? (
+                      <p className="text-sm whitespace-pre-wrap">{task.expectedDeliverable}</p>
+                    ) : (
+                      <span className="text-gray-400 italic text-sm">Clicca per definire il deliverable atteso...</span>
+                    )}
+                    <Edit3 className="h-4 w-4 ml-2 inline opacity-50" />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Sub-items with Drag & Drop */}
@@ -490,6 +652,79 @@ export function TaskDetailDialog({
               </div>
             </div>
 
+            {/* Activity Timeline */}
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Timeline Attività</Label>
+              
+              <div className="space-y-3 max-h-48 overflow-y-auto">
+                {/* Created Event */}
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
+                    <Plus className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <p className="text-sm font-medium">Task creata</p>
+                    <p className="text-xs text-gray-500">
+                      {(task.createdAt instanceof Date ? task.createdAt : (task.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT", { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Assignment Event (if assigned) */}
+                {task.assignedUserId && (
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <User className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1 pt-1">
+                      <p className="text-sm font-medium">Assegnata a {task.assignee}</p>
+                      <p className="text-xs text-gray-500">Data assegnazione non tracciata</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Due Date Event (if exists) */}
+                {task.dueDate && (
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+                      <Clock className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div className="flex-1 pt-1">
+                      <p className="text-sm font-medium">Scadenza impostata</p>
+                      <p className="text-xs text-gray-500">
+                        {(task.dueDate instanceof Date ? task.dueDate : (task.dueDate as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Last Updated */}
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                    <Edit3 className="h-4 w-4 text-gray-600" />
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <p className="text-sm font-medium">Ultimo aggiornamento</p>
+                    <p className="text-xs text-gray-500">
+                      {(task.updatedAt instanceof Date ? task.updatedAt : (task.updatedAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT", {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Generated Assets Gallery */}
             <div className="mt-6">
               <TaskAssetGallery
@@ -505,8 +740,40 @@ export function TaskDetailDialog({
           {/* Sidebar - 1/3 width */}
           <div className="order-1 md:order-2 space-y-3 md:space-y-4">
             {/* Status */}
-            <div>
+            <div className="space-y-3">
               <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Stato</Label>
+              
+              {/* Status Badge Prominent */}
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+                <div className={`h-3 w-3 rounded-full ${
+                  task.status === 'done' ? 'bg-green-500' :
+                  task.status === 'in-progress' ? 'bg-blue-500' :
+                  task.status === 'review' ? 'bg-yellow-500' :
+                  task.columnId === 'on-hold' ? 'bg-gray-400' :
+                  'bg-gray-300'
+                }`} />
+                <span className="font-medium text-sm">
+                  {statusOptions.find(s => s.value === (task.status || task.columnId))?.label || 'To Do'}
+                </span>
+              </div>
+
+              {/* Progress Bar (if has sub-items) */}
+              {subItems && subItems.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>Progresso sub-attività</span>
+                    <span>{calculateProgress()}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-purple-500 transition-all duration-300"
+                      style={{ width: `${calculateProgress()}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Status Select */}
               <Select
                 value={task.status || task.columnId}
                 onValueChange={(value) => handleUpdateField("status", value)}

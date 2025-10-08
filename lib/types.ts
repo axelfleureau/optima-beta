@@ -90,6 +90,8 @@ export interface Task {
   actualHours?: number
   score?: number // For AI optimization
   generatedAssets?: GeneratedAsset[] // DALL-E generated assets
+  expectedDeliverable?: string // "Sito web responsive", "Logo vettoriale", etc
+  deliverableType?: "file" | "design" | "feature" | "content" | "other"
 }
 
 export interface GeneratedAsset {
