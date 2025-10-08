@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useClients } from "@/hooks/use-clients"
 import { ClientFormDialog } from "@/components/clients/client-form-dialog"
+import { PaymentMethodManager } from "@/components/payment-method-manager"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +34,7 @@ import {
   AlertCircle,
   Sparkles,
   TrendingUp,
+  CreditCard,
 } from "lucide-react"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
@@ -57,9 +59,14 @@ const statusConfig = {
 }
 
 export default function ClientiPage() {
-  const { clients, loading, error } = useClients()
+  const { clients, loading, error, refetch } = useClients()
   const [searchTerm, setSearchTerm] = useState("")
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
+  const [paymentMethodDialog, setPaymentMethodDialog] = useState<{ open: boolean; clientId: string; clientName: string }>({
+    open: false,
+    clientId: "",
+    clientName: "",
+  })
 
   const filteredClients = clients.filter(
     (client) =>
@@ -343,6 +350,51 @@ export default function ClientiPage() {
                       )}
                     </div>
 
+                    {/* Payment Method */}
+                    <div className="pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
+                      {client.defaultPaymentMethodId ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <CreditCard className="h-4 w-4 text-purple-500" />
+                            <span>
+                              {client.paymentMethodType === 'card' ? 'Carta' : 'SEPA'} terminante in{' '}
+                              <span className="font-medium text-gray-900 dark:text-white">{client.last4}</span>
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setPaymentMethodDialog({
+                                open: true,
+                                clientId: client.id,
+                                clientName: client.name,
+                              })
+                            }
+                            className="h-8 text-xs hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                          >
+                            Modifica
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setPaymentMethodDialog({
+                              open: true,
+                              clientId: client.id,
+                              clientName: client.name,
+                            })
+                          }
+                          className="w-full border-purple-200 dark:border-purple-800/50 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                        >
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          Aggiungi Metodo di Pagamento
+                        </Button>
+                      )}
+                    </div>
+
                     {/* Stats */}
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
                       <div className="text-center">
@@ -380,6 +432,18 @@ export default function ClientiPage() {
       <ClientFormDialog 
         open={clientDialogOpen} 
         onOpenChange={setClientDialogOpen} 
+      />
+
+      <PaymentMethodManager
+        open={paymentMethodDialog.open}
+        onOpenChange={(open) =>
+          setPaymentMethodDialog({ open, clientId: "", clientName: "" })
+        }
+        clientId={paymentMethodDialog.clientId}
+        clientName={paymentMethodDialog.clientName}
+        onSuccess={() => {
+          refetch()
+        }}
       />
     </div>
   )
