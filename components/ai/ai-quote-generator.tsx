@@ -30,7 +30,10 @@ import {
   Loader2,
   Sparkles,
   ChevronRight,
-  Plus
+  Plus,
+  Pencil,
+  Check,
+  X
 } from "lucide-react"
 
 interface AIQuoteGeneratorProps {
@@ -60,6 +63,16 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedQuote, setGeneratedQuote] = useState<GeneratedQuoteData | null>(null)
   const [enrichmentDialogOpen, setEnrichmentDialogOpen] = useState(false)
+  
+  const [editMode, setEditMode] = useState<{
+    obiettivi?: boolean
+    attivita?: boolean
+    sitemap?: boolean
+    descrizione?: boolean
+  }>({})
+  const [editedData, setEditedData] = useState<Partial<GeneratedQuoteData>>({})
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [enrichedContext, setEnrichedContext] = useState<EnrichedPromptData | null>(null)
 
   useEffect(() => {
     if (open && step === 'enrichment') {
@@ -92,6 +105,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       setIsGenerating(true)
       setStep('generating')
       setEnrichmentDialogOpen(false)
+      setEnrichedContext(enrichedData)
 
       actionState.callAI('Generazione preventivo AI...')
       const response = await fetch('/api/ai/quote-generation', {
@@ -196,6 +210,128 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
     }
   }
 
+  const toggleEditMode = (section: 'obiettivi' | 'attivita' | 'sitemap' | 'descrizione') => {
+    const isCurrentlyEditing = editMode[section]
+    
+    if (isCurrentlyEditing) {
+      if (generatedQuote) {
+        if (section === 'descrizione' && editedData.preventivo) {
+          setGeneratedQuote({
+            ...generatedQuote,
+            preventivo: {
+              ...generatedQuote.preventivo,
+              descrizione: editedData.preventivo.descrizione
+            }
+          })
+        } else if (editedData[section] !== undefined) {
+          setGeneratedQuote({
+            ...generatedQuote,
+            [section]: editedData[section]
+          })
+        }
+        feedback.success('Modifiche salvate', {})
+      }
+      setEditMode({ ...editMode, [section]: false })
+      setEditedData({ ...editedData, [section]: undefined, preventivo: undefined })
+    } else {
+      setEditMode({ ...editMode, [section]: true })
+      if (generatedQuote) {
+        if (section === 'descrizione') {
+          setEditedData({
+            ...editedData,
+            preventivo: {
+              ...generatedQuote.preventivo,
+              descrizione: generatedQuote.preventivo.descrizione
+            }
+          })
+        } else {
+          setEditedData({
+            ...editedData,
+            [section]: generatedQuote[section]
+          })
+        }
+      }
+    }
+  }
+
+  const cancelEdit = (section: 'obiettivi' | 'attivita' | 'sitemap' | 'descrizione') => {
+    setEditMode({ ...editMode, [section]: false })
+    if (section === 'descrizione') {
+      setEditedData({ ...editedData, [section]: undefined, preventivo: undefined })
+    } else {
+      setEditedData({ ...editedData, [section]: undefined })
+    }
+  }
+
+  const handleRegenerateSection = async (section: 'obiettivi' | 'attivita' | 'sitemap' | 'descrizione') => {
+    if (!generatedQuote || !enrichedContext) return
+    
+    try {
+      setIsRegenerating(true)
+      actionState.start(`Rigenerazione ${section}...`)
+      
+      const sectionLabels: Record<string, string> = {
+        obiettivi: 'obiettivi',
+        attivita: 'attività',
+        sitemap: 'sitemap',
+        descrizione: 'descrizione'
+      }
+      
+      const response = await fetch('/api/ai/quote-regenerate-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          section,
+          context: {
+            projectDescription: enrichedContext.description,
+            sector: enrichedContext.sector,
+            projectType: enrichedContext.projectType,
+            projectTypeLabel: enrichedContext.projectTypeLabel,
+            sectorLabel: enrichedContext.sectorLabel,
+            currentData: generatedQuote[section]
+          }
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Errore nella rigenerazione')
+      }
+
+      const result = await response.json()
+      
+      if (section === 'descrizione') {
+        setGeneratedQuote({
+          ...generatedQuote,
+          preventivo: {
+            ...generatedQuote.preventivo,
+            descrizione: result.data
+          }
+        })
+      } else {
+        setGeneratedQuote({
+          ...generatedQuote,
+          [section]: result.data
+        })
+      }
+      
+      actionState.complete()
+      feedback.success(`${sectionLabels[section]} rigenerati con successo`, {})
+      
+    } catch (error) {
+      console.error('Error regenerating section:', error)
+      actionState.error(error instanceof Error ? error.message : 'Errore sconosciuto')
+      feedback.error(
+        'Rigenerazione sezione',
+        error instanceof Error ? error.message : 'Errore nella rigenerazione',
+        'Riprova o modifica manualmente'
+      )
+    } finally {
+      setIsRegenerating(false)
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       projectDescription: '',
@@ -287,19 +423,76 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               <TabsContent value="overview" className="mt-4">
                 <ScrollArea className="h-full max-h-[50vh]">
                   <div className="space-y-6">
-                    <Card>
+                    <Card className={editMode.descrizione ? "border-pink-500" : ""}>
                       <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                          {generatedQuote.preventivo.titolo}
-                          <Badge variant="outline">
-                            {generatedQuote.preventivo.numeroPreventivo}
-                          </Badge>
-                        </CardTitle>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2">
+                            {generatedQuote.preventivo.titolo}
+                            <Badge variant="outline">
+                              {generatedQuote.preventivo.numeroPreventivo}
+                            </Badge>
+                          </CardTitle>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleRegenerateSection('descrizione')}
+                              disabled={isRegenerating || editMode.descrizione}
+                              className="hover:bg-pink-100 dark:hover:bg-pink-900"
+                            >
+                              <Wand2 className="w-4 h-4 mr-1" />
+                              Rigenera
+                            </Button>
+                            {editMode.descrizione ? (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => cancelEdit('descrizione')}
+                                  className="hover:bg-red-100 dark:hover:bg-red-900"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => toggleEditMode('descrizione')}
+                                  className="bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => toggleEditMode('descrizione')}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          {generatedQuote.preventivo.descrizione}
-                        </p>
+                        {editMode.descrizione ? (
+                          <Textarea
+                            value={(editedData.preventivo?.descrizione as string) || generatedQuote.preventivo.descrizione}
+                            onChange={(e) => setEditedData({
+                              ...editedData,
+                              preventivo: {
+                                ...generatedQuote.preventivo,
+                                descrizione: e.target.value
+                              }
+                            })}
+                            className="min-h-[100px] text-sm"
+                            placeholder="Descrizione del preventivo..."
+                          />
+                        ) : (
+                          <p className="text-sm text-muted-foreground mb-4">
+                            {generatedQuote.preventivo.descrizione}
+                          </p>
+                        )}
                         <div className="flex items-center justify-between text-2xl font-bold">
                           <span>Totale:</span>
                           <span className="text-green-600">
@@ -497,55 +690,211 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                     )}
 
                     {generatedQuote.obiettivi && (
-                      <Card>
-                        <CardHeader>
+                      <Card className={editMode.obiettivi ? "border-pink-500" : ""}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                           <CardTitle>Obiettivi del Progetto</CardTitle>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleRegenerateSection('obiettivi')}
+                              disabled={isRegenerating || editMode.obiettivi}
+                              className="hover:bg-pink-100 dark:hover:bg-pink-900"
+                            >
+                              <Wand2 className="w-4 h-4 mr-1" />
+                              Rigenera
+                            </Button>
+                            {editMode.obiettivi ? (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => cancelEdit('obiettivi')}
+                                  className="hover:bg-red-100 dark:hover:bg-red-900"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => toggleEditMode('obiettivi')}
+                                  className="bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => toggleEditMode('obiettivi')}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </CardHeader>
                         <CardContent>
-                          <ul className="space-y-2">
-                            {generatedQuote.obiettivi.map((obiettivo, index) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <div className="w-2 h-2 bg-pink-500 rounded-full mt-2 flex-shrink-0"></div>
-                                <span className="text-sm">{obiettivo}</span>
-                              </li>
-                            ))}
-                          </ul>
+                          {editMode.obiettivi ? (
+                            <Textarea
+                              value={(editedData.obiettivi as string[] || generatedQuote.obiettivi).join('\n')}
+                              onChange={(e) => setEditedData({
+                                ...editedData,
+                                obiettivi: e.target.value.split('\n').filter(line => line.trim())
+                              })}
+                              className="min-h-[150px] font-mono text-sm"
+                              placeholder="Un obiettivo per riga..."
+                            />
+                          ) : (
+                            <ul className="space-y-2">
+                              {generatedQuote.obiettivi.map((obiettivo, index) => (
+                                <li key={index} className="flex items-start gap-2">
+                                  <div className="w-2 h-2 bg-pink-500 rounded-full mt-2 flex-shrink-0"></div>
+                                  <span className="text-sm">{obiettivo}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </CardContent>
                       </Card>
                     )}
 
                     {generatedQuote.attivita && (
-                      <Card>
-                        <CardHeader>
+                      <Card className={editMode.attivita ? "border-pink-500" : ""}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                           <CardTitle>Attività Principali</CardTitle>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleRegenerateSection('attivita')}
+                              disabled={isRegenerating || editMode.attivita}
+                              className="hover:bg-pink-100 dark:hover:bg-pink-900"
+                            >
+                              <Wand2 className="w-4 h-4 mr-1" />
+                              Rigenera
+                            </Button>
+                            {editMode.attivita ? (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => cancelEdit('attivita')}
+                                  className="hover:bg-red-100 dark:hover:bg-red-900"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => toggleEditMode('attivita')}
+                                  className="bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => toggleEditMode('attivita')}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </CardHeader>
                         <CardContent>
-                          <ul className="space-y-2">
-                            {generatedQuote.attivita.map((attivita, index) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                                <span className="text-sm">{attivita}</span>
-                              </li>
-                            ))}
-                          </ul>
+                          {editMode.attivita ? (
+                            <Textarea
+                              value={(editedData.attivita as string[] || generatedQuote.attivita).join('\n')}
+                              onChange={(e) => setEditedData({
+                                ...editedData,
+                                attivita: e.target.value.split('\n').filter(line => line.trim())
+                              })}
+                              className="min-h-[150px] font-mono text-sm"
+                              placeholder="Un'attività per riga..."
+                            />
+                          ) : (
+                            <ul className="space-y-2">
+                              {generatedQuote.attivita.map((attivita, index) => (
+                                <li key={index} className="flex items-start gap-2">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                                  <span className="text-sm">{attivita}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </CardContent>
                       </Card>
                     )}
 
                     {generatedQuote.sitemap && (
-                      <Card>
-                        <CardHeader>
+                      <Card className={editMode.sitemap ? "border-pink-500" : ""}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                           <CardTitle>Struttura Sito (Sitemap)</CardTitle>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleRegenerateSection('sitemap')}
+                              disabled={isRegenerating || editMode.sitemap}
+                              className="hover:bg-pink-100 dark:hover:bg-pink-900"
+                            >
+                              <Wand2 className="w-4 h-4 mr-1" />
+                              Rigenera
+                            </Button>
+                            {editMode.sitemap ? (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => cancelEdit('sitemap')}
+                                  className="hover:bg-red-100 dark:hover:bg-red-900"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => toggleEditMode('sitemap')}
+                                  className="bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => toggleEditMode('sitemap')}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </CardHeader>
                         <CardContent>
-                          <div className="grid grid-cols-2 gap-2">
-                            {generatedQuote.sitemap.map((pagina, index) => (
-                              <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded">
-                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-sm">{pagina}</span>
-                              </div>
-                            ))}
-                          </div>
+                          {editMode.sitemap ? (
+                            <Textarea
+                              value={(editedData.sitemap as string[] || generatedQuote.sitemap).join('\n')}
+                              onChange={(e) => setEditedData({
+                                ...editedData,
+                                sitemap: e.target.value.split('\n').filter(line => line.trim())
+                              })}
+                              className="min-h-[150px] font-mono text-sm"
+                              placeholder="Una pagina per riga..."
+                            />
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {generatedQuote.sitemap.map((pagina, index) => (
+                                <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-sm">{pagina}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     )}
