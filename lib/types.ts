@@ -45,6 +45,7 @@ export interface Client {
   stripeCustomerId?: string
   defaultPaymentMethodId?: string
   paymentMethodType?: 'card' | 'sepa_debit' | 'bank_transfer'
+  last4?: string // Last 4 digits of card/IBAN for display
   createdAt: Timestamp | Date
   updatedAt: Timestamp | Date
   projectsCount?: number
