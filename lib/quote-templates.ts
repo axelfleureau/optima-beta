@@ -1,6 +1,17 @@
 // Template preventivi per settore basati sui preventivi reali Righello
 // Estratti dall'analisi dei PDF preventivi forniti
 
+import {
+  ProjectTemplate,
+  getProjectTemplate as getProjectTemplateFromLib,
+  calculateDynamicPrice as calculateDynamicPriceFromLib,
+  generateQuoteNumber as generateQuoteNumberFromLib,
+  applyCostVariation,
+  getStandardManagementCosts,
+  ANNUAL_MANAGEMENT_COSTS,
+  PROJECT_TEMPLATES
+} from './righello-project-templates'
+
 export interface ServiceItem {
   id: string
   name: string
@@ -552,4 +563,175 @@ export function identifySector(description: string): SectorTemplate | null {
 // FUNZIONE PER CALCOLARE PREZZO TOTALE
 export function calculateTotalPrice(services: ServiceItem[]): number {
   return services.reduce((total, service) => total + service.price, 0)
+}
+
+// PRICE RANGES PER CATEGORIA DI SERVIZIO (da analisi PDF)
+export const PRICE_RANGES = {
+  planning: {
+    basic: { min: 1000, max: 1300, standard: 1000 },
+    advanced: { min: 1700, max: 1700, standard: 1700 }
+  },
+  development: {
+    basic: { min: 1500, max: 1500, standard: 1500 },
+    advanced: { min: 2800, max: 2800, standard: 2800 }
+  },
+  seo: {
+    basic: { min: 250, max: 800, standard: 650 },
+    advanced: { min: 620, max: 620, standard: 620 },
+    multilingual: { min: 800, max: 800, standard: 800 }
+  },
+  privacy: {
+    standard: { min: 200, max: 200, standard: 200 }
+  },
+  content: {
+    basic: { min: 150, max: 250, standard: 150 },
+    advanced: { min: 850, max: 850, standard: 850 }
+  },
+  video: {
+    main: { min: 400, max: 770, standard: 400 },
+    shooting: { min: 1200, max: 1200, standard: 1200 }
+  },
+  photo: {
+    basic: { min: 250, max: 300, standard: 250 },
+    package: { min: 300, max: 300, standard: 300 }
+  },
+  communication: {
+    digitalSetup: { min: 1000, max: 1000, standard: 1000 },
+    editorialStrategy: { min: 1000, max: 1500, standard: 1200 }
+  },
+  recurring: {
+    technical: { monthly: 150, annual: 1800 },
+    content: { monthly: 170, annual: 2040 },
+    hosting: { monthly: 27, annual: 324 },
+    domain: { monthly: 4, annual: 48 }
+  }
+}
+
+// RE-EXPORT HELPER FUNCTIONS FROM PROJECT TEMPLATES
+export const getProjectTemplate = getProjectTemplateFromLib
+export const calculateDynamicPrice = calculateDynamicPriceFromLib
+export const generateQuoteNumber = generateQuoteNumberFromLib
+
+// RE-EXPORT TYPES
+export type { ProjectTemplate }
+
+// RE-EXPORT PROJECT TEMPLATES AND UTILITIES
+export {
+  applyCostVariation,
+  getStandardManagementCosts,
+  ANNUAL_MANAGEMENT_COSTS,
+  PROJECT_TEMPLATES
+}
+
+// INTEGRATION HELPERS
+
+export function identifyProjectType(description: string): {
+  type: ProjectTemplate['type']
+  complexity?: ProjectTemplate['complexity']
+} | null {
+  const normalized = description.toLowerCase()
+  
+  if (normalized.includes('360') || normalized.includes('avanzato') || normalized.includes('complesso')) {
+    return { type: 'website', complexity: '360' }
+  }
+  
+  if (normalized.includes('180') || normalized.includes('sito') || normalized.includes('web')) {
+    return { type: 'website', complexity: '180' }
+  }
+  
+  if (normalized.includes('comunicazione') && (normalized.includes('150') || normalized.includes('cantieri'))) {
+    return { type: 'communication', complexity: '150' }
+  }
+  
+  if (normalized.includes('comunicazione') || normalized.includes('strategia') || normalized.includes('editoriale')) {
+    return { type: 'communication', complexity: '180' }
+  }
+  
+  if (normalized.includes('video') || normalized.includes('foto') || normalized.includes('shooting') || normalized.includes('drone')) {
+    return { type: 'video', complexity: 'basic' }
+  }
+  
+  return null
+}
+
+export function getRecommendedTemplate(
+  description: string,
+  sector?: SectorTemplate | null
+): ProjectTemplate | null {
+  const projectType = identifyProjectType(description)
+  if (!projectType) {
+    return getProjectTemplate('website', '180')
+  }
+  
+  return getProjectTemplate(projectType.type, projectType.complexity)
+}
+
+export function calculateQuoteWithSectorAndTemplate(
+  description: string,
+  customizations?: {
+    includeOptionals?: string[]
+    excludeItems?: string[]
+    recurringMonths?: number
+    applyDiscount?: number
+    sectorVariation?: number
+  }
+): {
+  sector: SectorTemplate | null
+  template: ProjectTemplate | null
+  pricing: ReturnType<typeof calculateDynamicPrice> | null
+  quoteNumber: string
+} {
+  const sector = identifySector(description)
+  const template = getRecommendedTemplate(description, sector)
+  
+  const pricing = template ? calculateDynamicPrice(template, customizations) : null
+  const quoteNumber = generateQuoteNumber()
+  
+  return {
+    sector,
+    template,
+    pricing,
+    quoteNumber
+  }
+}
+
+export function getCostVariationRange(
+  projectType: ProjectTemplate['type']
+): { min: number; max: number } {
+  const variationRanges = {
+    website: { min: -10, max: 10 },
+    video: { min: -30, max: 30 },
+    communication: { min: -10, max: 10 },
+    branding: { min: -10, max: 10 }
+  }
+  
+  return variationRanges[projectType] || { min: -10, max: 10 }
+}
+
+export function formatQuoteTimeline(weeks: string): {
+  weeks: string
+  startDate: Date
+  estimatedEndDate: Date
+} {
+  const match = weeks.match(/(\d+)-?(\d+)?/)
+  if (!match) {
+    return {
+      weeks,
+      startDate: new Date(),
+      estimatedEndDate: new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000)
+    }
+  }
+  
+  const minWeeks = parseInt(match[1])
+  const maxWeeks = match[2] ? parseInt(match[2]) : minWeeks
+  const avgWeeks = Math.floor((minWeeks + maxWeeks) / 2)
+  
+  const startDate = new Date()
+  const estimatedEndDate = new Date(Date.now() + avgWeeks * 7 * 24 * 60 * 60 * 1000)
+  
+  return {
+    weeks,
+    startDate,
+    estimatedEndDate
+  }
 }
