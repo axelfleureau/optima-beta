@@ -59,7 +59,7 @@ const statusConfig = {
 }
 
 export default function ClientiPage() {
-  const { clients, loading, error, refetch } = useClients()
+  const { clients, loading, error } = useClients()
   const [searchTerm, setSearchTerm] = useState("")
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
   const [paymentMethodDialog, setPaymentMethodDialog] = useState<{ open: boolean; clientId: string; clientName: string }>({
@@ -442,7 +442,7 @@ export default function ClientiPage() {
         clientId={paymentMethodDialog.clientId}
         clientName={paymentMethodDialog.clientName}
         onSuccess={() => {
-          refetch()
+          // Data updates automatically via onSnapshot listener
         }}
       />
     </div>
