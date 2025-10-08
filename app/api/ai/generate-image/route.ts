@@ -8,6 +8,8 @@ import { addDoc, collection } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit'
 import { resizeImage, getInstagramResizeConfig } from '@/lib/utils/image-resize'
+import { uploadImageToStorage } from '@/lib/utils/storage-upload'
+import { FieldValue } from 'firebase-admin/firestore'
 
 export async function POST(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, "AI")
@@ -265,22 +267,118 @@ export async function POST(request: NextRequest) {
 
     // ✅ AUTO-RESIZE FOR INSTAGRAM FORMATS
     const resizeConfig = getInstagramResizeConfig(platform || 'custom')
-    let finalImageUrl = result.imageUrl
+    let finalImageUrl = result.imageUrl  // Temporary OpenAI URL
     let targetSize: string | undefined
+    let resizedBuffer: Buffer | null = null
 
     if (resizeConfig) {
       console.log(`🔄 Resizing image for ${platform}:`, resizeConfig)
       
       try {
-        const resizedBuffer = await resizeImage(result.imageUrl, resizeConfig)
-        
-        const base64 = resizedBuffer.toString('base64')
-        finalImageUrl = `data:image/jpeg;base64,${base64}`
+        resizedBuffer = await resizeImage(result.imageUrl, resizeConfig)
         targetSize = `${resizeConfig.targetWidth}x${resizeConfig.targetHeight}`
-        
         console.log(`✅ Image resized to ${targetSize}`)
       } catch (resizeError) {
         console.error('❌ Resize failed, using original:', resizeError)
+      }
+    }
+
+    // 🆕 UPLOAD TO FIREBASE STORAGE
+    console.log('☁️ Uploading image to Firebase Storage...')
+    let permanentImageUrl: string | null = null
+    let storagePath: string | null = null
+    let uploadFormat: 'png' | 'jpg' = 'png'
+
+    try {
+      // Use resized buffer if available, otherwise OpenAI URL
+      const imageSource = resizedBuffer || result.imageUrl
+      
+      const uploadResult = await uploadImageToStorage({
+        imageSource,
+        tenantId: serverTenantId,
+        assetType: 'dalle',
+        assetFormat: resizedBuffer ? 'jpg' : undefined, // Resized is JPEG, OpenAI auto-detect
+        metadata: {
+          prompt,
+          dalleModel: 'dall-e-3',
+          platform: platform || 'custom',
+          clientId: body.clientId, // Optional from request
+          taskId: body.taskId, // Optional from request  
+          calendarId: body.calendarId, // Optional from request
+        }
+      })
+      
+      if (uploadResult.success && uploadResult.url) {
+        permanentImageUrl = uploadResult.url
+        storagePath = uploadResult.path || null
+        uploadFormat = resizedBuffer ? 'jpg' : 'png'
+        console.log(`✅ Image uploaded to Storage: ${storagePath}`)
+        
+        // Use permanent URL for final response
+        finalImageUrl = permanentImageUrl
+      } else {
+        console.error('❌ Storage upload failed:', uploadResult.error)
+        // Fallback: convert to base64 if we have resized buffer
+        if (resizedBuffer) {
+          const base64 = resizedBuffer.toString('base64')
+          finalImageUrl = `data:image/jpeg;base64,${base64}`
+          console.log('⚠️ Using base64 fallback (temporary)')
+        }
+      }
+    } catch (uploadError) {
+      console.error('❌ Storage upload error:', uploadError)
+      // Fallback: convert to base64 if we have resized buffer
+      if (resizedBuffer) {
+        const base64 = resizedBuffer.toString('base64')
+        finalImageUrl = `data:image/jpeg;base64,${base64}`
+        console.log('⚠️ Using base64 fallback (temporary)')
+      }
+    }
+
+    // 🆕 UPDATE TASK WITH GENERATED ASSET (if taskId provided)
+    let taskUpdated = false
+    let taskUpdateError: string | null = null
+    let generatedAsset: any = null
+
+    if (body.taskId && permanentImageUrl && storagePath) {
+      console.log(`📝 Updating task ${body.taskId} with generated asset...`)
+      
+      try {
+        generatedAsset = {
+          id: `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          url: permanentImageUrl,
+          storagePath,
+          type: 'image' as const,
+          format: uploadFormat,
+          metadata: {
+            prompt,
+            dalleModel: 'dall-e-3',
+            platform: platform || 'custom',
+            dalleSourceSize: imageSize,
+            targetFormat: targetSize || imageSize,
+            generatedAt: new Date().toISOString(),
+            generatedBy: authenticatedUserId,
+          }
+        }
+        
+        // Check if task exists before updating
+        const taskRef = adminDb.collection('tasks').doc(body.taskId)
+        const taskDoc = await taskRef.get()
+        
+        if (!taskDoc.exists) {
+          throw new Error(`Task ${body.taskId} not found`)
+        }
+        
+        // Use arrayUnion to add asset without overwriting existing
+        await taskRef.update({
+          generatedAssets: FieldValue.arrayUnion(generatedAsset)
+        })
+        
+        taskUpdated = true
+        console.log(`✅ Task updated with generated asset: ${generatedAsset.id}`)
+      } catch (error) {
+        taskUpdateError = error instanceof Error ? error.message : 'Failed to update task'
+        console.error('❌ Failed to update task:', taskUpdateError)
       }
     }
 
@@ -328,6 +426,10 @@ export async function POST(request: NextRequest) {
         size: imageSize,
         quality: imageQuality,
         targetSize,
+        // 🆕 Task update status for UI refresh
+        taskUpdated,
+        taskUpdateError,
+        assetId: taskUpdated && generatedAsset ? generatedAsset.id : null,
       },
       { status: 200 }
     )

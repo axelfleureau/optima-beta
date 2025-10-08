@@ -19,9 +19,10 @@ interface AutoGenState {
     prompt?: string
   }
   error: string | null
+  lastGenerationResult: { taskUpdated: boolean; taskUpdateError: string | null } | null
   
   generateCopy: (taskId: string, taskDescription: string, clientName?: string, userId?: string) => Promise<void>
-  generateVisual: (taskId: string, prompt: string, userId?: string, token?: string) => Promise<void>
+  generateVisual: (taskId: string, prompt: string, userId?: string, token?: string) => Promise<{ taskUpdated: boolean; taskUpdateError: string | null } | null>
   saveToTask: () => Promise<void>
   regenerate: (userId?: string, token?: string) => Promise<void>
   discard: () => void
@@ -37,6 +38,7 @@ export const useAutoGenStore = create<AutoGenState>((set, get) => ({
   generatedContent: {},
   originalParams: {},
   error: null,
+  lastGenerationResult: null,
 
   generateCopy: async (taskId, taskDescription, clientName, userId) => {
     set({ 
@@ -103,7 +105,8 @@ export const useAutoGenStore = create<AutoGenState>((set, get) => ({
           prompt,
           platform: 'instagram',
           quality: 'standard',
-          style: 'vivid'
+          style: 'vivid',
+          taskId // 🆕 Pass taskId to enable automatic task update
         })
       })
       
@@ -114,12 +117,35 @@ export const useAutoGenStore = create<AutoGenState>((set, get) => ({
       
       const data = await response.json()
       if (data.success && data.imageUrl) {
-        set({ generatedContent: { imageUrl: data.imageUrl }, isGenerating: false })
+        const result = {
+          taskUpdated: data.taskUpdated || false,
+          taskUpdateError: data.taskUpdateError || null
+        }
+        
+        set({ 
+          generatedContent: { imageUrl: data.imageUrl }, 
+          isGenerating: false,
+          lastGenerationResult: result
+        })
+        
+        // 🆕 Handle task update response
+        if (data.taskUpdateError) {
+          toast.error('Asset salvato ma non collegato alla task', {
+            description: data.taskUpdateError
+          })
+        } else if (data.taskUpdated) {
+          toast.success('Asset generato e salvato nella task!', {
+            description: 'La galleria è stata aggiornata automaticamente'
+          })
+        }
+        
+        return result
       } else {
         throw new Error(data.error || 'Image generation failed')
       }
     } catch (error: any) {
       set({ error: error.message, isGenerating: false })
+      return null
     }
   },
 
@@ -187,6 +213,7 @@ export const useAutoGenStore = create<AutoGenState>((set, get) => ({
     clientName: null,
     generatedContent: {},
     originalParams: {},
-    error: null 
+    error: null,
+    lastGenerationResult: null
   })
 }))

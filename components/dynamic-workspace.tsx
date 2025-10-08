@@ -237,6 +237,20 @@ export function DynamicWorkspace() {
     }
   })
 
+  // 🆕 Sync selectedTask with updated task from Firestore
+  useEffect(() => {
+    if (selectedTask && allTasks.length > 0) {
+      const updatedTask = allTasks.find(t => t.id === selectedTask.id)
+      if (updatedTask) {
+        // Check if task has actually changed (e.g., generatedAssets updated)
+        const hasChanged = JSON.stringify(updatedTask) !== JSON.stringify(selectedTask)
+        if (hasChanged) {
+          setSelectedTask(updatedTask)
+        }
+      }
+    }
+  }, [allTasks, selectedTask?.id])
+
   // Filter clients based on search term
   const filteredClients = clients.filter((client) => client.name.toLowerCase().includes(clientSearchTerm.toLowerCase()))
 
