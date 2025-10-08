@@ -331,6 +331,44 @@ async function handleSubscriptionEvent(event: Stripe.Event) {
   }
 }
 
+async function handleConnectAccountEvent(event: Stripe.Event) {
+  try {
+    const account = event.data.object as any
+    
+    if (!account.metadata?.tenantId || !account.metadata?.userId) {
+      console.error("Missing metadata in account event")
+      return
+    }
+    
+    const userId = account.metadata.userId
+    const tenantId = account.metadata.tenantId
+    
+    console.log(`📋 Processing Connect account event: ${event.type} for tenant ${tenantId}`)
+    
+    switch (event.type) {
+      case "account.updated":
+        const onboardingComplete = account.charges_enabled && account.payouts_enabled
+        
+        if (adminDb) {
+          await adminDb.collection("users").doc(userId).update({
+            stripeAccountStatus: account.charges_enabled ? 'active' : 'restricted',
+            stripeOnboardingComplete: onboardingComplete,
+            updatedAt: new Date()
+          })
+        }
+        
+        console.log(`✅ Updated Connect account status for tenant ${tenantId}: ${account.charges_enabled ? 'active' : 'restricted'}`)
+        break
+        
+      default:
+        console.log(`⚠️ Unhandled Connect account event: ${event.type}`)
+    }
+  } catch (error) {
+    console.error("Error handling Connect account event:", error)
+    throw error
+  }
+}
+
 export async function POST(request: NextRequest) {
   console.log("🔄 Processing Stripe webhook")
 
@@ -385,6 +423,10 @@ export async function POST(request: NextRequest) {
       
       if (event.type.startsWith("customer.subscription.")) {
         await handleSubscriptionEvent(event)
+      }
+      
+      if (event.type.startsWith("account.")) {
+        await handleConnectAccountEvent(event)
       }
     }
 

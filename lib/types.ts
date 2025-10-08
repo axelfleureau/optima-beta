@@ -20,6 +20,9 @@ export interface User {
   plan?: string
   stripeSubscriptionId?: string
   stripeCustomerId?: string
+  stripeConnectedAccountId?: string
+  stripeAccountStatus?: 'pending' | 'active' | 'restricted' | 'rejected'
+  stripeOnboardingComplete?: boolean
   billingCycleEnd?: string
   status?: string
   lastLoginAt?: Timestamp | Date
@@ -39,6 +42,9 @@ export interface Client {
   contactPhone?: string
   address?: string
   status?: string
+  stripeCustomerId?: string
+  defaultPaymentMethodId?: string
+  paymentMethodType?: 'card' | 'sepa_debit' | 'bank_transfer'
   createdAt: Timestamp | Date
   updatedAt: Timestamp | Date
   projectsCount?: number
