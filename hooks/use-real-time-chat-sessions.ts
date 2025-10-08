@@ -62,6 +62,7 @@ export function useRealTimeChatSessions(userId: string, limitCount = 20): UseRea
               chatSessions.push({
                 id: doc.id,
                 userId: data.userId,
+                adminId: data.adminId || "",
                 title: data.title || "Nuova Conversazione",
                 lastMessage: data.lastMessage || "",
                 lastMessageAt: data.lastMessageAt?.toDate() || new Date(),

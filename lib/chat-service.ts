@@ -32,6 +32,7 @@ export interface ChatSession {
   lastMessage: string
   lastMessageAt: Date
   createdAt: Date
+  updatedAt: Date
   messageCount: number
 }
 
@@ -172,6 +173,7 @@ export async function getUserChatSessionsPaginated(
         lastMessage: data.lastMessage || "",
         lastMessageAt: data.lastMessageAt?.toDate() || new Date(),
         createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
         messageCount: data.messageCount || 0,
       })
     })
