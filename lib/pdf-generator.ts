@@ -200,16 +200,58 @@ export class RighelloPDFGenerator {
     this.currentY += lines.length * 5 + 10
   }
 
+  private drawTableHeader(tableWidth: number, colWidths: any, startY: number, skipTitle: boolean = false): void {
+    // Draw header at startY directly (no offset)
+    // Table header background
+    this.doc.setFillColor(249, 250, 251)
+    this.doc.rect(this.margin, startY, tableWidth, 10, 'F')
+    
+    // Header borders
+    this.doc.setDrawColor(229, 231, 235)
+    this.doc.setLineWidth(0.3)
+    this.doc.line(this.margin, startY, this.pageWidth - this.margin, startY)
+    this.doc.line(this.margin, startY + 10, this.pageWidth - this.margin, startY + 10)
+
+    // Header text
+    this.doc.setFontSize(9)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setTextColor(55, 65, 81)
+    
+    let headerX = this.margin + 2
+    this.doc.text('CODICE', headerX, startY + 7)
+    headerX += colWidths.code
+    this.doc.text('DESCRIZIONE', headerX, startY + 7)
+    headerX += colWidths.description
+    this.doc.text('Q.TÀ', headerX, startY + 7)
+    headerX += colWidths.quantity
+    this.doc.text('PREZZO', headerX, startY + 7)
+    headerX += colWidths.price
+    this.doc.text('TOTALE', headerX, startY + 7)
+  }
+
   private drawItemsTable(data: GeneratedQuoteData): void {
     this.addNewPageIfNeeded(50)
-
-    this.doc.setFontSize(12)
-    this.doc.setFont('helvetica', 'bold')
-    this.doc.setTextColor(31, 41, 55)
-    this.doc.text('DETTAGLIO SERVIZI', this.margin, this.currentY)
-    this.currentY += 10
-
-    // Table headers
+    
+    // PageSection interface to track rows per page
+    interface PageSection {
+      pageNum: number
+      startY: number
+      endY: number
+      rows: Array<{
+        item: typeof data.voci[0]
+        itemIndex: number
+        y: number
+        height: number
+        descLines: string[]
+      }>
+    }
+    
+    const sections: PageSection[] = []
+    
+    let currentPageNum = this.doc.getNumberOfPages()
+    let sectionStartY = this.currentY
+    let currentRows: PageSection['rows'] = []
+    
     const tableWidth = this.pageWidth - 2 * this.margin
     const colWidths = {
       code: tableWidth * 0.15,
@@ -218,38 +260,16 @@ export class RighelloPDFGenerator {
       price: tableWidth * 0.15,
       total: tableWidth * 0.15
     }
-
-    // Header background with borders
-    this.doc.setFillColor(249, 250, 251) // Light gray
-    this.doc.rect(this.margin, this.currentY, tableWidth, 10, 'F')
     
-    // Header borders
-    this.doc.setDrawColor(229, 231, 235)
-    this.doc.setLineWidth(0.5)
-    this.doc.line(this.margin, this.currentY, this.pageWidth - this.margin, this.currentY)
-    this.doc.line(this.margin, this.currentY + 10, this.pageWidth - this.margin, this.currentY + 10)
-
-    // Header text
-    this.doc.setFontSize(9)
-    this.doc.setFont('helvetica', 'bold')
-    this.doc.setTextColor(55, 65, 81)
+    // Reserve space for title on first page
+    const titleHeight = 12
+    this.currentY += titleHeight
     
-    let headerX = this.margin + 2
-    this.doc.text('CODICE', headerX, this.currentY + 7)
-    headerX += colWidths.code
-    this.doc.text('DESCRIZIONE', headerX, this.currentY + 7)
-    headerX += colWidths.description
-    this.doc.text('Q.TÀ', headerX, this.currentY + 7)
-    headerX += colWidths.quantity
-    this.doc.text('PREZZO', headerX, this.currentY + 7)
-    headerX += colWidths.price
-    this.doc.text('TOTALE', headerX, this.currentY + 7)
-
-    this.currentY += 12
-
-    // Table rows
-    this.doc.setFont('helvetica', 'normal')
-
+    // Reserve space for table header
+    const headerHeight = 10
+    this.currentY += headerHeight
+    
+    // === PASS 1: CALCULATE HEIGHTS AND TRACK ROWS ===
     data.voci.forEach((voce, index) => {
       // Calculate required space for this row based on description lines
       const descLines = this.doc.splitTextToSize(voce.descrizione, colWidths.description - 4)
@@ -257,47 +277,135 @@ export class RighelloPDFGenerator {
       const minRowHeight = 8
       const rowHeight = Math.max(minRowHeight, descLines.length * lineHeight + 4)
       
-      // Check if we need a new page for this row
-      this.addNewPageIfNeeded(rowHeight + 2)
-
-      // Alternating row colors
-      if (index % 2 === 0) {
-        this.doc.setFillColor(249, 250, 251) // Light gray
-        this.doc.rect(this.margin, this.currentY, tableWidth, rowHeight, 'F')
+      // Check if page break is needed
+      if (this.currentY + rowHeight > this.pageHeight - this.margin - 30) {
+        // Save current section
+        sections.push({
+          pageNum: currentPageNum,
+          startY: sectionStartY,
+          endY: this.currentY,
+          rows: [...currentRows]
+        })
+        
+        // New page
+        this.doc.addPage()
+        currentPageNum = this.doc.getNumberOfPages()
+        this.currentY = this.margin
+        sectionStartY = this.currentY
+        currentRows = []
+        
+        // Reserve space for header on new page (no title)
+        this.currentY += headerHeight
       }
-
-      let rowX = this.margin + 2
-      const rowY = this.currentY + 4
-
-      this.doc.setFontSize(9)
-      this.doc.setTextColor(55, 65, 81)
-
-      // Code column
-      this.doc.text(generateItemCode(index, voce.categoria), rowX, rowY + 2)
-      rowX += colWidths.code
-
-      // Description column - render ALL lines
-      descLines.forEach((line: string, lineIndex: number) => {
-        this.doc.text(line, rowX, rowY + 2 + (lineIndex * lineHeight))
+      
+      // Track row for rendering in Pass 2
+      currentRows.push({
+        item: voce,
+        itemIndex: index,
+        y: this.currentY,
+        height: rowHeight,
+        descLines
       })
-      rowX += colWidths.description
-
-      // Quantity column (centered vertically if multi-line description)
-      const centerY = rowY + (rowHeight / 2)
-      this.doc.text(voce.quantita.toString(), rowX, centerY)
-      rowX += colWidths.quantity
-
-      // Price column (centered vertically)
-      this.doc.text(formatCurrency(voce.prezzoUnitario), rowX, centerY)
-      rowX += colWidths.price
-
-      // Total column (centered vertically)
-      this.doc.text(formatCurrency(voce.totale), rowX, centerY)
-
+      
       this.currentY += rowHeight
     })
-
-    this.currentY += 10
+    
+    // Save final section
+    sections.push({
+      pageNum: currentPageNum,
+      startY: sectionStartY,
+      endY: this.currentY + 5,
+      rows: currentRows
+    })
+    
+    // === PASS 2: DRAW BOXES FIRST, THEN CONTENT ===
+    sections.forEach((section, sectionIndex) => {
+      this.doc.setPage(section.pageNum)
+      
+      const boxHeight = section.endY - section.startY
+      
+      // 1. DRAW BOX BACKGROUND FIRST
+      this.doc.setFillColor(249, 250, 251) // Light gray
+      this.doc.roundedRect(
+        this.margin,
+        section.startY,
+        tableWidth,
+        boxHeight,
+        2,
+        2,
+        'F'
+      )
+      
+      // 2. DRAW BOX BORDER
+      this.doc.setDrawColor(229, 231, 235) // Gray
+      this.doc.setLineWidth(0.5)
+      this.doc.roundedRect(
+        this.margin,
+        section.startY,
+        tableWidth,
+        boxHeight,
+        2,
+        2,
+        'S'
+      )
+      
+      // 3. DRAW TITLE (only on first section)
+      if (sectionIndex === 0) {
+        this.doc.setFont('helvetica', 'bold')
+        this.doc.setFontSize(12)
+        this.doc.setTextColor(212, 70, 239) // Pink
+        this.doc.text('DETTAGLIO SERVIZI', this.margin + 5, section.startY + 8)
+      }
+      
+      // 4. DRAW TABLE HEADER
+      const headerStartY = sectionIndex === 0 ? section.startY + 12 : section.startY
+      this.drawTableHeader(tableWidth, colWidths, headerStartY, sectionIndex > 0)
+      
+      // 5. DRAW ROWS
+      this.doc.setFont('helvetica', 'normal')
+      
+      section.rows.forEach((rowData, rowIndex) => {
+        const { item, itemIndex, y, height, descLines } = rowData
+        
+        // Alternating row background
+        if (itemIndex % 2 === 0) {
+          this.doc.setFillColor(243, 244, 246) // Slightly darker gray for alternating rows
+          this.doc.rect(this.margin + 1, y - 1, tableWidth - 2, height, 'F')
+        }
+        
+        let rowX = this.margin + 2
+        const rowY = y + 4
+        
+        this.doc.setFontSize(9)
+        this.doc.setTextColor(55, 65, 81)
+        
+        // Code column
+        this.doc.text(generateItemCode(itemIndex, item.categoria), rowX, rowY + 2)
+        rowX += colWidths.code
+        
+        // Description column - render ALL lines
+        descLines.forEach((line: string, lineIndex: number) => {
+          this.doc.text(line, rowX, rowY + 2 + (lineIndex * 4))
+        })
+        rowX += colWidths.description
+        
+        // Quantity column (centered vertically if multi-line description)
+        const centerY = rowY + (height / 2)
+        this.doc.text(item.quantita.toString(), rowX, centerY)
+        rowX += colWidths.quantity
+        
+        // Price column (centered vertically)
+        this.doc.text(formatCurrency(item.prezzoUnitario), rowX, centerY)
+        rowX += colWidths.price
+        
+        // Total column (centered vertically)
+        this.doc.text(formatCurrency(item.totale), rowX, centerY)
+      })
+    })
+    
+    // Return to last page and set currentY to end position
+    this.doc.setPage(sections[sections.length - 1].pageNum)
+    this.currentY = sections[sections.length - 1].endY
   }
 
   private drawTotals(data: GeneratedQuoteData): void {
@@ -446,72 +554,160 @@ export class RighelloPDFGenerator {
     })
   }
 
+  private drawSectionBox(title: string, contentHeight: number, titleColor: [number, number, number] = [212, 70, 239]): void {
+    // Background box with light tint
+    this.doc.setFillColor(249, 250, 251) // Light gray #F9FAFB
+    this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, contentHeight, 2, 2, 'F')
+    
+    // Border
+    this.doc.setDrawColor(229, 231, 235) // Gray border #E5E7EB
+    this.doc.setLineWidth(0.5)
+    this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, contentHeight, 2, 2, 'S')
+    
+    // Title
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setFontSize(12)
+    this.doc.setTextColor(...titleColor)
+    this.doc.text(title, this.margin + 5, this.currentY + 8)
+  }
+
   private drawTemplateObjectives(data: GeneratedQuoteData): void {
     if (!data.obiettivi || data.obiettivi.length === 0) return
     
-    this.addNewPageIfNeeded(30)
+    // Calculate total box height
+    let contentHeight = 15 // Title space
+    this.doc.setFontSize(10)
+    this.doc.setFont('helvetica', 'normal')
     
-    // Section title
-    this.doc.setFontSize(14)
-    this.doc.setFont('helvetica', 'bold')
-    this.doc.setTextColor(212, 70, 239) // Pink
-    this.doc.text('OBIETTIVI DEL PROGETTO', this.margin, this.currentY)
+    data.obiettivi.forEach((obiettivo) => {
+      const lines = this.doc.splitTextToSize(obiettivo, this.pageWidth - 2 * this.margin - 15)
+      contentHeight += Math.max(6, lines.length * 5 + 3)
+    })
+    contentHeight += 5 // Bottom padding
     
-    this.currentY += 10
+    this.addNewPageIfNeeded(contentHeight)
+    
+    // Draw glassmorphic box
+    this.drawSectionBox('OBIETTIVI DEL PROGETTO', contentHeight, [212, 70, 239])
+    
+    this.currentY += 15
     
     this.doc.setFontSize(10)
     this.doc.setFont('helvetica', 'normal')
     this.doc.setTextColor(55, 65, 81)
     
     data.obiettivi.forEach((obiettivo) => {
-      this.addNewPageIfNeeded(10)
-      // Bullet point (pink circle)
-      this.doc.setFillColor(212, 70, 239)
-      this.doc.circle(this.margin + 2, this.currentY - 1, 1, 'F')
+      // Draw colored circle bullet (pink)
+      this.doc.setFillColor(212, 70, 239) // Pink
+      this.doc.circle(this.margin + 8, this.currentY - 1, 1.5, 'F')
       
-      // Objective text
-      const lines = this.doc.splitTextToSize(obiettivo, this.pageWidth - this.margin - 10)
+      // Text after bullet (indented)
+      const lines = this.doc.splitTextToSize(obiettivo, this.pageWidth - 2 * this.margin - 15)
       lines.forEach((line: string, lineIndex: number) => {
-        this.doc.text(line, this.margin + 6, this.currentY + (lineIndex * 5))
+        this.doc.text(line, this.margin + 13, this.currentY + (lineIndex * 5))
       })
-      this.currentY += Math.max(6, lines.length * 5)
+      this.currentY += lines.length * 5 + 3
     })
     
-    this.currentY += 5
+    this.currentY += 10 // Extra space after box
   }
 
   private drawTemplateActivities(data: GeneratedQuoteData): void {
     if (!data.attivita || data.attivita.length === 0) return
     
-    this.addNewPageIfNeeded(30)
+    // Calculate total box height
+    let contentHeight = 15 // Title space
+    this.doc.setFontSize(10)
+    this.doc.setFont('helvetica', 'normal')
     
-    // Section title
-    this.doc.setFontSize(14)
-    this.doc.setFont('helvetica', 'bold')
-    this.doc.setTextColor(147, 51, 234) // Purple
-    this.doc.text('ATTIVITÀ PRINCIPALI', this.margin, this.currentY)
+    data.attivita.forEach((attivita) => {
+      const lines = this.doc.splitTextToSize(attivita, this.pageWidth - 2 * this.margin - 15)
+      contentHeight += Math.max(6, lines.length * 5 + 3)
+    })
+    contentHeight += 5 // Bottom padding
     
-    this.currentY += 10
+    this.addNewPageIfNeeded(contentHeight)
+    
+    // Draw glassmorphic box
+    this.drawSectionBox('ATTIVITÀ PRINCIPALI', contentHeight, [147, 51, 234])
+    
+    this.currentY += 15
     
     this.doc.setFontSize(10)
     this.doc.setFont('helvetica', 'normal')
     this.doc.setTextColor(55, 65, 81)
     
     data.attivita.forEach((attivita) => {
-      this.addNewPageIfNeeded(10)
-      // Bullet point (purple circle)
-      this.doc.setFillColor(147, 51, 234)
-      this.doc.circle(this.margin + 2, this.currentY - 1, 1, 'F')
+      // Draw colored square bullet (purple)
+      this.doc.setFillColor(147, 51, 234) // Purple
+      this.doc.rect(this.margin + 7.5, this.currentY - 2, 2, 2, 'F')
       
-      // Activity text
-      const lines = this.doc.splitTextToSize(attivita, this.pageWidth - this.margin - 10)
+      // Text after bullet (indented)
+      const lines = this.doc.splitTextToSize(attivita, this.pageWidth - 2 * this.margin - 15)
       lines.forEach((line: string, lineIndex: number) => {
-        this.doc.text(line, this.margin + 6, this.currentY + (lineIndex * 5))
+        this.doc.text(line, this.margin + 13, this.currentY + (lineIndex * 5))
       })
-      this.currentY += Math.max(6, lines.length * 5)
+      this.currentY += lines.length * 5 + 3
     })
     
-    this.currentY += 5
+    this.currentY += 10 // Extra space after box
+  }
+
+  private drawLegalFooter(): void {
+    // Add new page for legal clauses
+    this.doc.addPage()
+    this.currentY = this.margin + 10
+    
+    // Title
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setFontSize(14)
+    this.doc.setTextColor(31, 41, 55) // Dark gray
+    this.doc.text('CONDIZIONI GENERALI', this.margin, this.currentY)
+    this.currentY += 12
+    
+    // Legal clauses
+    const clauses = [
+      {
+        title: '1. Utilizzo dei Materiali',
+        text: 'Tutti i materiali (testi, immagini, loghi, contenuti) devono essere forniti dal Cliente entro 7 giorni dall\'accettazione. Righello non è responsabile di ritardi causati da mancata fornitura materiali.'
+      },
+      {
+        title: '2. Variazione dei Costi',
+        text: 'I costi indicati sono validi per 30 giorni dalla data del preventivo. Modifiche sostanziali al progetto comporteranno ricalcolo del preventivo.'
+      },
+      {
+        title: '3. Accettazione e Pagamento',
+        text: 'L\'accettazione del preventivo avviene tramite firma digitale o conferma email. Pagamento: 30% acconto, 70% a completamento fasi secondo milestone concordate.'
+      },
+      {
+        title: '4. Proprietà Intellettuale',
+        text: 'I diritti d\'autore sui deliverable passano al Cliente solo a saldo completo del pagamento.'
+      },
+      {
+        title: '5. Garanzia e Assistenza',
+        text: 'Periodo di garanzia: 3 mesi dalla consegna finale per bug fixing. Assistenza post-garanzia disponibile a tariffe orarie separate.'
+      }
+    ]
+    
+    clauses.forEach(clause => {
+      // Check page space
+      this.addNewPageIfNeeded(25)
+      
+      // Clause title
+      this.doc.setFont('helvetica', 'bold')
+      this.doc.setFontSize(10)
+      this.doc.setTextColor(31, 41, 55)
+      this.doc.text(clause.title, this.margin, this.currentY)
+      this.currentY += 6
+      
+      // Clause content
+      this.doc.setFont('helvetica', 'normal')
+      this.doc.setFontSize(9)
+      this.doc.setTextColor(55, 65, 81)
+      const lines = this.doc.splitTextToSize(clause.text, this.pageWidth - 2 * this.margin)
+      this.doc.text(lines, this.margin, this.currentY)
+      this.currentY += lines.length * 4 + 8
+    })
   }
 
   private drawFooter(pageNumber: number, totalPages: number): void {
@@ -569,6 +765,9 @@ export class RighelloPDFGenerator {
     this.drawAnnualManagement(data)
     this.drawConditions(data)
     this.drawLegalSections(data)
+    
+    // Legal footer with clauses on new page
+    this.drawLegalFooter()
     
     // Add footer to all pages
     const totalPages = this.doc.getNumberOfPages()
