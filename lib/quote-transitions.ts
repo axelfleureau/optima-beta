@@ -128,6 +128,8 @@ export async function executeTransition(
   quoteId: string,
   transition: keyof typeof QUOTE_TRANSITIONS,
   tenantId: string,
+  userId: string,
+  userName?: string,
   userRole?: UserRole
 ): Promise<void> {
   // ✅ VALIDATE FIRST - fetch quote via API and check canTransition
@@ -163,5 +165,5 @@ export async function executeTransition(
     updateData.approvedAt = new Date()
   }
   
-  await updateQuote(quoteId, updateData, tenantId)
+  await updateQuote(quoteId, updateData, tenantId, userId, userName)
 }

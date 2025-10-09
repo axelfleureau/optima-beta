@@ -101,7 +101,7 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
   const totaleConIva = subtotalePreventivo + ivaImporto
   
   const onSaveDraft = async (data: QuoteFormData) => {
-    if (!userData?.tenantId) return
+    if (!userData?.tenantId || !userData?.id) return
     
     setSaving(true)
     try {
@@ -123,7 +123,11 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
         delete payload.clientId
       }
       
-      await updateQuote(quote.id, payload, userData.tenantId)
+      const userName = userData.firstName && userData.lastName 
+        ? `${userData.firstName} ${userData.lastName}` 
+        : undefined
+      
+      await updateQuote(quote.id, payload, userData.tenantId, userData.id, userName)
       
       toast.success("Bozza salvata con successo")
       router.push(`/preventivi/${quote.id}`)
@@ -136,7 +140,7 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
   }
   
   const onSubmit = async (data: QuoteFormData) => {
-    if (!userData?.tenantId || !userData?.role) return
+    if (!userData?.tenantId || !userData?.role || !userData?.id) return
     
     setSending(true)
     try {
@@ -157,10 +161,14 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
         delete payload.clientId
       }
       
-      await updateQuote(quote.id, payload, userData.tenantId)
+      const userName = userData.firstName && userData.lastName 
+        ? `${userData.firstName} ${userData.lastName}` 
+        : undefined
+      
+      await updateQuote(quote.id, payload, userData.tenantId, userData.id, userName)
       
       // executeTransition now validates internally with canTransition
-      await executeTransition(quote.id, 'send', userData.tenantId, userData.role)
+      await executeTransition(quote.id, 'send', userData.tenantId, userData.id, userName, userData.role)
       toast.success("Preventivo inviato con successo")
       router.push(`/preventivi/${quote.id}`)
     } catch (error) {

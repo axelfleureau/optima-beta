@@ -124,3 +124,14 @@ export function getClientIdentifier(quote: Quote): string {
   }
   return 'Unknown Client'
 }
+
+export interface QuoteEvent {
+  id: string
+  quoteId: string
+  tenantId: string
+  eventType: 'created' | 'updated' | 'sent' | 'approved' | 'rejected' | 'status_changed'
+  eventData: Record<string, any>
+  userId: string
+  userName?: string
+  timestamp: Date
+}
