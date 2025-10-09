@@ -7,7 +7,7 @@
 
 import Stripe from "stripe"
 import { Timestamp } from "firebase-admin/firestore"
-import { updateQuoteStatus, updateMilestoneStatus, getQuoteById, updateQuoteSubscription } from "@/lib/quote-service"
+import { updateQuoteStatus, updateMilestoneStatus, getQuoteById, updateQuoteSubscription } from "@/lib/quote-service-server"
 import { sendInvoiceEmail } from "@/lib/email-service"
 import type { InvoicePaymentData } from "@/lib/invoice-generator"
 import type { 

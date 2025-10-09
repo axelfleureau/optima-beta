@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
-import { markMilestoneReady, getQuoteById } from "@/lib/quote-service"
+import { markMilestoneReady, getQuoteById } from "@/lib/quote-service-server"
 
 export async function POST(
   request: NextRequest,

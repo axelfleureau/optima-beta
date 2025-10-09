@@ -20,7 +20,7 @@ import { adminDb } from "@/lib/firebase-admin"
 import { stripeService } from "@/lib/services/stripe.service"
 import { validateShareToken, isValidEmail, isQuoteExpired, getBaseUrl } from "@/lib/quote-utils"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
-import { updateQuoteStatus } from "@/lib/quote-service"
+import { updateQuoteStatus } from "@/lib/quote-service-server"
 import type { SecurePaymentContext } from "@/types/payment"
 
 export async function POST(

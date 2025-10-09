@@ -1,6 +1,6 @@
 import { Quote } from "@/types/quote"
 import { UserRole } from "@/lib/role-hierarchy"
-import { updateQuote, getQuoteById } from "@/lib/quote-service"
+import { updateQuote } from "@/lib/quote-service"
 
 export type QuoteStatus = "draft" | "sent" | "in_review" | "pending_payment" | "approved" | "in_progress" | "completed" | "rejected" | "expired"
 
@@ -130,8 +130,14 @@ export async function executeTransition(
   tenantId: string,
   userRole?: UserRole
 ): Promise<void> {
-  // ✅ VALIDATE FIRST - fetch quote and check canTransition
-  const quote = await getQuoteById(quoteId, tenantId)
+  // ✅ VALIDATE FIRST - fetch quote via API and check canTransition
+  const response = await fetch(`/api/quotes/${quoteId}`)
+  
+  if (!response.ok) {
+    throw new Error("Preventivo non trovato")
+  }
+  
+  const quote = await response.json()
   
   if (!quote) {
     throw new Error("Preventivo non trovato")

@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
-import { getQuoteById } from "@/lib/quote-service"
+import { getQuoteById } from "@/lib/quote-service-server"
 import { StripeService } from "@/lib/services/stripe.service"
 
 const stripeService = new StripeService()

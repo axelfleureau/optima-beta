@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Quote } from "@/types/quote"
-import { getQuoteById } from "@/lib/quote-service"
 import { useAuth } from "@/hooks/use-auth"
 
 export function useQuoteDetail(quoteId: string) {
@@ -25,7 +24,14 @@ export function useQuoteDetail(quoteId: string) {
     const fetchQuote = async () => {
       try {
         setLoading(true)
-        const data = await getQuoteById(quoteId, userData.tenantId)
+        const response = await fetch(`/api/quotes/${quoteId}`)
+        
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Errore nel caricamento del preventivo")
+        }
+        
+        const data = await response.json()
         setQuote(data)
       } catch (err) {
         console.error("Error fetching quote:", err)
