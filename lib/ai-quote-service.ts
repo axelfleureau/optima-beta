@@ -539,7 +539,26 @@ export async function enrichQuoteWithClientData(
   }
 }
 
-export function convertToQuoteFormat(quoteData: GeneratedQuoteData, tenantId: string, createdBy: string): Omit<Quote, 'id'> {
+/**
+ * Convert generated quote data to Quote format
+ * Supports DUAL CLIENT MODE: Platform Client (with clientId) or External Client (with name+email)
+ * 
+ * @param quoteData - Generated quote data from AI
+ * @param tenantId - Server-verified tenant ID
+ * @param createdBy - Server-verified user ID
+ * @param clientMode - Optional client mode data { clientId } OR { externalClientName, externalClientEmail }
+ * @returns Quote object ready for Firestore
+ */
+export function convertToQuoteFormat(
+  quoteData: GeneratedQuoteData, 
+  tenantId: string, 
+  createdBy: string,
+  clientMode?: { 
+    clientId?: string
+    externalClientName?: string
+    externalClientEmail?: string
+  }
+): Omit<Quote, 'id'> {
   // SECURITY: Only use server-provided tenantId and createdBy, never client data
   const quoteItems: QuoteItem[] = quoteData.voci.map(voce => ({
     description: voce.descrizione,
@@ -548,12 +567,11 @@ export function convertToQuoteFormat(quoteData: GeneratedQuoteData, tenantId: st
     total: voce.totale
   }))
 
-  return {
+  const baseQuote = {
     title: quoteData.preventivo.titolo,
     description: quoteData.preventivo.descrizione,
-    clientId: '', // Will be set when creating actual client
     clientName: quoteData.cliente.nome,
-    status: 'draft',
+    status: 'draft' as const,
     currency: 'EUR',
     items: quoteItems,
     total: quoteData.totali.totale,
@@ -562,5 +580,32 @@ export function convertToQuoteFormat(quoteData: GeneratedQuoteData, tenantId: st
     updatedAt: new Date(),
     tenantId,
     createdBy
+  }
+
+  // DUAL CLIENT MODE: Set appropriate fields based on client type
+  if (clientMode?.clientId) {
+    // PLATFORM CLIENT MODE: Use clientId from platform
+    return {
+      ...baseQuote,
+      clientId: clientMode.clientId,
+      clientEmail: quoteData.cliente.email
+    }
+  } else if (clientMode?.externalClientName && clientMode?.externalClientEmail) {
+    // EXTERNAL CLIENT MODE: Use external client data
+    return {
+      ...baseQuote,
+      externalClientName: clientMode.externalClientName,
+      externalClientEmail: clientMode.externalClientEmail,
+      clientEmail: clientMode.externalClientEmail
+    }
+  } else {
+    // LEGACY/FALLBACK: No client mode specified, use cliente data from AI
+    // This maintains backward compatibility
+    return {
+      ...baseQuote,
+      externalClientName: quoteData.cliente.nome,
+      externalClientEmail: quoteData.cliente.email || '',
+      clientEmail: quoteData.cliente.email || ''
+    }
   }
 }

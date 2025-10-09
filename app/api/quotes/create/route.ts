@@ -3,6 +3,7 @@ import { z } from "zod"
 import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
 import { db } from "@/lib/firebase"
 import { collection, addDoc, Timestamp } from "firebase/firestore"
+import { validateQuoteClientMode } from "@/types/quote"
 
 const quoteItemSchema = z.object({
   name: z.string().min(1, 'Nome richiesto'),
@@ -12,17 +13,47 @@ const quoteItemSchema = z.object({
   total: z.number().positive()
 })
 
+// DUAL CLIENT MODE: Support both platform clients (clientId) and external clients (name+email)
 const createQuoteSchema = z.object({
   title: z.string().min(1, 'Titolo richiesto').max(200),
   description: z.string().optional(),
+  
+  // Platform Client fields
   clientId: z.string().optional(),
+  
+  // External Client fields
+  externalClientName: z.string().optional(),
+  externalClientEmail: z.string().email('Email non valida').optional(),
+  
+  // Common fields
   clientName: z.string().optional(),
+  clientEmail: z.string().optional(),
   status: z.enum(['draft', 'sent', 'approved', 'rejected']).optional(),
   currency: z.string().optional(),
   items: z.array(quoteItemSchema).min(1, 'Almeno un item richiesto'),
   total: z.number().positive('Importo deve essere positivo'),
   validUntil: z.string().optional()
-})
+}).refine(
+  (data) => {
+    // Must have EITHER clientId OR (externalClientName + externalClientEmail)
+    const hasPlatformClient = !!data.clientId
+    const hasExternalClient = !!(data.externalClientName && data.externalClientEmail)
+    return hasPlatformClient || hasExternalClient
+  },
+  {
+    message: "Quote must have either clientId (platform client) or externalClientName + externalClientEmail (external client)"
+  }
+).refine(
+  (data) => {
+    // Cannot have BOTH modes
+    const hasPlatformClient = !!data.clientId
+    const hasExternalClient = !!(data.externalClientName && data.externalClientEmail)
+    return !(hasPlatformClient && hasExternalClient)
+  },
+  {
+    message: "Quote cannot have both clientId and external client data. Choose one client mode."
+  }
+)
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,15 +97,29 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const validatedData = createQuoteSchema.parse(body)
-    const { title, description, clientId, clientName, status, currency, items, total, validUntil } = validatedData
+    const { 
+      title, 
+      description, 
+      clientId, 
+      externalClientName,
+      externalClientEmail,
+      clientName, 
+      clientEmail,
+      status, 
+      currency, 
+      items, 
+      total, 
+      validUntil 
+    } = validatedData
 
     // SECURITY: Use only server-verified tenantId and userId, ignore any client-sent identifiers
     const now = Timestamp.now()
-    const newQuote = {
+    
+    // Build quote object based on client mode
+    const baseQuote = {
       title,
       description: description || "",
-      clientId: clientId || "",
-      clientName: clientName || "",
+      clientName: clientName || externalClientName || "",
       status: status || "draft",
       currency: currency || "EUR",
       items,
@@ -86,7 +131,31 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     }
 
-    console.log("🔒 Creating quote with server-verified tenant:", tenantId)
+    // Add client mode specific fields
+    const newQuote = clientId 
+      ? {
+          ...baseQuote,
+          clientId,
+          clientEmail: clientEmail
+        }
+      : {
+          ...baseQuote,
+          externalClientName,
+          externalClientEmail,
+          clientEmail: externalClientEmail
+        }
+
+    // Final validation using helper
+    const validation = validateQuoteClientMode(newQuote)
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    console.log("🔒 Creating quote with server-verified tenant:", tenantId, 
+                clientId ? `(Platform Client: ${clientId})` : `(External Client: ${externalClientName})`)
 
     const docRef = await addDoc(collection(db, "quotes"), newQuote)
 

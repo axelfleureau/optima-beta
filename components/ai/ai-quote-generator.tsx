@@ -163,13 +163,22 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
   }
 
   const handleSaveQuote = async () => {
-    if (!generatedQuote || !userData?.tenantId) return
+    if (!generatedQuote || !userData?.tenantId || !enrichedContext) return
 
     try {
+      // Prepare client mode data based on enrichment context
+      const clientMode = enrichedContext.clientMode === 'platform' && enrichedContext.clientId
+        ? { clientId: enrichedContext.clientId }
+        : {
+            externalClientName: enrichedContext.clientName,
+            externalClientEmail: enrichedContext.clientEmail || ''
+          }
+
       const quoteToCreate = convertToQuoteFormat(
         generatedQuote,
         userData.tenantId,
-        userData.id || userData.tenantId
+        userData.id || userData.tenantId,
+        clientMode
       )
 
       await createQuote(quoteToCreate)

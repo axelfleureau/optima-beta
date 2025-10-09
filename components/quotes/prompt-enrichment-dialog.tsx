@@ -28,10 +28,13 @@ import {
   Home,
   Check,
   Edit2,
-  Euro
+  Euro,
+  Users,
+  UserPlus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SECTOR_TEMPLATES } from "@/lib/quote-templates"
+import { useClients } from "@/hooks/use-clients"
 import { 
   WEBSITE_180_TEMPLATE, 
   WEBSITE_360_TEMPLATE, 
@@ -49,9 +52,18 @@ export interface EnrichedPromptData {
   budgetRange: { min: number; max: number }
   complexity: 'basic' | 'standard' | 'advanced'
   timeline: string
+  
+  // DUAL CLIENT MODE
+  clientMode: 'platform' | 'external'
+  
+  // Platform Client fields (used when clientMode === 'platform')
+  clientId?: string
+  
+  // External Client fields (used when clientMode === 'external')
   clientName: string
   clientEmail?: string
   clientCompany?: string
+  
   additionalNotes?: string
 }
 
@@ -127,11 +139,13 @@ const TIMELINE_OPTIONS = [
 ]
 
 export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: PromptEnrichmentDialogProps) {
+  const { clients, loading: clientsLoading } = useClients()
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<Partial<EnrichedPromptData>>({
     budgetRange: { min: 3000, max: 10000 },
     complexity: 'standard',
-    timeline: '8-12 settimane'
+    timeline: '8-12 settimane',
+    clientMode: 'external' // Default to external client mode
   })
 
   useEffect(() => {
@@ -146,7 +160,9 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
   const isStep1Valid = !!formData.projectType
   const isStep2Valid = !!formData.sector
   const isStep3Valid = formData.description && formData.description.length >= 50
-  const isStep4Valid = !!formData.clientName
+  const isStep4Valid = formData.clientMode === 'platform' 
+    ? !!formData.clientId 
+    : !!(formData.clientName && formData.clientEmail)
 
   const handleNext = () => {
     if (currentStep < 4) {
@@ -162,6 +178,8 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
           budgetRange: formData.budgetRange || { min: 3000, max: 10000 },
           complexity: formData.complexity || 'standard',
           timeline: formData.timeline || '8-12 settimane',
+          clientMode: formData.clientMode || 'external',
+          clientId: formData.clientId,
           clientName: formData.clientName || '',
           clientEmail: formData.clientEmail,
           clientCompany: formData.clientCompany,
@@ -169,7 +187,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
         }
         onComplete(enrichedData)
         onOpenChange(false)
-        setFormData({ budgetRange: { min: 3000, max: 10000 }, complexity: 'standard', timeline: '8-12 settimane' })
+        setFormData({ budgetRange: { min: 3000, max: 10000 }, complexity: 'standard', timeline: '8-12 settimane', clientMode: 'external' })
         setCurrentStep(1)
       }
     }
@@ -455,47 +473,167 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                       👤 Info Cliente
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Inserisci le informazioni del cliente
+                      Seleziona il tipo di cliente e inserisci le informazioni
                     </p>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-6">
+                    {/* CLIENT MODE SELECTOR */}
                     <div>
-                      <Label htmlFor="clientName">Nome Cliente *</Label>
-                      <Input
-                        id="clientName"
-                        value={formData.clientName || ''}
-                        onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                        placeholder="Mario Rossi"
-                        className="mt-2 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
-                        autoFocus
-                      />
+                      <Label className="mb-3 block">Tipo Cliente *</Label>
+                      <RadioGroup 
+                        value={formData.clientMode} 
+                        onValueChange={(value: 'platform' | 'external') => {
+                          setFormData({ 
+                            ...formData, 
+                            clientMode: value,
+                            clientId: undefined,
+                            clientName: '',
+                            clientEmail: '',
+                            clientCompany: ''
+                          })
+                        }}
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                      >
+                        <label htmlFor="platform">
+                          <GlassCard
+                            variant="interactive"
+                            padding="md"
+                            className={cn(
+                              "cursor-pointer transition-all duration-300",
+                              formData.clientMode === 'platform' && "border-purple-500/50 shadow-glow-purple"
+                            )}
+                          >
+                            <div className="flex items-start gap-4">
+                              <RadioGroupItem value="platform" id="platform" className="mt-1" />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Users className="w-5 h-5 text-purple-500" />
+                                  <h4 className="font-semibold">Cliente Piattaforma</h4>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Seleziona un cliente esistente con pagamento automatizzato Stripe
+                                </p>
+                              </div>
+                            </div>
+                          </GlassCard>
+                        </label>
+
+                        <label htmlFor="external">
+                          <GlassCard
+                            variant="interactive"
+                            padding="md"
+                            className={cn(
+                              "cursor-pointer transition-all duration-300",
+                              formData.clientMode === 'external' && "border-purple-500/50 shadow-glow-purple"
+                            )}
+                          >
+                            <div className="flex items-start gap-4">
+                              <RadioGroupItem value="external" id="external" className="mt-1" />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <UserPlus className="w-5 h-5 text-blue-500" />
+                                  <h4 className="font-semibold">Cliente Esterno</h4>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Inserisci nome ed email per cliente non registrato
+                                </p>
+                              </div>
+                            </div>
+                          </GlassCard>
+                        </label>
+                      </RadioGroup>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="clientEmail">Email Cliente</Label>
-                        <Input
-                          id="clientEmail"
-                          type="email"
-                          value={formData.clientEmail || ''}
-                          onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
-                          placeholder="mario@azienda.it"
-                          className="mt-2 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
-                        />
-                      </div>
+                    <Separator />
 
+                    {/* PLATFORM CLIENT MODE */}
+                    {formData.clientMode === 'platform' && (
                       <div>
-                        <Label htmlFor="clientCompany">Azienda</Label>
-                        <Input
-                          id="clientCompany"
-                          value={formData.clientCompany || ''}
-                          onChange={(e) => setFormData({ ...formData, clientCompany: e.target.value })}
-                          placeholder="Nome Azienda S.r.l."
-                          className="mt-2 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
-                        />
+                        <Label htmlFor="clientId">Seleziona Cliente *</Label>
+                        <Select 
+                          value={formData.clientId} 
+                          onValueChange={(value) => {
+                            const selectedClient = clients.find(c => c.id === value)
+                            setFormData({ 
+                              ...formData, 
+                              clientId: value,
+                              clientName: selectedClient?.name || '',
+                              clientEmail: selectedClient?.email || '',
+                              clientCompany: selectedClient?.company || ''
+                            })
+                          }}
+                        >
+                          <SelectTrigger className="mt-2 bg-white/50 dark:bg-black/30 backdrop-blur-sm">
+                            <SelectValue placeholder={clientsLoading ? "Caricamento..." : "Seleziona un cliente"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clients.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                <div>
+                                  <div className="font-medium">{client.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {client.email} {client.company && `• ${client.company}`}
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                            {clients.length === 0 && !clientsLoading && (
+                              <SelectItem value="_none" disabled>
+                                Nessun cliente disponibile
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ✓ Pagamento Stripe automatico • Dati cliente precompilati
+                        </p>
                       </div>
-                    </div>
+                    )}
+
+                    {/* EXTERNAL CLIENT MODE */}
+                    {formData.clientMode === 'external' && (
+                      <>
+                        <div>
+                          <Label htmlFor="clientName">Nome Cliente *</Label>
+                          <Input
+                            id="clientName"
+                            value={formData.clientName || ''}
+                            onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                            placeholder="Mario Rossi"
+                            className="mt-2 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
+                            autoFocus
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="clientEmail">Email Cliente *</Label>
+                          <Input
+                            id="clientEmail"
+                            type="email"
+                            value={formData.clientEmail || ''}
+                            onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                            placeholder="mario@azienda.it"
+                            className="mt-2 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="clientCompany">Azienda (Opzionale)</Label>
+                          <Input
+                            id="clientCompany"
+                            value={formData.clientCompany || ''}
+                            onChange={(e) => setFormData({ ...formData, clientCompany: e.target.value })}
+                            placeholder="Nome Azienda S.r.l."
+                            className="mt-2 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
+                          />
+                        </div>
+                        
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          ℹ️ Cliente esterno: link approvazione pubblico, nessun pagamento automatico
+                        </p>
+                      </>
+                    )}
 
                     <div>
                       <Label htmlFor="additionalNotes">Note Aggiuntive</Label>

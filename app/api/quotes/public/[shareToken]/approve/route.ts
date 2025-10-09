@@ -111,6 +111,39 @@ export async function POST(
       )
     }
 
+    // DUAL CLIENT MODE: Check if this is a platform client or external client
+    const isPlatformClient = !!quoteData.clientId
+    const isExternalClient = !!(quoteData.externalClientName && quoteData.externalClientEmail)
+
+    if (isExternalClient) {
+      // EXTERNAL CLIENT: No Stripe automation, direct approval
+      console.log(`✅ External client approval (no Stripe): ${quoteData.externalClientName}`)
+      
+      await updateQuoteStatus(quoteDoc.id, quoteData.tenantId, 'approved', {
+        clientEmail: clientEmail,
+        approvedAt: Timestamp.now(),
+        approvedBy: clientName,
+      })
+
+      // Return success without checkout URL (manual payment flow)
+      return NextResponse.json({
+        success: true,
+        approved: true,
+        message: 'Preventivo approvato con successo. Il team ti contatterà per il pagamento.',
+        // No checkoutUrl for external clients
+      })
+    }
+
+    // PLATFORM CLIENT: Full Stripe automation
+    if (!isPlatformClient) {
+      return NextResponse.json(
+        { error: 'Cliente non valido per pagamento automatico' },
+        { status: 400 }
+      )
+    }
+
+    console.log(`💳 Platform client payment flow: ${quoteData.clientId}`)
+
     // Update quote: status → pending_payment (NOT approved yet)
     // Quote will only be approved after checkout.session.completed webhook
     await updateQuoteStatus(quoteDoc.id, quoteData.tenantId, 'pending_payment', {

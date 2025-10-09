@@ -9,8 +9,16 @@ export interface Quote {
   id: string
   title: string
   description?: string
-  clientId: string
+  
+  // DUAL CLIENT MODE: Platform Client (with clientId) OR External Client (with name+email)
+  // Platform Client fields - used when client exists in the platform
+  clientId?: string
   clientName: string
+  
+  // External Client fields - used for clients outside the platform
+  externalClientName?: string
+  externalClientEmail?: string
+  
   status: "draft" | "sent" | "in_review" | "pending_payment" | "approved" | "in_progress" | "completed" | "rejected" | "expired"
   currency: string
   items: QuoteItem[]
@@ -54,4 +62,57 @@ export interface Quote {
     prezzoUnitario: number
   }>
   terminiCondizioni?: string
+}
+
+// Validation helpers for dual client mode
+export function validateQuoteClientMode(quote: Partial<Quote>): { valid: boolean; error?: string } {
+  const hasClientId = !!quote.clientId
+  const hasExternalClient = !!(quote.externalClientName && quote.externalClientEmail)
+  
+  // Must have EITHER clientId OR external client data
+  if (!hasClientId && !hasExternalClient) {
+    return { 
+      valid: false, 
+      error: "Quote must have either clientId (platform client) or externalClientName + externalClientEmail (external client)" 
+    }
+  }
+  
+  // Cannot have BOTH modes
+  if (hasClientId && hasExternalClient) {
+    return { 
+      valid: false, 
+      error: "Quote cannot have both clientId and external client data. Choose one client mode." 
+    }
+  }
+  
+  // Email validation for external clients
+  if (hasExternalClient && quote.externalClientEmail) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(quote.externalClientEmail)) {
+      return { 
+        valid: false, 
+        error: "Invalid email format for external client" 
+      }
+    }
+  }
+  
+  return { valid: true }
+}
+
+export function isPlatformClient(quote: Quote): boolean {
+  return !!quote.clientId
+}
+
+export function isExternalClient(quote: Quote): boolean {
+  return !!(quote.externalClientName && quote.externalClientEmail)
+}
+
+export function getClientIdentifier(quote: Quote): string {
+  if (isPlatformClient(quote)) {
+    return `Platform Client: ${quote.clientName} (ID: ${quote.clientId})`
+  }
+  if (isExternalClient(quote)) {
+    return `External Client: ${quote.externalClientName} (${quote.externalClientEmail})`
+  }
+  return 'Unknown Client'
 }

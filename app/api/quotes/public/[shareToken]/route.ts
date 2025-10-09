@@ -77,11 +77,17 @@ export async function GET(
     }
 
     // Return public-safe quote data (NO sensitive tenant info)
+    // DUAL CLIENT MODE: Include both platform and external client data
     return NextResponse.json({
       id: quoteDoc.id,
       title: quoteData.title || '',
       description: quoteData.description,
+      // Platform client fields
+      clientId: quoteData.clientId, // Safe to expose for display logic
       clientName: quoteData.clientName || '',
+      // External client fields
+      externalClientName: quoteData.externalClientName,
+      externalClientEmail: quoteData.externalClientEmail,
       items: quoteData.items || [],
       total: quoteData.total || 0,
       currency: quoteData.currency || 'EUR',

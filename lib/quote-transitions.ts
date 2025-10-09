@@ -18,7 +18,14 @@ export const QUOTE_TRANSITIONS: Record<string, QuoteTransition> = {
     to: "sent",
     requiredRole: ["super-admin", "admin", "direzione", "capo-reparto"],
     validate: (quote) => {
-      if (!quote.clientEmail) return "Email cliente richiesta per inviare"
+      // DUAL CLIENT MODE: Check for email regardless of client type
+      const hasEmail = quote.clientEmail || quote.externalClientEmail
+      if (!hasEmail) return "Email cliente richiesta per inviare"
+      
+      // Check for client data (either platform or external)
+      const hasClientData = quote.clientId || (quote.externalClientName && quote.externalClientEmail)
+      if (!hasClientData) return "Dati cliente richiesti (piattaforma o esterno)"
+      
       if (quote.items?.length === 0 && (!quote.voci || quote.voci.length === 0)) return "Aggiungi almeno una voce"
       return true
     }

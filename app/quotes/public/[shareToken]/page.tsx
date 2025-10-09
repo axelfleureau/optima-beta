@@ -32,7 +32,11 @@ interface Quote {
   id: string
   title: string
   description?: string
+  // DUAL CLIENT MODE
+  clientId?: string
   clientName: string
+  externalClientName?: string
+  externalClientEmail?: string
   items: QuoteItem[]
   total: number
   currency: string
@@ -100,8 +104,16 @@ export default function QuotePublicApprovalPage({
         const data = await response.json()
         setQuote(data)
         
-        // Pre-fill client name if available
-        if (data.clientName) {
+        // DUAL CLIENT MODE: Pre-fill client data based on mode
+        if (data.externalClientName && data.externalClientEmail) {
+          // External client mode - pre-fill from external data
+          setFormData(prev => ({ 
+            ...prev, 
+            clientName: data.externalClientName,
+            clientEmail: data.externalClientEmail
+          }))
+        } else if (data.clientName) {
+          // Platform client or legacy - pre-fill from clientName
           setFormData(prev => ({ ...prev, clientName: data.clientName }))
         }
       } catch (err) {
@@ -132,9 +144,22 @@ export default function QuotePublicApprovalPage({
 
       const result = await response.json()
 
-      if (result.success && result.checkoutUrl) {
-        // Redirect to Stripe Checkout
-        window.location.href = result.checkoutUrl
+      if (result.success) {
+        if (result.checkoutUrl) {
+          // PLATFORM CLIENT: Redirect to Stripe Checkout
+          window.location.href = result.checkoutUrl
+        } else if (result.approved) {
+          // EXTERNAL CLIENT: Direct approval without payment
+          // Refresh quote to show approved state
+          const updatedQuote = await fetch(`/api/quotes/public/${shareToken}`)
+          const quoteData = await updatedQuote.json()
+          setQuote(quoteData)
+          setApproving(false)
+          alert(result.message || 'Preventivo approvato con successo!')
+        } else {
+          alert('Approvazione completata')
+          setApproving(false)
+        }
       } else {
         alert(result.error || 'Errore durante approvazione preventivo')
         setApproving(false)
@@ -258,7 +283,15 @@ export default function QuotePublicApprovalPage({
               <User className="h-5 w-5 text-purple-600" />
               <div>
                 <p className="text-sm text-gray-500">Cliente</p>
-                <p className="font-medium text-gray-900">{quote.clientName}</p>
+                <p className="font-medium text-gray-900">
+                  {quote.externalClientName || quote.clientName}
+                </p>
+                {quote.externalClientEmail && (
+                  <p className="text-xs text-gray-500">{quote.externalClientEmail}</p>
+                )}
+                {quote.clientId && (
+                  <p className="text-xs text-purple-600">Cliente Piattaforma</p>
+                )}
               </div>
             </div>
             
