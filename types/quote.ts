@@ -44,4 +44,14 @@ export interface Quote {
       status: 'pending' | 'paid' | 'failed'
     }>
   }
+  
+  // Editor fields
+  obiettivi?: string[]
+  attivita?: string[]
+  voci?: Array<{
+    descrizione: string
+    quantita: number
+    prezzoUnitario: number
+  }>
+  terminiCondizioni?: string
 }

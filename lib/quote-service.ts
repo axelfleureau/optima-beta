@@ -8,6 +8,9 @@
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase-admin'
 import { generateShareToken, getBaseUrl } from '@/lib/quote-utils'
+import { doc, updateDoc, serverTimestamp as clientServerTimestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { Quote } from '@/types/quote'
 
 /**
  * Send quote to client
@@ -372,4 +375,25 @@ export async function updateQuoteSubscription(
   })
 
   console.log(`✅ Quote ${quoteId} subscription plan updated`)
+}
+
+/**
+ * Update quote (Client-side)
+ * 
+ * @param quoteId - ID of the quote to update
+ * @param data - Partial quote data to update
+ * @param tenantId - Tenant ID for security validation (not used client-side, validation happens server-side)
+ */
+export async function updateQuote(
+  quoteId: string,
+  data: Partial<Quote>,
+  tenantId: string
+): Promise<void> {
+  const quoteRef = doc(db, "quotes", quoteId)
+  await updateDoc(quoteRef, {
+    ...data,
+    updatedAt: clientServerTimestamp(),
+  })
+  
+  console.log(`✅ Quote ${quoteId} updated successfully`)
 }
