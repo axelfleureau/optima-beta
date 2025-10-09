@@ -49,7 +49,7 @@ export function KanbanBoard({
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex gap-6 h-full" style={{ minWidth: "1400px" }}>
+      <div className="flex gap-4 md:gap-6 pb-4 overflow-x-auto scroll-smooth snap-x snap-mandatory md:snap-none">
         {columns.map((column) => (
           <KanbanColumn
             key={column.id}

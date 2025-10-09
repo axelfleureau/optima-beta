@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -31,6 +32,7 @@ import {
   X,
   FileText,
   ImageIcon,
+  Menu,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
@@ -43,7 +45,25 @@ import { UserAssignmentSelect } from "@/components/ui/user-assignment-select"
 import { ClientSidebar } from "./client-sidebar"
 import { KanbanBoard } from "./kanban-board"
 import { useWorkspaceLayout } from "@/hooks/use-workspace-layout"
+import { useIsMounted } from "@/hooks/use-is-mounted"
 import type { Task } from "@/lib/types"
+
+// Import Sheet dynamically with ssr: false to prevent hydration mismatch
+const MobileSheet = dynamic(
+  () => import("@/components/ui/sheet").then(mod => ({ 
+    default: ({ open, onOpenChange, children }: any) => (
+      <mod.Sheet open={open} onOpenChange={onOpenChange}>
+        {children}
+      </mod.Sheet>
+    )
+  })),
+  { ssr: false }
+)
+
+const SheetContent = dynamic(
+  () => import("@/components/ui/sheet").then(mod => ({ default: mod.SheetContent })),
+  { ssr: false }
+)
 
 const defaultColumns = [
   { id: "to-do", title: "To Do", color: "border-blue-200", bgColor: "bg-blue-50", iconColor: "text-blue-600" },
@@ -151,9 +171,11 @@ export function WorkspaceShell() {
   const [showPassword, setShowPassword] = useState(false)
   const [isCreatingClient, setIsCreatingClient] = useState(false)
   const [uploadingFiles, setUploadingFiles] = useState(false)
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const { toast } = useToast()
   const { addNotification } = useNotifications()
   const { users } = useUsers()
+  const isMounted = useIsMounted()
 
   const {
     selectedClientId,
@@ -598,28 +620,72 @@ export function WorkspaceShell() {
   const activeColumns = showTenantWorkspace ? tenantColumns : defaultColumns
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700">
-      <div className="flex h-screen">
-        <ClientSidebar
-          clients={clients}
-          allTasks={allTasks}
-          selectedClientId={selectedClientId}
-          showAllClients={showAllClients}
-          showTenantWorkspace={showTenantWorkspace}
-          collapsed={sidebarCollapsed}
-          onSelectClient={handleClientWorkspaceClick}
-          onSelectAllClients={handleAllClientsClick}
-          onSelectTenantWorkspace={handleTenantWorkspaceClick}
-          onToggleCollapse={toggleSidebar}
-          onAddClient={() => setShowClientDialog(true)}
-        />
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700">
+      <div className="flex min-h-[100dvh]">
+        {/* Desktop Sidebar - Hidden on mobile */}
+        <div className="hidden lg:block">
+          <ClientSidebar
+            clients={clients}
+            allTasks={allTasks}
+            selectedClientId={selectedClientId}
+            showAllClients={showAllClients}
+            showTenantWorkspace={showTenantWorkspace}
+            collapsed={sidebarCollapsed}
+            onSelectClient={handleClientWorkspaceClick}
+            onSelectAllClients={handleAllClientsClick}
+            onSelectTenantWorkspace={handleTenantWorkspaceClick}
+            onToggleCollapse={toggleSidebar}
+            onAddClient={() => setShowClientDialog(true)}
+          />
+        </div>
+
+        {/* Mobile Sidebar - Sheet/Drawer (client-side only to prevent hydration mismatch) */}
+        <MobileSheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+          <SheetContent side="left" className="w-80 p-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl lg:hidden">
+            <ClientSidebar
+              clients={clients}
+              allTasks={allTasks}
+              selectedClientId={selectedClientId}
+              showAllClients={showAllClients}
+              showTenantWorkspace={showTenantWorkspace}
+              collapsed={false}
+              onSelectClient={(id) => {
+                handleClientWorkspaceClick(id)
+                setMobileSheetOpen(false)
+              }}
+              onSelectAllClients={() => {
+                handleAllClientsClick()
+                setMobileSheetOpen(false)
+              }}
+              onSelectTenantWorkspace={() => {
+                handleTenantWorkspaceClick()
+                setMobileSheetOpen(false)
+              }}
+              onToggleCollapse={() => setMobileSheetOpen(false)}
+              onAddClient={() => {
+                setShowClientDialog(true)
+                setMobileSheetOpen(false)
+              }}
+            />
+          </SheetContent>
+        </MobileSheet>
 
         <div className="flex-1 flex flex-col min-w-0">
           <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-lg">
-            <div className="p-6">
+            <div className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 lg:gap-4">
+                  {/* Mobile Hamburger Menu */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="lg:hidden"
+                    onClick={() => setMobileSheetOpen(true)}
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                  
+                  <div className="flex items-center gap-2 lg:gap-4">
                     {showTenantWorkspace ? (
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
                         <Building className="h-6 w-6 text-white" />
@@ -636,54 +702,57 @@ export function WorkspaceShell() {
                       </div>
                     )}
                     <div>
-                      <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                      <h1 className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                         {showTenantWorkspace
                           ? userData?.companyName || "Team Interno"
                           : showAllClients
                             ? "Tutti i Clienti"
                             : selectedClient?.name || "Seleziona Cliente"}
                       </h1>
-                      <p className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                        <Sparkles className="h-4 w-4" />
-                        {showTenantWorkspace
-                          ? "Workspace Interno"
-                          : showAllClients
-                            ? "Vista Globale Clienti"
-                            : "Workspace Cliente"}
+                      <p className="text-xs lg:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1 lg:gap-2">
+                        <Sparkles className="h-3 w-3 lg:h-4 lg:w-4" />
+                        <span className="hidden sm:inline">
+                          {showTenantWorkspace
+                            ? "Workspace Interno"
+                            : showAllClients
+                              ? "Vista Globale Clienti"
+                              : "Workspace Cliente"}
+                        </span>
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
+                <div className="flex items-center gap-2 lg:gap-3">
+                  <div className="relative hidden md:block">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                       placeholder="Cerca task..."
-                      className="pl-10 w-[250px] bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                      className="pl-10 w-[180px] lg:w-[250px] bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <Button
                     variant="outline"
-                    className="bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                    className="hidden lg:flex bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
                   >
                     <Filter className="mr-2 h-4 w-4" />
                     Filtri
                   </Button>
                   <Button
+                    size="sm"
                     className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                     onClick={handleNewTaskClick}
                   >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nuova Task
+                    <Plus className="h-4 w-4 lg:mr-2" />
+                    <span className="hidden lg:inline">Nuova Task</span>
                   </Button>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+          <div className="flex-1 overflow-auto p-4 lg:p-6">
             {tasksLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
