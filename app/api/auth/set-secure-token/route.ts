@@ -9,10 +9,32 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json()
+    const contentType = request.headers.get('content-type')
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error("Invalid content type:", contentType)
+      return NextResponse.json({ error: "Invalid content type. Expected application/json" }, { status: 400 })
+    }
+
+    const text = await request.text()
+    
+    if (!text || text.trim() === '') {
+      console.error("Empty request body received")
+      return NextResponse.json({ error: "Empty request body" }, { status: 400 })
+    }
+
+    let body
+    try {
+      body = JSON.parse(text)
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError, "Body:", text)
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+    }
+
     const { token } = body
 
     if (!token) {
+      console.error("No token in request body")
       return NextResponse.json({ error: "No token provided" }, { status: 400 })
     }
 
