@@ -159,17 +159,16 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-10 h-10 flex items-center justify-center">
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-16 h-16 flex items-center justify-center">
               <Image
                 src="/assets/logos/righello-logo.svg"
                 alt="Righello Logo"
-                width={40}
-                height={40}
-                className="w-10 h-10"
+                width={64}
+                height={64}
+                className="w-16 h-16"
               />
             </div>
-            <span className="text-white font-bold text-2xl">Optima</span>
           </div>
           <p className="text-gray-400">Accedi alla tua piattaforma di marketing</p>
         </div>

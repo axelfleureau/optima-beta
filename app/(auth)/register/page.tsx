@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff, Mail, Lock, User, Building, Chrome, Loader2 } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
 import { doc, setDoc } from "firebase/firestore"
@@ -140,11 +141,16 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-pink-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">O</span>
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-16 h-16 flex items-center justify-center">
+              <Image
+                src="/assets/logos/righello-logo.svg"
+                alt="Righello Logo"
+                width={64}
+                height={64}
+                className="w-16 h-16"
+              />
             </div>
-            <span className="text-white font-bold text-2xl">Optima</span>
           </div>
           <p className="text-gray-400">Crea il tuo account e inizia subito</p>
         </div>

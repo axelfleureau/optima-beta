@@ -7,8 +7,8 @@ import { CommandBar } from "@/components/command-bar/command-bar"
 import "./globals.css"
 
 export const metadata = {
-  title: "Optima Platform",
-  description: "Piattaforma di marketing intelligence",
+  title: "Righello Platform",
+  description: "AI Operations Platform for International Service Businesses",
   generator: "v0.dev",
 }
 

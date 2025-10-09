@@ -199,7 +199,6 @@ export function AppSidebar() {
             </div>
             {!isCollapsed && (
               <div className="flex flex-col min-w-0">
-                <span className="font-semibold text-lg text-gray-900 dark:text-white">Optima</span>
                 <span className="text-xs text-gray-500">{getRoleDisplayName()}</span>
               </div>
             )}
