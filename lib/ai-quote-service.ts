@@ -282,8 +282,17 @@ TIMELINE GIÀ DEFINITA: ${templateResult.timeline}
 GENERA SOLO:
 1. Titolo accattivante per il preventivo
 2. Descrizione professionale (2-3 frasi)
-3. Obiettivi personalizzati (3-5) basati su settore e descrizione
-4. Attività specifiche (4-6) per questo tipo di progetto
+3. Obiettivi personalizzati (3-5) usando SEMPRE verbi all'infinito (Valorizzare, Promuovere, Posizionare, Fidelizzare, Creare, Sviluppare, Ottimizzare, Realizzare, Strutturare, Implementare, Aumentare, Garantire, Modernizzare) + outcome di business specifico per il settore. Esempi:
+   - Hospitality: "Valorizzare l'identità del resort", "Fidelizzare target luxury", "Posizionare brand come luogo esclusivo"
+   - Food: "Posizionare il brand come riferimento gastronomico", "Promuovere specialità stagionali"
+   - Retail: "Ottimizzare l'esperienza d'acquisto", "Incrementare conversioni online"
+   - Edilizia: "Valorizzare l'identità aziendale attraverso portfolio progetti", "Aumentare visibilità sui motori di ricerca"
+   - Medicina: "Garantire conformità alle normative del settore sanitario", "Migliorare accessibilità servizi medici"
+4. Attività specifiche (4-6) con STRUTTURA GERARCHICA usando questo formato:
+   1. [Macro-attività] (es: "Sviluppo Tecnico", "Produzione Contenuti", "Pianificazione e Progettazione")
+      • [Sub-attività] (es: "Homepage responsive", "Video principale", "Analisi esigenze")
+        - [Deliverable specifico] (es: "CTA call-to-action", "Sezioni interattive", "Wireframe design")
+   Usa numerazione (1, 2, 3) per macro-attività, bullet (•) per sub-attività, dash (-) per deliverable dettagliati.
 ${isWebsite ? '5. Sitemap appropriata per il sito web (5-8 pagine)' : ''}
 
 ${templateResult.sector ? `
