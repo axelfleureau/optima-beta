@@ -1,4 +1,4 @@
-import { AlertCircle, Edit3, Eye, Users, CheckCircle2, Clock, Zap, Target } from "lucide-react"
+import { AlertCircle, Edit3, Eye, Users, CheckCircle2, Clock, Zap, Target, Instagram, Facebook, Linkedin, Video, Twitter, Youtube, Newspaper, Image as ImageIcon, Film, Sparkles } from "lucide-react"
 import { EditorialPostStatus as PostStatusEnum } from "@/lib/types"
 
 export const statusConfig = {
@@ -8,6 +8,7 @@ export const statusConfig = {
     color: "bg-amber-500",
     lightColor: "bg-amber-50 text-amber-700 border-amber-200",
     darkColor: "bg-amber-900/20 text-amber-400 border-amber-800",
+    borderColor: "border-l-4 border-l-amber-500",
   },
   [PostStatusEnum.BOZZA]: {
     label: "Bozza",
@@ -15,6 +16,7 @@ export const statusConfig = {
     color: "bg-blue-500",
     lightColor: "bg-blue-50 text-blue-700 border-blue-200",
     darkColor: "bg-blue-900/20 text-blue-400 border-blue-800",
+    borderColor: "border-l-4 border-l-blue-500",
   },
   [PostStatusEnum.REVISIONE_INTERNA]: {
     label: "Revisione Interna",
@@ -22,6 +24,7 @@ export const statusConfig = {
     color: "bg-purple-500",
     lightColor: "bg-purple-50 text-purple-700 border-purple-200",
     darkColor: "bg-purple-900/20 text-purple-400 border-purple-800",
+    borderColor: "border-l-4 border-l-purple-500",
   },
   [PostStatusEnum.REVISIONE_CLIENTE]: {
     label: "Revisione Cliente",
@@ -29,6 +32,7 @@ export const statusConfig = {
     color: "bg-pink-500",
     lightColor: "bg-pink-50 text-pink-700 border-pink-200",
     darkColor: "bg-pink-900/20 text-pink-400 border-pink-800",
+    borderColor: "border-l-4 border-l-pink-500",
   },
   [PostStatusEnum.APPROVATO]: {
     label: "Approvato",
@@ -36,6 +40,7 @@ export const statusConfig = {
     color: "bg-emerald-500",
     lightColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
     darkColor: "bg-emerald-900/20 text-emerald-400 border-emerald-800",
+    borderColor: "border-l-4 border-l-emerald-500",
   },
   [PostStatusEnum.PROGRAMMATO]: {
     label: "Programmato",
@@ -43,6 +48,7 @@ export const statusConfig = {
     color: "bg-teal-500",
     lightColor: "bg-teal-50 text-teal-700 border-teal-200",
     darkColor: "bg-teal-900/20 text-teal-400 border-teal-800",
+    borderColor: "border-l-4 border-l-teal-500",
   },
   [PostStatusEnum.PUBBLICATO]: {
     label: "Pubblicato",
@@ -50,6 +56,7 @@ export const statusConfig = {
     color: "bg-green-600",
     lightColor: "bg-green-50 text-green-700 border-green-200",
     darkColor: "bg-green-900/20 text-green-400 border-green-800",
+    borderColor: "border-l-4 border-l-green-600",
   },
   [PostStatusEnum.RIFIUTATO]: {
     label: "Rifiutato",
@@ -57,6 +64,7 @@ export const statusConfig = {
     color: "bg-red-500",
     lightColor: "bg-red-50 text-red-700 border-red-200",
     darkColor: "bg-red-900/20 text-red-400 border-red-800",
+    borderColor: "border-l-4 border-l-red-500",
   },
   [PostStatusEnum.ARCHIVIATO]: {
     label: "Archiviato",
@@ -64,6 +72,148 @@ export const statusConfig = {
     color: "bg-gray-500",
     lightColor: "bg-gray-50 text-gray-700 border-gray-200",
     darkColor: "bg-gray-900/20 text-gray-400 border-gray-800",
+    borderColor: "border-l-4 border-l-gray-500",
+  },
+}
+
+export const platformConfig = {
+  instagram: {
+    label: "Instagram",
+    icon: Instagram,
+    color: "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500",
+    lightColor: "bg-pink-50 text-pink-700 border-pink-200",
+    darkColor: "bg-pink-900/20 text-pink-400 border-pink-800",
+    iconColor: "text-pink-600 dark:text-pink-400",
+  },
+  facebook: {
+    label: "Facebook",
+    icon: Facebook,
+    color: "bg-blue-600",
+    lightColor: "bg-blue-50 text-blue-700 border-blue-200",
+    darkColor: "bg-blue-900/20 text-blue-400 border-blue-800",
+    iconColor: "text-blue-600 dark:text-blue-400",
+  },
+  linkedin: {
+    label: "LinkedIn",
+    icon: Linkedin,
+    color: "bg-blue-700",
+    lightColor: "bg-blue-50 text-blue-700 border-blue-200",
+    darkColor: "bg-blue-900/20 text-blue-400 border-blue-800",
+    iconColor: "text-blue-700 dark:text-blue-400",
+  },
+  tiktok: {
+    label: "TikTok",
+    icon: Video,
+    color: "bg-black",
+    lightColor: "bg-slate-50 text-slate-900 border-slate-200",
+    darkColor: "bg-slate-900/20 text-slate-100 border-slate-800",
+    iconColor: "text-slate-900 dark:text-slate-100",
+  },
+  x: {
+    label: "X (Twitter)",
+    icon: Twitter,
+    color: "bg-black",
+    lightColor: "bg-slate-50 text-slate-900 border-slate-200",
+    darkColor: "bg-slate-900/20 text-slate-100 border-slate-800",
+    iconColor: "text-slate-900 dark:text-slate-100",
+  },
+  youtube: {
+    label: "YouTube",
+    icon: Youtube,
+    color: "bg-red-600",
+    lightColor: "bg-red-50 text-red-700 border-red-200",
+    darkColor: "bg-red-900/20 text-red-400 border-red-800",
+    iconColor: "text-red-600 dark:text-red-400",
+  },
+  blog: {
+    label: "Blog",
+    icon: Newspaper,
+    color: "bg-orange-500",
+    lightColor: "bg-orange-50 text-orange-700 border-orange-200",
+    darkColor: "bg-orange-900/20 text-orange-400 border-orange-800",
+    iconColor: "text-orange-600 dark:text-orange-400",
+  },
+  pinterest: {
+    label: "Pinterest",
+    icon: ImageIcon,
+    color: "bg-red-500",
+    lightColor: "bg-red-50 text-red-700 border-red-200",
+    darkColor: "bg-red-900/20 text-red-400 border-red-800",
+    iconColor: "text-red-500 dark:text-red-400",
+  },
+  threads: {
+    label: "Threads",
+    icon: Sparkles,
+    color: "bg-black",
+    lightColor: "bg-slate-50 text-slate-900 border-slate-200",
+    darkColor: "bg-slate-900/20 text-slate-100 border-slate-800",
+    iconColor: "text-slate-900 dark:text-slate-100",
+  },
+  altro: {
+    label: "Altro",
+    icon: Target,
+    color: "bg-gray-500",
+    lightColor: "bg-gray-50 text-gray-700 border-gray-200",
+    darkColor: "bg-gray-900/20 text-gray-400 border-gray-800",
+    iconColor: "text-gray-600 dark:text-gray-400",
+  },
+}
+
+export const contentTypeConfig = {
+  post_singolo: {
+    label: "Post",
+    icon: ImageIcon,
+    color: "text-slate-600 dark:text-slate-400",
+  },
+  post: {
+    label: "Post",
+    icon: ImageIcon,
+    color: "text-slate-600 dark:text-slate-400",
+  },
+  carosello: {
+    label: "Carosello",
+    icon: ImageIcon,
+    color: "text-purple-600 dark:text-purple-400",
+  },
+  video: {
+    label: "Video",
+    icon: Film,
+    color: "text-blue-600 dark:text-blue-400",
+  },
+  reel: {
+    label: "Reel",
+    icon: Video,
+    color: "text-pink-600 dark:text-pink-400",
+  },
+  story: {
+    label: "Story",
+    icon: Sparkles,
+    color: "text-orange-600 dark:text-orange-400",
+  },
+  articolo_blog: {
+    label: "Articolo",
+    icon: Newspaper,
+    color: "text-orange-600 dark:text-orange-400",
+  },
+  newsletter: {
+    label: "Newsletter",
+    icon: Newspaper,
+    color: "text-teal-600 dark:text-teal-400",
+  },
+  podcast: {
+    label: "Podcast",
+    icon: Video,
+    color: "text-indigo-600 dark:text-indigo-400",
+  },
+  live: {
+    label: "Live",
+    icon: Zap,
+    color: "text-red-600 dark:text-red-400",
+  },
+  altro: {
+    label: "Altro",
+    icon: Target,
+    color: "text-gray-600 dark:text-gray-400",
   },
 }
 

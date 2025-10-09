@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
+import { CalendarExperienceProvider } from "@/lib/calendar-experience-context"
 
 // Lightweight loading placeholder
 function CalendarLoading() {
@@ -70,5 +71,9 @@ export default function CalendarWrapper() {
     return <CalendarLoading />
   }
 
-  return <CalendarComponent />
+  return (
+    <CalendarExperienceProvider>
+      <CalendarComponent />
+    </CalendarExperienceProvider>
+  )
 }

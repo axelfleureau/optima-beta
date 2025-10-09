@@ -23,6 +23,10 @@ import { CalendarView } from "../../../components/ui/calendar-view"
 import { PostFormDialog as EditorialPostFormDialog } from "../../../components/ui/post-form-dialog"
 import { AutoGenPreview } from "../../../components/calendar/auto-gen-preview"
 import { statusConfig, statusOrder } from "./utils/status-config"
+import { useCalendarExperience } from "@/lib/calendar-experience-context"
+import { ViewSwitcher } from "../../../components/calendar/view-switcher"
+import { CalendarWeekView } from "../../../components/calendar/calendar-week-view"
+import { CalendarDayView } from "../../../components/calendar/calendar-day-view"
 
 export default function EditorialCalendarClient() {
   const { userData } = useAuth()
@@ -35,6 +39,8 @@ export default function EditorialCalendarClient() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+
+  const { viewMode, selectedDate, setSelectedDate, setPosts, filteredPosts: contextFilteredPosts } = useCalendarExperience()
 
   const { clients, loading: clientsLoading } = useClients()
   const {
@@ -56,6 +62,10 @@ export default function EditorialCalendarClient() {
       setSelectedClientId(userData.clientId)
     }
   }, [userData, selectedClientId])
+
+  useEffect(() => {
+    setPosts(posts)
+  }, [posts, setPosts])
 
   const filteredPosts = useMemo(() => {
     return posts.filter(
@@ -279,12 +289,36 @@ export default function EditorialCalendarClient() {
           </TabsContent>
 
           <TabsContent value="calendar" className="space-y-6">
-            <CalendarView
-              posts={filteredPosts}
-              currentMonth={currentMonth}
-              onMonthChange={setCurrentMonth}
-              onEditPost={openEditForm}
-            />
+            <div className="mb-4">
+              <ViewSwitcher />
+            </div>
+            
+            {viewMode === "month" && (
+              <CalendarView
+                posts={filteredPosts}
+                currentMonth={selectedDate}
+                onMonthChange={setSelectedDate}
+                onEditPost={openEditForm}
+              />
+            )}
+
+            {viewMode === "week" && (
+              <CalendarWeekView
+                posts={filteredPosts}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                onEditPost={openEditForm}
+              />
+            )}
+
+            {viewMode === "day" && (
+              <CalendarDayView
+                posts={filteredPosts}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                onEditPost={openEditForm}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </div>
