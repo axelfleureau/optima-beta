@@ -11,6 +11,8 @@ export interface Quote {
   description?: string
   
   // DUAL CLIENT MODE: Platform Client (with clientId) OR External Client (with name+email)
+  clientMode?: 'platform' | 'external' // Track which client mode is active
+  
   // Platform Client fields - used when client exists in the platform
   clientId?: string
   clientName: string
