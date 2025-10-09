@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, where, getDocs, doc, addDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore"
+import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
 
@@ -83,57 +83,69 @@ export function useQuotes() {
       return
     }
 
-    fetchQuotes()
-  }, [userData?.tenantId])
+    setLoading(true)
+    setError(null)
 
-  const fetchQuotes = async () => {
-    try {
-      setLoading(true)
-      setError(null)
+    console.log("Setting up real-time listener for tenant:", userData?.tenantId)
 
-      console.log("Fetching quotes for tenant:", userData?.tenantId)
+    // Setup real-time query
+    const q = query(
+      collection(db, "quotes"), 
+      where("tenantId", "==", userData?.tenantId)
+    )
 
-      const q = query(collection(db, "quotes"), where("tenantId", "==", userData?.tenantId))
-      const snapshot = await getDocs(q)
+    // Setup onSnapshot listener
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        console.log("Real-time update: quotes changed")
+        
+        const quotesData = snapshot.docs.map((doc) => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            title: data.title || "",
+            description: data.description || "",
+            clientId: data.clientId || "",
+            clientName: data.clientName || "",
+            status: data.status || "draft",
+            currency: data.currency || "EUR",
+            items: data.items || [],
+            total: data.total || 0,
+            validUntil: safeToDate(data.validUntil),
+            createdAt: safeToDate(data.createdAt),
+            updatedAt: safeToDate(data.updatedAt),
+            tenantId: data.tenantId || "",
+            createdBy: data.createdBy || "",
+            shareToken: data.shareToken,
+            sentAt: data.sentAt ? safeToDate(data.sentAt) : undefined,
+            approvedAt: data.approvedAt ? safeToDate(data.approvedAt) : undefined,
+            approvedBy: data.approvedBy,
+            clientEmail: data.clientEmail,
+            paymentPlan: data.paymentPlan,
+          } as Quote
+        })
 
-      const quotesData = snapshot.docs.map((doc) => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          title: data.title || "",
-          description: data.description || "",
-          clientId: data.clientId || "",
-          clientName: data.clientName || "",
-          status: data.status || "draft",
-          currency: data.currency || "EUR",
-          items: data.items || [],
-          total: data.total || 0,
-          validUntil: safeToDate(data.validUntil),
-          createdAt: safeToDate(data.createdAt),
-          updatedAt: safeToDate(data.updatedAt),
-          tenantId: data.tenantId || "",
-          createdBy: data.createdBy || "",
-          shareToken: data.shareToken,
-          sentAt: data.sentAt ? safeToDate(data.sentAt) : undefined,
-          approvedAt: data.approvedAt ? safeToDate(data.approvedAt) : undefined,
-          approvedBy: data.approvedBy,
-          clientEmail: data.clientEmail,
-          paymentPlan: data.paymentPlan,
-        } as Quote
-      })
+        // Sort by creation date (newest first)
+        quotesData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
-      // Sort by creation date (newest first)
-      quotesData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        console.log("Real-time quotes updated:", quotesData.length)
+        setQuotes(quotesData)
+        setLoading(false)
+      },
+      (err) => {
+        console.error("Real-time listener error:", err)
+        setError("Errore nel caricamento real-time dei preventivi")
+        setLoading(false)
+      }
+    )
 
-      console.log("Fetched quotes:", quotesData.length)
-      setQuotes(quotesData)
-    } catch (err) {
-      console.error("Error fetching quotes:", err)
-      setError("Errore nel caricamento dei preventivi")
-    } finally {
-      setLoading(false)
+    // Cleanup: unsubscribe on unmount or tenantId change
+    return () => {
+      console.log("Unsubscribing from quotes listener")
+      unsubscribe()
     }
-  }
+  }, [userData?.tenantId])
 
   const createQuote = async (quoteData: Omit<Quote, "id" | "createdAt" | "updatedAt">) => {
     try {
@@ -164,7 +176,6 @@ export function useQuotes() {
       }
 
       const result = await response.json()
-      await fetchQuotes() // Refresh the list
       return result.id
     } catch (err) {
       console.error("Error creating quote:", err)
@@ -189,7 +200,6 @@ export function useQuotes() {
       })
 
       await updateDoc(quoteRef, updateData)
-      await fetchQuotes() // Refresh the list
     } catch (err) {
       console.error("Error updating quote:", err)
       throw new Error("Errore nell'aggiornamento del preventivo")
@@ -199,7 +209,6 @@ export function useQuotes() {
   const deleteQuote = async (id: string) => {
     try {
       await deleteDoc(doc(db, "quotes", id))
-      await fetchQuotes() // Refresh the list
     } catch (err) {
       console.error("Error deleting quote:", err)
       throw new Error("Errore nell'eliminazione del preventivo")
@@ -233,6 +242,5 @@ export function useQuotes() {
     deleteQuote,
     getQuotesByStatus,
     getQuoteStats,
-    refetch: fetchQuotes,
   }
 }
