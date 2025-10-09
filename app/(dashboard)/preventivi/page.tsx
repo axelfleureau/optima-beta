@@ -34,6 +34,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/lib/auth-context"
+import { addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 // Lazy load AI Quote Generator (PDF Generator) - reduces initial bundle size by ~150KB
 const AIQuoteGenerator = dynamic(
@@ -101,6 +106,9 @@ const statusConfig = {
 
 export default function PreventiviPage() {
   const { quotes, loading, error, getQuotesByStatus, getQuoteStats, deleteQuote } = useQuotes()
+  const { userData } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
   const [filters, setFilters] = useState<QuoteFiltersState>({
     searchTerm: "",
     status: "all",
@@ -124,6 +132,56 @@ export default function PreventiviPage() {
 
     return matchesSearch && matchesStatus && matchesAmount
   })
+
+  const handleCreateEmptyQuote = async () => {
+    if (!userData?.tenantId) {
+      toast({
+        title: "Errore",
+        description: "Devi essere autenticato per creare un preventivo",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const emptyQuote = {
+        tenantId: userData.tenantId,
+        title: "Nuovo Preventivo",
+        description: "",
+        clientId: "",
+        clientName: "",
+        clientEmail: "",
+        clientMode: "platform" as const,
+        status: "draft" as const,
+        obiettivi: [""],
+        attivita: [],
+        voci: [],
+        total: 0,
+        currency: "EUR",
+        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+
+      const docRef = await addDoc(collection(db, "quotes"), emptyQuote)
+      
+      toast({
+        title: "Preventivo creato",
+        description: "Reindirizzamento all'editor..."
+      })
+      
+      router.push(`/preventivi/${docRef.id}/edit`)
+    } catch (error) {
+      console.error("Error creating empty quote:", error)
+      toast({
+        title: "Errore",
+        description: "Impossibile creare il preventivo",
+        variant: "destructive"
+      })
+    } finally {
+      setShowNewQuoteMenu(false)
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     const config = statusConfig[status as keyof typeof statusConfig]
@@ -230,32 +288,34 @@ export default function PreventiviPage() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="cursor-pointer"
-                    onClick={() => {
-                      setShowNewQuoteMenu(false)
-                      // TODO: Implementare creazione preventivo vuoto
-                      console.log('Creazione preventivo vuoto')
-                    }}
+                    onClick={handleCreateEmptyQuote}
                   >
                     <FileText className="mr-2 h-4 w-4" />
                     Preventivo Vuoto
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    className="cursor-pointer"
+                    className="cursor-pointer opacity-50"
+                    disabled
                     onClick={() => {
                       setShowNewQuoteMenu(false)
-                      // TODO: Implementare template settore
-                      console.log('Template settore')
+                      toast({
+                        title: "Funzionalità in arrivo",
+                        description: "I template settore saranno disponibili presto"
+                      })
                     }}
                   >
                     <Wand2 className="mr-2 h-4 w-4" />
                     Da Template Settore
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    className="cursor-pointer"
+                    className="cursor-pointer opacity-50"
+                    disabled
                     onClick={() => {
                       setShowNewQuoteMenu(false)
-                      // TODO: Implementare duplicazione
-                      console.log('Duplica esistente')
+                      toast({
+                        title: "Funzionalità in arrivo",
+                        description: "La duplicazione sarà disponibile presto"
+                      })
                     }}
                   >
                     <User className="mr-2 h-4 w-4" />

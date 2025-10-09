@@ -445,7 +445,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 <TabsTrigger value="legal">Legale</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="overview" className="mt-4 flex-1 min-h-0">
+              <TabsContent value="overview" className="mt-4 flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="space-y-6">
                     <Card className={editMode.descrizione ? "border-pink-500" : ""}>
@@ -559,7 +559,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="details" className="mt-4 flex-1 min-h-0">
+              <TabsContent value="details" className="mt-4 flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="space-y-6">
                     <Card>
@@ -643,7 +643,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="client" className="mt-4 flex-1 min-h-0">
+              <TabsContent value="client" className="mt-4 flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <Card>
                     <CardHeader>
@@ -691,7 +691,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="project" className="mt-4 flex-1 min-h-0">
+              <TabsContent value="project" className="mt-4 flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="space-y-6">
                     {generatedQuote.preventivo.settore && (
@@ -927,7 +927,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="legal" className="mt-4 flex-1 min-h-0">
+              <TabsContent value="legal" className="mt-4 flex-1 min-h-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="space-y-6">
                     {generatedQuote.sezioniStandard && (
