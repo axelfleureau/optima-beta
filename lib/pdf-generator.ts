@@ -60,15 +60,33 @@ export class RighelloPDFGenerator {
     this.doc.setFillColor(212, 70, 239) // Pink
     this.doc.rect(0, 0, this.pageWidth, 40, 'F')
     
-    // Logo + Brand (white on pink)
-    this.doc.setFontSize(28)
+    // Draw Righello Logo (3 white rectangles on pink background)
+    const logoX = this.margin
+    const logoY = 10
+    const logoWidth = 25
+    const logoHeight = 5
+    const logoSpacing = 7
+    
+    this.doc.setFillColor(255, 255, 255) // White rectangles
+    
+    // Top rectangle
+    this.doc.roundedRect(logoX, logoY, logoWidth, logoHeight, 1, 1, 'F')
+    
+    // Middle rectangle (shorter)
+    this.doc.roundedRect(logoX, logoY + logoSpacing, logoWidth * 0.6, logoHeight, 1, 1, 'F')
+    
+    // Bottom rectangle
+    this.doc.roundedRect(logoX, logoY + (logoSpacing * 2), logoWidth, logoHeight, 1, 1, 'F')
+    
+    // Brand text (white on pink)
+    this.doc.setFontSize(16)
     this.doc.setFont('helvetica', 'bold')
     this.doc.setTextColor(255, 255, 255) // White
-    this.doc.text('RIGHELLO', this.margin, 20)
+    this.doc.text('RIGHELLO', logoX + logoWidth + 5, logoY + 8)
     
-    this.doc.setFontSize(11)
+    this.doc.setFontSize(10)
     this.doc.setFont('helvetica', 'normal')
-    this.doc.text('We Are Digital', this.margin, 28)
+    this.doc.text('We Are Digital', logoX + logoWidth + 5, logoY + 15)
     
     // Quote info (right aligned, white)
     const rightMargin = this.pageWidth - this.margin
@@ -496,25 +514,38 @@ export class RighelloPDFGenerator {
     this.currentY += 5
   }
 
-  private drawFooter(pageNumber: number): void {
-    const footerY = this.pageHeight - 15
+  private drawFooter(pageNumber: number, totalPages: number): void {
+    const footerHeight = 25
+    const footerY = this.pageHeight - footerHeight
     
-    // Footer line (pink)
-    this.doc.setDrawColor(212, 70, 239)
-    this.doc.setLineWidth(1)
-    this.doc.line(this.margin, footerY - 5, this.pageWidth - this.margin, footerY - 5)
+    // Top border (thin gray)
+    this.doc.setDrawColor(229, 231, 235) // Light gray border
+    this.doc.setLineWidth(0.3)
+    this.doc.line(0, footerY, this.pageWidth, footerY)
     
-    // Footer text
+    // Background (light gray)
+    this.doc.setFillColor(249, 250, 251) // #F9FAFB
+    this.doc.rect(0, footerY, this.pageWidth, footerHeight, 'F')
+    
+    // Footer text styling
     this.doc.setFontSize(8)
+    this.doc.setTextColor(55, 65, 81) // Dark gray
+    
+    // Line 1: Company name (bold)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.text('RIGHELLO S.R.L.', this.pageWidth / 2, footerY + 6, { align: 'center' })
+    
+    // Line 2: P.IVA and address
     this.doc.setFont('helvetica', 'normal')
-    this.doc.setTextColor(107, 114, 128) // Gray
+    this.doc.text('P.IVA/CF: 01979790934 | Via Villaraccolta 23, 33080 Pasiano di Pordenone (PN)', this.pageWidth / 2, footerY + 11, { align: 'center' })
     
-    const footerText = 'Righello Digital S.r.l. | Via Example 123, 00100 Roma | P.IVA 12345678901 | info@righello.com'
-    this.doc.text(footerText, this.pageWidth / 2, footerY, { align: 'center' })
+    // Line 3: PEC and capital
+    this.doc.text('PEC: www.apgbora.waste@righello.co | Capitale Sociale: €10.000,00 i.v.', this.pageWidth / 2, footerY + 16, { align: 'center' })
     
-    // Page number
-    const pageNum = `Pagina ${pageNumber}`
-    this.doc.text(pageNum, this.pageWidth - this.margin, footerY, { align: 'right' })
+    // Page number (bottom right)
+    this.doc.setFontSize(7)
+    this.doc.setTextColor(107, 114, 128) // Lighter gray for page number
+    this.doc.text(`Pagina ${pageNumber} di ${totalPages}`, this.pageWidth - this.margin, footerY + 21, { align: 'right' })
   }
 
   public generatePDF(data: GeneratedQuoteData): jsPDF {
@@ -543,7 +574,7 @@ export class RighelloPDFGenerator {
     const totalPages = this.doc.getNumberOfPages()
     for (let i = 1; i <= totalPages; i++) {
       this.doc.setPage(i)
-      this.drawFooter(i)
+      this.drawFooter(i, totalPages)
     }
 
     return this.doc
