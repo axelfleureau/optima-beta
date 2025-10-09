@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useState, useMemo } from "react"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Quote } from "@/types/quote"
@@ -83,6 +83,17 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
   
   const clientMode = form.watch("clientMode")
   
+  const voci = useWatch({ control: form.control, name: 'voci' })
+  
+  const totalePreventivo = useMemo(() => {
+    if (!voci || voci.length === 0) return 0
+    return voci.reduce((acc, voce) => {
+      const quantita = voce?.quantita || 0
+      const prezzoUnitario = voce?.prezzoUnitario || 0
+      return acc + (quantita * prezzoUnitario)
+    }, 0)
+  }, [voci])
+  
   const onSaveDraft = async (data: QuoteFormData) => {
     if (!userData?.tenantId) return
     
@@ -91,6 +102,7 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
       // Prepare clean payload based on client mode
       const payload: Partial<Quote> = {
         ...data,
+        total: totalePreventivo, // Include calculated total
         status: "draft",
       }
       
@@ -120,7 +132,10 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
     setSending(true)
     try {
       // Prepare clean payload based on client mode
-      const payload: Partial<Quote> = { ...data }
+      const payload: Partial<Quote> = { 
+        ...data,
+        total: totalePreventivo, // Include calculated total
+      }
       
       // Clean opposite client fields based on mode
       if (data.clientMode === 'platform') {
@@ -347,6 +362,24 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+        </GlassCard>
+        
+        <GlassCard 
+          variant="default" 
+          padding="lg" 
+          className="mt-6 bg-gradient-to-br from-slate-50/80 to-transparent dark:from-slate-900/50 dark:to-transparent border-slate-200/50 dark:border-slate-700/50"
+        >
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <span className="text-lg font-semibold text-gray-900 dark:text-white">
+              Totale Preventivo
+            </span>
+            <span className="text-2xl md:text-3xl font-bold text-pink-600 dark:text-pink-400">
+              {new Intl.NumberFormat('it-IT', { 
+                style: 'currency', 
+                currency: 'EUR' 
+              }).format(totalePreventivo)}
+            </span>
+          </div>
         </GlassCard>
         
         <div className="flex flex-col sm:flex-row gap-3 justify-end">
