@@ -3,6 +3,8 @@
 ## Overview
 Optima is an AI Operations Platform designed for international service businesses, evolving from a marketing intelligence SaaS. It provides an intelligent, efficient, and secure solution for managing and automating operational tasks. Key features include autonomous AI agents, a conversational Command Bar interface, multi-tenant architecture, automated quote-to-payment workflows via Stripe, and content generation using DALL-E/Sora 2. The platform targets agencies and SMEs globally, offering a disruptive glassmorphic/liquid glass design aesthetic.
 
+**Documentation:** Complete technical due diligence documentation available in `README.md` with architecture, API endpoints, security model, database schema, and deployment instructions.
+
 ## User Preferences
 - Language: Italian (UI and content)
 - Theme: Dark mode with pink accent colors
