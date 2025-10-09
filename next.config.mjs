@@ -7,6 +7,14 @@ const nextConfig = {
       '.replit.dev',
     ],
   },
+  // Webpack configuration to fix chunk loading timeout
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Increase chunk loading timeout to 60 seconds (default is 120000ms/2min)
+      config.output.chunkLoadTimeout = 60000
+    }
+    return config
+  },
   // Allow all hosts for Replit proxy environment
   async rewrites() {
     return []
@@ -18,7 +26,7 @@ const nextConfig = {
         headers: [
           {
             key: 'X-Frame-Options',
-            value: 'DENY',
+            value: 'SAMEORIGIN',
           },
           {
             key: 'X-Content-Type-Options',
