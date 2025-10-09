@@ -159,7 +159,9 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
 
   const isStep1Valid = !!formData.projectType
   const isStep2Valid = !!formData.sector
-  const isStep3Valid = formData.description && formData.description.length >= 50
+  const isStep3Valid = formData.description && formData.description.length >= 50 &&
+    (formData.budgetRange?.min || 0) >= 1000 && (formData.budgetRange?.min || 0) <= 20000 &&
+    (formData.budgetRange?.max || 0) >= 1000 && (formData.budgetRange?.max || 0) <= 20000
   const isStep4Valid = formData.clientMode === 'platform' 
     ? !!formData.clientId 
     : !!(formData.clientName && formData.clientEmail)
@@ -248,7 +250,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
           </p>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6">
+        <ScrollArea className="flex-1 max-h-[calc(90vh-180px)] px-6">
           <AnimatePresence mode="wait" custom={currentStep}>
             <motion.div
               key={currentStep}
@@ -447,19 +449,80 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
 
                     <div>
                       <Label>Budget Range</Label>
-                      <div className="mt-2 space-y-4">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Min: €{formData.budgetRange?.min.toLocaleString()}</span>
-                          <span className="text-muted-foreground">Max: €{formData.budgetRange?.max.toLocaleString()}</span>
+                      <div className="mt-2 space-y-3">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="budgetMin" className="text-xs text-muted-foreground mb-1 block">
+                              Budget Minimo (€)
+                            </Label>
+                            <Input
+                              id="budgetMin"
+                              type="number"
+                              min={1000}
+                              max={20000}
+                              step={500}
+                              value={formData.budgetRange?.min || 3000}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 1000
+                                const clamped = Math.max(1000, Math.min(20000, value))
+                                setFormData({ 
+                                  ...formData, 
+                                  budgetRange: { 
+                                    min: clamped, 
+                                    max: Math.max(clamped, formData.budgetRange?.max || 10000) 
+                                  } 
+                                })
+                              }}
+                              className="bg-white/50 dark:bg-black/30 backdrop-blur-sm"
+                            />
+                            {(formData.budgetRange?.min && (formData.budgetRange.min < 1000 || formData.budgetRange.min > 20000)) && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                Il budget deve essere tra €1.000 e €20.000
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <Label htmlFor="budgetMax" className="text-xs text-muted-foreground mb-1 block">
+                              Budget Massimo (€)
+                            </Label>
+                            <Input
+                              id="budgetMax"
+                              type="number"
+                              min={1000}
+                              max={20000}
+                              step={500}
+                              value={formData.budgetRange?.max || 10000}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 10000
+                                const clamped = Math.max(1000, Math.min(20000, value))
+                                setFormData({ 
+                                  ...formData, 
+                                  budgetRange: { 
+                                    min: Math.min(formData.budgetRange?.min || 3000, clamped),
+                                    max: clamped
+                                  } 
+                                })
+                              }}
+                              className="bg-white/50 dark:bg-black/30 backdrop-blur-sm"
+                            />
+                            {(formData.budgetRange?.max && (formData.budgetRange.max < 1000 || formData.budgetRange.max > 20000)) && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                Il budget deve essere tra €1.000 e €20.000
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <Slider
-                          value={[formData.budgetRange?.min || 3000, formData.budgetRange?.max || 10000]}
-                          onValueChange={([min, max]) => setFormData({ ...formData, budgetRange: { min, max } })}
-                          min={1000}
-                          max={20000}
-                          step={500}
-                          className="w-full"
-                        />
+                        <div className="flex items-center justify-between px-2 py-2 rounded-md bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+                          <div className="flex items-center gap-2">
+                            <Euro className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                            <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                              Range: €{formData.budgetRange?.min.toLocaleString()} - €{formData.budgetRange?.max.toLocaleString()}
+                            </span>
+                          </div>
+                          <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700">
+                            Δ €{((formData.budgetRange?.max || 10000) - (formData.budgetRange?.min || 3000)).toLocaleString()}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   </div>

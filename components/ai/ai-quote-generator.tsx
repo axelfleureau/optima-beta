@@ -405,16 +405,30 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
             )}
 
           {step === 'generating' && (
-            <div className="flex flex-col items-center justify-center h-full min-h-[300px] max-h-[60vh] space-y-6">
-              <div className="relative">
-                <Loader2 className="w-12 h-12 animate-spin text-pink-500" />
-                <Sparkles className="w-6 h-6 text-pink-300 absolute -top-2 -right-2 animate-pulse" />
-              </div>
-              <div className="text-center space-y-2">
-                <h3 className="text-lg font-semibold">Generazione preventivo in corso...</h3>
-                <p className="text-sm text-muted-foreground">
-                  L'AI sta analizzando i tuoi input e creando un preventivo professionale
-                </p>
+            <div className="relative flex flex-col items-center justify-center h-full min-h-[300px] max-h-[60vh] space-y-6">
+              {/* Glassmorphic overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-blue-500/10 backdrop-blur-sm rounded-lg" />
+              
+              {/* Loading content */}
+              <div className="relative z-10 flex flex-col items-center space-y-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-pink-500/20 blur-xl rounded-full animate-pulse" />
+                  <Loader2 className="relative w-16 h-16 animate-spin text-pink-500" />
+                  <Sparkles className="w-8 h-8 text-pink-300 absolute -top-2 -right-2 animate-pulse" />
+                </div>
+                <div className="text-center space-y-2 px-8">
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 dark:from-purple-400 dark:via-pink-400 dark:to-blue-400 bg-clip-text text-transparent">
+                    Generazione preventivo AI in corso...
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    L'AI sta analizzando i tuoi input e creando un preventivo professionale personalizzato
+                  </p>
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -955,19 +969,28 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               </TabsContent>
 
               <div className="flex justify-end gap-3 mt-4 pt-4 border-t flex-shrink-0">
-                <Button variant="outline" onClick={() => { setStep('enrichment'); setEnrichmentDialogOpen(true); }}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => { setStep('enrichment'); setEnrichmentDialogOpen(true); }}
+                  disabled={isRegenerating}
+                >
                   <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
                   Modifica
                 </Button>
                 <Button 
                   variant="outline" 
                   onClick={handleDownloadPDF}
-                  className="border-pink-200 text-pink-700 hover:bg-pink-50"
+                  disabled={isRegenerating}
+                  className="border-pink-200 text-pink-700 hover:bg-pink-50 disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Scarica PDF
                 </Button>
-                <Button onClick={handleSaveQuote} className="bg-green-600 hover:bg-green-700">
+                <Button 
+                  onClick={handleSaveQuote} 
+                  disabled={isRegenerating}
+                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                >
                   <Save className="w-4 h-4 mr-2" />
                   Salva Preventivo
                 </Button>
