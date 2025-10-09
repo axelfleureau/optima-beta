@@ -430,8 +430,7 @@ export default function PreventiviPage() {
                       key={quote.id}
                       quote={quote}
                       onEdit={(id) => {
-                        // TODO: Implement edit navigation
-                        console.log('Edit quote:', id)
+                        router.push(`/preventivi/${id}/edit`)
                       }}
                       onSend={(id) => {
                         // TODO: Implement send quote
