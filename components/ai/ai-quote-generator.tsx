@@ -437,7 +437,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
           {step === 'review' && generatedQuote && (
             <Tabs defaultValue="overview" className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
                 <TabsTrigger value="overview">Riepilogo</TabsTrigger>
                 <TabsTrigger value="project">Progetto</TabsTrigger>
                 <TabsTrigger value="details">Dettagli</TabsTrigger>
@@ -445,8 +445,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 <TabsTrigger value="legal">Legale</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="overview" className="mt-4">
-                <ScrollArea className="h-full max-h-[50vh]">
+              <TabsContent value="overview" className="mt-4 flex-1 min-h-0">
+                <ScrollArea className="h-full">
                   <div className="space-y-6">
                     <Card className={editMode.descrizione ? "border-pink-500" : ""}>
                       <CardHeader>
@@ -559,8 +559,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="details" className="mt-4">
-                <ScrollArea className="h-full max-h-[50vh]">
+              <TabsContent value="details" className="mt-4 flex-1 min-h-0">
+                <ScrollArea className="h-full">
                   <div className="space-y-6">
                     <Card>
                       <CardHeader>
@@ -643,8 +643,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="client" className="mt-4">
-                <ScrollArea className="h-full max-h-[50vh]">
+              <TabsContent value="client" className="mt-4 flex-1 min-h-0">
+                <ScrollArea className="h-full">
                   <Card>
                     <CardHeader>
                       <CardTitle>Informazioni Cliente</CardTitle>
@@ -691,8 +691,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="project" className="mt-4">
-                <ScrollArea className="h-full max-h-[50vh]">
+              <TabsContent value="project" className="mt-4 flex-1 min-h-0">
+                <ScrollArea className="h-full">
                   <div className="space-y-6">
                     {generatedQuote.preventivo.settore && (
                       <Card>
@@ -927,8 +927,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="legal" className="mt-4">
-                <ScrollArea className="h-full max-h-[50vh]">
+              <TabsContent value="legal" className="mt-4 flex-1 min-h-0">
+                <ScrollArea className="h-full">
                   <div className="space-y-6">
                     {generatedQuote.sezioniStandard && (
                       <>
