@@ -29,6 +29,7 @@ interface ClientSidebarProps {
   onSelectTenantWorkspace: () => void
   onToggleCollapse: () => void
   onAddClient: () => void
+  isMobile?: boolean
 }
 
 export function ClientSidebar({
@@ -43,6 +44,7 @@ export function ClientSidebar({
   onSelectTenantWorkspace,
   onToggleCollapse,
   onAddClient,
+  isMobile = false,
 }: ClientSidebarProps) {
   const { userData } = useAuth()
   const [clientSearchTerm, setClientSearchTerm] = useState("")
@@ -124,14 +126,16 @@ export function ClientSidebar({
             >
               <UserPlus className="h-4 w-4 text-pink-600" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 hover:bg-slate-200 dark:hover:bg-slate-700"
-              onClick={onToggleCollapse}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
+            {!isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-slate-200 dark:hover:bg-slate-700"
+                onClick={onToggleCollapse}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 

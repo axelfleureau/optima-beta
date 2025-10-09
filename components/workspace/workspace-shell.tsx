@@ -636,6 +636,7 @@ export function WorkspaceShell() {
             onSelectTenantWorkspace={handleTenantWorkspaceClick}
             onToggleCollapse={toggleSidebar}
             onAddClient={() => setShowClientDialog(true)}
+            isMobile={false}
           />
         </div>
 
@@ -666,6 +667,7 @@ export function WorkspaceShell() {
                 setShowClientDialog(true)
                 setMobileSheetOpen(false)
               }}
+              isMobile={true}
             />
           </SheetContent>
         </MobileSheet>
