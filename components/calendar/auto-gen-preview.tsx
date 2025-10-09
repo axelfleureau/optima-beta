@@ -1,7 +1,8 @@
 'use client'
 
 import { useAutoGenStore } from '@/lib/stores/auto-gen-store'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Button } from '@/components/ui/button'
 import { LiquidButton } from '@/components/ui/liquid-button'
 import { motion } from 'framer-motion'
@@ -33,6 +34,9 @@ export function AutoGenPreview() {
   return (
     <Dialog open={isOpen} onOpenChange={() => !isGenerating && discard()}>
       <DialogContent className="max-w-2xl bg-background/95 backdrop-blur-xl border border-purple-500/20">
+        <VisuallyHidden>
+          <DialogTitle>AI Content Generation Preview</DialogTitle>
+        </VisuallyHidden>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold flex items-center gap-2">

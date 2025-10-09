@@ -5,7 +5,8 @@ import { motion } from 'framer-motion'
 import { Download, Trash2, Maximize2, Sparkles } from 'lucide-react'
 import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import type { GeneratedAsset } from '@/lib/types'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -131,6 +132,9 @@ export function TaskAssetGallery({ assets, onDelete }: TaskAssetGalleryProps) {
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-4xl bg-black/80 backdrop-blur-xl border-white/20">
+          <VisuallyHidden>
+            <DialogTitle>Asset Preview</DialogTitle>
+          </VisuallyHidden>
           {selectedAsset && (
             <div className="space-y-4">
               <div className="relative">
