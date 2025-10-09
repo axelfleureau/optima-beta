@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai"
-import { generateObject } from "ai"
+import { generateObject, streamText } from "ai"
 import { z } from "zod"
 import type { CommandContext, NLPResponse, CommandIntent } from "@/lib/types"
 
@@ -84,12 +84,19 @@ Analizza i comandi dell'utente ed estrai:
    - dueDate: data di scadenza
    - status: todo, in-progress, review, done
    
-   Per CONTENT CREATION intents:
-   - contentType: "post" | "reel" | "video" (tipo di contenuto)
-   - platform: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube" (piattaforma social)
+   Per CONTENT CREATION intents (POST/REEL/VIDEO):
+   - contentType: "post" | "reel" | "video" | "story" | "carousel" (tipo di contenuto)
+   - platform: array di platforms (es: ["instagram", "facebook", "linkedin", "tiktok", "youtube"]) - multi-platform support
    - clientName: nome del cliente per cui creare il contenuto
-   - topic: argomento/tema del contenuto
+   - topic: argomento/tema del contenuto (descrizione dettagliata)
+   - tone: "professionale" | "casual" | "ironico" | "motivazionale" | "informativo" | "emozionale" (tono di comunicazione)
+   - targetAudience: descrizione target audience (es: "giovani 18-25", "professionisti B2B", "mamme 30-45")
+   - callToAction: CTA richiesta (es: "visita sito", "commenta", "condividi", "acquista ora", "iscriviti")
+   - hashtags: array di hashtag suggeriti/richiesti (es: ["#marketing", "#business", "#startup"])
+   - visualStyle: stile visual richiesto (es: "minimalista", "colorato", "elegante", "moderno", "vintage")
+   - length: durata video in secondi o numero slide carousel (es: 30, 60, 5)
    - publishDate: data di pubblicazione (formato ISO: YYYY-MM-DD)
+   - specificRequest: richiesta specifica utente (testo libero per dettagli aggiuntivi)
    - quantity: numero di contenuti da creare (per batch)
    
    Per TASK_REFINEMENT intent:
@@ -154,12 +161,13 @@ Esempi TASK:
 - "cerca task di Stark Industries" → SEARCH_TASK, entities: {clientName: "Stark Industries"}
 - "assegna task a Mario Rossi" → ASSIGN_TASK, entities: {assignee: "Mario Rossi"}
 
-Esempi CONTENT CREATION:
-- "Crea post Instagram per cliente Acme" → CREATE_CONTENT_POST, entities: {contentType: "post", platform: "instagram", clientName: "Acme"}
-- "Genera reel per Stark Industries sul prodotto Arc Reactor" → CREATE_CONTENT_REEL, entities: {contentType: "reel", clientName: "Stark Industries", topic: "prodotto Arc Reactor"}
-- "Pianifica TikTok per domani su nuovo servizio" → CREATE_CONTENT_REEL, entities: {contentType: "reel", platform: "tiktok", topic: "nuovo servizio", publishDate: "2025-10-07"}
-- "Fai 3 post social per cliente X questa settimana" → CREATE_CONTENT_BATCH, entities: {contentType: "post", clientName: "cliente X", quantity: 3}
-- "Crea video YouTube per lancio prodotto" → CREATE_CONTENT_VIDEO, entities: {contentType: "video", platform: "youtube", topic: "lancio prodotto"}
+Esempi CONTENT CREATION (con entity extraction avanzata):
+- "Crea post Instagram per cliente Acme" → CREATE_CONTENT_POST, entities: {contentType: "post", platform: ["instagram"], clientName: "Acme"}
+- "Genera reel ironico per Stark Industries sul prodotto Arc Reactor per giovani 18-25" → CREATE_CONTENT_REEL, entities: {contentType: "reel", clientName: "Stark Industries", topic: "prodotto Arc Reactor", tone: "ironico", targetAudience: "giovani 18-25"}
+- "Pianifica TikTok motivazionale per domani su nuovo servizio, stile minimalista, CTA visita sito" → CREATE_CONTENT_REEL, entities: {contentType: "reel", platform: ["tiktok"], topic: "nuovo servizio", publishDate: "2025-10-10", tone: "motivazionale", visualStyle: "minimalista", callToAction: "visita sito"}
+- "Fai 3 post social professionali per cliente X con hashtag #marketing #business" → CREATE_CONTENT_BATCH, entities: {contentType: "post", clientName: "cliente X", quantity: 3, tone: "professionale", hashtags: ["#marketing", "#business"]}
+- "Crea video YouTube 60 secondi per lancio prodotto, target professionisti B2B, tono informativo" → CREATE_CONTENT_VIDEO, entities: {contentType: "video", platform: ["youtube"], topic: "lancio prodotto", length: 60, targetAudience: "professionisti B2B", tone: "informativo"}
+- "Post Instagram e Facebook elegante su nuova collezione, target mamme 30-45, CTA acquista ora" → CREATE_CONTENT_POST, entities: {contentType: "post", platform: ["instagram", "facebook"], topic: "nuova collezione", visualStyle: "elegante", targetAudience: "mamme 30-45", callToAction: "acquista ora"}
 
 Esempi TASK REFINEMENT & DELIVERABLE:
 - "Raffina la task del post Instagram" → TASK_REFINEMENT, entities: {task_name: "post Instagram"}
@@ -216,6 +224,141 @@ Rispondi SEMPRE in JSON con lo schema richiesto.`
     }
 
     console.log("🤖 Intent Recognition Result:", response)
+    return response
+  } catch (error) {
+    console.error("❌ Intent recognition error:", error)
+    return {
+      intent: "UNKNOWN" as CommandIntent,
+      confidence: 0,
+      entities: {},
+      missingParams: [],
+      suggestedAction: "Riprova con un comando più chiaro",
+    }
+  }
+}
+
+export async function recognizeIntentWithStreaming(
+  message: string,
+  context: CommandContext,
+  onReasoningChunk?: (chunk: string) => void
+): Promise<NLPResponse> {
+  const clientNames = context.availableClients?.map((c) => c.name).join(", ") || "nessun cliente"
+  const userNames =
+    context.availableUsers?.map((u) => `${u.firstName} ${u.lastName}`).join(", ") || "nessun utente"
+
+  // Stage 1: Stream reasoning about the user's intent
+  const reasoningPrompt = `Sei un assistente AI per la piattaforma di marketing Optima. 
+Analizza il seguente comando dell'utente e spiega in modo conciso cosa stai comprendendo:
+
+Comando: "${message}"
+
+Contesto:
+- User role: ${context.userRole}
+- Current view: ${context.currentView || "unknown"}
+- Clienti disponibili: ${clientNames}
+- Team members: ${userNames}
+
+Spiega brevemente (2-3 frasi):
+1. Cosa vuole fare l'utente
+2. Quali informazioni hai identificato
+3. Cosa eseguirai
+
+Rispondi in italiano in modo naturale e conversazionale.`
+
+  try {
+    // Stream the reasoning
+    if (onReasoningChunk) {
+      const { textStream } = await streamText({
+        model: openai("gpt-4o"),
+        prompt: reasoningPrompt,
+        temperature: 0.5,
+      })
+
+      for await (const chunk of textStream) {
+        onReasoningChunk(chunk)
+      }
+    }
+
+    // Stage 2: Extract structured entities
+    const systemPrompt = `Sei un assistente AI per la piattaforma di marketing Optima. 
+Analizza i comandi dell'utente ed estrai:
+
+1. **Intent** (intenzione principale):
+   - CREATE_TASK: Creare una nuova task
+   - SEARCH_TASK: Cercare tasks esistenti
+   - ASSIGN_TASK: Assegnare una task a qualcuno
+   - UPDATE_TASK: Aggiornare una task esistente
+   - DELETE_TASK: Eliminare una task
+   - GENERATE_IMAGE: Generare immagini con AI
+   - PLAN_CAMPAIGN: Pianificare una campagna
+   - NAVIGATE: Navigare a una sezione dell'app
+   - SEARCH_GLOBAL: Ricerca globale
+   - SHOW_ANALYTICS: Mostrare analytics
+   - CREATE_CLIENT: Creare un nuovo cliente
+   - CREATE_CONTENT_POST: Creare post social (immagine/testo per Instagram/Facebook/LinkedIn)
+   - CREATE_CONTENT_REEL: Creare reel/short video (Instagram Reels, TikTok, YouTube Shorts)
+   - CREATE_CONTENT_VIDEO: Creare video lungo (YouTube, Facebook Video)
+   - CREATE_CONTENT_BATCH: Creare batch di contenuti multipli
+   - TASK_REFINEMENT: Raffinare una task con Technical Architect
+   - GENERATE_DELIVERABLE: Generare deliverable (copy o visual) per una task
+   - CREATE_WEBSITE: Creare sito web (landing page, corporate, e-commerce, portfolio)
+   - CREATE_GRAPHIC_DESIGN: Creare grafica vettoriale, logo, branding, materiali stampa
+   - CREATE_VIDEO_PRODUCTION: Organizzare shooting video professionale (location, regia, editing)
+   - CREATE_SOFTWARE_DEV: Sviluppo software (app, tool, feature, integrazione)
+   - CREATE_CAMPAIGN_PROJECT: Campagna completa con template e deliverable multipli
+   - UNKNOWN: Non riconosciuto
+
+2. **Entities** (parametri estratti dal messaggio):
+   
+   Per TASK intents:
+   - title: titolo della task
+   - description: descrizione
+   - clientId/clientName: nome del cliente
+   - priority: low, medium, high, urgent
+   - assignee/assignedUserId: utente assegnatario
+   - dueDate: data di scadenza
+   - status: todo, in-progress, review, done
+   
+   Per CONTENT CREATION intents (POST/REEL/VIDEO):
+   - contentType: "post" | "reel" | "video" | "story" | "carousel" (tipo di contenuto)
+   - platform: array di platforms (es: ["instagram", "facebook", "linkedin", "tiktok", "youtube"]) - multi-platform support
+   - clientName: nome del cliente per cui creare il contenuto
+   - topic: argomento/tema del contenuto (descrizione dettagliata)
+   - tone: "professionale" | "casual" | "ironico" | "motivazionale" | "informativo" | "emozionale" (tono di comunicazione)
+   - targetAudience: descrizione target audience (es: "giovani 18-25", "professionisti B2B", "mamme 30-45")
+   - callToAction: CTA richiesta (es: "visita sito", "commenta", "condividi", "acquista ora", "iscriviti")
+   - hashtags: array di hashtag suggeriti/richiesti (es: ["#marketing", "#business", "#startup"])
+   - visualStyle: stile visual richiesto (es: "minimalista", "colorato", "elegante", "moderno", "vintage")
+   - length: durata video in secondi o numero slide carousel (es: 30, 60, 5)
+   - publishDate: data di pubblicazione (formato ISO: YYYY-MM-DD)
+   - specificRequest: richiesta specifica utente (testo libero per dettagli aggiuntivi)
+   - quantity: numero di contenuti da creare (per batch)
+
+Contesto disponibile:
+- User role: ${context.userRole}
+- Current view: ${context.currentView || "unknown"}
+- Clienti disponibili: ${clientNames}
+- Team members: ${userNames}
+
+Rispondi SEMPRE in JSON con lo schema richiesto.`
+
+    const { object } = await generateObject({
+      model: openai("gpt-4o"),
+      schema: IntentSchema,
+      prompt: `${systemPrompt}\n\nComando utente: "${message}"`,
+      temperature: 0.3,
+    })
+
+    const response: NLPResponse = {
+      intent: object.intent as CommandIntent,
+      confidence: object.confidence,
+      entities: object.entities,
+      missingParams: object.missingParams,
+      suggestedAction: object.suggestedAction,
+      reasoning: object.reasoning,
+    }
+
+    console.log("🤖 Intent Recognition Result (Streaming):", response)
     return response
   } catch (error) {
     console.error("❌ Intent recognition error:", error)

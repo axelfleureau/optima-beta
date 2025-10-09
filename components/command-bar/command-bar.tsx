@@ -9,6 +9,7 @@ import { useUsers } from "@/hooks/use-users"
 import { CommandInput } from "./command-input"
 import { CommandResults } from "./command-results"
 import { ContextForm } from "./context-form"
+import { OrchestrationFeedback } from "./orchestration-feedback"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { liquidExpand } from "@/lib/animations/liquid"
@@ -92,6 +93,10 @@ export function CommandBar() {
 
               <div className="relative z-10">
                 <CommandInput />
+                
+                <div className="px-4 pb-4">
+                  <OrchestrationFeedback />
+                </div>
 
                 {status === "gathering" && missingParams.length > 0 && (
                   <div className="p-4 border-t border-white/20 dark:border-white/10">
