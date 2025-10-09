@@ -55,7 +55,7 @@ export function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl rounded-b-2xl p-3 md:p-4 space-y-3 transition-all duration-200 ${
+            className={`flex-1 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl rounded-b-2xl p-3 md:p-4 space-y-3 transition-all duration-200 max-h-[calc(100vh-280px)] overflow-y-auto ${
               snapshot.isDraggingOver ? "bg-blue-50/60 dark:bg-blue-900/20 ring-2 ring-blue-300 dark:ring-blue-600" : ""
             }`}
             style={{ minHeight: "400px" }}

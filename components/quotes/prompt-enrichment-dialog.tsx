@@ -228,7 +228,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0 gap-0 bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-white/30 dark:border-white/10">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-white/30 dark:border-white/10">
         <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
           <DialogTitle className="text-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 dark:from-purple-400 dark:via-pink-400 dark:to-blue-400 bg-clip-text text-transparent">
             Raccolta Informazioni Preventivo

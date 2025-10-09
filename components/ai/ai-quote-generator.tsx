@@ -381,7 +381,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       />
 
       <Dialog open={open && !enrichmentDialogOpen && step !== 'enrichment'} onOpenChange={handleClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-pink-500" />

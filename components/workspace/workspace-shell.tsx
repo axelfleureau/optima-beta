@@ -675,14 +675,15 @@ export function WorkspaceShell() {
             <div className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 lg:gap-4">
-                  {/* Mobile Hamburger Menu */}
+                  {/* Mobile Workspace/Client Selector */}
                   <Button
                     variant="ghost"
                     size="icon"
                     className="lg:hidden"
                     onClick={() => setMobileSheetOpen(true)}
+                    aria-label="Seleziona workspace/cliente"
                   >
-                    <Menu className="h-5 w-5" />
+                    <Building className="h-5 w-5" />
                   </Button>
                   
                   <div className="flex items-center gap-2 lg:gap-4">
