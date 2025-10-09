@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
         budgetRange: body.budgetRange || { min: 3000, max: 10000 },
         complexity: body.complexity || 'standard',
         timeline: body.timeline || '8-12 settimane',
+        clientMode: body.clientMode || 'external',
+        clientId: body.clientId,
         clientName: body.clientName,
         clientEmail: body.clientEmail,
         clientCompany: body.clientCompany,

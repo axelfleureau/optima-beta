@@ -126,7 +126,9 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
           projectTypeLabel: enrichedData.projectTypeLabel,
           sector: enrichedData.sector,
           sectorLabel: enrichedData.sectorLabel,
-          complexity: enrichedData.complexity
+          complexity: enrichedData.complexity,
+          clientMode: enrichedData.clientMode,
+          clientId: enrichedData.clientId,
         })
       })
 
