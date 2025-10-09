@@ -105,6 +105,26 @@ export function PostFormDialog({
   useEffect(() => {
     if (editingPost) {
       const postTypeValue = editingPost.postType || editingPost.format || "post_singolo"
+      
+      // Safe date normalization - handles Firestore Timestamp, Date, ISO string, or null
+      let scheduledDateString = ""
+      if (editingPost.scheduledDate) {
+        try {
+          if (typeof editingPost.scheduledDate === 'string') {
+            scheduledDateString = new Date(editingPost.scheduledDate).toISOString().split("T")[0]
+          } else if (editingPost.scheduledDate instanceof Date) {
+            scheduledDateString = editingPost.scheduledDate.toISOString().split("T")[0]
+          } else if (editingPost.scheduledDate.toDate && typeof editingPost.scheduledDate.toDate === 'function') {
+            scheduledDateString = editingPost.scheduledDate.toDate().toISOString().split("T")[0]
+          } else if (editingPost.scheduledDate.seconds) {
+            // Firestore Timestamp object without toDate method
+            scheduledDateString = new Date(editingPost.scheduledDate.seconds * 1000).toISOString().split("T")[0]
+          }
+        } catch (e) {
+          console.warn('Failed to parse scheduledDate:', editingPost.scheduledDate, e)
+        }
+      }
+      
       setFormData({
         title: editingPost.title || "",
         description: editingPost.description || "",
@@ -112,9 +132,7 @@ export function PostFormDialog({
         platform: Array.isArray(editingPost.platform) ? editingPost.platform[0] : editingPost.platform || "instagram",
         type: postTypeValue,
         postType: postTypeValue,
-        scheduledDate: editingPost.scheduledDate
-          ? new Date(editingPost.scheduledDate.toDate()).toISOString().split("T")[0]
-          : "",
+        scheduledDate: scheduledDateString,
         scheduledTime: editingPost.scheduledTime || "",
         status: editingPost.status || "bozza",
         hashtags: editingPost.hashtags || editingPost.tags || [],
