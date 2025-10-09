@@ -6,8 +6,23 @@ import { useQuotes } from "@/hooks/use-quotes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { QuoteCard } from "@/components/quotes/quote-card"
+import { QuoteFilters, QuoteFiltersState } from "@/components/quotes/quote-filters"
+import {
+  FileText,
+  Plus,
+  Send,
+  XCircle,
+  AlertCircle,
+  Sparkles,
+  Wand2,
+  ChevronDown,
+  DollarSign,
+  CheckCircle,
+  Clock,
+  User,
+} from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,30 +31,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  FileText,
-  Plus,
-  Search,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  Send,
-  Download,
-  Calendar,
-  DollarSign,
-  User,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Sparkles,
-  Wand2,
-  ChevronDown,
-} from "lucide-react"
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
 
 // Lazy load AI Quote Generator (PDF Generator) - reduces initial bundle size by ~150KB
 const AIQuoteGenerator = dynamic(
@@ -91,9 +82,11 @@ const statusConfig = {
 }
 
 export default function PreventiviPage() {
-  const { quotes, loading, error, getQuotesByStatus, getQuoteStats } = useQuotes()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
+  const { quotes, loading, error, getQuotesByStatus, getQuoteStats, deleteQuote } = useQuotes()
+  const [filters, setFilters] = useState<QuoteFiltersState>({
+    searchTerm: "",
+    status: "all",
+  })
   const [showAIGenerator, setShowAIGenerator] = useState(false)
   const [showNewQuoteMenu, setShowNewQuoteMenu] = useState(false)
 
@@ -101,12 +94,17 @@ export default function PreventiviPage() {
 
   const filteredQuotes = quotes.filter((quote) => {
     const matchesSearch =
-      quote.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      quote.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+      quote.clientName.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+      quote.description?.toLowerCase().includes(filters.searchTerm.toLowerCase())
 
-    if (activeTab === "all") return matchesSearch
-    return matchesSearch && quote.status === activeTab
+    const matchesStatus = filters.status === "all" || quote.status === filters.status
+    
+    const matchesAmount = 
+      (!filters.minAmount || quote.total >= filters.minAmount) &&
+      (!filters.maxAmount || quote.total <= filters.maxAmount)
+
+    return matchesSearch && matchesStatus && matchesAmount
   })
 
   const getStatusBadge = (status: string) => {
@@ -326,30 +324,15 @@ export default function PreventiviPage() {
             </Card>
           </div>
 
-          {/* Search and Filters */}
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Cerca preventivi..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white/80 backdrop-blur-sm border-gray-200/50"
-              />
-            </div>
-          </div>
+          {/* Filters */}
+          <QuoteFilters 
+            filters={filters} 
+            onFiltersChange={setFilters}
+            stats={stats}
+          />
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="bg-white/80 backdrop-blur-sm border-gray-200/50">
-              <TabsTrigger value="all">Tutti ({stats.total})</TabsTrigger>
-              <TabsTrigger value="draft">Bozze ({stats.draft})</TabsTrigger>
-              <TabsTrigger value="sent">Inviati ({stats.sent})</TabsTrigger>
-              <TabsTrigger value="pending">In Attesa ({stats.pending})</TabsTrigger>
-              <TabsTrigger value="accepted">Accettati ({stats.accepted})</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value={activeTab} className="space-y-6">
+          {/* Quotes List */}
+          <div className="space-y-6">
               {filteredQuotes.length === 0 ? (
                 <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
                   <CardContent className="flex flex-col items-center justify-center py-16">
@@ -360,7 +343,7 @@ export default function PreventiviPage() {
                       Nessun preventivo trovato
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400 text-center mb-6 max-w-md">
-                      {searchTerm
+                      {filters.searchTerm
                         ? "Nessun preventivo corrisponde ai criteri di ricerca."
                         : "Non hai ancora creato nessun preventivo."}
                     </p>
@@ -371,102 +354,35 @@ export default function PreventiviPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-6">
+                <div className="space-y-4">
                   {filteredQuotes.map((quote) => (
-                    <Card
+                    <QuoteCard
                       key={quote.id}
-                      className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300 overflow-hidden"
-                    >
-                      <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-2">
-                            <CardTitle className="text-xl text-gray-900 dark:text-white">{quote.title}</CardTitle>
-                            <CardDescription className="flex items-center gap-6 text-gray-600 dark:text-gray-400">
-                              <span className="flex items-center gap-2">
-                                <User className="h-4 w-4" />
-                                {quote.clientName}
-                              </span>
-                              <span className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4" />
-                                {format(quote.createdAt, "dd MMM yyyy", { locale: it })}
-                              </span>
-                              <span className="flex items-center gap-2">
-                                <DollarSign className="h-4 w-4" />
-                                {formatCurrency(quote.total, quote.currency)}
-                              </span>
-                            </CardDescription>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {isExpired(quote.validUntil, quote.status) ? (
-                              <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-0">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                Scaduto
-                              </Badge>
-                            ) : (
-                              getStatusBadge(quote.status)
-                            )}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className="bg-white/95 backdrop-blur-sm border-gray-200/50"
-                              >
-                                <DropdownMenuItem>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Visualizza
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Modifica
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Send className="mr-2 h-4 w-4" />
-                                  Invia
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Download className="mr-2 h-4 w-4" />
-                                  Scarica PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-600">
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Elimina
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-6">
-                        {quote.description && (
-                          <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">{quote.description}</p>
-                        )}
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400">
-                            Valido fino al:{" "}
-                            <span className="font-medium">
-                              {format(quote.validUntil, "dd MMM yyyy", { locale: it })}
-                            </span>
-                          </span>
-                          <span className="text-gray-500 dark:text-gray-400">
-                            <span className="font-medium">{quote.items.length}</span> elementi
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      quote={quote}
+                      onEdit={(id) => {
+                        // TODO: Implement edit navigation
+                        console.log('Edit quote:', id)
+                      }}
+                      onSend={(id) => {
+                        // TODO: Implement send quote
+                        console.log('Send quote:', id)
+                      }}
+                      onDownload={(id) => {
+                        // TODO: Implement download PDF
+                        console.log('Download quote:', id)
+                      }}
+                      onDelete={async (id) => {
+                        try {
+                          await deleteQuote(id)
+                        } catch (error) {
+                          console.error('Error deleting quote:', error)
+                        }
+                      }}
+                    />
                   ))}
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
+          </div>
         </div>
       </div>
       
