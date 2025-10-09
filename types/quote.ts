@@ -25,6 +25,12 @@ export interface Quote {
   currency: string
   items: QuoteItem[]
   total: number
+  
+  // Financial breakdown (optional for backward compatibility)
+  subtotale?: number
+  iva?: number
+  percentualeIva?: number
+  
   validUntil: Date
   createdAt: Date
   updatedAt: Date

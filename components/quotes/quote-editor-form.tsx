@@ -94,6 +94,12 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
     }, 0)
   }, [voci])
   
+  // Calculate VAT breakdown (22% standard rate for Italy)
+  const subtotalePreventivo = totalePreventivo
+  const ivaPercentuale = 22
+  const ivaImporto = subtotalePreventivo * (ivaPercentuale / 100)
+  const totaleConIva = subtotalePreventivo + ivaImporto
+  
   const onSaveDraft = async (data: QuoteFormData) => {
     if (!userData?.tenantId) return
     
@@ -102,7 +108,10 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
       // Prepare clean payload based on client mode
       const payload: Partial<Quote> = {
         ...data,
-        total: totalePreventivo, // Include calculated total
+        total: totaleConIva, // Include total with VAT
+        subtotale: subtotalePreventivo,
+        iva: ivaImporto,
+        percentualeIva: ivaPercentuale,
         status: "draft",
       }
       
@@ -134,7 +143,10 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
       // Prepare clean payload based on client mode
       const payload: Partial<Quote> = { 
         ...data,
-        total: totalePreventivo, // Include calculated total
+        total: totaleConIva, // Include total with VAT
+        subtotale: subtotalePreventivo,
+        iva: ivaImporto,
+        percentualeIva: ivaPercentuale,
       }
       
       // Clean opposite client fields based on mode
@@ -369,16 +381,32 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
           padding="lg" 
           className="mt-6 bg-gradient-to-br from-slate-50/80 to-transparent dark:from-slate-900/50 dark:to-transparent border-slate-200/50 dark:border-slate-700/50"
         >
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <span className="text-lg font-semibold text-gray-900 dark:text-white">
-              Totale Preventivo
-            </span>
-            <span className="text-2xl md:text-3xl font-bold text-pink-600 dark:text-pink-400">
-              {new Intl.NumberFormat('it-IT', { 
-                style: 'currency', 
-                currency: 'EUR' 
-              }).format(totalePreventivo)}
-            </span>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Subtotale</span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(subtotalePreventivo)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-600 dark:text-gray-400">IVA ({ivaPercentuale}%)</span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(ivaImporto)}
+              </span>
+            </div>
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Totale Preventivo
+                </span>
+                <span className="text-2xl md:text-3xl font-bold text-pink-600 dark:text-pink-400">
+                  {new Intl.NumberFormat('it-IT', { 
+                    style: 'currency', 
+                    currency: 'EUR' 
+                  }).format(totaleConIva)}
+                </span>
+              </div>
+            </div>
           </div>
         </GlassCard>
         

@@ -4,15 +4,143 @@ import { Quote } from "@/types/quote"
 import { GlassCard } from "@/components/ui/glass-card"
 import { LiquidButton } from "@/components/ui/liquid-button"
 import { FileText, Download, Eye } from "lucide-react"
+import { downloadQuotePDF, getQuotePDFBlob } from "@/lib/pdf-generator"
+import { GeneratedQuoteData } from "@/lib/ai-quote-service"
+import { useToast } from "@/hooks/use-toast"
 
 interface QuoteDocumentsTabProps {
   quote: Quote
 }
 
+// Mapper function: Quote → GeneratedQuoteData
+function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
+  // Calculate validity days from validUntil
+  const validityDays = quote.validUntil 
+    ? Math.ceil((new Date(quote.validUntil).getTime() - new Date(quote.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+    : 30
+
+  // Client email - prefer externalClientEmail, fallback to clientEmail
+  const clientEmail = quote.externalClientEmail || quote.clientEmail || ''
+  
+  // Client name - prefer externalClientName, fallback to clientName
+  const clientName = quote.externalClientName || quote.clientName || 'Cliente'
+
+  // Map voci to GeneratedQuoteData format
+  // NOTE: Quote.voci schema doesn't include categoria/tipo fields (only descrizione, quantita, prezzoUnitario)
+  // PDF generator expects categoria ('base' | 'optional' | 'recurring') for section grouping
+  // For custom quotes (non-template-based), we default to 'base' and 'one_time'
+  // TODO: Extend Quote.voci schema to include categoria/tipo for better PDF rendering
+  const voci = (quote.voci || []).map(voce => ({
+    descrizione: voce.descrizione,
+    quantita: voce.quantita,
+    prezzoUnitario: voce.prezzoUnitario,
+    totale: voce.quantita * voce.prezzoUnitario,
+    categoria: 'base' as const, // Default: all items treated as base costs
+    tipo: 'one_time' as const // Default: one-time payments
+  }))
+
+  // Use persisted financial breakdown from quote (fallback to calculating if not available)
+  const subtotale = quote.subtotale ?? voci.reduce((sum, voce) => sum + voce.totale, 0)
+  const iva = quote.iva ?? 0
+  const percentualeIva = quote.percentualeIva ?? 0
+  const totale = quote.total ?? (subtotale + iva)
+
+  return {
+    cliente: {
+      nome: clientName,
+      email: clientEmail,
+      azienda: '',
+      telefono: '',
+      indirizzo: '',
+      partitaIva: ''
+    },
+    preventivo: {
+      titolo: quote.title,
+      descrizione: quote.description || '',
+      numeroPreventivo: quote.id.slice(0, 8).toUpperCase(),
+      dataCreazione: new Date(quote.createdAt).toISOString().split('T')[0],
+      validitaGiorni: validityDays,
+      settore: '',
+      timeline: ''
+    },
+    obiettivi: quote.obiettivi || [],
+    attivita: quote.attivita || [],
+    voci: voci,
+    condizioni: {
+      costVariation: 10,
+      validityDays: validityDays,
+      paymentTerms: "50% all'accettazione, 50% a completamento",
+      cancellationPenalty: 30
+    },
+    totali: {
+      subtotale: subtotale,
+      iva: iva,
+      percentualeIva: percentualeIva,
+      totale: totale
+    }
+  }
+}
+
 export function QuoteDocumentsTab({ quote }: QuoteDocumentsTabProps) {
+  const { toast } = useToast()
+
   const handleDownloadPDF = () => {
-    // TODO: Implement PDF download
-    console.log("Download PDF:", quote.id)
+    try {
+      const pdfData = convertQuoteToPDFData(quote)
+      downloadQuotePDF(pdfData, `Preventivo_${quote.id}.pdf`)
+      
+      toast({
+        title: "PDF Scaricato",
+        description: "Il preventivo è stato scaricato con successo.",
+      })
+    } catch (error) {
+      console.error("Error downloading PDF:", error)
+      toast({
+        title: "Errore",
+        description: "Si è verificato un errore durante il download del PDF.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handlePreviewPDF = () => {
+    let url: string | null = null
+    try {
+      const pdfData = convertQuoteToPDFData(quote)
+      const blob = getQuotePDFBlob(pdfData)
+      url = URL.createObjectURL(blob)
+      
+      // Open PDF in new tab
+      const newWindow = window.open(url, '_blank')
+      
+      if (!newWindow) {
+        // Revoke URL immediately if popup blocked
+        URL.revokeObjectURL(url)
+        toast({
+          title: "Popup Bloccato",
+          description: "Abilita i popup per visualizzare l'anteprima PDF.",
+          variant: "destructive"
+        })
+        return
+      }
+      
+      // Clean up URL after a delay
+      setTimeout(() => URL.revokeObjectURL(url!), 1000)
+      
+      toast({
+        title: "Anteprima Aperta",
+        description: "Il PDF è stato aperto in una nuova scheda.",
+      })
+    } catch (error) {
+      // Revoke URL on error if it was created
+      if (url) URL.revokeObjectURL(url)
+      console.error("Error previewing PDF:", error)
+      toast({
+        title: "Errore",
+        description: "Si è verificato un errore durante l'anteprima del PDF.",
+        variant: "destructive"
+      })
+    }
   }
   
   return (
@@ -34,7 +162,7 @@ export function QuoteDocumentsTab({ quote }: QuoteDocumentsTabProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <LiquidButton variant="outline" size="sm">
+            <LiquidButton variant="outline" size="sm" onClick={handlePreviewPDF}>
               <Eye className="h-4 w-4" />
             </LiquidButton>
             <LiquidButton variant="outline" size="sm" onClick={handleDownloadPDF}>
