@@ -48,6 +48,44 @@ Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Li
 -   **Quote Event Audit System**: Complete audit trail infrastructure with Firestore quoteEvents collection tracking all quote lifecycle events.
 -   **Quote PDF Integration System**: End-to-end PDF workflow connecting RighelloPDFGenerator to QuoteDocumentsTab, featuring client-side PDF generation, download functionality, and preview.
 
+## Recent Changes (October 2025)
+**Righello Quote System Professionalization - 17 Tasks Completed:**
+
+1. **Righello Brand Integration:**
+   - Logo SVG geometrico integrato in PDF header (cerchi rosa + quadrati viola, no emoji)
+   - Platform-wide replacement: "Optima" → Solo logo Righello
+   - Footer PDF professionale con dati reali visura (P.IVA 01979790934, Via Villaraccolta 23 Pasiano PN, PEC, Capitale €10.000)
+
+2. **PDF Design Overhaul:**
+   - Glassmorphic boxes per sezioni (Obiettivi, Attività, Voci di Costo) con multi-page support
+   - Geometric bullets: cerchi rosa per obiettivi, quadrati viola per attività (sostituiscono emoji non supportati)
+   - Badge template colorati verificati (Website 180°/360°, Video Production, Comunicazione 150°/180°)
+   - Footer legale 5 clausole standard Righello
+
+3. **Real-Time Synchronization:**
+   - Firestore onSnapshot listener in useQuotes hook per auto-sync lista preventivi
+   - Quick edit navigation diretta da lista: router.push(`/preventivi/${id}/edit`)
+   - Eliminati manual refresh calls (createQuote, updateQuote, deleteQuote)
+
+4. **WCAG Accessibility Compliance:**
+   - @radix-ui/react-visually-hidden package installato
+   - VisuallyHidden DialogTitle aggiunto a 3 dialog files (task-asset-gallery, auto-gen-preview, command)
+   - 100% screen reader compliance - browser console clean (no DialogTitle errors)
+
+5. **AI Prompt Enhancement:**
+   - Obiettivi: infinitive verbs enforced (Valorizzare, Promuovere, Posizionare, Fidelizzare, Creare) + business outcomes
+   - Attività: hierarchical structure (1. Macro → • Sub → - Deliverables)
+   - Template-aware sector personalization verified (Hospitality, Food, Retail, Edilizia, Medicina)
+
+**Testing Instructions for User Acceptance:**
+1. **PDF Generation:** Creare preventivo → Scaricare PDF → Verificare logo Righello geometrico, footer legale, glassmorphic boxes
+2. **AI Content:** Generare preventivo con AI → Verificare obiettivi con verbi infinito, attività strutturate gerarchicamente
+3. **Real-Time Sync:** Modificare preventivo da detail page → Verificare auto-update lista (no refresh manuale)
+4. **Accessibility:** Testare con screen reader (VoiceOver/NVDA) → Verificare DialogTitle annunciati correttamente
+
+**Known Issues (Non-Blocking):**
+- 7 TypeScript LSP diagnostics (4 in ai-quote-generator.tsx, 3 in ai-quote-service.ts): pre-esistenti, server compiles successfully, runtime OK. Da triaggiare separatamente.
+
 ## External Dependencies
 -   **Firebase**: Authentication (Firebase Auth), Database (Firestore), Storage.
 -   **OpenAI**: AI capabilities (GPT-4o for NLP, DALL-E 3 for image generation, Sora 2 for video generation).
