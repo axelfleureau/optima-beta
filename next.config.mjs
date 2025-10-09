@@ -6,6 +6,7 @@ const nextConfig = {
       '*.replit.dev',
       '.replit.dev',
     ],
+    serverComponentsExternalPackages: ['firebase-admin'],
   },
   // Webpack configuration to fix chunk loading timeout
   webpack: (config, { isServer }) => {
