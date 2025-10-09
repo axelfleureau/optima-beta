@@ -11,7 +11,7 @@ export interface Quote {
   description?: string
   clientId: string
   clientName: string
-  status: "draft" | "sent" | "pending" | "pending_payment" | "accepted" | "rejected" | "expired" | "paid" | "approved"
+  status: "draft" | "sent" | "in_review" | "pending_payment" | "approved" | "in_progress" | "completed" | "rejected" | "expired"
   currency: string
   items: QuoteItem[]
   total: number

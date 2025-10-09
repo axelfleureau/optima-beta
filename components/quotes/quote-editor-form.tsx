@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { updateQuote } from "@/lib/quote-service"
 import { useAuth } from "@/hooks/use-auth"
+import { executeTransition } from "@/lib/quote-transitions"
 
 const quoteFormSchema = z.object({
   obiettivi: z.array(z.string()).min(1, "Aggiungi almeno un obiettivo"),
@@ -74,21 +75,20 @@ export function QuoteEditorForm({ quote }: QuoteEditorFormProps) {
   }
   
   const onSubmit = async (data: QuoteFormData) => {
-    if (!userData?.tenantId) return
+    if (!userData?.tenantId || !userData?.role) return
     
     setSending(true)
     try {
-      await updateQuote(quote.id, {
-        ...data,
-        status: "sent",
-        sentAt: new Date(),
-      }, userData.tenantId)
+      await updateQuote(quote.id, data, userData.tenantId)
       
+      // executeTransition now validates internally with canTransition
+      await executeTransition(quote.id, 'send', userData.tenantId, userData.role)
       toast.success("Preventivo inviato con successo")
       router.push(`/preventivi/${quote.id}`)
     } catch (error) {
       console.error("Error sending quote:", error)
-      toast.error("Errore nell'invio del preventivo")
+      const errorMessage = error instanceof Error ? error.message : "Errore nell'invio del preventivo"
+      toast.error(errorMessage)
     } finally {
       setSending(false)
     }

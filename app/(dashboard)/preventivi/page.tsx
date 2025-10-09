@@ -22,6 +22,9 @@ import {
   CheckCircle,
   Clock,
   User,
+  Eye,
+  Briefcase,
+  Trophy,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -51,7 +54,7 @@ const AIQuoteGenerator = dynamic(
 const statusConfig = {
   draft: {
     label: "Bozza",
-    color: "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300",
+    color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
     icon: FileText,
   },
   sent: {
@@ -59,15 +62,30 @@ const statusConfig = {
     color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     icon: Send,
   },
-  pending: {
-    label: "In Attesa",
+  in_review: {
+    label: "In Revisione",
     color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-    icon: Clock,
+    icon: Eye,
   },
-  accepted: {
-    label: "Accettato",
+  pending_payment: {
+    label: "Pagamento Atteso",
+    color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    icon: DollarSign,
+  },
+  approved: {
+    label: "Approvato",
     color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     icon: CheckCircle,
+  },
+  in_progress: {
+    label: "In Lavorazione",
+    color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    icon: Briefcase,
+  },
+  completed: {
+    label: "Completato",
+    color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    icon: Trophy,
   },
   rejected: {
     label: "Rifiutato",
@@ -76,8 +94,8 @@ const statusConfig = {
   },
   expired: {
     label: "Scaduto",
-    color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-    icon: AlertCircle,
+    color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    icon: Clock,
   },
 }
 
@@ -128,7 +146,11 @@ export default function PreventiviPage() {
   }
 
   const isExpired = (validUntil: Date, status: string) => {
-    return validUntil < new Date() && status !== "accepted"
+    // Non considerare expired se stati finali positivi
+    const finalPositiveStates = ["approved", "in_progress", "completed"]
+    if (finalPositiveStates.includes(status)) return false
+    
+    return validUntil < new Date()
   }
 
   if (loading) {

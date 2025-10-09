@@ -30,6 +30,9 @@ import {
   Archive,
   Trash2,
   Share2,
+  Briefcase,
+  Trophy,
+  CheckCircle,
 } from "lucide-react"
 import { Quote } from "@/types/quote"
 
@@ -43,6 +46,9 @@ interface QuoteActionsProps {
   onArchive?: (quoteId: string) => void
   onDelete?: (quoteId: string) => void
   onShare?: (quoteId: string) => void
+  onStartWork?: (quoteId: string) => void
+  onComplete?: (quoteId: string) => void
+  onApprove?: (quoteId: string) => void
 }
 
 export function QuoteActions({
@@ -55,6 +61,9 @@ export function QuoteActions({
   onArchive,
   onDelete,
   onShare,
+  onStartWork,
+  onComplete,
+  onApprove,
 }: QuoteActionsProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   
@@ -96,6 +105,27 @@ export function QuoteActions({
             <DropdownMenuItem onClick={() => onSend(quote.id)}>
               <Send className="mr-2 h-4 w-4" />
               Invia a Cliente
+            </DropdownMenuItem>
+          )}
+          
+          {(quote.status === 'sent' || quote.status === 'in_review') && onApprove && (
+            <DropdownMenuItem onClick={() => onApprove(quote.id)}>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Approva Preventivo
+            </DropdownMenuItem>
+          )}
+          
+          {(quote.status === 'approved' || quote.status === 'pending_payment') && onStartWork && (
+            <DropdownMenuItem onClick={() => onStartWork(quote.id)}>
+              <Briefcase className="mr-2 h-4 w-4" />
+              Inizia Lavorazione
+            </DropdownMenuItem>
+          )}
+          
+          {quote.status === 'in_progress' && onComplete && (
+            <DropdownMenuItem onClick={() => onComplete(quote.id)}>
+              <Trophy className="mr-2 h-4 w-4" />
+              Completa Progetto
             </DropdownMenuItem>
           )}
           
