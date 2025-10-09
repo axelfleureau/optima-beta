@@ -16,15 +16,15 @@ const glassCardVariants = cva(
         elevated:
           "bg-white/80 dark:bg-black/50 backdrop-blur-lg border border-white/40 dark:border-white/20 shadow-glass-lg",
         interactive:
-          "bg-white/70 dark:bg-black/40 backdrop-blur-md border border-white/30 dark:border-white/10 shadow-glass-md hover:shadow-glass-lg hover:border-purple-500/30 cursor-pointer",
+          "bg-white/70 dark:bg-black/40 backdrop-blur-md border border-white/30 dark:border-white/10 shadow-glass-md hover:shadow-corporate-medium hover:border-slate-300/50 dark:hover:border-slate-600/50 cursor-pointer",
         gradient:
-          "bg-gradient-to-br from-white/80 via-purple-50/50 to-pink-50/50 dark:from-black/50 dark:via-purple-950/30 dark:to-pink-950/30 backdrop-blur-lg border border-purple-500/20 shadow-glass-md hover:shadow-glow-purple",
+          "bg-slate-50/80 dark:bg-slate-900/50 backdrop-blur-lg border border-slate-200/40 dark:border-slate-700/40 shadow-corporate-subtle hover:shadow-corporate-medium",
       },
       glow: {
         none: "",
-        subtle: "hover:shadow-glow-purple/50",
-        medium: "hover:shadow-glow-purple",
-        strong: "shadow-glow-purple hover:shadow-glow-pink",
+        subtle: "hover:shadow-corporate-subtle",
+        medium: "hover:shadow-corporate-medium",
+        strong: "shadow-corporate-medium hover:shadow-corporate-strong",
       },
       padding: {
         none: "p-0",
@@ -65,12 +65,11 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
         whileTap={hover ? "tap" : undefined}
         className={cn(
           glassCardVariants({ variant, glow, padding }),
-          animated && "animate-liquid-glow",
           className
         )}
         {...props}
       >
-        <div className="absolute inset-0 bg-gradient-mesh-subtle opacity-50 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-mesh-subtle opacity-20 pointer-events-none" />
         <div className="relative z-10">{children}</div>
       </motion.div>
     );
@@ -97,7 +96,7 @@ const GlassCardTitle = React.forwardRef<
   <h3
     ref={ref}
     className={cn(
-      "text-2xl font-semibold leading-none tracking-tight bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 dark:from-purple-400 dark:via-pink-400 dark:to-blue-400 bg-clip-text text-transparent",
+      "text-2xl font-semibold leading-none tracking-tight text-slate-900 dark:text-slate-100",
       className
     )}
     {...props}

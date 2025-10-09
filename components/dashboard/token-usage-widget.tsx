@@ -21,7 +21,7 @@ export function TokenUsageWidget() {
     <GlassCard className="p-6">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Zap className="w-5 h-5 text-purple-400" />
+          <Zap className="w-5 h-5 text-slate-600 dark:text-slate-400" />
           <h3 className="font-semibold">Token Mensili</h3>
         </div>
         <Link href="/dashboard/settings/billing">

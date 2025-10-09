@@ -26,8 +26,8 @@ const TechnicalArchitectDialog = dynamic(
   {
     loading: () => (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl border border-purple-200/50">
-          <div className="animate-spin h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full" />
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl border border-slate-200/50 dark:border-slate-700/50">
+          <div className="animate-spin h-12 w-12 border-4 border-slate-600 dark:border-slate-400 border-t-transparent rounded-full" />
           <p className="text-lg font-medium text-gray-900 dark:text-white animate-pulse">Caricamento...</p>
         </div>
       </div>
@@ -42,11 +42,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
         <div className="container mx-auto px-6 py-8 max-w-7xl">
           <div className="space-y-8 animate-pulse">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-pink-200 to-rose-200 rounded-2xl"></div>
+              <div className="w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-2xl"></div>
               <div className="space-y-2">
                 <div className="h-8 bg-gray-200 rounded w-64"></div>
                 <div className="h-4 bg-gray-200 rounded w-48"></div>
@@ -69,17 +69,17 @@ export default function Dashboard() {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "ai_usage":
-        return <Brain className="h-4 w-4 text-purple-500" />
+        return <Brain className="h-4 w-4 text-slate-600 dark:text-slate-400" />
       case "task":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-slate-600 dark:text-slate-400" />
       case "campaign":
-        return <Target className="h-4 w-4 text-blue-500" />
+        return <Target className="h-4 w-4 text-slate-600 dark:text-slate-400" />
       case "quote":
-        return <FileText className="h-4 w-4 text-orange-500" />
+        return <FileText className="h-4 w-4 text-slate-600 dark:text-slate-400" />
       case "client":
-        return <Users className="h-4 w-4 text-indigo-500" />
+        return <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />
+        return <Clock className="h-4 w-4 text-slate-500 dark:text-slate-400" />
     }
   }
 
@@ -89,20 +89,19 @@ export default function Dashboard() {
     const getStatusColor = (status: string) => {
       switch (status) {
         case "completed":
-          return "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300"
+        case "accepted":
+          return "bg-slate-100 text-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
         case "active":
         case "running":
         case "in_progress":
-          return "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+          return "bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
         case "pending":
         case "sent":
-          return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300"
-        case "accepted":
-          return "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300"
+          return "bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400"
         case "rejected":
-          return "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300"
+          return "bg-slate-100 text-slate-900 dark:bg-slate-800/50 dark:text-slate-100"
         default:
-          return "bg-gray-100 text-gray-700 dark:bg-gray-800/20 dark:text-gray-300"
+          return "bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400"
       }
     }
 
@@ -114,14 +113,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
         <div className="space-y-6 md:space-y-8">
           {/* Header Section */}
           <div className="flex items-start md:items-center gap-3 md:gap-4">
             <div className="space-y-1 md:space-y-2">
               <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
-                <div className="p-2 md:p-3 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl md:rounded-2xl shadow-lg">
+                <div className="p-2 md:p-3 bg-righello-pink rounded-xl md:rounded-2xl shadow-corporate-medium">
                   <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-white" />
                 </div>
                 <span className="leading-tight">Benvenuto, {userData?.firstName || "Utente"}!</span>
@@ -133,7 +132,7 @@ export default function Dashboard() {
           </div>
 
           {/* Command Bar Glassmorphic Section */}
-          <div className="relative backdrop-blur-xl bg-white/5 dark:bg-black/10 border border-white/10 rounded-2xl shadow-2xl p-6 md:p-8 before:content-[''] before:absolute before:inset-0 before:rounded-2xl before:p-[1px] before:bg-gradient-to-r before:from-purple-500/50 before:via-pink-500/50 before:to-purple-500/50 before:-z-10">
+          <div className="relative backdrop-blur-xl bg-white/5 dark:bg-black/10 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl shadow-corporate-strong p-6 md:p-8">
             <DashboardCommandInput />
           </div>
 
@@ -142,9 +141,7 @@ export default function Dashboard() {
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-sm">
-                    <Users className="h-4 w-4 text-white" />
-                  </div>
+                  <Users className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Clienti Totali
                 </CardTitle>
               </CardHeader>
@@ -157,9 +154,7 @@ export default function Dashboard() {
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-sm">
-                    <Target className="h-4 w-4 text-white" />
-                  </div>
+                  <Target className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Campagne Attive
                 </CardTitle>
               </CardHeader>
@@ -172,9 +167,7 @@ export default function Dashboard() {
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl shadow-sm">
-                    <FileText className="h-4 w-4 text-white" />
-                  </div>
+                  <FileText className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Preventivi Inviati
                 </CardTitle>
               </CardHeader>
@@ -187,9 +180,7 @@ export default function Dashboard() {
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
-                    <CheckCircle className="h-4 w-4 text-white" />
-                  </div>
+                  <CheckCircle className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Task Completati
                 </CardTitle>
               </CardHeader>
@@ -202,12 +193,10 @@ export default function Dashboard() {
 
           {/* Secondary Stats */}
           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 backdrop-blur-xl border-orange-200/50 dark:border-orange-700/50 overflow-hidden">
+            <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl shadow-sm">
-                    <Clock className="h-4 w-4 text-white" />
-                  </div>
+                  <Clock className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Task Pendenti
                 </CardTitle>
               </CardHeader>
@@ -217,12 +206,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 backdrop-blur-xl border-green-200/50 dark:border-green-700/50 overflow-hidden">
+            <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-sm">
-                    <DollarSign className="h-4 w-4 text-white" />
-                  </div>
+                  <DollarSign className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Fatturato
                 </CardTitle>
               </CardHeader>
@@ -242,7 +229,7 @@ export default function Dashboard() {
             <Card className="lg:col-span-4 border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-b border-gray-200/50 dark:border-gray-700/50">
                 <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                  <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl shadow-sm">
+                  <div className="p-2 bg-righello-pink rounded-xl shadow-corporate-subtle">
                     <TrendingUp className="h-5 w-5 text-white" />
                   </div>
                   Attività Recenti

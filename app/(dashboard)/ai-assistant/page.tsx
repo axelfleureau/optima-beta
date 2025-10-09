@@ -10,12 +10,12 @@ function AIAssistantLoading() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-6 py-12">
         <div className="flex items-center justify-center h-96">
-          <div className="text-cent 16 bg-gradient-to-r from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-            <Loader2 className="h-8 w-8 text-white animate-spin" />
+          <div className="text-center w-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <Loader2 className="h-8 w-8 text-slate-600 dark:text-slate-400 animate-spin" />
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center justify-center gap-3">
-              <Sparkles className="h-6 w-6 text-pink-500" />
+              <Sparkles className="h-6 w-6 text-slate-600 dark:text-slate-400" />
               Assistente AI
             </h1>
             <p className="text-gray-600 dark:text-gray-400">Caricamento in corso...</p>

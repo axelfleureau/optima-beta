@@ -96,8 +96,8 @@ export default function AIAssistantClient() {
         <div className="container mx-auto px-6 py-12">
           <div className="flex items-center justify-center h-96">
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-                <Loader2 className="h-8 w-8 text-white animate-spin" />
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+                <Loader2 className="h-8 w-8 text-slate-600 dark:text-slate-400 animate-spin" />
               </div>
               <div className="space-y-2">
                 <p className="text-gray-900 dark:text-white font-medium text-lg">Inizializzazione Assistente AI</p>
@@ -117,8 +117,8 @@ export default function AIAssistantClient() {
         <div className="container mx-auto px-6 py-12">
           <div className="flex items-center justify-center h-96">
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-                <MessageSquare className="h-8 w-8 text-white" />
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+                <MessageSquare className="h-8 w-8 text-slate-600 dark:text-slate-400" />
               </div>
               <div className="space-y-2">
                 <p className="text-gray-900 dark:text-white font-medium text-lg">Accesso Richiesto</p>
@@ -157,9 +157,7 @@ export default function AIAssistantClient() {
           <div className="flex items-center justify-between">
             <div className="space-y-2">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-r from-pink-500 to-rose-600 rounded-2xl shadow-lg">
-                  <Sparkles className="h-7 w-7 text-white" />
-                </div>
+                <Sparkles className="h-8 w-8 text-slate-600 dark:text-slate-400" />
                 Assistente AI
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">

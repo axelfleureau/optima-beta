@@ -230,7 +230,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-white/30 dark:border-white/10">
         <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-          <DialogTitle className="text-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 dark:from-purple-400 dark:via-pink-400 dark:to-blue-400 bg-clip-text text-transparent">
+          <DialogTitle className="text-2xl text-gray-900 dark:text-white">
             Raccolta Informazioni Preventivo
           </DialogTitle>
           <div className="flex items-center gap-2 mt-4">
@@ -239,7 +239,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                 <div className={cn(
                   "h-2 rounded-full flex-1 transition-all duration-300",
                   currentStep >= step 
-                    ? "bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500" 
+                    ? "bg-righello-pink" 
                     : "bg-white/40 dark:bg-black/40"
                 )} />
               </div>

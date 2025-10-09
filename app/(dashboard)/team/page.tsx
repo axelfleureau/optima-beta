@@ -135,15 +135,15 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-6 py-8 max-w-7xl">
           <div className="space-y-8 animate-pulse">
             <div className="flex justify-between items-center">
               <div className="space-y-2">
-                <div className="h-8 bg-gradient-to-r from-violet-200 to-purple-200 rounded w-48"></div>
+                <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-48"></div>
                 <div className="h-4 bg-gray-200 rounded w-64"></div>
               </div>
-              <div className="h-10 bg-gradient-to-r from-violet-200 to-purple-200 rounded w-32"></div>
+              <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded w-32"></div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -159,7 +159,7 @@ export default function TeamPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-6 py-8 max-w-7xl">
           <Alert className="bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800">
             <AlertCircle className="h-4 w-4 text-red-600" />
@@ -171,22 +171,20 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-6 py-8 max-w-7xl">
         <div className="space-y-8">
           {/* Header */}
           <div className="flex justify-between items-center">
             <div className="space-y-2">
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-r from-violet-500 to-purple-600 rounded-2xl shadow-lg">
-                  <Users className="h-8 w-8 text-white" />
-                </div>
+                <Users className="h-8 w-8 text-slate-600 dark:text-slate-400" />
                 Team
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">Gestisci il tuo team e i permessi</p>
             </div>
             <Button 
-              className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg"
+              className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium"
               onClick={() => setInviteDialogOpen(true)}
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -199,59 +197,51 @@ export default function TeamPage() {
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl shadow-sm">
-                    <Users className="h-4 w-4 text-white" />
-                  </div>
+                  <Users className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Totale Utenti
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-violet-600 dark:text-violet-400">{stats.total}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.total}</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">utenti registrati</p>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 backdrop-blur-xl border-green-200/50 dark:border-green-700/50 overflow-hidden">
+            <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-sm">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
+                  <Sparkles className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Utenti Attivi
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.active}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.active}</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">attualmente online</p>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 backdrop-blur-xl border-purple-200/50 dark:border-purple-700/50 overflow-hidden">
+            <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
-                    <Shield className="h-4 w-4 text-white" />
-                  </div>
+                  <Shield className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Amministratori
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.admins}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.admins}</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">con privilegi admin</p>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 backdrop-blur-xl border-blue-200/50 dark:border-blue-700/50 overflow-hidden">
+            <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-xl shadow-sm">
-                    <User className="h-4 w-4 text-white" />
-                  </div>
+                  <User className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Clienti
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.clients}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.clients}</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">accesso clienti</p>
               </CardContent>
             </Card>
@@ -274,9 +264,7 @@ export default function TeamPage() {
           {filteredUsers.length === 0 ? (
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardContent className="flex flex-col items-center justify-center py-16">
-                <div className="w-20 h-20 bg-gradient-to-r from-violet-100 to-purple-100 dark:from-violet-900/20 dark:to-purple-900/20 rounded-2xl flex items-center justify-center mb-6">
-                  <Users className="h-10 w-10 text-violet-500" />
-                </div>
+                <Users className="h-16 w-16 text-slate-600 dark:text-slate-400 mb-6" />
                 <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Nessun utente trovato</h3>
                 <p className="text-gray-600 dark:text-gray-400 text-center mb-6 max-w-md">
                   {searchTerm
@@ -284,7 +272,7 @@ export default function TeamPage() {
                     : "Non ci sono ancora utenti nel team."}
                 </p>
                 <Button 
-                  className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg"
+                  className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium"
                   onClick={() => setInviteDialogOpen(true)}
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -304,7 +292,7 @@ export default function TeamPage() {
                       <div className="flex items-center space-x-4">
                         <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                           <AvatarImage src="" alt={getFullName(user.firstName, user.lastName)} />
-                          <AvatarFallback className="bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold">
+                          <AvatarFallback className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold">
                             {getInitials(user.firstName, user.lastName)}
                           </AvatarFallback>
                         </Avatar>

@@ -84,11 +84,11 @@ export default function QuoteDetailPage() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50/50 via-white to-purple-50/50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
         <div className="max-w-7xl mx-auto">
           <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48" />
-            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-48" />
+            <div className="h-64 bg-slate-200 dark:bg-slate-700 rounded" />
           </div>
         </div>
       </div>
@@ -97,7 +97,7 @@ export default function QuoteDetailPage() {
   
   if (error || !quote) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50/50 via-white to-purple-50/50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
         <div className="max-w-7xl mx-auto">
           <GlassCard variant="elevated" padding="lg">
             <p className="text-red-600 dark:text-red-400">
@@ -116,7 +116,7 @@ export default function QuoteDetailPage() {
   const statusInfo = statusConfig[quote.status as keyof typeof statusConfig]
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50/50 via-white to-purple-50/50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

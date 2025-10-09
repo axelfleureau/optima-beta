@@ -85,13 +85,13 @@ export function DynamicWorkspace() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high":
-        return "border-l-red-500 bg-gradient-to-r from-red-50 to-red-100"
+        return "border-l-red-500 bg-red-50 dark:bg-red-900/10"
       case "medium":
-        return "border-l-yellow-500 bg-gradient-to-r from-yellow-50 to-yellow-100"
+        return "border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/10"
       case "low":
-        return "border-l-green-500 bg-gradient-to-r from-green-50 to-green-100"
+        return "border-l-green-500 bg-green-50 dark:bg-green-900/10"
       default:
-        return "border-l-gray-300 bg-gradient-to-r from-gray-50 to-gray-100"
+        return "border-l-gray-300 bg-gray-50 dark:bg-gray-800/50"
     }
   }
 
@@ -103,9 +103,9 @@ export function DynamicWorkspace() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-slate-600 dark:border-slate-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Accesso in corso...</p>
         </div>
       </div>
@@ -114,9 +114,9 @@ export function DynamicWorkspace() {
 
   if (clientsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-slate-600 dark:border-slate-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento workspace...</p>
         </div>
       </div>
@@ -125,14 +125,12 @@ export function DynamicWorkspace() {
 
   if (isClient) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="flex flex-col h-screen">
           <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-lg">
             <div className="p-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg">
-                  <Target className="h-6 w-6 text-white" />
-                </div>
+                <Target className="h-8 w-8 text-slate-600 dark:text-slate-400" />
                 <div>
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                     {userData?.companyName || "Il Mio Workspace"}
@@ -147,7 +145,7 @@ export function DynamicWorkspace() {
             {tasksLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
-                  <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div className="w-16 h-16 border-4 border-slate-600 dark:border-slate-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento task...</p>
                 </div>
               </div>

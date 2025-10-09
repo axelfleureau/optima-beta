@@ -1,107 +1,74 @@
 export const liquidTimings = {
-  fast: 200,
-  smooth: 400,
-  slow: 600,
+  instant: 100,
+  fast: 150,
+  normal: 200,
 } as const;
 
 export const liquidEasings = {
   default: 'cubic-bezier(0.4, 0, 0.2, 1)',
   smooth: 'cubic-bezier(0.33, 1, 0.68, 1)',
-  bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
-  elastic: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
 } as const;
 
 export const liquidExpand = {
-  initial: { scale: 0.95, opacity: 0, filter: 'blur(8px)' },
-  animate: { scale: 1, opacity: 1, filter: 'blur(0px)' },
-  exit: { scale: 0.95, opacity: 0, filter: 'blur(8px)' },
+  initial: { scale: 0.95, opacity: 0 },
+  animate: { scale: 1, opacity: 1 },
+  exit: { scale: 0.95, opacity: 0 },
   transition: {
-    duration: liquidTimings.smooth / 1000,
-    ease: liquidEasings.smooth,
-  },
-};
-
-export const glowPulse = {
-  initial: { 
-    boxShadow: '0 0 0 0 rgba(139, 92, 246, 0.5)',
-  },
-  animate: { 
-    boxShadow: [
-      '0 0 0 0 rgba(139, 92, 246, 0.5)',
-      '0 0 0 8px rgba(139, 92, 246, 0)',
-      '0 0 0 0 rgba(139, 92, 246, 0)',
-    ],
-  },
-  transition: {
-    duration: 2,
-    repeat: Infinity,
+    duration: liquidTimings.normal / 1000,
     ease: liquidEasings.smooth,
   },
 };
 
 export const fluidSlide = {
   fromLeft: {
-    initial: { x: -100, opacity: 0, filter: 'blur(4px)' },
-    animate: { x: 0, opacity: 1, filter: 'blur(0px)' },
-    exit: { x: 100, opacity: 0, filter: 'blur(4px)' },
+    initial: { x: -100, opacity: 0 },
+    animate: { x: 0, opacity: 1 },
+    exit: { x: 100, opacity: 0 },
   },
   fromRight: {
-    initial: { x: 100, opacity: 0, filter: 'blur(4px)' },
-    animate: { x: 0, opacity: 1, filter: 'blur(0px)' },
-    exit: { x: -100, opacity: 0, filter: 'blur(4px)' },
+    initial: { x: 100, opacity: 0 },
+    animate: { x: 0, opacity: 1 },
+    exit: { x: -100, opacity: 0 },
   },
   fromTop: {
-    initial: { y: -100, opacity: 0, filter: 'blur(4px)' },
-    animate: { y: 0, opacity: 1, filter: 'blur(0px)' },
-    exit: { y: 100, opacity: 0, filter: 'blur(4px)' },
+    initial: { y: -100, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    exit: { y: 100, opacity: 0 },
   },
   fromBottom: {
-    initial: { y: 100, opacity: 0, filter: 'blur(4px)' },
-    animate: { y: 0, opacity: 1, filter: 'blur(0px)' },
-    exit: { y: -100, opacity: 0, filter: 'blur(4px)' },
+    initial: { y: 100, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    exit: { y: -100, opacity: 0 },
   },
   transition: {
-    duration: liquidTimings.smooth / 1000,
+    duration: liquidTimings.normal / 1000,
     ease: liquidEasings.smooth,
   },
 };
 
 export const liquidHover = {
-  scale: 1.02,
-  y: -2,
-  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.15)',
-  transition: {
-    duration: liquidTimings.fast / 1000,
-    ease: liquidEasings.smooth,
-  },
-};
-
-export const liquidPress = {
-  scale: 0.98,
-  filter: 'brightness(0.95)',
+  opacity: 0.95,
+  boxShadow: '0 2px 8px rgba(100, 116, 139, 0.12)',
   transition: {
     duration: liquidTimings.fast / 1000,
     ease: liquidEasings.default,
   },
 };
 
-export const shimmer = {
-  animate: {
-    backgroundPosition: ['200% 0', '-200% 0'],
-  },
+export const liquidPress = {
+  opacity: 0.95,
   transition: {
-    duration: 2,
-    repeat: Infinity,
-    ease: 'linear',
+    duration: liquidTimings.instant / 1000,
+    ease: liquidEasings.default,
   },
 };
 
 export const liquidFadeIn = {
-  initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-  exit: { opacity: 0, y: -20, filter: 'blur(4px)' },
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
   transition: {
-    duration: liquidTimings.smooth / 1000,
+    duration: liquidTimings.normal / 1000,
     ease: liquidEasings.smooth,
   },
 };
@@ -112,17 +79,7 @@ export const liquidScaleIn = {
   exit: { opacity: 0, scale: 0.9 },
   transition: {
     duration: liquidTimings.fast / 1000,
-    ease: liquidEasings.smooth,
+    ease: liquidEasings.default,
   },
 };
 
-export const liquidRotate = {
-  animate: {
-    rotate: [0, 360],
-  },
-  transition: {
-    duration: 2,
-    repeat: Infinity,
-    ease: 'linear',
-  },
-};

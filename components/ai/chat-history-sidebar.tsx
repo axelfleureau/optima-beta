@@ -196,18 +196,16 @@ export function ChatHistorySidebar({ userId, currentSessionId, onSessionSelect, 
   return (
     <div className="w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full shadow-sm">
       {/* Header - Fixed height */}
-      <div className="flex-shrink-0 px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20">
+      <div className="flex-shrink-0 px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-3">
-            <div className="p-1.5 bg-gradient-to-r from-pink-500 to-rose-600 rounded-lg shadow-sm">
-              <MessageSquare className="h-4 w-4 text-white" />
-            </div>
+            <MessageSquare className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             Cronologia Chat
           </h2>
           <Button
             onClick={handleNewChat}
             size="sm"
-            className="h-9 w-9 p-0 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 shadow-sm transition-all duration-200 hover:shadow-md"
+            className="h-9 w-9 p-0 bg-righello-pink hover:bg-righello-pink-dark shadow-sm transition-all duration-200 hover:shadow-md"
           >
             <Plus className="h-4 w-4" />
           </Button>
@@ -246,8 +244,8 @@ export function ChatHistorySidebar({ userId, currentSessionId, onSessionSelect, 
               </div>
             ) : filteredSessions.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-r from-pink-100 to-rose-100 dark:from-pink-900/20 dark:to-rose-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <MessageSquare className="h-8 w-8 text-pink-500" />
+                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="h-8 w-8 text-slate-600 dark:text-slate-400" />
                 </div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                   {searchQuery ? "Nessun risultato" : "Nessuna conversazione"}
@@ -265,7 +263,7 @@ export function ChatHistorySidebar({ userId, currentSessionId, onSessionSelect, 
                     className={cn(
                       "p-4 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-sm group",
                       currentSessionId === session.id
-                        ? "bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 border border-pink-200 dark:border-pink-800 shadow-sm"
+                        ? "bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 shadow-sm"
                         : "hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700",
                     )}
                   >

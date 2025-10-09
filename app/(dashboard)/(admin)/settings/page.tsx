@@ -111,12 +111,10 @@ export default function SettingsPage() {
 
             {/* Profile Settings */}
             <TabsContent value="profile" className="space-y-6">
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
                   <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-sm">
-                      <User className="h-5 w-5 text-white" />
-                    </div>
+                    <User className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                     Informazioni Personali
                   </CardTitle>
                   <CardDescription>Aggiorna le tue informazioni personali e di contatto</CardDescription>
@@ -168,12 +166,10 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
                   <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
-                      <Sparkles className="h-5 w-5 text-white" />
-                    </div>
+                    <Sparkles className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                     Piano e Utilizzo
                   </CardTitle>
                   <CardDescription>Informazioni sul tuo piano attuale</CardDescription>
@@ -181,7 +177,7 @@ export default function SettingsPage() {
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Piano Attuale</span>
-                    <Badge className="bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 dark:from-purple-900/30 dark:to-violet-900/30 dark:text-purple-300 border-0">
+                    <Badge className="bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-0">
                       {userData?.plan || "Base"}
                     </Badge>
                   </div>
@@ -299,12 +295,10 @@ export default function SettingsPage() {
 
             {/* Appearance Settings */}
             <TabsContent value="appearance" className="space-y-6">
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
                   <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl shadow-sm">
-                      <Palette className="h-5 w-5 text-white" />
-                    </div>
+                    <Palette className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                     Personalizzazione
                   </CardTitle>
                   <CardDescription>Personalizza l'aspetto della piattaforma</CardDescription>

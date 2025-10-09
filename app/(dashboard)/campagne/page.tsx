@@ -114,15 +114,15 @@ export default function CampagnePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-6 py-8 max-w-7xl">
           <div className="space-y-8 animate-pulse">
             <div className="flex justify-between items-center">
               <div className="space-y-2">
-                <div className="h-8 bg-gradient-to-r from-blue-200 to-indigo-200 rounded w-48"></div>
-                <div className="h-4 bg-gray-200 rounded w-64"></div>
+                <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-48"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-64"></div>
               </div>
-              <div className="h-10 bg-gradient-to-r from-blue-200 to-indigo-200 rounded w-32"></div>
+              <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded w-32"></div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -138,7 +138,7 @@ export default function CampagnePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-6 py-8 max-w-7xl">
           <Alert className="bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800">
             <AlertCircle className="h-4 w-4 text-red-600" />
@@ -150,21 +150,19 @@ export default function CampagnePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
         <div className="space-y-6 md:space-y-8">
           {/* Header */}
           <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
             <div className="space-y-1 md:space-y-2">
               <h1 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
-                <div className="p-2 md:p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl md:rounded-2xl shadow-lg">
-                  <Target className="h-6 w-6 md:h-8 md:w-8 text-white" />
-                </div>
+                <Target className="h-8 w-8 text-slate-600 dark:text-slate-400" />
                 <span className="leading-tight">Campagne</span>
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg ml-11 md:ml-0">Gestisci le tue campagne di marketing</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg">Gestisci le tue campagne di marketing</p>
             </div>
-            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg">
+            <Button className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-lg">
               <Plus className="mr-2 h-4 w-4" />
               Nuova Campagna
             </Button>
@@ -175,59 +173,51 @@ export default function CampagnePage() {
             <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-sm">
-                    <Target className="h-4 w-4 text-white" />
-                  </div>
+                  <Target className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Totale Campagne
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.total}</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">campagne create</p>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 backdrop-blur-xl border-green-200/50 dark:border-green-700/50 overflow-hidden">
+            <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-sm">
-                    <Play className="h-4 w-4 text-white" />
-                  </div>
+                  <Play className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Attive
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.active}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.active}</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">in esecuzione</p>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 backdrop-blur-xl border-purple-200/50 dark:border-purple-700/50 overflow-hidden">
+            <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl shadow-sm">
-                    <BarChart3 className="h-4 w-4 text-white" />
-                  </div>
+                  <BarChart3 className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Completate
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.completed}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.completed}</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">terminate</p>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 backdrop-blur-xl border-orange-200/50 dark:border-orange-700/50 overflow-hidden">
+            <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                  <div className="p-2 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl shadow-sm">
-                    <DollarSign className="h-4 w-4 text-white" />
-                  </div>
+                  <DollarSign className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Budget Totale
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">
                   {formatCurrency(stats.totalBudget)}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">investimento totale</p>
@@ -261,9 +251,7 @@ export default function CampagnePage() {
               {filteredCampaigns.length === 0 ? (
                 <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
                   <CardContent className="flex flex-col items-center justify-center py-16">
-                    <div className="w-20 h-20 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl flex items-center justify-center mb-6">
-                      <Target className="h-10 w-10 text-blue-500" />
-                    </div>
+                    <Target className="h-16 w-16 text-slate-600 dark:text-slate-400 mb-6" />
                     <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
                       Nessuna campagna trovata
                     </h3>
@@ -272,7 +260,7 @@ export default function CampagnePage() {
                         ? "Nessuna campagna corrisponde ai criteri di ricerca."
                         : "Non hai ancora creato nessuna campagna."}
                     </p>
-                    <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg">
+                    <Button className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium">
                       <Plus className="mr-2 h-4 w-4" />
                       Crea la tua prima campagna
                     </Button>
@@ -392,7 +380,7 @@ export default function CampagnePage() {
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                               <div
-                                className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500"
+                                className="bg-slate-600 dark:bg-slate-400 h-2 rounded-full transition-all duration-500"
                                 style={{ width: `${campaign.progress}%` }}
                               ></div>
                             </div>

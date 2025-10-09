@@ -102,7 +102,7 @@ const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(
               className={cn(
                 "absolute left-4 transition-all duration-liquid-smooth pointer-events-none text-muted-foreground",
                 showFloatingLabel
-                  ? "-top-2.5 text-xs bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 dark:from-purple-400 dark:via-pink-400 dark:to-blue-400 bg-clip-text text-transparent font-medium px-1 backdrop-blur-sm"
+                  ? "-top-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium px-1 backdrop-blur-sm"
                   : "top-3 text-sm"
               )}
             >
@@ -122,7 +122,7 @@ const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(
           
           {isFocused && (
             <div className="absolute inset-0 rounded-lg pointer-events-none">
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-blue-500/20 animate-gradient-shift opacity-50" />
+              <div className="absolute inset-0 rounded-lg bg-slate-500/10 dark:bg-slate-400/10 opacity-50" />
             </div>
           )}
         </div>

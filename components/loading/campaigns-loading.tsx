@@ -52,7 +52,7 @@ export default function CampaignsLoading() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
               {/* Campaign Image */}
-              <div className="animate-pulse bg-gradient-to-r from-violet-500/20 to-purple-600/20 h-32 w-full" />
+              <div className="animate-pulse bg-slate-200 dark:bg-slate-700 h-32 w-full" />
               
               {/* Campaign Content */}
               <div className="p-6 space-y-4">

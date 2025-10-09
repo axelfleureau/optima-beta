@@ -5,7 +5,7 @@ import { Check, Sparkles } from "lucide-react"
 import { GlassCard } from "@/components/ui/glass-card"
 import { GlassButton } from "@/components/ui/glass-button"
 import { TokenPlan } from "@/lib/constants/token-plans"
-import { liquidExpand, glowPulse } from "@/lib/animations/liquid"
+import { liquidExpand } from "@/lib/animations/liquid"
 import { cn } from "@/lib/utils"
 
 interface PricingCardProps {
@@ -37,7 +37,7 @@ export function PricingCard({
     >
       {popular && (
         <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+          <div className="bg-righello-pink text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
             <Sparkles className="w-3 h-3" />
             Più Popolare
           </div>
@@ -53,7 +53,7 @@ export function PricingCard({
         )}
       >
         <div className="text-center mb-6">
-          <h3 className="text-2xl font-bold bg-gradient-to-br from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             {plan.name}
           </h3>
           <p className="text-sm text-muted-foreground">{plan.target}</p>
@@ -84,7 +84,7 @@ export function PricingCard({
           className={cn(
             "w-full",
             isCurrentPlan && "opacity-50 cursor-not-allowed",
-            popular && !isCurrentPlan && "bg-gradient-to-r from-purple-500 to-pink-500"
+            popular && !isCurrentPlan && "bg-righello-pink hover:bg-righello-pink-dark"
           )}
         >
           {loading ? (

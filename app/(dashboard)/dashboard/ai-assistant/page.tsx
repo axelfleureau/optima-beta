@@ -297,11 +297,9 @@ export default function AIAssistantPage() {
     <div className="p-4 md:p-6 lg:p-8">
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl">
-            <Bot className="h-6 w-6 text-white" />
-          </div>
+          <Bot className="h-8 w-8 text-slate-600 dark:text-slate-400" />
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
               AI Assistant
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -361,8 +359,8 @@ export default function AIAssistantPage() {
             <div className="px-6 py-4 border-b border-gray-200/30 dark:border-gray-700/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-                    <Bot className="h-5 w-5 text-white" />
+                  <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <Bot className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100">
@@ -386,8 +384,8 @@ export default function AIAssistantPage() {
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center max-w-md">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 flex items-center justify-center mx-auto mb-4">
-                      <Bot className="h-10 w-10 text-purple-500" />
+                    <div className="h-20 w-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                      <Bot className="h-10 w-10 text-slate-600 dark:text-slate-400" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                       Inizia una conversazione
@@ -434,7 +432,7 @@ export default function AIAssistantPage() {
                 <Button
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading || !user}
-                  className="px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50"
+                  className="px-4 py-3 bg-righello-pink hover:bg-righello-pink-dark disabled:opacity-50"
                 >
                   <Send className="h-4 w-4" />
                 </Button>

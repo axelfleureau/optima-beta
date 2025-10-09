@@ -125,11 +125,9 @@ export function ImageGenerator({ open, onOpenChange }: ImageGeneratorProps) {
           <GlassCard variant="elevated" padding="none" className="overflow-hidden">
             <DialogHeader className="p-6 pb-4">
               <DialogTitle className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 text-white shadow-glow-purple">
-                  <Sparkles className="h-5 w-5" />
-                </div>
+                <Sparkles className="h-6 w-6 text-slate-600 dark:text-slate-400" />
                 <div>
-                  <div className="text-xl font-semibold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 dark:from-purple-400 dark:via-pink-400 dark:to-blue-400 bg-clip-text text-transparent">
+                  <div className="text-xl font-semibold text-gray-900 dark:text-white">
                     AI Image Generator
                   </div>
                   <p className="text-sm text-muted-foreground font-normal mt-0.5">
@@ -216,12 +214,12 @@ export function ImageGenerator({ open, onOpenChange }: ImageGeneratorProps) {
               </div>
 
               <motion.div
-                className="p-4 rounded-lg bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-blue-500/10 border border-purple-500/20"
+                className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
                 <div className="flex items-start gap-3">
-                  <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                  <Info className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 space-y-1">
                     <p className="text-sm font-medium text-foreground">
                       Costo Token

@@ -47,7 +47,7 @@ export default function ClientsLoading() {
               {/* Client Header */}
               <div className="flex items-start justify-between pb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="animate-pulse bg-gradient-to-r from-blue-500/20 to-green-600/20 h-12 w-12 rounded-full" />
+                  <div className="animate-pulse bg-slate-200 dark:bg-slate-700 h-12 w-12 rounded-full" />
                   <div className="space-y-2">
                     <div className="animate-pulse bg-gray-300/20 dark:bg-gray-700/20 h-5 w-32 rounded-md" />
                     <div className="animate-pulse bg-gray-300/20 dark:bg-gray-700/20 h-3 w-24 rounded-md" />

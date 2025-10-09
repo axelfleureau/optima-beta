@@ -104,15 +104,15 @@ export function OrchestrationFeedback() {
         <div className="
           relative 
           backdrop-blur-xl 
-          bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-blue-500/10 
-          border border-white/20 
+          bg-slate-50/50 dark:bg-slate-800/50 
+          border border-slate-200/50 dark:border-slate-700/50 
           rounded-2xl 
           p-6
           shadow-2xl
           overflow-hidden
         ">
-          {/* Animated gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-blue-500/5 animate-shimmer pointer-events-none" />
+          {/* Animated overlay */}
+          <div className="absolute inset-0 bg-slate-200/10 dark:bg-slate-700/10 animate-pulse pointer-events-none" />
           
           <div className="relative z-10">
             {/* Stage Header */}
@@ -171,8 +171,8 @@ export function OrchestrationFeedback() {
                         variant="secondary" 
                         className="
                           px-3 py-1.5 
-                          bg-gradient-to-r from-purple-500/20 to-pink-500/20 
-                          border border-white/10
+                          bg-slate-100 dark:bg-slate-800 
+                          border border-slate-200/50 dark:border-slate-700/50
                           backdrop-blur-sm
                         "
                       >

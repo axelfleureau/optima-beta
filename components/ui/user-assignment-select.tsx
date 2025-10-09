@@ -84,7 +84,7 @@ export function UserAssignmentSelect({
             <div className="flex items-center gap-2">
               <Avatar className="h-6 w-6">
                 <AvatarImage src="" />
-                <AvatarFallback className="bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs">
+                <AvatarFallback className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs">
                   {getInitials(selectedUser)}
                 </AvatarFallback>
               </Avatar>
@@ -121,7 +121,7 @@ export function UserAssignmentSelect({
                 <div className="flex items-center gap-3 w-full">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="" />
-                    <AvatarFallback className="bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs">
+                    <AvatarFallback className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs">
                       {getInitials(user)}
                     </AvatarFallback>
                   </Avatar>

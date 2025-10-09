@@ -95,7 +95,7 @@ export function ClientSidebar({
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-6 left-4 z-10 h-10 w-10 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+          className="absolute top-6 left-4 z-10 h-10 w-10 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg hover:shadow-xl transition-all duration-150"
           onClick={onToggleCollapse}
         >
           <ChevronRight className="h-5 w-5" />
@@ -109,9 +109,7 @@ export function ClientSidebar({
       <div className="p-4 border-b border-slate-200/50 dark:border-slate-700/50">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 shadow-lg flex items-center justify-center">
-              <Users className="h-5 w-5 text-white" />
-            </div>
+            <Users className="h-6 w-6 text-slate-600 dark:text-slate-400" />
             <div>
               <h2 className="font-bold text-lg text-slate-900 dark:text-slate-100">Clienti</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">{clients.length} totali</p>
@@ -154,16 +152,14 @@ export function ClientSidebar({
         <div className="space-y-3">
           <button
             onClick={onSelectAllClients}
-            className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
+            className={`w-full text-left p-4 rounded-xl transition-all duration-150 ${
               showAllClients
-                ? "bg-white/90 dark:bg-slate-700/90 shadow-lg border-2 border-pink-200 dark:border-pink-400 scale-105"
-                : "bg-white/60 dark:bg-slate-700/60 hover:bg-white/80 dark:hover:bg-slate-700/80 border border-slate-200/50 dark:border-slate-600/50 hover:shadow-md hover:scale-102"
+                ? "bg-white/95 dark:bg-slate-700/95 shadow-lg border-2 border-slate-300 dark:border-slate-500"
+                : "bg-white/60 dark:bg-slate-700/60 hover:bg-white/80 dark:hover:bg-slate-700/80 border border-slate-200/50 dark:border-slate-600/50 hover:shadow-md"
             }`}
           >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-md flex items-center justify-center">
-                <Globe className="h-4 w-4 text-white" />
-              </div>
+              <Globe className="h-5 w-5 text-slate-600 dark:text-slate-400" />
               <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">Tutti i Clienti</span>
             </div>
             <div className="flex items-center justify-between text-xs">
@@ -188,10 +184,10 @@ export function ClientSidebar({
               <button
                 key={client.id}
                 onClick={() => onSelectClient(client.id)}
-                className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
+                className={`w-full text-left p-4 rounded-xl transition-all duration-150 ${
                   selectedClientId === client.id && !showTenantWorkspace && !showAllClients
-                    ? "bg-white/90 dark:bg-slate-700/90 shadow-lg border-2 border-pink-200 dark:border-pink-400 scale-105"
-                    : "bg-white/60 dark:bg-slate-700/60 hover:bg-white/80 dark:hover:bg-slate-700/80 border border-slate-200/50 dark:border-slate-600/50 hover:shadow-md hover:scale-102"
+                    ? "bg-white/95 dark:bg-slate-700/95 shadow-lg border-2 border-slate-300 dark:border-slate-500"
+                    : "bg-white/60 dark:bg-slate-700/60 hover:bg-white/80 dark:hover:bg-slate-700/80 border border-slate-200/50 dark:border-slate-600/50 hover:shadow-md"
                 }`}
               >
                 <div className="flex items-center gap-3 mb-3">
@@ -235,7 +231,7 @@ export function ClientSidebar({
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">Nessun cliente trovato</p>
               <Button
                 size="sm"
-                className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg"
+                className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium hover:shadow-corporate-strong transition-all duration-150"
                 onClick={onAddClient}
               >
                 <UserPlus className="h-4 w-4 mr-2" />
@@ -249,16 +245,14 @@ export function ClientSidebar({
       <div className="p-4 border-t border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-r from-slate-100/50 to-slate-200/50 dark:from-slate-800/50 dark:to-slate-700/50">
         <button
           onClick={onSelectTenantWorkspace}
-          className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
+          className={`w-full text-left p-4 rounded-xl transition-all duration-150 ${
             showTenantWorkspace
-              ? "bg-white/90 dark:bg-slate-700/90 shadow-lg border-2 border-pink-200 dark:border-pink-400 scale-105"
-              : "bg-white/60 dark:bg-slate-700/60 hover:bg-white/80 dark:hover:bg-slate-700/80 border border-slate-200/50 dark:border-slate-600/50 hover:shadow-md hover:scale-102"
+              ? "bg-white/95 dark:bg-slate-700/95 shadow-lg border-2 border-slate-300 dark:border-slate-500"
+              : "bg-white/60 dark:bg-slate-700/60 hover:bg-white/80 dark:hover:bg-slate-700/80 border border-slate-200/50 dark:border-slate-600/50 hover:shadow-md"
           }`}
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md flex items-center justify-center">
-              <Building className="h-4 w-4 text-white" />
-            </div>
+            <Building className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             <div>
               <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">
                 {userData?.companyName || "Team Interno"}

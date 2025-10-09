@@ -68,11 +68,10 @@ export function CommandBar() {
         className={cn(
           "max-w-2xl p-0 gap-0 overflow-hidden relative",
           "bg-white/80 dark:bg-black/50 backdrop-blur-2xl",
-          "shadow-glass-lg",
+          "shadow-glass-lg border border-slate-200/50 dark:border-slate-700/50",
           "animate-in fade-in-0 zoom-in-95"
         )}
       >
-        <div className="absolute -inset-[2px] bg-gradient-to-r from-purple-500/40 via-pink-500/40 to-blue-500/40 rounded-xl -z-10" />
         
         <DialogTitle className="sr-only">Command Bar</DialogTitle>
         <DialogDescription className="sr-only">
@@ -89,8 +88,6 @@ export function CommandBar() {
             className="relative"
           >
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/25 via-pink-500/25 to-blue-500/25 opacity-60 pointer-events-none" />
-
               <div className="relative z-10">
                 <CommandInput />
                 
@@ -109,7 +106,7 @@ export function CommandBar() {
             </div>
 
             {status === "processing" && (
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-blue-500/20 animate-shimmer pointer-events-none" />
+              <div className="absolute inset-0 bg-slate-200/20 dark:bg-slate-700/20 animate-pulse pointer-events-none" />
             )}
           </motion.div>
         </AnimatePresence>
