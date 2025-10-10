@@ -180,15 +180,21 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-gray-200/30 dark:border-gray-700/30">
         <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
           <div 
-            className={`flex items-center ${isCollapsed ? "w-full justify-center cursor-pointer" : "gap-2"}`}
-            onMouseEnter={() => {
-              if (isCollapsed) {
-                const trigger = document.querySelector('[data-sidebar="trigger"]') as HTMLButtonElement;
-                trigger?.click();
-              }
-            }}
+            className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}
           >
-            <div className={`${isCollapsed ? "w-12 h-12" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0`}>
+            <div 
+              className={`
+                ${isCollapsed ? "w-12 h-12 cursor-pointer" : "w-10 h-10"} 
+                rounded-lg flex items-center justify-center flex-shrink-0
+                ${isCollapsed ? "hover:bg-gradient-to-br hover:from-pink-500/20 hover:to-purple-500/20 hover:backdrop-blur-xl hover:scale-110 transition-all duration-300" : ""}
+              `}
+              onClick={() => {
+                if (isCollapsed) {
+                  const trigger = document.querySelector('[data-sidebar="trigger"]') as HTMLButtonElement;
+                  trigger?.click();
+                }
+              }}
+            >
               <Image
                 src="/assets/logos/righello-logo.svg"
                 alt="Righello Logo"
