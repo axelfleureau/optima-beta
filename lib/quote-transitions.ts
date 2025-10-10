@@ -133,7 +133,9 @@ export async function executeTransition(
   userRole?: UserRole
 ): Promise<void> {
   // ✅ VALIDATE FIRST - fetch quote via API and check canTransition
-  const response = await fetch(`/api/quotes/${quoteId}`)
+  const response = await fetch(`/api/quotes/${quoteId}`, {
+    credentials: 'include'
+  })
   
   if (!response.ok) {
     throw new Error("Preventivo non trovato")

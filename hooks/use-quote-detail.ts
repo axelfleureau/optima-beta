@@ -24,7 +24,9 @@ export function useQuoteDetail(quoteId: string) {
     const fetchQuote = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/quotes/${quoteId}`)
+        const response = await fetch(`/api/quotes/${quoteId}`, {
+          credentials: 'include'
+        })
         
         if (!response.ok) {
           const errorData = await response.json()

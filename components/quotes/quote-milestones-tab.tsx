@@ -44,6 +44,7 @@ export default function QuoteMilestonesTab({ quote }: QuoteMilestonesTabProps) {
     try {
       const res = await fetch(`/api/quotes/${quote.id}/milestones/${milestone.id}/pay`, {
         method: 'POST',
+        credentials: 'include',
       })
       
       const result = await res.json()
