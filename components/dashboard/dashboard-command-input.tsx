@@ -399,7 +399,7 @@ export function DashboardCommandInput() {
         variant="elevated"
         glow="subtle"
         padding="none"
-        className="w-full max-w-4xl mx-auto relative"
+        className="w-full mx-auto relative"
       >
         <form onSubmit={handleSubmit} className="relative">
           {isProcessing && (

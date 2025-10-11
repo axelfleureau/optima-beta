@@ -4,9 +4,9 @@ import { createMaintenanceSubscription } from '@/lib/services/stripe-subscriptio
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: quoteId } = params
+  const { id: quoteId } = await params
   
   try {
     const body = await req.json()
