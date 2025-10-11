@@ -146,7 +146,7 @@ export default function QuoteDetailPage() {
                   <Edit className="h-4 w-4 mr-2" />
                   Modifica
                 </LiquidButton>
-                <LiquidButton variant="default" size="sm">
+                <LiquidButton variant="primary" size="sm">
                   <Send className="h-4 w-4 mr-2" />
                   Invia
                 </LiquidButton>
