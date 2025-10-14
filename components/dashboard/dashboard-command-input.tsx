@@ -124,7 +124,7 @@ export function DashboardCommandInput() {
         setClientMatches([])
       }
     },
-    150
+    300
   )
 
   const clearAutocomplete = useCallback(() => {

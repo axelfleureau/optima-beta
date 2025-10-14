@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useDebouncedCallback } from "use-debounce"
 import { useCommandBarStore } from "@/lib/stores/command-bar-store"
 import { useAIActionState } from "@/hooks/use-ai-action-state"
 import { useAIFeedback } from "@/hooks/use-ai-feedback"
@@ -18,6 +19,7 @@ export function CommandInput() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [pendingIntent, setPendingIntent] = useState<NLPResponse | null>(null)
+  const [localInput, setLocalInput] = useState(inputValue)
 
   useEffect(() => {
     if (inputRef.current) {
@@ -25,14 +27,41 @@ export function CommandInput() {
     }
   }, [])
 
+  const debouncedSetInput = useDebouncedCallback(
+    (value: string) => {
+      setInput(value)
+    },
+    300
+  )
+
+  // CRITICAL FIX: Sync with external value + cancel pending debounce
+  // When inputValue changes externally (e.g., dialog reopen with clean state)
+  useEffect(() => {
+    setLocalInput(inputValue)
+    debouncedSetInput.cancel() // Cancel any pending debounce to prevent stale writes
+  }, [inputValue, debouncedSetInput])
+
+  // CRITICAL FIX: Cleanup on unmount
+  // Prevents pending callbacks from firing after component is unmounted
+  useEffect(() => {
+    return () => {
+      debouncedSetInput.cancel()
+    }
+  }, [debouncedSetInput])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // CRITICAL FIX: Cancel pending debounce and sync store with latest localInput
+    debouncedSetInput.cancel()
+    setInput(localInput)
+    
     console.log("🔵 Command Bar handleSubmit called")
-    console.log("📝 Input value:", inputValue)
+    console.log("📝 Input value (local):", localInput)
     console.log("📍 Context:", context)
     console.log("⚡ Status:", status)
 
-    if (!inputValue.trim()) {
+    if (!localInput.trim()) {
       console.log("❌ Empty input, returning")
       feedback.info('Inserisci un comando')
       return
@@ -51,8 +80,8 @@ export function CommandInput() {
 
     try {
       actionState.start('Analisi comando...')
-      console.log("✅ Executing command...")
-      await executeCommand(inputValue, context)
+      console.log("✅ Executing command with latest input...")
+      await executeCommand(localInput, context)
       actionState.complete()
       feedback.success('Comando eseguito')
     } catch (error) {
@@ -126,8 +155,12 @@ export function CommandInput() {
 
         <GlassInput
           ref={inputRef}
-          value={inputValue}
-          onChange={(e) => setInput(e.target.value)}
+          value={localInput}
+          onChange={(e) => {
+            const newValue = e.target.value
+            setLocalInput(newValue)
+            debouncedSetInput(newValue)
+          }}
           onKeyDown={handleKeyDown}
           placeholder="Chiedi qualsiasi cosa... es: 'crea task per cliente Acme con priorità alta'"
           className={cn(
@@ -166,7 +199,7 @@ export function CommandInput() {
         </div>
       )}
 
-      {status === "idle" && !inputValue && context && !actionState.isLoading && (
+      {status === "idle" && !localInput && context && !actionState.isLoading && (
         <div className="px-4 pb-2">
           <p className="text-xs text-muted-foreground">
             💡 Prova: "crea task per...", "cerca task di...", "assegna task a...", "vai al calendario"

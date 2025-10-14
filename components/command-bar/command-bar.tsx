@@ -21,6 +21,11 @@ export function CommandBar() {
   const { users } = useUsers()
 
   useEffect(() => {
+    if (!isOpen) {
+      console.log("⏭️ Command Bar closed - skipping context update")
+      return
+    }
+
     console.log("🔧 Command Bar context useEffect triggered")
     console.log("👤 userData:", userData ? "loaded" : "null")
     console.log("👥 clients:", clients ? `${clients.length} clients` : "null")
@@ -39,7 +44,7 @@ export function CommandBar() {
     } else {
       console.log("⚠️ Cannot set context yet - waiting for userData and clients")
     }
-  }, [userData, clients, users, setContext])
+  }, [isOpen, userData, clients, users, setContext])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
