@@ -20,6 +20,7 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
+import { motion } from "framer-motion"
 import { 
   Sidebar, 
   SidebarContent, 
@@ -31,8 +32,20 @@ import {
   SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar"
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+
+// RighelloLogo component
+const RighelloLogo = ({ className }: { className?: string }) => (
+  <Image
+    src="/assets/logos/righello-logo.svg"
+    alt="Righello Logo"
+    width={32}
+    height={32}
+    className={className}
+    style={{ width: 'auto', height: 'auto' }}
+  />
+)
 
 export function AppSidebar() {
   const { userData, isSuperAdmin, isAdmin, isJunior, isClient, signOut } = useAuth()
@@ -182,50 +195,67 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-gray-200/30 dark:border-gray-700/30">
         <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
           <div className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}>
-            {/* Logo clickable with Tooltip (desktop-only when collapsed) */}
+            {/* Logo with transform animation (desktop-only when collapsed) */}
             {!isMobile && isCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="w-12 h-12 cursor-pointer rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 hover:ring-2 hover:ring-pink-500/20 hover:bg-gradient-to-br hover:from-pink-500/10 hover:to-purple-500/10 hover:scale-[1.02] hover:shadow-lg hover:shadow-pink-500/10"
-                    onClick={toggleSidebar}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Espandi sidebar"
-                    aria-expanded={false}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        toggleSidebar()
-                      }
-                    }}
-                  >
-                    <Image
-                      src="/assets/logos/righello-logo.svg"
-                      alt="Righello Logo"
-                      width={40}
-                      height={40}
-                      style={{ width: 'auto', height: 'auto' }}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">Espandi</TooltipContent>
-              </Tooltip>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={toggleSidebar}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Espandi sidebar"
+                      aria-expanded={false}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          toggleSidebar()
+                        }
+                      }}
+                      className="flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 hover:ring-2 hover:ring-pink-500/20 hover:bg-gradient-to-br hover:from-pink-500/10 hover:to-purple-500/10 hover:scale-[1.02] hover:shadow-lg hover:shadow-pink-500/10 relative"
+                      whileHover="hover"
+                      initial="rest"
+                      animate="rest"
+                    >
+                      {/* Logo - crossfade OUT on hover */}
+                      <motion.div
+                        variants={{
+                          rest: { opacity: 1, scale: 1 },
+                          hover: { opacity: 0, scale: 0.8 }
+                        }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute"
+                      >
+                        <RighelloLogo className="w-8 h-8" />
+                      </motion.div>
+                      
+                      {/* Icon - crossfade IN on hover */}
+                      <motion.div
+                        variants={{
+                          rest: { opacity: 0, scale: 0.8 },
+                          hover: { opacity: 1, scale: 1 }
+                        }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute"
+                      >
+                        <PanelLeft className="w-6 h-6 text-pink-500" />
+                      </motion.div>
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    Espandi
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : (
-              <div className={`${isCollapsed ? "w-12 h-12" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                <Image
-                  src="/assets/logos/righello-logo.svg"
-                  alt="Righello Logo"
-                  width={isCollapsed ? 40 : 32}
-                  height={isCollapsed ? 40 : 32}
-                  style={{ width: 'auto', height: 'auto' }}
-                />
-              </div>
-            )}
-            {!isCollapsed && (
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs text-gray-500">{getRoleDisplayName()}</span>
-              </div>
+              <Link href="/dashboard" className="flex items-center gap-2 px-2">
+                <RighelloLogo className="w-8 h-8" />
+                {!isCollapsed && (
+                  <span className="text-lg font-semibold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+                    Righello
+                  </span>
+                )}
+              </Link>
             )}
           </div>
           {!isCollapsed && <SidebarTrigger />}
