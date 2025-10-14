@@ -18,7 +18,6 @@ import {
 import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useAuth } from "@/lib/auth-context"
 import { TokenUsageWidget } from "@/components/dashboard/token-usage-widget"
-import { DashboardCommandInput } from "@/components/dashboard/dashboard-command-input"
 
 // Lazy load Technical Architect Dialog - reduces initial bundle size
 const TechnicalArchitectDialog = dynamic(
@@ -29,6 +28,21 @@ const TechnicalArchitectDialog = dynamic(
         <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl border border-slate-200/50 dark:border-slate-700/50">
           <div className="animate-spin h-12 w-12 border-4 border-slate-600 dark:border-slate-400 border-t-transparent rounded-full" />
           <p className="text-lg font-medium text-gray-900 dark:text-white animate-pulse">Caricamento...</p>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+)
+
+// Lazy load Dashboard Command Input - reduces initial bundle (uses framer-motion, complex orchestration)
+const DashboardCommandInput = dynamic(
+  () => import("@/components/dashboard/dashboard-command-input").then(mod => ({ default: mod.DashboardCommandInput })),
+  {
+    loading: () => (
+      <div className="relative backdrop-blur-xl bg-white/5 dark:bg-black/10 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl shadow-corporate-strong p-6 md:p-8">
+        <div className="flex items-center justify-center h-16">
+          <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full" />
         </div>
       </div>
     ),

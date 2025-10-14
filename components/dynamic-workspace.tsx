@@ -1,5 +1,6 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useAuth } from "@/lib/auth-context"
 import { useClients } from "@/hooks/use-clients"
 import { useWorkspaceData } from "@/hooks/use-workspace-data"
@@ -21,10 +22,18 @@ import {
   ImageIcon,
 } from "lucide-react"
 import { useState } from "react"
-import { TaskDetailDialog } from "@/components/task-detail-dialog"
 import { useAutoGenStore } from "@/lib/stores/auto-gen-store"
 import { useWorkspaceNav } from "@/lib/stores/workspace-nav-store"
 import type { Task } from "@/lib/types"
+
+// Lazy load Task Detail Dialog - reduces initial bundle (uses @hello-pangea/dnd, complex form)
+const TaskDetailDialog = dynamic(
+  () => import("@/components/task-detail-dialog").then(mod => ({ default: mod.TaskDetailDialog })),
+  {
+    loading: () => null,
+    ssr: false,
+  }
+)
 
 const defaultColumns = [
   { id: "to-do", title: "To Do", color: "border-blue-200", bgColor: "bg-blue-50", iconColor: "text-blue-600" },

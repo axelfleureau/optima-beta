@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
-import { DynamicWorkspace } from "@/components/dynamic-workspace"
 import { useWorkspaceNav } from '@/lib/stores/workspace-nav-store'
 import { useArchitectStore } from '@/lib/stores/architect-store'
 import { useAutoGenStore } from '@/lib/stores/auto-gen-store'
@@ -19,6 +18,22 @@ const AutoGenPreview = dynamic(
         <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl p-6 flex flex-col items-center gap-3 shadow-2xl border border-purple-200/50">
           <div className="animate-spin h-10 w-10 border-4 border-purple-500 border-t-transparent rounded-full" />
           <p className="text-sm font-medium text-gray-900 dark:text-white">Caricamento anteprima...</p>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+)
+
+// Lazy load Dynamic Workspace - reduces initial bundle (uses @hello-pangea/dnd, kanban components)
+const DynamicWorkspace = dynamic(
+  () => import("@/components/dynamic-workspace").then(mod => ({ default: mod.DynamicWorkspace })),
+  {
+    loading: () => (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento workspace...</p>
         </div>
       </div>
     ),
