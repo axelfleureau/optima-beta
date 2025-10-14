@@ -32,6 +32,7 @@ import {
   useSidebar
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 export function AppSidebar() {
   const { userData, isSuperAdmin, isAdmin, isJunior, isClient, signOut } = useAuth()
@@ -245,7 +246,17 @@ export function AppSidebar() {
                   isActive={isActive(item.url)}
                   tooltip={isCollapsed ? item.title : undefined}
                 >
-                  <Link href={item.url} className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
+                  <Link 
+                    href={item.url} 
+                    className={cn(
+                      "flex items-center gap-3 transition-all duration-200",
+                      isCollapsed ? "justify-center" : "",
+                      isActive(item.url) && [
+                        "!border-l-4 !border-pink-500",
+                        "!bg-gradient-to-r !from-pink-500/10 !to-transparent"
+                      ]
+                    )}
+                  >
                     <item.icon className="w-5 h-5 flex-shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
                   </Link>
@@ -270,7 +281,17 @@ export function AppSidebar() {
                     isActive={isActive(item.url)}
                     tooltip={isCollapsed ? item.title : undefined}
                   >
-                    <Link href={item.url} className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
+                    <Link 
+                      href={item.url} 
+                      className={cn(
+                        "flex items-center gap-3 transition-all duration-200",
+                        isCollapsed ? "justify-center" : "",
+                        isActive(item.url) && [
+                          "!border-l-4 !border-pink-500",
+                          "!bg-gradient-to-r !from-pink-500/10 !to-transparent"
+                        ]
+                      )}
+                    >
                       <item.icon className="w-5 h-5 flex-shrink-0" />
                       {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
                     </Link>

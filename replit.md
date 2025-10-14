@@ -53,19 +53,20 @@ Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Li
 
 **AI Quote JSON Error Fix - ARCHITECT REVISION (October 14, 2025):**
 1. **Forced JSON Mode Implementation:**
-   - Updated `app/api/ai/caption/route.ts` to use `generateObject` instead of `generateText`
-   - Added Zod schema validation with `quoteContentSchema` for type-safe AI responses
-   - Implemented `mode: 'json'` to force OpenAI JSON mode (no more prompt engineering)
+   - Created dedicated endpoint `app/api/ai/quote-content/route.ts` for quote-specific structured JSON
+   - Uses `generateObject` with Zod `quoteContentSchema` validation (titolo, descrizione, obiettivi, attivita, sitemap)
+   - Implemented `mode: 'json'` to force OpenAI JSON mode (100% valid JSON responses)
+   - Preserved `app/api/ai/caption/route.ts` as generic endpoint for all other caption uses (no regression)
 
 2. **Retry Logic with Progressive Strictness:**
-   - Added MAX_RETRIES = 2 to `lib/ai-quote-service.ts` (line 311)
-   - Implements while loop with JSON.parse() validation before proceeding
+   - Added MAX_RETRIES = 2 to `lib/ai-quote-service.ts` with `callQuoteContentAPI` helper
+   - Implements while loop with response validation before proceeding
    - Progressive prompt strictness: appends strict JSON reminder on each retry attempt
    - Throws error only after all retries exhausted
 
 3. **Smart Fallback with Template Data:**
    - Replaced generic fallback placeholders with real template data
-   - Uses `templateResult.template.name` and `templateResult.sector.name` for labels
+   - Uses `templateResult.template.name` and `templateResult.sector.name` for contextual labels
    - Fallback obiettivi/attivita pulled from `templateResult.sector.standardSections`
    - Preserves project context even when AI parsing fails
 
@@ -73,6 +74,7 @@ Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Li
 - ✅ JSON mode ensures 100% valid AI responses (no parsing errors)
 - ✅ Retry logic prevents immediate fallback, attempts correction first
 - ✅ Smart fallback uses real template data, maintains quote quality
+- ✅ No caption API regression - quote and caption endpoints properly separated
 
 **Righello Quote System Professionalization - 17 Tasks Completed:**
 
