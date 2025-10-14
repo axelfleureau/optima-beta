@@ -1,4 +1,5 @@
 "use client"
+import { useState } from "react"
 import {
   LayoutDashboard,
   Target,
@@ -31,11 +32,13 @@ import {
   SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export function AppSidebar() {
   const { userData, isSuperAdmin, isAdmin, isJunior, isClient, signOut } = useAuth()
   const pathname = usePathname()
-  const { state } = useSidebar()
+  const { state, toggleSidebar } = useSidebar()
+  const [isHoverPreview, setIsHoverPreview] = useState(false)
 
   const superAdminMenuItems = [
     {
@@ -174,62 +177,82 @@ export function AppSidebar() {
   }
 
   const isCollapsed = state === "collapsed"
+  const isExpanded = state === "expanded" || isHoverPreview
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar 
+      collapsible="icon"
+      className={isHoverPreview && state === "collapsed" ? "!w-[--sidebar-width]" : ""}
+      onMouseLeave={() => {
+        if (state === "collapsed") {
+          setIsHoverPreview(false)
+        }
+      }}
+    >
       <SidebarHeader className="border-b border-gray-200/30 dark:border-gray-700/30">
-        <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
+        <div className={`flex items-center ${!isExpanded ? "justify-center" : "justify-between"}`}>
           <div 
-            className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}
+            className={`flex items-center ${!isExpanded ? "w-full justify-center" : "gap-2"}`}
           >
-            <div 
-              className={`
-                ${isCollapsed ? "w-12 h-12 cursor-pointer" : "w-10 h-10"} 
-                rounded-lg flex items-center justify-center flex-shrink-0
-                ${isCollapsed ? "hover:bg-gradient-to-br hover:from-pink-500/20 hover:to-purple-500/20 hover:backdrop-blur-xl hover:scale-110 transition-all duration-300" : ""}
-              `}
-              onClick={() => {
-                if (isCollapsed) {
-                  const trigger = document.querySelector('[data-sidebar="trigger"]') as HTMLButtonElement;
-                  trigger?.click();
-                }
-              }}
-            >
-              <Image
-                src="/assets/logos/righello-logo.svg"
-                alt="Righello Logo"
-                width={isCollapsed ? 40 : 32}
-                height={isCollapsed ? 40 : 32}
-                style={{ width: 'auto', height: 'auto' }}
-              />
-            </div>
-            {!isCollapsed && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label={state === "collapsed" ? "Espandi sidebar" : "Logo Righello"}
+                  aria-expanded={isExpanded}
+                  onMouseEnter={() => {
+                    if (state === "collapsed") {
+                      setIsHoverPreview(true)
+                    }
+                  }}
+                  onClick={() => {
+                    if (state === "collapsed") {
+                      toggleSidebar()
+                    }
+                  }}
+                  className={`
+                    ${state === "collapsed" ? "w-12 h-12" : "w-10 h-10"} 
+                    rounded-lg flex items-center justify-center flex-shrink-0
+                    ${state === "collapsed" ? "hover:bg-gradient-to-br hover:from-pink-500/20 hover:to-purple-500/20 hover:backdrop-blur-xl hover:scale-110 transition-all duration-300" : ""}
+                  `}
+                >
+                  <Image
+                    src="/assets/logos/righello-logo.svg"
+                    alt="Righello Logo"
+                    width={state === "collapsed" ? 40 : 32}
+                    height={state === "collapsed" ? 40 : 32}
+                    style={{ width: 'auto', height: 'auto' }}
+                  />
+                </button>
+              </TooltipTrigger>
+              {state === "collapsed" && <TooltipContent side="right">Espandi</TooltipContent>}
+            </Tooltip>
+            {isExpanded && (
               <div className="flex flex-col min-w-0">
                 <span className="text-xs text-gray-500">{getRoleDisplayName()}</span>
               </div>
             )}
           </div>
-          {!isCollapsed && <SidebarTrigger />}
+          {isExpanded && <SidebarTrigger />}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className={isCollapsed ? "p-2" : "p-6"}>
+      <SidebarContent className={!isExpanded ? "p-2" : "p-6"}>
         {/* Main menu section */}
         <div className="mb-4">
-          {!isCollapsed && (
+          {isExpanded && (
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-2">{menuLabel}</div>
           )}
-          <SidebarMenu className={isCollapsed ? "items-center" : ""}>
+          <SidebarMenu className={!isExpanded ? "items-center" : ""}>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton 
                   asChild
                   isActive={isActive(item.url)}
-                  tooltip={isCollapsed ? item.title : undefined}
+                  tooltip={!isExpanded ? item.title : undefined}
                 >
-                  <Link href={item.url} className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
+                  <Link href={item.url} className={`flex items-center gap-3 ${!isExpanded ? "justify-center" : ""}`}>
                     <item.icon className="w-5 h-5 flex-shrink-0" />
-                    {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
+                    {isExpanded && <span className="text-sm font-medium">{item.title}</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -241,20 +264,20 @@ export function AppSidebar() {
         {(isAdmin || isSuperAdmin) && (
           <div>
             <div className="border-t border-gray-200/30 dark:border-gray-700/30 my-3" />
-            {!isCollapsed && (
+            {isExpanded && (
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 px-2">AMMINISTRAZIONE</div>
             )}
-            <SidebarMenu className={isCollapsed ? "items-center" : ""}>
+            <SidebarMenu className={!isExpanded ? "items-center" : ""}>
               {adminItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
                     isActive={isActive(item.url)}
-                    tooltip={isCollapsed ? item.title : undefined}
+                    tooltip={!isExpanded ? item.title : undefined}
                   >
-                    <Link href={item.url} className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
+                    <Link href={item.url} className={`flex items-center gap-3 ${!isExpanded ? "justify-center" : ""}`}>
                       <item.icon className="w-5 h-5 flex-shrink-0" />
-                      {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
+                      {isExpanded && <span className="text-sm font-medium">{item.title}</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -264,16 +287,16 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className={`border-t border-gray-200/30 dark:border-gray-700/30 ${isCollapsed ? "p-2" : "p-6"}`}>
-        <SidebarMenu className={isCollapsed ? "items-center" : ""}>
+      <SidebarFooter className={`border-t border-gray-200/30 dark:border-gray-700/30 ${!isExpanded ? "p-2" : "p-6"}`}>
+        <SidebarMenu className={!isExpanded ? "items-center" : ""}>
           <SidebarMenuItem>
             <div
               className={`flex items-center text-sm text-gray-600 rounded-lg transition-colors ${
-                isCollapsed ? "justify-center p-2" : "gap-3 px-3 py-2"
+                !isExpanded ? "justify-center p-2" : "gap-3 px-3 py-2"
               }`}
             >
               <User className="w-5 h-5 flex-shrink-0" />
-              {!isCollapsed && (
+              {isExpanded && (
                 <div className="flex flex-col min-w-0">
                   <span className="text-sm font-medium">
                     {userData?.firstName} {userData?.lastName}
@@ -286,11 +309,11 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={() => signOut()}
-              tooltip={isCollapsed ? "Logout" : undefined}
-              className={isCollapsed ? "justify-center" : ""}
+              tooltip={!isExpanded ? "Logout" : undefined}
+              className={!isExpanded ? "justify-center" : ""}
             >
               <LogOut className="w-5 h-5 flex-shrink-0" />
-              {!isCollapsed && <span className="font-medium">Logout</span>}
+              {isExpanded && <span className="font-medium">Logout</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
