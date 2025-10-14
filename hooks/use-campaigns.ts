@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { collection, query, where, getDocs, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
@@ -52,22 +52,22 @@ export function useCampaigns() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!userData?.tenantId) {
+  const campaignsQuery = useMemo(() => {
+    if (!userData?.tenantId) return null
+    return query(collection(db, "campaigns"), where("tenantId", "==", userData.tenantId))
+  }, [userData?.tenantId])
+
+  const fetchCampaigns = useCallback(async () => {
+    if (!campaignsQuery) {
       setLoading(false)
       return
     }
 
-    fetchCampaigns()
-  }, [userData?.tenantId])
-
-  const fetchCampaigns = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const q = query(collection(db, "campaigns"), where("tenantId", "==", userData?.tenantId))
-      const snapshot = await getDocs(q)
+      const snapshot = await getDocs(campaignsQuery)
 
       const campaignsData = snapshot.docs.map((doc) => {
         const data = doc.data()
@@ -102,9 +102,13 @@ export function useCampaigns() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [campaignsQuery])
 
-  const createCampaign = async (campaignData: Omit<Campaign, "id" | "createdAt" | "updatedAt">) => {
+  useEffect(() => {
+    fetchCampaigns()
+  }, [fetchCampaigns])
+
+  const createCampaign = useCallback(async (campaignData: Omit<Campaign, "id" | "createdAt" | "updatedAt">) => {
     try {
       const now = new Date()
       const docRef = await addDoc(collection(db, "campaigns"), {
@@ -127,9 +131,9 @@ export function useCampaigns() {
       console.error("Error creating campaign:", err)
       throw new Error("Errore nella creazione della campagna")
     }
-  }
+  }, [userData?.tenantId])
 
-  const updateCampaign = async (id: string, updates: Partial<Campaign>) => {
+  const updateCampaign = useCallback(async (id: string, updates: Partial<Campaign>) => {
     try {
       const campaignRef = doc(db, "campaigns", id)
       const updateData = {
@@ -154,9 +158,9 @@ export function useCampaigns() {
       console.error("Error updating campaign:", err)
       throw new Error("Errore nell'aggiornamento della campagna")
     }
-  }
+  }, [])
 
-  const deleteCampaign = async (id: string) => {
+  const deleteCampaign = useCallback(async (id: string) => {
     try {
       await deleteDoc(doc(db, "campaigns", id))
       setCampaigns((prev) => prev.filter((campaign) => campaign.id !== id))
@@ -164,7 +168,7 @@ export function useCampaigns() {
       console.error("Error deleting campaign:", err)
       throw new Error("Errore nell'eliminazione della campagna")
     }
-  }
+  }, [])
 
   return {
     campaigns,

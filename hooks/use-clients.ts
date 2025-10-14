@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
@@ -12,17 +12,20 @@ export function useClients() {
   const [error, setError] = useState<string | null>(null)
   const { userData } = useAuth()
 
+  const clientsQuery = useMemo(() => {
+    if (!userData?.tenantId) return null
+    return query(collection(db, "clients"), where("tenantId", "==", userData.tenantId))
+  }, [userData?.tenantId])
+
   useEffect(() => {
-    if (!userData?.tenantId) {
+    if (!clientsQuery) {
       setLoading(false)
       return
     }
 
     try {
-      const q = query(collection(db, "clients"), where("tenantId", "==", userData.tenantId))
-
       const unsubscribe = onSnapshot(
-        q,
+        clientsQuery,
         (snapshot) => {
           const clientsData = snapshot.docs.map((doc) => ({
             id: doc.id,
@@ -45,7 +48,7 @@ export function useClients() {
       setError(err.message)
       setLoading(false)
     }
-  }, [userData?.tenantId])
+  }, [clientsQuery])
 
   return {
     clients,

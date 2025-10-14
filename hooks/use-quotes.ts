@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
@@ -77,8 +77,16 @@ export function useQuotes() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const quotesQuery = useMemo(() => {
+    if (!userData?.tenantId) return null
+    return query(
+      collection(db, "quotes"), 
+      where("tenantId", "==", userData.tenantId)
+    )
+  }, [userData?.tenantId])
+
   useEffect(() => {
-    if (!userData?.tenantId) {
+    if (!quotesQuery) {
       setLoading(false)
       return
     }
@@ -88,15 +96,9 @@ export function useQuotes() {
 
     console.log("Setting up real-time listener for tenant:", userData?.tenantId)
 
-    // Setup real-time query
-    const q = query(
-      collection(db, "quotes"), 
-      where("tenantId", "==", userData?.tenantId)
-    )
-
     // Setup onSnapshot listener
     const unsubscribe = onSnapshot(
-      q,
+      quotesQuery,
       (snapshot) => {
         console.log("Real-time update: quotes changed")
         
@@ -145,9 +147,9 @@ export function useQuotes() {
       console.log("Unsubscribing from quotes listener")
       unsubscribe()
     }
-  }, [userData?.tenantId])
+  }, [quotesQuery, userData?.tenantId])
 
-  const createQuote = async (quoteData: Omit<Quote, "id" | "createdAt" | "updatedAt">) => {
+  const createQuote = useCallback(async (quoteData: Omit<Quote, "id" | "createdAt" | "updatedAt">) => {
     try {
       // SECURITY: Use secure API endpoint instead of direct Firestore writes
       const response = await fetch('/api/quotes/create', {
@@ -181,9 +183,9 @@ export function useQuotes() {
       console.error("Error creating quote:", err)
       throw new Error(err instanceof Error ? err.message : "Errore nella creazione del preventivo")
     }
-  }
+  }, [])
 
-  const updateQuote = async (id: string, updates: Partial<Quote>) => {
+  const updateQuote = useCallback(async (id: string, updates: Partial<Quote>) => {
     try {
       const quoteRef = doc(db, "quotes", id)
       const updateData = {
@@ -204,22 +206,22 @@ export function useQuotes() {
       console.error("Error updating quote:", err)
       throw new Error("Errore nell'aggiornamento del preventivo")
     }
-  }
+  }, [])
 
-  const deleteQuote = async (id: string) => {
+  const deleteQuote = useCallback(async (id: string) => {
     try {
       await deleteDoc(doc(db, "quotes", id))
     } catch (err) {
       console.error("Error deleting quote:", err)
       throw new Error("Errore nell'eliminazione del preventivo")
     }
-  }
+  }, [])
 
-  const getQuotesByStatus = (status: Quote["status"]) => {
+  const getQuotesByStatus = useCallback((status: Quote["status"]) => {
     return quotes.filter((quote) => quote.status === status)
-  }
+  }, [quotes])
 
-  const getQuoteStats = () => {
+  const getQuoteStats = useCallback(() => {
     const now = new Date()
     return {
       total: quotes.length,
@@ -231,7 +233,7 @@ export function useQuotes() {
       expired: quotes.filter((q) => q.validUntil < now && q.status !== "accepted").length,
       totalValue: quotes.filter((q) => q.status === "accepted").reduce((sum, q) => sum + q.total, 0),
     }
-  }
+  }, [quotes, getQuotesByStatus])
 
   return {
     quotes,

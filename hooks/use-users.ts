@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useAuth } from "@/lib/auth-context"
 import type { User } from "@/lib/types"
 
@@ -10,15 +10,18 @@ export function useUsers() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const userRole = userData?.role
+  const tenantId = userData?.tenantId
+
   useEffect(() => {
-    if (!userData?.tenantId) {
+    if (!tenantId) {
       setLoading(false)
       setError(null)
       return
     }
 
     // Solo super-admin e admin possono vedere gli utenti
-    if (userData.role !== "super-admin" && userData.role !== "admin") {
+    if (userRole !== "super-admin" && userRole !== "admin") {
       setUsers([])
       setLoading(false)
       setError("Non hai i permessi per visualizzare gli utenti")
@@ -36,7 +39,7 @@ export function useUsers() {
 
         let usersQuery
 
-        switch (userData.role) {
+        switch (userRole) {
           case "super-admin":
             // Super admin vede tutti gli utenti
             usersQuery = collection(db, "users")
@@ -44,7 +47,7 @@ export function useUsers() {
 
           case "admin":
             // Admin vede tutti gli utenti del proprio tenant (incluso se stesso)
-            usersQuery = query(collection(db, "users"), where("tenantId", "==", userData.tenantId))
+            usersQuery = query(collection(db, "users"), where("tenantId", "==", tenantId))
             break
 
           default:
@@ -65,7 +68,7 @@ export function useUsers() {
               return b.createdAt.getTime() - a.createdAt.getTime()
             }) as User[]
 
-          console.log(`Users loaded for role ${userData.role}:`, usersData.length)
+          console.log(`Users loaded for role ${userRole}:`, usersData.length)
           setUsers(usersData)
           setLoading(false)
         })
@@ -81,7 +84,7 @@ export function useUsers() {
     return () => {
       if (unsubscribe) unsubscribe()
     }
-  }, [userData])
+  }, [userRole, tenantId])
 
   return { users, loading, error }
 }

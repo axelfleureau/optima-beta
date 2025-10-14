@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
@@ -12,21 +12,27 @@ export function useEditorialPosts(clientId?: string | null) {
   const [error, setError] = useState<string | null>(null)
   const { userData } = useAuth()
 
+  const postsQuery = useMemo(() => {
+    if (!userData?.tenantId) return null
+    
+    let q = query(collection(db, "editorialPosts"), where("tenantId", "==", userData.tenantId))
+
+    if (clientId) {
+      q = query(q, where("clientId", "==", clientId))
+    }
+
+    return q
+  }, [userData?.tenantId, clientId])
+
   useEffect(() => {
-    if (!userData?.tenantId) {
+    if (!postsQuery) {
       setLoading(false)
       return
     }
 
     try {
-      let q = query(collection(db, "editorialPosts"), where("tenantId", "==", userData.tenantId))
-
-      if (clientId) {
-        q = query(q, where("clientId", "==", clientId))
-      }
-
       const unsubscribe = onSnapshot(
-        q,
+        postsQuery,
         (snapshot) => {
           const postsData = snapshot.docs.map((doc) => ({
             id: doc.id,
@@ -49,9 +55,9 @@ export function useEditorialPosts(clientId?: string | null) {
       setError(err.message)
       setLoading(false)
     }
-  }, [userData?.tenantId, clientId])
+  }, [postsQuery])
 
-  const addPost = async (
+  const addPost = useCallback(async (
     postData: Omit<EditorialPost, "id" | "createdAt" | "updatedAt" | "tenantId" | "createdBy">,
   ) => {
     if (!userData?.tenantId || !userData?.id) {
@@ -67,9 +73,9 @@ export function useEditorialPosts(clientId?: string | null) {
     }
 
     await addDoc(collection(db, "editorialPosts"), newPost)
-  }
+  }, [userData?.tenantId, userData?.id])
 
-  const updatePost = async (postId: string, updates: Partial<EditorialPost>) => {
+  const updatePost = useCallback(async (postId: string, updates: Partial<EditorialPost>) => {
     console.log("[v0] Attempting to update post:", { postId, updates })
 
     try {
@@ -87,14 +93,14 @@ export function useEditorialPosts(clientId?: string | null) {
       }
       throw error
     }
-  }
+  }, [])
 
-  const deletePost = async (postId: string) => {
+  const deletePost = useCallback(async (postId: string) => {
     const postRef = doc(db, "editorialPosts", postId)
     await deleteDoc(postRef)
-  }
+  }, [])
 
-  const updatePostStatus = async (postId: string, status: EditorialPostStatus) => {
+  const updatePostStatus = useCallback(async (postId: string, status: EditorialPostStatus) => {
     console.log("[v0] Updating post status:", { postId, status })
 
     const postExists = posts.find((p) => p.id === postId)
@@ -109,7 +115,7 @@ export function useEditorialPosts(clientId?: string | null) {
     }
 
     await updatePost(postId, { status })
-  }
+  }, [posts, updatePost])
 
   return {
     posts,
