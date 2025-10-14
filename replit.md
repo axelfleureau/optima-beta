@@ -1,7 +1,7 @@
 # Optima - Marketing Intelligence Platform
 
 ## Overview
-Optima is an AI Operations Platform for international service businesses, evolving from a marketing intelligence SaaS. Its core purpose is to provide an intelligent, efficient, and secure solution for managing and automating operational tasks. Key capabilities include autonomous AI agents, a conversational Command Bar interface, multi-tenant architecture, automated quote-to-payment workflows via Stripe, and content generation using DALL-E/Sora 2. The platform targets agencies and SMEs globally, offering a disruptive glassmorphic/liquid glass design aesthetic.
+Optima is an AI Operations Platform designed for international service businesses, evolving from a marketing intelligence SaaS. Its primary goal is to deliver an intelligent, efficient, and secure solution for managing and automating operational tasks. Key features include autonomous AI agents, a conversational Command Bar interface, multi-tenant architecture, automated quote-to-payment workflows via Stripe, and content generation using DALL-E/Sora 2. The platform targets agencies and SMEs globally, distinguished by a disruptive glassmorphic/liquid glass design aesthetic.
 
 ## User Preferences
 - Language: Italian (UI and content)
@@ -9,7 +9,7 @@ Optima is an AI Operations Platform for international service businesses, evolvi
 - Brand: Righello company branding
 
 ## System Architecture
-Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Liquid Glass Design System. It uses Radix UI primitives and Framer Motion for UI components. Authentication is handled by Firebase Auth, and data is stored in Firebase Firestore with multi-tenant isolation. AI functionalities leverage OpenAI GPT-4o for NLP and RAG. State management uses Redux Toolkit and Zustand.
+Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Liquid Glass Design System. It utilizes Radix UI primitives and Framer Motion for UI components. Authentication is managed by Firebase Auth, and data is stored in Firebase Firestore with multi-tenant isolation. AI functionalities leverage OpenAI GPT-4o for NLP and RAG. State management uses Redux Toolkit and Zustand.
 
 **Core Architectural Decisions and Design Patterns:**
 -   **Liquid Glass Design System**: Custom glassmorphic aesthetic with specific gradients, backdrop blur, and liquid animations.
@@ -19,13 +19,12 @@ Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Li
 -   **Workspace Intelligence System**: Provides task completeness and dependency analysis using GPT-4.
 -   **Enterprise Security**: Strict multi-tenant isolation via Firebase Admin SDK.
 -   **RAG Query Planning System**: Multi-step AI system for efficient Firestore querying and contextual response generation, supporting "all clients" queries while maintaining tenant isolation.
--   **Intent Recognition System**: Uses GPT-4o for improved NLP accuracy, supporting 5 business workflow intents (CREATE_WEBSITE, CREATE_GRAPHIC_DESIGN, CREATE_VIDEO_PRODUCTION, CREATE_SOFTWARE_DEV, CREATE_CAMPAIGN_PROJECT).
+-   **Intent Recognition System**: Uses GPT-4o for improved NLP accuracy, supporting 5 business workflow intents.
 -   **Technical Architect Integration**: Pre-execution AI dialog for complex tasks, decomposing them into phases with dependencies and effort estimates in a glassmorphic roadmap tree view.
--   **Auto-Generation Hooks**: Calendar task cards feature AI caption and visual generation with DALL-E, persisting via Firestore.
+-   **Auto-Generation Hooks**: Calendar task cards feature AI caption and visual generation with DALL-E.
 -   **Instagram 2025 Formats Support**: Server-side image processing with Sharp for Instagram format compliance.
 -   **Workspace Deep Linking**: Command Bar commands trigger workspace navigation with context preservation.
 -   **Asset Lifecycle Management**: Complete DALL-E → Firebase Storage → Firestore pipeline for persistent visual asset management.
--   **Liquid Animation System**: Framer Motion-powered microinteractions with accessibility compliance.
 -   **Corporate Design System (2025 Overhaul)**: Transformation to a corporate professional aesthetic across 40+ files, preserving glassmorphic identity with refined execution, specific design tokens, component library, and motion system attenuation.
 -   **Stripe Connect Multi-Tenant Payment Architecture**: Three-tier payment hierarchy (Platform ← Tenant ← Client) with extended user and client schemas for Stripe integration.
 -   **Unified UX Pattern Library**: Consolidated AI experience system with standardized loading states, contextual feedback, and prompt enrichment.
@@ -35,83 +34,22 @@ Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Li
 -   **Professional Quote PDF System**: Enhanced RighelloPDFGenerator with corporate glassmorphic branding, template-specific project badges, and professional item tables.
 -   **Automatic Invoice System**: Complete invoice automation pipeline generating professional PDF invoices (RighelloInvoiceGenerator) and sending via Nodemailer after every payment.
 -   **Stripe Subscription Management**: Monthly recurring billing for maintenance costs via Stripe Subscriptions, with auto-renewal and lifecycle webhook handlers.
--   **Quote Management UI System**: Mobile-first glassmorphic quote list interface with QuoteCard, QuoteFilters, and QuoteActions, supporting responsive grid layouts and Framer Motion animations.
--   **Quote Detail & Tab System**: Responsive quote detail page with 4 glassmorphic tabs (Dettagli, Timeline, Pagamenti, Documenti) and real-time data fetching.
--   **Quote Editor with Collapsible Sections**: Advanced quote editor featuring Accordion-based collapsible sections, real-time validation using react-hook-form with zod schemas, and dynamic field arrays.
+-   **Quote Management UI System**: Mobile-first glassmorphic quote list interface with QuoteCard, QuoteFilters, and QuoteActions.
+-   **Quote Detail & Tab System**: Responsive quote detail page with 4 glassmorphic tabs (Dettagli, Timeline, Pagamenti, Documenti).
+-   **Quote Editor with Collapsible Sections**: Advanced quote editor featuring Accordion-based collapsible sections, real-time validation, and dynamic field arrays.
 -   **Quote State Machine & Transitions**: Finite State Machine (FSM) with 9 quote states and 8 validated transitions, enforcing role-based permissions and business rule validations.
--   **Dual Client Mode Architecture**: Flexible quote generation supporting both platform clients and external clients, with mutual exclusivity validation and conditional payment logic.
+-   **Dual Client Mode Architecture**: Flexible quote generation supporting both platform clients and external clients.
 -   **Editorial Calendar Multi-View Experience**: Enhanced calendar interface with CalendarExperienceProvider managing shared state, featuring three viewing modes, status-based color coding, platform badges, content type indicators, and hover preview tooltips.
 -   **Command Bar Intelligence System**: Advanced AI-powered Command Bar with enhanced entity extraction and futuristic 3-stage streaming feedback, supporting multi-platform content creation and batch operations.
 -   **Workspace Responsive Architecture**: Mobile-first Kanban workspace with component extraction, single-scroll container pattern, responsive sidebar, and breakpoint-driven column widths.
--   **Safe Date Normalization Pattern**: Robust date handling system in PostFormDialog and Editorial Calendar components, managing mixed date formats.
+-   **Safe Date Normalization Pattern**: Robust date handling system in PostFormDialog and Editorial Calendar components.
 -   **Quote Enhanced Calculator System**: Real-time financial calculations with automatic VAT breakdown, featuring per-row totals and global totals.
 -   **Quote Event Audit System**: Complete audit trail infrastructure with Firestore quoteEvents collection tracking all quote lifecycle events.
 -   **Quote PDF Integration System**: End-to-end PDF workflow connecting RighelloPDFGenerator to QuoteDocumentsTab, featuring client-side PDF generation, download functionality, and preview.
--   **Sidebar Logo Collapsed Interaction (Desktop B2B UX)**: Type-safe sidebar logo button in collapsed state (desktop-only) with Radix UI tooltip, WCAG-compliant accessibility (role, tabIndex, aria-label, keyboard Enter/Space handlers), and B2B-elegant hover effects (subtle ring 20% opacity, minimal gradient 10% opacity, scale 1.02, professional shadow). Replaces DOM manipulation hack with idiomatic React toggleSidebar() hook. Mobile behavior preserved with conditional rendering (!isMobile && isCollapsed).
-
-## Recent Changes (October 2025)
-
-**AI Quote JSON Error Fix - ARCHITECT REVISION (October 14, 2025):**
-1. **Forced JSON Mode Implementation:**
-   - Created dedicated endpoint `app/api/ai/quote-content/route.ts` for quote-specific structured JSON
-   - Uses `generateObject` with Zod `quoteContentSchema` validation (titolo, descrizione, obiettivi, attivita, sitemap)
-   - Implemented `mode: 'json'` to force OpenAI JSON mode (100% valid JSON responses)
-   - Preserved `app/api/ai/caption/route.ts` as generic endpoint for all other caption uses (no regression)
-
-2. **Retry Logic with Progressive Strictness:**
-   - Added MAX_RETRIES = 2 to `lib/ai-quote-service.ts` with `callQuoteContentAPI` helper
-   - Implements while loop with response validation before proceeding
-   - Progressive prompt strictness: appends strict JSON reminder on each retry attempt
-   - Throws error only after all retries exhausted
-
-3. **Smart Fallback with Template Data:**
-   - Replaced generic fallback placeholders with real template data
-   - Uses `templateResult.template.name` and `templateResult.sector.name` for contextual labels
-   - Fallback obiettivi/attivita pulled from `templateResult.sector.standardSections`
-   - Preserves project context even when AI parsing fails
-
-**Testing Verification:**
-- ✅ JSON mode ensures 100% valid AI responses (no parsing errors)
-- ✅ Retry logic prevents immediate fallback, attempts correction first
-- ✅ Smart fallback uses real template data, maintains quote quality
-- ✅ No caption API regression - quote and caption endpoints properly separated
-
-**Righello Quote System Professionalization - 17 Tasks Completed:**
-
-1. **Righello Brand Integration:**
-   - Logo SVG geometrico integrato in PDF header (cerchi rosa + quadrati viola, no emoji)
-   - Platform-wide replacement: "Optima" → Solo logo Righello
-   - Footer PDF professionale con dati reali visura (P.IVA 01979790934, Via Villaraccolta 23 Pasiano PN, PEC, Capitale €10.000)
-
-2. **PDF Design Overhaul:**
-   - Glassmorphic boxes per sezioni (Obiettivi, Attività, Voci di Costo) con multi-page support
-   - Geometric bullets: cerchi rosa per obiettivi, quadrati viola per attività (sostituiscono emoji non supportati)
-   - Badge template colorati verificati (Website 180°/360°, Video Production, Comunicazione 150°/180°)
-   - Footer legale 5 clausole standard Righello
-
-3. **Real-Time Synchronization:**
-   - Firestore onSnapshot listener in useQuotes hook per auto-sync lista preventivi
-   - Quick edit navigation diretta da lista: router.push(`/preventivi/${id}/edit`)
-   - Eliminati manual refresh calls (createQuote, updateQuote, deleteQuote)
-
-4. **WCAG Accessibility Compliance:**
-   - @radix-ui/react-visually-hidden package installato
-   - VisuallyHidden DialogTitle aggiunto a 3 dialog files (task-asset-gallery, auto-gen-preview, command)
-   - 100% screen reader compliance - browser console clean (no DialogTitle errors)
-
-5. **AI Prompt Enhancement:**
-   - Obiettivi: infinitive verbs enforced (Valorizzare, Promuovere, Posizionare, Fidelizzare, Creare) + business outcomes
-   - Attività: hierarchical structure (1. Macro → • Sub → - Deliverables)
-   - Template-aware sector personalization verified (Hospitality, Food, Retail, Edilizia, Medicina)
-
-**Testing Instructions for User Acceptance:**
-1. **PDF Generation:** Creare preventivo → Scaricare PDF → Verificare logo Righello geometrico, footer legale, glassmorphic boxes
-2. **AI Content:** Generare preventivo con AI → Verificare obiettivi con verbi infinito, attività strutturate gerarchicamente
-3. **Real-Time Sync:** Modificare preventivo da detail page → Verificare auto-update lista (no refresh manuale)
-4. **Accessibility:** Testare con screen reader (VoiceOver/NVDA) → Verificare DialogTitle annunciati correttamente
-
-**Known Issues (Non-Blocking):**
-- 7 TypeScript LSP diagnostics (4 in ai-quote-generator.tsx, 3 in ai-quote-service.ts): pre-esistenti, server compiles successfully, runtime OK. Da triaggiare separatamente.
+-   **Sidebar Logo Collapsed Interaction (Desktop B2B UX)**: Type-safe sidebar logo button in collapsed state (desktop-only) with Radix UI tooltip and WCAG-compliant accessibility.
+-   **AI Quote JSON Error Fix**: Implemented forced JSON mode for structured quotes, retry logic with progressive strictness, and smart fallback with template data.
+-   **Righello Quote System Professionalization**: Integrated Righello branding into PDFs, overhauled PDF design, implemented real-time synchronization for quotes, ensured WCAG accessibility compliance for dialog titles, and enhanced AI prompts for quote content generation.
+-   **Performance & UX Enhancements**: Implemented visual enhancements for sidebar active states and logo transformation animation, optimized lazy loading for components, memoized Firebase queries and mutation callbacks, and added debounced lifecycle management for the Command Bar input.
 
 ## External Dependencies
 -   **Firebase**: Authentication (Firebase Auth), Database (Firestore), Storage.
