@@ -31,11 +31,12 @@ import {
   SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export function AppSidebar() {
   const { userData, isSuperAdmin, isAdmin, isJunior, isClient, signOut } = useAuth()
   const pathname = usePathname()
-  const { state } = useSidebar()
+  const { state, toggleSidebar, isMobile } = useSidebar()
 
   const superAdminMenuItems = [
     {
@@ -179,30 +180,47 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-gray-200/30 dark:border-gray-700/30">
         <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
-          <div 
-            className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}
-          >
-            <div 
-              className={`
-                ${isCollapsed ? "w-12 h-12 cursor-pointer" : "w-10 h-10"} 
-                rounded-lg flex items-center justify-center flex-shrink-0
-                ${isCollapsed ? "hover:bg-gradient-to-br hover:from-pink-500/20 hover:to-purple-500/20 hover:backdrop-blur-xl hover:scale-110 transition-all duration-300" : ""}
-              `}
-              onClick={() => {
-                if (isCollapsed) {
-                  const trigger = document.querySelector('[data-sidebar="trigger"]') as HTMLButtonElement;
-                  trigger?.click();
-                }
-              }}
-            >
-              <Image
-                src="/assets/logos/righello-logo.svg"
-                alt="Righello Logo"
-                width={isCollapsed ? 40 : 32}
-                height={isCollapsed ? 40 : 32}
-                style={{ width: 'auto', height: 'auto' }}
-              />
-            </div>
+          <div className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}>
+            {/* Logo clickable with Tooltip (desktop-only when collapsed) */}
+            {!isMobile && isCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="w-12 h-12 cursor-pointer rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 hover:ring-2 hover:ring-pink-500/20 hover:bg-gradient-to-br hover:from-pink-500/10 hover:to-purple-500/10 hover:scale-[1.02] hover:shadow-lg hover:shadow-pink-500/10"
+                    onClick={toggleSidebar}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Espandi sidebar"
+                    aria-expanded={false}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        toggleSidebar()
+                      }
+                    }}
+                  >
+                    <Image
+                      src="/assets/logos/righello-logo.svg"
+                      alt="Righello Logo"
+                      width={40}
+                      height={40}
+                      style={{ width: 'auto', height: 'auto' }}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">Espandi</TooltipContent>
+              </Tooltip>
+            ) : (
+              <div className={`${isCollapsed ? "w-12 h-12" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                <Image
+                  src="/assets/logos/righello-logo.svg"
+                  alt="Righello Logo"
+                  width={isCollapsed ? 40 : 32}
+                  height={isCollapsed ? 40 : 32}
+                  style={{ width: 'auto', height: 'auto' }}
+                />
+              </div>
+            )}
             {!isCollapsed && (
               <div className="flex flex-col min-w-0">
                 <span className="text-xs text-gray-500">{getRoleDisplayName()}</span>
