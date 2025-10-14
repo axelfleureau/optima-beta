@@ -1,0 +1,117 @@
+Refactor “hover-to-expand” logo (Desktop) — overlay senza layout shift
+Problemi osservati (now)
+L’hover sul logo spinge il layout (il contenuto si muove).
+Tooltip/hover area non sono stabili → piccolo “flicker”.
+Non c’è distinzione chiara tra preview temporanea e expand permanente.
+Obiettivo
+Quando la sidebar è minimized:
+Hover sul logo ⇒ mostra preview sovrapposta (overlay) della sidebar senza muovere il contenuto.
+Mouse leave ⇒ richiude la preview.
+Click sul logo ⇒ toggle permanente a expanded (qui sì, il layout si adatta).
+Desktop only (lg+).
+Soluzione tecnica (approccio overlay)
+Due contenitori:
+aside.base (sidebar reale) con larghezza fissa w-16.
+aside.preview (clonata/riusata) assoluta sopra la base: appare solo in hover come overlay, con w-64, pointer-events-auto, ombra e bordi; non influenza il layout.
+Intent delay (120–150 ms) per evitare espansioni accidentali.
+Mouse containment: la preview resta aperta finché il mouse è:
+sul logo, o
+dentro l’overlay (intera area).
+Persistenza: al click sul logo → sidebarState='expanded', si rimuove l’overlay e si porta la base a w-64 (layout si espande una volta sola).
+A11y: il logo è button con aria-expanded, Enter/Space = click.
+Snippet indicativo (React + Tailwind)
+Focus: struttura/gesti corretti. Adatta ai tuoi store (Redux/Zustand).
+function Sidebar() {
+  const [state, setState] = useSidebarState(); // 'minimized' | 'expanded'
+  const [showPreview, setShowPreview] = useState(false);
+  const intentTimer = useRef<number | null>(null);
+
+  const onLogoEnter = () => {
+    if (state !== 'minimized') return;
+    intentTimer.current = window.setTimeout(() => setShowPreview(true), 120);
+  };
+  const onLogoLeave = () => {
+    if (intentTimer.current) window.clearTimeout(intentTimer.current);
+  };
+
+  const closePreviewIfNeeded = () => {
+    if (state === 'minimized') setShowPreview(false);
+  };
+
+  const confirmExpand = () => {
+    setShowPreview(false);
+    setState('expanded'); // + persist
+  };
+
+  const isDesktop = true; // sostituisci con hook breakpoint se necessario
+
+  return (
+    <div className="relative hidden lg:block">
+      {/* Sidebar base: NON cambia width quando minimized */}
+      <aside
+        className={`h-screen transition-[width] duration-200 ease-out bg-white/80
+          ${state === 'expanded' ? 'w-64' : 'w-16'}`}
+      >
+        {/* Logo button */}
+        <button
+          className="w-full h-16 flex items-center justify-center"
+          aria-label={state === 'minimized' ? 'Espandi sidebar' : 'Sidebar'}
+          aria-expanded={state === 'expanded'}
+          onMouseEnter={onLogoEnter}
+          onMouseLeave={onLogoLeave}
+          onFocus={onLogoEnter}
+          onBlur={onLogoLeave}
+          onClick={() => {
+            if (state === 'minimized') confirmExpand();
+            // opzionale: se expanded → toggle a minimized
+          }}
+          title={state === 'minimized' ? 'Espandi' : undefined}
+        >
+          <Logo className="h-7 w-7" />
+        </button>
+
+        {/* ...nav icone... */}
+      </aside>
+
+      {/* OVERLAY PREVIEW: non spinge il layout */}
+      {isDesktop && state === 'minimized' && showPreview && (
+        <aside
+          className="absolute top-0 left-0 h-screen w-64 shadow-2xl rounded-r-2xl
+                     bg-white transition-opacity duration-150 ease-out
+                     border-r border-black/5"
+          onMouseLeave={closePreviewIfNeeded}
+          onMouseEnter={() => setShowPreview(true)}
+          style={{ pointerEvents: 'auto' }}
+        >
+          {/* header overlay con lo stesso logo (clic = conferma) */}
+          <button
+            className="w-full h-16 flex items-center gap-2 px-3"
+            onClick={confirmExpand}
+            aria-label="Conferma espansione"
+          >
+            <Logo className="h-7 w-7" />
+            <span className="font-medium">Righello</span>
+          </button>
+
+          {/* nav completo con label visibili */}
+          <nav className="px-2 py-1">{/* ...voci menu con testo... */}</nav>
+        </aside>
+      )}
+    </div>
+  );
+}
+Note UI
+Aggiungi z-40 all’overlay se necessario.
+Per evitare “perdita hover” tra logo e overlay, dai al logo un wrapper con relative e una hit-area (after:) di 8–10px.
+Criteri di accettazione (QA)
+ Con sidebar minimized, hover sul logo mostra una preview sovrapposta entro 150 ms; il contenuto non si muove.
+ Spostando il mouse fuori da logo+overlay la preview si richiude.
+ Click sul logo (o header overlay) → sidebar expanded in modo permanente; da qui il layout si adatta una sola volta.
+ Tooltip “Espandi” visibile su hover/focus; aria-expanded corretto.
+ Nessun flicker durante il passaggio logo ↔ overlay.
+ Comportamento attivo solo desktop.
+ Nessun errore console.
+Extra (piccole finiture)
+Micro-animazione del logo (scale 98%→100%) in hover.
+Blur di sfondo backdrop-blur-sm nell’overlay per “wow” leggero.
+Salvataggio preferenza in localStorage / profilo utente.
