@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
     console.log(`💰 Estimated input tokens: ${estimatedInputTokens}`)
 
     try {
-      // Generate text using OpenAI
       const result = await generateText({
         model: openai("gpt-4o-mini"),
         messages,

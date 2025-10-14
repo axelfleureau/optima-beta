@@ -50,6 +50,30 @@ Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Li
 -   **Sidebar Logo Collapsed Interaction (Desktop B2B UX)**: Type-safe sidebar logo button in collapsed state (desktop-only) with Radix UI tooltip, WCAG-compliant accessibility (role, tabIndex, aria-label, keyboard Enter/Space handlers), and B2B-elegant hover effects (subtle ring 20% opacity, minimal gradient 10% opacity, scale 1.02, professional shadow). Replaces DOM manipulation hack with idiomatic React toggleSidebar() hook. Mobile behavior preserved with conditional rendering (!isMobile && isCollapsed).
 
 ## Recent Changes (October 2025)
+
+**AI Quote JSON Error Fix - ARCHITECT REVISION (October 14, 2025):**
+1. **Forced JSON Mode Implementation:**
+   - Updated `app/api/ai/caption/route.ts` to use `generateObject` instead of `generateText`
+   - Added Zod schema validation with `quoteContentSchema` for type-safe AI responses
+   - Implemented `mode: 'json'` to force OpenAI JSON mode (no more prompt engineering)
+
+2. **Retry Logic with Progressive Strictness:**
+   - Added MAX_RETRIES = 2 to `lib/ai-quote-service.ts` (line 311)
+   - Implements while loop with JSON.parse() validation before proceeding
+   - Progressive prompt strictness: appends strict JSON reminder on each retry attempt
+   - Throws error only after all retries exhausted
+
+3. **Smart Fallback with Template Data:**
+   - Replaced generic fallback placeholders with real template data
+   - Uses `templateResult.template.name` and `templateResult.sector.name` for labels
+   - Fallback obiettivi/attivita pulled from `templateResult.sector.standardSections`
+   - Preserves project context even when AI parsing fails
+
+**Testing Verification:**
+- ✅ JSON mode ensures 100% valid AI responses (no parsing errors)
+- ✅ Retry logic prevents immediate fallback, attempts correction first
+- ✅ Smart fallback uses real template data, maintains quote quality
+
 **Righello Quote System Professionalization - 17 Tasks Completed:**
 
 1. **Righello Brand Integration:**

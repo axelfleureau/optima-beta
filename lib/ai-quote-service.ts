@@ -11,6 +11,7 @@ import {
   calculateQuoteWithExplicitParams,
   generateQuoteNumber
 } from "@/lib/quote-templates"
+import { getBaseUrl } from "@/lib/quote-utils"
 
 export interface QuoteItem {
   description: string
@@ -230,7 +231,34 @@ FORMATO RISPOSTA (SOLO JSON):
   "sitemap": ["Homepage", "Chi siamo", "..."] // Solo per website
 }
 
-Restituisci SOLO il JSON con questi campi. NON includere prezzi o voci di costo.`
+IMPORTANTE: Restituisci SOLO un oggetto JSON valido, senza testo aggiuntivo prima o dopo. NON includere prezzi o voci di costo.`
+
+async function callQuoteContentAPI(
+  prompt: string,
+  systemPrompt: string,
+  userId: string,
+  maxTokens = 1000,
+  temperature = 0.7,
+): Promise<any> {
+  const baseUrl = getBaseUrl()
+  const response = await fetch(`${baseUrl}/api/ai/quote-content`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt,
+      systemPrompt,
+      userId,
+      maxTokens,
+      temperature,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error("Failed to generate quote content")
+  }
+
+  return await response.json()
+}
 
 // NEW FUNCTION - DETERMINISTIC TEMPLATE-BASED GENERATION
 export async function generateQuoteFromEnrichedData(
@@ -263,7 +291,7 @@ export async function generateQuoteFromEnrichedData(
     
     // STEP 2: Prepare AI prompt with TEMPLATE DATA pre-filled
     const isWebsite = enrichedData.projectType.includes('website')
-    const aiPrompt = `Genera contenuti testuali personalizzati per questo preventivo Righello.
+    let aiPrompt = `Genera contenuti testuali personalizzati per questo preventivo Righello.
 
 INFORMAZIONI PROGETTO:
 - Tipo: ${enrichedData.projectTypeLabel}
@@ -307,22 +335,57 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
 
     console.log("🤖 Calling AI for textual content generation...")
     
-    // STEP 3: AI generates ONLY textual content
-    const aiResponse = await generateAIResponse(aiPrompt, userId, CONTENT_ONLY_SYSTEM_PROMPT)
-    
+    // STEP 3: AI generates ONLY textual content with RETRY
     let aiContent: {
       titolo: string
       descrizione: string
       obiettivi: string[]
       attivita: string[]
       sitemap?: string[]
+    } | undefined
+    let tokenUsage = { totalTokens: 0 }
+    let retryCount = 0
+    const MAX_RETRIES = 2
+    
+    while (retryCount <= MAX_RETRIES) {
+      try {
+        const quoteContentResponse = await callQuoteContentAPI(aiPrompt, CONTENT_ONLY_SYSTEM_PROMPT, userId, 1000, 0.7)
+        aiContent = quoteContentResponse.object
+        tokenUsage = quoteContentResponse.usage || { totalTokens: 0 }
+        break
+      } catch (parseError) {
+        retryCount++
+        if (retryCount > MAX_RETRIES) {
+          console.error(`❌ Failed to get valid JSON after ${MAX_RETRIES} retries`)
+          throw parseError
+        }
+        console.warn(`⚠️ Retry ${retryCount}/${MAX_RETRIES} - AI response was not valid JSON`)
+        
+        aiPrompt += "\n\nATTENZIONE: Restituisci ESCLUSIVAMENTE un oggetto JSON valido senza alcun testo extra."
+      }
     }
     
-    try {
-      aiContent = JSON.parse(aiResponse.text)
-    } catch (parseError) {
-      console.error("❌ Failed to parse AI response:", parseError)
-      throw new Error("AI response was not valid JSON")
+    if (!aiContent) {
+      console.error("❌ Failed to get AI content after retries")
+      
+      const projectTypeLabel = templateResult.template?.name || enrichedData.projectTypeLabel
+      const sectorLabel = templateResult.sector?.name || enrichedData.sectorLabel || "settore"
+      
+      aiContent = {
+        titolo: `${projectTypeLabel} per ${enrichedData.clientName || 'Cliente'}`,
+        descrizione: `Progetto ${projectTypeLabel.toLowerCase()} professionale realizzato secondo le migliori pratiche del ${sectorLabel}.`,
+        obiettivi: templateResult.sector?.standardSections.objectives.slice(0, 3) || [
+          `Valorizzare l'identità nel settore ${sectorLabel}`,
+          "Aumentare la visibilità online",
+          "Migliorare l'engagement del pubblico"
+        ],
+        attivita: templateResult.sector?.standardSections.activities.slice(0, 3) || [
+          "1. Analisi e Pianificazione",
+          "2. Sviluppo e Implementazione", 
+          "3. Testing e Ottimizzazione"
+        ]
+      }
+      console.warn("⚠️ Using smart fallback with template data")
     }
     
     console.log("✅ AI content generated:", {
@@ -369,7 +432,7 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
     }
     
     // Log token usage
-    await logTokenUsage(userId, userId, aiResponse.usage?.totalTokens || 0, "quote_generation")
+    await logTokenUsage(userId, userId, tokenUsage.totalTokens || 0, "quote_generation")
     
     console.log("✅ Quote generated successfully with deterministic pricing")
     console.log("💰 Final totals:", finalQuote.totali)
