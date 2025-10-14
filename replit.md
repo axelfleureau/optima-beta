@@ -47,6 +47,7 @@ Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Li
 -   **Quote Enhanced Calculator System**: Real-time financial calculations with automatic VAT breakdown, featuring per-row totals and global totals.
 -   **Quote Event Audit System**: Complete audit trail infrastructure with Firestore quoteEvents collection tracking all quote lifecycle events.
 -   **Quote PDF Integration System**: End-to-end PDF workflow connecting RighelloPDFGenerator to QuoteDocumentsTab, featuring client-side PDF generation, download functionality, and preview.
+-   **Sidebar Logo Collapsed Interaction (Desktop B2B UX)**: Type-safe sidebar logo button in collapsed state (desktop-only) with Radix UI tooltip, WCAG-compliant accessibility (role, tabIndex, aria-label, keyboard Enter/Space handlers), and B2B-elegant hover effects (subtle ring 20% opacity, minimal gradient 10% opacity, scale 1.02, professional shadow). Replaces DOM manipulation hack with idiomatic React toggleSidebar() hook. Mobile behavior preserved with conditional rendering (!isMobile && isCollapsed).
 
 ## Recent Changes (October 2025)
 **Righello Quote System Professionalization - 17 Tasks Completed:**
