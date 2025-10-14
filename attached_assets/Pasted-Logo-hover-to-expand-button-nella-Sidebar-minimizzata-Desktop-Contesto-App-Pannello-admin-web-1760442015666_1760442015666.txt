@@ -1,0 +1,41 @@
+Logo “hover-to-expand-button” nella Sidebar minimizzata (Desktop)
+Contesto
+App: Pannello admin / web (desktop).
+Vista: Desktop only (lg+).
+Stato attuale: con sidebar minimized il logo è statico.
+Obiettivo
+Quando la sidebar è minimized, passando il mouse sul logo questo diventa un pulsante (feedback visivo + tooltip). Solo al click la sidebar passa a expanded. Uscendo dall’hover senza click, il pulsante torna ad essere logo (nessuna espansione).
+User story
+Come utente desktop, quando ho la sidebar minimizzata voglio che il logo mi mostri chiaramente che posso espandere (hover ⇒ pulsante), e che solo al click la sidebar si espanda in modo permanente.
+Comportamento desiderato
+Hover sul logo (sidebar = minimized)
+Mostra tooltip “Espandi”.
+Il logo cambia stato visivo a pulsante (cursor pointer, ring/outline, background hover, eventuale icona chevron/play).
+Nessuna espansione della sidebar in hover.
+Mouse out ⇒ torna logo “normale”.
+Click sul logo (sidebar = minimized)
+sidebarState = 'expanded' (persistenza preferenza utente).
+A questo punto la sidebar si espande (transizione width).
+Logo con sidebar = expanded
+Default: nessuna azione (oppure toggle a minimized se deciso in futuro).
+Accessibilità
+Il logo, quando minimized, è un button con aria-label="Espandi sidebar" e aria-expanded={false}.
+Enter/Space replicano il click.
+Tooltip accessibile come fallback dell’aria-label.
+Animazioni / UI
+Transizione 150–250 ms su width (solo al click) e su stato visivo del logo (opacity/scale/shadow su hover).
+Zero layout shift in hover (non cambia la larghezza della sidebar).
+In expanded, fade-in delle label (opacity 0 → 100).
+Requisiti tecnici
+Stato globale: sidebarState: 'expanded' | 'minimized'.
+Nessuno stato preview (rimosso isHoverPreview).
+Persistenza: localStorage o preferenze utente.
+Tailwind suggerite:
+Sidebar: w-16 (minimized) → w-64 (expanded), transition-[width] duration-200 ease-out.
+Logo button (solo in minimized): cursor-pointer hover:ring-2 hover:ring-black/10 hover:bg-white/60 rounded-xl transition.
+Criteri di accettazione (QA)
+ In minimized, hover sul logo cambia solo lo stile (pulsante + tooltip), non la larghezza della sidebar.
+ Uscendo dall’hover senza click, il logo torna neutro.
+ Click sul logo in minimized ⇒ sidebar expanded e resta tale (persistenza dopo refresh).
+ aria-expanded e aria-label corretti; Enter/Space funziona.
+ Nessun flicker, nessun errore console, comportamento attivo solo desktop.
