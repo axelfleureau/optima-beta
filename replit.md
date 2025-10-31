@@ -50,7 +50,7 @@ Optima is built on Next.js 15.2.4 with TypeScript, Tailwind CSS, and a custom Li
 -   **AI Quote JSON Error Fix**: Implemented forced JSON mode for structured quotes, retry logic with progressive strictness, and smart fallback with template data.
 -   **Righello Quote System Professionalization**: Integrated Righello branding into PDFs, overhauled PDF design, implemented real-time synchronization for quotes, ensured WCAG accessibility compliance for dialog titles, and enhanced AI prompts for quote content generation.
 -   **Performance & UX Enhancements**: Implemented visual enhancements for sidebar active states and logo transformation animation, optimized lazy loading for components, memoized Firebase queries and mutation callbacks, and added debounced lifecycle management for the Command Bar input.
--   **Milestone Payment Reminder System**: Serverless automated reminder system with Vercel Cron (daily 9:00 AM UTC), 3-tier email templates (3-day, 1-day, same-day reminders), Firestore tracking with deduplication, and defensive coding with resilient fallbacks for tenant data retrieval.
+-   **Milestone Payment Reminder System**: Serverless automated reminder system with Vercel Cron (daily 9:00 AM UTC), 3-tier email templates (3-day, 1-day, same-day reminders), Firestore tracking with deduplication, defensive coding with resilient fallbacks for tenant data retrieval, and type-safe MilestonePaymentContext for pre-payment milestone checkout flows.
 
 ## External Dependencies
 -   **Firebase**: Authentication (Firebase Auth), Database (Firestore), Storage.

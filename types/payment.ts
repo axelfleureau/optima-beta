@@ -179,6 +179,26 @@ export interface SecurePaymentContext {
   }
 }
 
+// Milestone Payment Context (for creating milestone payments before Payment record exists)
+export interface MilestonePaymentContext {
+  quote: {
+    id: string
+    title: string
+    total: number
+    currency: string
+    clientName: string
+    clientEmail?: string
+    tenantId: string
+    status: string
+    validUntil: Date
+  }
+  tenant: {
+    id: string
+    name: string
+    stripeAccountId?: string         // For Stripe Connect (future)
+  }
+}
+
 // Payment Update Request (internal use)
 export interface PaymentUpdateRequest {
   paymentId: string

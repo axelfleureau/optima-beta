@@ -17,6 +17,7 @@ import type {
   CreatePaymentIntentResponse,
   PaymentServiceResponse,
   SecurePaymentContext,
+  MilestonePaymentContext,
   PaymentError,
   PAYMENT_CONSTANTS
 } from "@/types/payment"
@@ -279,7 +280,7 @@ export class StripeService {
     quoteId: string,
     milestoneId: string,
     milestone: { name: string; amount: number },
-    context: SecurePaymentContext
+    context: MilestonePaymentContext
   ): Promise<PaymentServiceResponse<CreatePaymentIntentResponse>> {
     try {
       // Validate milestone amount
