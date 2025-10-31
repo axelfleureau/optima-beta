@@ -37,15 +37,31 @@ export async function GET(request: NextRequest) {
     const quotesSnapshot = await adminDb.collection('quotes').get()
     const quotes: Quote[] = quotesSnapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const data = doc.data()
+      
+      const normalizedRemindersSent: Quote['remindersSent'] = {}
+      if (data.remindersSent && typeof data.remindersSent === 'object') {
+        for (const [milestoneId, timestamps] of Object.entries(data.remindersSent as Record<string, any>)) {
+          normalizedRemindersSent[milestoneId] = {
+            threeDay: timestamps.threeDay?.toDate?.() || timestamps.threeDay,
+            oneDay: timestamps.oneDay?.toDate?.() || timestamps.oneDay,
+            sameDay: timestamps.sameDay?.toDate?.() || timestamps.sameDay,
+          }
+        }
+      }
+      
+      const clientName = data.clientName || data.externalClientName || 'Cliente'
+      
       return {
         ...data,
         id: doc.id,
+        clientName,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
         validUntil: data.validUntil?.toDate() || new Date(),
         sentAt: data.sentAt?.toDate(),
         approvedAt: data.approvedAt?.toDate(),
         pendingApprovalAt: data.pendingApprovalAt?.toDate(),
+        remindersSent: Object.keys(normalizedRemindersSent).length > 0 ? normalizedRemindersSent : undefined,
         paymentPlan: data.paymentPlan ? {
           ...data.paymentPlan,
           milestones: data.paymentPlan.milestones?.map((m: any) => ({
@@ -77,8 +93,21 @@ export async function GET(request: NextRequest) {
 
     for (const item of milestonesDue) {
       try {
+        if (!item.quote.shareToken) {
+          console.warn(`⚠️ Skipping milestone "${item.milestone.name}" for quote ${item.quoteId} - missing shareToken. Quote must be sent to client first.`)
+          results.failed++
+          results.details.push({
+            quoteId: item.quoteId,
+            milestoneId: item.milestone.id,
+            reminderType: item.reminderType,
+            status: 'skipped',
+            error: 'Missing shareToken - quote not sent to client yet'
+          })
+          continue
+        }
+
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://optima-beta.vercel.app'
-        const paymentUrl = `${baseUrl}/quotes/${item.quote.shareToken || item.quoteId}/milestone-pay?milestoneId=${item.milestone.id}`
+        const paymentUrl = `${baseUrl}/quotes/${item.quote.shareToken}/milestone-pay?milestoneId=${item.milestone.id}`
 
         const emailSent = await sendMilestoneReminder(
           item.reminderType,
