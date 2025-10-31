@@ -167,6 +167,7 @@ export interface SecurePaymentContext {
     total: number
     currency: string
     clientName: string
+    clientEmail?: string
     tenantId: string
     status: string
     validUntil: Date
