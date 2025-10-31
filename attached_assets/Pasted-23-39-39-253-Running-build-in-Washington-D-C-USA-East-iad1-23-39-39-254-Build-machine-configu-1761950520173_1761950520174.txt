@@ -1,0 +1,48 @@
+23:39:39.253 Running build in Washington, D.C., USA (East) – iad1
+23:39:39.254 Build machine configuration: 2 cores, 8 GB
+23:39:39.428 Cloning github.com/axelfleureau/optima-beta (Branch: main, Commit: 803605f)
+23:39:39.429 Previous build caches not available.
+23:39:40.478 Cloning completed: 1.050s
+23:39:41.102 Running "vercel build"
+23:39:41.505 Vercel CLI 48.8.0
+23:39:41.944 Installing dependencies...
+23:40:06.948 
+23:40:06.949 added 689 packages in 25s
+23:40:06.949 
+23:40:06.949 80 packages are looking for funding
+23:40:06.949   run `npm fund` for details
+23:40:07.426 Detected Next.js version: 15.2.4
+23:40:07.433 Running "npm run build"
+23:40:07.992 
+23:40:07.992 > my-v0-project@0.1.0 build
+23:40:07.993 > next build
+23:40:07.993 
+23:40:09.676 Attention: Next.js now collects completely anonymous telemetry regarding usage.
+23:40:09.677 This information is used to shape Next.js' roadmap and prioritize features.
+23:40:09.677 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+23:40:09.677 https://nextjs.org/telemetry
+23:40:09.677 
+23:40:09.736    ▲ Next.js 15.2.4
+23:40:09.737    - Experiments (use with caution):
+23:40:09.737      · allowedDevOrigins
+23:40:09.737 
+23:40:09.796    Creating an optimized production build ...
+23:41:07.735  ✓ Compiled successfully
+23:41:07.744    Linting and checking validity of types ...
+23:41:33.495 Failed to compile.
+23:41:33.496 
+23:41:33.496 ./app/api/quotes/create/route.ts:149:48
+23:41:33.496 Type error: Argument of type '{ clientId: string; clientEmail: string | undefined; title: string; description: string; clientName: string; status: "rejected" | "draft" | "sent" | "approved"; currency: string; items: { ...; }[]; ... 5 more ...; updatedAt: Timestamp; } | { ...; }' is not assignable to parameter of type 'Partial<Quote>'.
+23:41:33.497   Type '{ clientId: string; clientEmail: string | undefined; title: string; description: string; clientName: string; status: "rejected" | "draft" | "sent" | "approved"; currency: string; items: { ...; }[]; ... 5 more ...; updatedAt: Timestamp; }' is not assignable to type 'Partial<Quote>'.
+23:41:33.497     Types of property 'validUntil' are incompatible.
+23:41:33.497       Type 'Timestamp' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 36 more.
+23:41:33.498 
+23:41:33.498 [0m [90m 147 |[39m[0m
+23:41:33.498 [0m [90m 148 |[39m     [90m// Final validation using helper[39m[0m
+23:41:33.498 [0m[31m[1m>[22m[39m[90m 149 |[39m     [36mconst[39m validation [33m=[39m validateQuoteClientMode(newQuote)[0m
+23:41:33.498 [0m [90m     |[39m                                                [31m[1m^[22m[39m[0m
+23:41:33.498 [0m [90m 150 |[39m     [36mif[39m ([33m![39mvalidation[33m.[39mvalid) {[0m
+23:41:33.499 [0m [90m 151 |[39m       [36mreturn[39m [33mNextResponse[39m[33m.[39mjson([0m
+23:41:33.499 [0m [90m 152 |[39m         { error[33m:[39m validation[33m.[39merror }[33m,[39m[0m
+23:41:33.514 Next.js build worker exited with code: 1 and signal: null
+23:41:33.560 Error: Command "npm run build" exited with 1

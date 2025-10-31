@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     } = validatedData
 
     // SECURITY: Use only server-verified tenantId and userId, ignore any client-sent identifiers
-    const now = Timestamp.now()
+    const now = new Date()
     
     // Build quote object based on client mode
     const baseQuote = {
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       currency: currency || "EUR",
       items,
       total,
-      validUntil: validUntil ? Timestamp.fromDate(new Date(validUntil)) : Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days default
+      validUntil: validUntil ? new Date(validUntil) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
       tenantId, // Server-verified only
       createdBy: userId, // Server-verified only
       createdAt: now,
@@ -157,7 +157,15 @@ export async function POST(request: NextRequest) {
     console.log("🔒 Creating quote with server-verified tenant:", tenantId, 
                 clientId ? `(Platform Client: ${clientId})` : `(External Client: ${externalClientName})`)
 
-    const docRef = await addDoc(collection(db, "quotes"), newQuote)
+    // Convert Date fields to Firestore Timestamp before saving
+    const quoteForFirestore = {
+      ...newQuote,
+      createdAt: Timestamp.fromDate(newQuote.createdAt),
+      updatedAt: Timestamp.fromDate(newQuote.updatedAt),
+      validUntil: Timestamp.fromDate(newQuote.validUntil),
+    }
+
+    const docRef = await addDoc(collection(db, "quotes"), quoteForFirestore)
 
     return NextResponse.json({
       success: true,
