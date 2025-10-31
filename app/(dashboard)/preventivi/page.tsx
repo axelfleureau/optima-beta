@@ -361,7 +361,7 @@ export default function PreventiviPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">
-                  {stats.pending + stats.sent}
+                  {stats.inReview + stats.sent}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">da approvare</p>
               </CardContent>
@@ -375,7 +375,7 @@ export default function PreventiviPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.accepted}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">{stats.approved}</div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">confermati</p>
               </CardContent>
             </Card>

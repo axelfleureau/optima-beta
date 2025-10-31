@@ -30,10 +30,11 @@ interface QuoteFiltersProps {
     total: number
     draft: number
     sent: number
-    pending: number
-    accepted?: number
-    approved?: number
-    completed?: number
+    inReview: number
+    approved: number
+    rejected: number
+    expired: number
+    totalValue: number
   }
 }
 
@@ -93,22 +94,18 @@ export function QuoteFilters({ filters, onFiltersChange, stats }: QuoteFiltersPr
             <SelectItem value="sent">
               Inviati {stats?.sent ? `(${stats.sent})` : ""}
             </SelectItem>
-            <SelectItem value="pending">
-              In Attesa {stats?.pending ? `(${stats.pending})` : ""}
+            <SelectItem value="in_review">
+              In Revisione {stats?.inReview ? `(${stats.inReview})` : ""}
             </SelectItem>
-            <SelectItem value="accepted">
-              Accettati {stats?.accepted ? `(${stats.accepted})` : ""}
+            <SelectItem value="approved">
+              Approvati {stats?.approved ? `(${stats.approved})` : ""}
             </SelectItem>
-            {stats?.approved !== undefined && (
-              <SelectItem value="approved">
-                Approvati {stats?.approved ? `(${stats.approved})` : ""}
-              </SelectItem>
-            )}
-            {stats?.completed !== undefined && (
-              <SelectItem value="completed">
-                Completati {stats?.completed ? `(${stats.completed})` : ""}
-              </SelectItem>
-            )}
+            <SelectItem value="rejected">
+              Rifiutati {stats?.rejected ? `(${stats.rejected})` : ""}
+            </SelectItem>
+            <SelectItem value="expired">
+              Scaduti {stats?.expired ? `(${stats.expired})` : ""}
+            </SelectItem>
           </SelectContent>
         </Select>
         

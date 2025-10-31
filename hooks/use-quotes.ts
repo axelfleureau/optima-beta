@@ -4,54 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
-
-export interface QuoteItem {
-  description: string
-  quantity: number
-  unitPrice: number
-  total: number
-}
-
-export interface Quote {
-  id: string
-  title: string
-  description?: string
-  clientId: string
-  clientName: string
-  status: "draft" | "sent" | "pending" | "pending_payment" | "accepted" | "rejected" | "expired" | "paid" | "approved"
-  currency: string
-  items: QuoteItem[]
-  total: number
-  validUntil: Date
-  createdAt: Date
-  updatedAt: Date
-  tenantId: string
-  createdBy: string
-  
-  // Public sharing and approval fields
-  shareToken?: string
-  sentAt?: Date
-  approvedAt?: Date
-  approvedBy?: string
-  clientEmail?: string
-  
-  // Pending payment approval fields
-  pendingApprovalAt?: Date
-  pendingApprovalBy?: string
-  
-  // Payment plan (from Task 9)
-  paymentPlan?: {
-    type: 'full' | 'deposit_milestone'
-    depositPercentage?: number
-    milestones?: Array<{
-      id: string
-      name: string
-      percentage: number
-      amount: number
-      status: 'pending' | 'paid' | 'failed'
-    }>
-  }
-}
+import type { Quote, QuoteItem } from "@/types/quote"
 
 // Helper function to safely convert Firestore timestamp to Date
 const safeToDate = (timestamp: any): Date => {
@@ -107,24 +60,50 @@ export function useQuotes() {
           return {
             id: doc.id,
             title: data.title || "",
-            description: data.description || "",
-            clientId: data.clientId || "",
+            description: data.description,
+            
+            // DUAL CLIENT MODE fields
+            clientMode: data.clientMode,
+            clientId: data.clientId,
             clientName: data.clientName || "",
+            externalClientName: data.externalClientName,
+            externalClientEmail: data.externalClientEmail,
+            
             status: data.status || "draft",
             currency: data.currency || "EUR",
             items: data.items || [],
             total: data.total || 0,
+            
+            // Financial breakdown
+            subtotale: data.subtotale,
+            iva: data.iva,
+            percentualeIva: data.percentualeIva,
+            
             validUntil: safeToDate(data.validUntil),
             createdAt: safeToDate(data.createdAt),
             updatedAt: safeToDate(data.updatedAt),
             tenantId: data.tenantId || "",
             createdBy: data.createdBy || "",
+            
+            // Public sharing and approval fields
             shareToken: data.shareToken,
             sentAt: data.sentAt ? safeToDate(data.sentAt) : undefined,
             approvedAt: data.approvedAt ? safeToDate(data.approvedAt) : undefined,
             approvedBy: data.approvedBy,
             clientEmail: data.clientEmail,
+            
+            // Pending payment approval fields
+            pendingApprovalAt: data.pendingApprovalAt ? safeToDate(data.pendingApprovalAt) : undefined,
+            pendingApprovalBy: data.pendingApprovalBy,
+            
+            // Payment plan
             paymentPlan: data.paymentPlan,
+            
+            // Editor fields
+            obiettivi: data.obiettivi,
+            attivita: data.attivita,
+            voci: data.voci,
+            terminiCondizioni: data.terminiCondizioni,
           } as Quote
         })
 
@@ -227,11 +206,11 @@ export function useQuotes() {
       total: quotes.length,
       draft: getQuotesByStatus("draft").length,
       sent: getQuotesByStatus("sent").length,
-      pending: getQuotesByStatus("pending").length,
-      accepted: getQuotesByStatus("accepted").length,
+      inReview: getQuotesByStatus("in_review").length,
+      approved: getQuotesByStatus("approved").length,
       rejected: getQuotesByStatus("rejected").length,
-      expired: quotes.filter((q) => q.validUntil < now && q.status !== "accepted").length,
-      totalValue: quotes.filter((q) => q.status === "accepted").reduce((sum, q) => sum + q.total, 0),
+      expired: quotes.filter((q) => q.validUntil < now && q.status !== "approved").length,
+      totalValue: quotes.filter((q) => q.status === "approved").reduce((sum, q) => sum + q.total, 0),
     }
   }, [quotes, getQuotesByStatus])
 

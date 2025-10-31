@@ -17,7 +17,7 @@ import { stripeService } from "@/lib/services/stripe.service"
 import { createPayment } from "@/collections/payments"
 import { verifyFirebaseToken, adminDb } from "@/lib/firebase-admin"
 import type { CreatePaymentIntentRequest, SecurePaymentContext } from "@/types/payment"
-import type { Quote } from "@/hooks/use-quotes"
+import type { Quote } from "@/types/quote"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 const createCheckoutSchema = z.object({
