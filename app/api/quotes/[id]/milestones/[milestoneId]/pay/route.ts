@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
+import { verifyFirebaseToken, getUserData, adminDb } from "@/lib/firebase-admin"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { getQuoteById } from "@/lib/quote-service-server"
 import { StripeService } from "@/lib/services/stripe.service"
@@ -92,7 +92,36 @@ export async function POST(
       )
     }
 
-    // 7. CREATE STRIPE CHECKOUT FOR MILESTONE
+    // 7. FETCH TENANT DATA
+    if (!userData.tenantId) {
+      return NextResponse.json(
+        { error: 'TenantId mancante nei dati utente' },
+        { status: 400 }
+      )
+    }
+
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: 'Firebase Admin DB not initialized' },
+        { status: 500 }
+      )
+    }
+
+    let tenantName = 'Agenzia'
+    try {
+      const tenantDoc = await adminDb.collection("tenants").doc(userData.tenantId).get()
+      if (tenantDoc.exists) {
+        const tenantData = tenantDoc.data()
+        tenantName = tenantData?.name || tenantData?.companyName || 'Agenzia'
+      } else {
+        console.warn(`Tenant document not found for tenantId: ${userData.tenantId}. Using fallback name.`)
+      }
+    } catch (error) {
+      console.error('Error fetching tenant data from Firestore:', error)
+      // Continue with fallback name instead of blocking payment
+    }
+
+    // 8. CREATE STRIPE CHECKOUT FOR MILESTONE
     const result = await stripeService.createMilestonePayment(
       quote.id,
       milestone.id,
@@ -112,7 +141,10 @@ export async function POST(
           validUntil: quote.validUntil,
           clientEmail: quote.clientEmail || '',
         },
-        tenant: { id: userData.tenantId },
+        tenant: { 
+          id: userData.tenantId,
+          name: tenantName,
+        },
       }
     )
 
@@ -124,7 +156,7 @@ export async function POST(
       )
     }
 
-    // 8. RETURN CHECKOUT URL
+    // 9. RETURN CHECKOUT URL
     return NextResponse.json({
       success: true,
       checkoutUrl: result.data?.checkoutUrl,
