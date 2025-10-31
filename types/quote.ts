@@ -57,9 +57,19 @@ export interface Quote {
       name: string
       percentage: number
       amount: number
-      status: 'pending' | 'paid' | 'failed'
+      dueDate?: Date
+      status: 'pending' | 'ready' | 'paid' | 'failed'
+      paymentIntentId?: string
+      paidAt?: Date
     }>
   }
+  
+  // Milestone reminder tracking (for automated payment reminders)
+  remindersSent?: Record<string, {
+    threeDay?: Date
+    oneDay?: Date
+    sameDay?: Date
+  }>
   
   // Editor fields
   obiettivi?: string[]
