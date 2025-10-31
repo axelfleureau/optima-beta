@@ -1,5 +1,6 @@
 export interface QuoteItem {
-  description: string
+  name: string
+  description?: string
   quantity: number
   unitPrice: number
   total: number
