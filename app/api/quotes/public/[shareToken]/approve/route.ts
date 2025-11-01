@@ -165,10 +165,33 @@ export async function POST(
       validUntil: validUntil,
     }
 
+    // Fetch tenant data with defensive coding
+    if (!quoteData.tenantId) {
+      console.error('❌ Missing tenantId in quote data')
+      return NextResponse.json(
+        { error: 'Configurazione preventivo non valida' },
+        { status: 500 }
+      )
+    }
+
+    let tenantName = 'Righello'
+    try {
+      const tenantDoc = await adminDb.collection('tenants').doc(quoteData.tenantId).get()
+      if (tenantDoc.exists) {
+        const tenantData = tenantDoc.data()
+        tenantName = tenantData?.name || 'Righello'
+      }
+    } catch (error) {
+      console.error('⚠️ Failed to fetch tenant data, using fallback:', error)
+    }
+
     // Prepare payment context
     const context: SecurePaymentContext = {
       quote: quote as any,
-      tenant: { id: quoteData.tenantId },
+      tenant: { 
+        id: quoteData.tenantId,
+        name: tenantName
+      },
     }
 
     // Determine base URL for redirects
