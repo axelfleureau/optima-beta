@@ -755,7 +755,7 @@ export function WorkspaceShell() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto p-4 lg:p-6">
+          <div className="flex-1 overflow-x-auto overflow-y-hidden p-4 lg:p-6">
             {tasksLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">

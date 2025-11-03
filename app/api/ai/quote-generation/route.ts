@@ -136,12 +136,24 @@ export async function POST(request: NextRequest) {
       data: enrichedQuote
     })
 
-  } catch (error) {
-    console.error("❌ Quote generation API error:", error)
+  } catch (error: any) {
+    console.error("❌ Quote generation API error:", {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+      cause: error?.cause
+    })
+    
+    const errorMessage = error?.message?.includes('fetch failed') || error?.message?.includes('network')
+      ? "Errore di connessione con il servizio AI. Controlla la tua connessione e riprova."
+      : error?.message?.includes('timeout') || error?.name === 'AbortError'
+      ? "La generazione del preventivo ha richiesto troppo tempo. Riprova tra qualche istante."
+      : "Errore durante la generazione del preventivo. Riprova tra qualche istante."
+    
     return NextResponse.json(
       { 
-        error: "Failed to generate quote",
-        details: error instanceof Error ? error.message : "Unknown error"
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
       { status: 500 }
     )

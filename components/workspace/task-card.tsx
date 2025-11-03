@@ -148,44 +148,46 @@ export function TaskCard({
                 Assegnato a: {task.assignee || "Non assegnato"}
               </div>
 
-              <div className="flex gap-1.5 md:gap-2 mt-1 md:mt-2" onClick={(e) => e.stopPropagation()}>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 h-8 md:h-7 text-[10px] md:text-xs"
-                  onClick={async () => {
-                    if (!user) return
-                    const { generateCopy } = useAutoGenStore.getState()
-                    await generateCopy(
-                      task.id,
-                      task.title || task.description || "",
-                      task.clientName || "",
-                      user.uid,
-                    )
-                  }}
-                >
-                  <Sparkles className="w-3 h-3 mr-0.5 md:mr-1" />
-                  <span className="hidden sm:inline">Genera Copy</span>
-                  <span className="sm:hidden">Copy</span>
-                </Button>
+              {(task.contentType === "post" || task.contentType === "video") && (
+                <div className="flex gap-1.5 md:gap-2 mt-1 md:mt-2" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-7 md:h-7 text-[10px] md:text-xs px-2 min-w-0"
+                    onClick={async () => {
+                      if (!user) return
+                      const { generateCopy } = useAutoGenStore.getState()
+                      await generateCopy(
+                        task.id,
+                        task.title || task.description || "",
+                        task.clientName || "",
+                        user.uid,
+                      )
+                    }}
+                  >
+                    <Sparkles className="w-3 h-3 mr-0.5 md:mr-1 flex-shrink-0" />
+                    <span className="hidden sm:inline truncate">Genera Copy</span>
+                    <span className="sm:hidden truncate">Copy</span>
+                  </Button>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 h-8 md:h-7 text-[10px] md:text-xs"
-                  onClick={async () => {
-                    if (!user) return
-                    const { generateVisual } = useAutoGenStore.getState()
-                    const prompt = `${task.title || task.description}${task.clientName ? ` for ${task.clientName}` : ""}`
-                    const token = await user.getIdToken()
-                    await generateVisual(task.id, prompt, user.uid, token)
-                  }}
-                >
-                  <ImageIcon className="w-3 h-3 mr-0.5 md:mr-1" />
-                  <span className="hidden sm:inline">Genera Visual</span>
-                  <span className="sm:hidden">Visual</span>
-                </Button>
-              </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-7 md:h-7 text-[10px] md:text-xs px-2 min-w-0"
+                    onClick={async () => {
+                      if (!user) return
+                      const { generateVisual } = useAutoGenStore.getState()
+                      const prompt = `${task.title || task.description}${task.clientName ? ` for ${task.clientName}` : ""}`
+                      const token = await user.getIdToken()
+                      await generateVisual(task.id, prompt, user.uid, token)
+                    }}
+                  >
+                    <ImageIcon className="w-3 h-3 mr-0.5 md:mr-1 flex-shrink-0" />
+                    <span className="hidden sm:inline truncate">Genera Visual</span>
+                    <span className="sm:hidden truncate">Visual</span>
+                  </Button>
+                </div>
+              )}
             </div>
           </Card>
         )

@@ -21,7 +21,7 @@ import { stripeService } from "@/lib/services/stripe.service"
 import { validateShareToken, isValidEmail, isQuoteExpired, getBaseUrl } from "@/lib/quote-utils"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { updateQuoteStatus } from "@/lib/quote-service-server"
-import type { SecurePaymentContext } from "@/types/payment"
+import type { MilestonePaymentContext } from "@/types/payment"
 
 export async function POST(
   request: NextRequest,
@@ -185,8 +185,8 @@ export async function POST(
       console.error('⚠️ Failed to fetch tenant data, using fallback:', error)
     }
 
-    // Prepare payment context
-    const context: SecurePaymentContext = {
+    // Prepare payment context (MilestonePaymentContext - no payment field needed before Stripe session creation)
+    const context: MilestonePaymentContext = {
       quote: quote as any,
       tenant: { 
         id: quoteData.tenantId,

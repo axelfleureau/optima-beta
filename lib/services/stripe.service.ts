@@ -55,7 +55,7 @@ export class StripeService {
    */
   async createCheckoutSession(
     request: CreatePaymentIntentRequest,
-    context: SecurePaymentContext
+    context: MilestonePaymentContext
   ): Promise<PaymentServiceResponse<CreatePaymentIntentResponse>> {
     try {
       // Validate request and context
@@ -163,7 +163,7 @@ export class StripeService {
   async createDepositCheckout(
     quoteId: string,
     depositPercentage: number,
-    context: SecurePaymentContext
+    context: MilestonePaymentContext
   ): Promise<PaymentServiceResponse<CreatePaymentIntentResponse>> {
     try {
       // Validate deposit percentage
@@ -755,8 +755,8 @@ export class StripeService {
       await updateQuoteSubscription(quoteId, tenantId, {
         stripeSubscriptionId: subscription.id,
         status: subscription.status as any,
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date(((subscription as any).current_period_start as number) * 1000),
+        currentPeriodEnd: new Date(((subscription as any).current_period_end as number) * 1000),
       })
       
       console.log(`✅ Subscription created for quote ${quoteId}:`, subscription.id)
@@ -780,8 +780,8 @@ export class StripeService {
       
       await updateQuoteSubscription(quoteId, tenantId, {
         status: subscription.status as any,
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date(((subscription as any).current_period_start as number) * 1000),
+        currentPeriodEnd: new Date(((subscription as any).current_period_end as number) * 1000),
         cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : undefined,
         canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : undefined,
       })
@@ -798,7 +798,9 @@ export class StripeService {
     try {
       console.log("Processing invoice payment success:", invoice.id)
 
-      const subscriptionId = invoice.subscription as string
+      const subscriptionId = typeof (invoice as any).subscription === 'string' 
+        ? (invoice as any).subscription 
+        : ((invoice as any).subscription as Stripe.Subscription)?.id
       
       if (!subscriptionId) {
         console.log('No subscription ID in invoice, skipping')
@@ -855,7 +857,7 @@ export class StripeService {
 
   private validateCheckoutRequest(
     request: CreatePaymentIntentRequest,
-    context: SecurePaymentContext
+    context: MilestonePaymentContext
   ): PaymentServiceResponse<CreatePaymentIntentResponse> {
     if (!request.quoteId) {
       return {

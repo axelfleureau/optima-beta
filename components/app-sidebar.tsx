@@ -40,10 +40,10 @@ const RighelloLogo = ({ className }: { className?: string }) => (
   <Image
     src="/assets/logos/righello-logo.svg"
     alt="Righello Logo"
-    width={32}
-    height={32}
+    width={24}
+    height={24}
     className={className}
-    style={{ width: 'auto', height: 'auto' }}
+    style={{ width: '24px', height: '24px' }}
   />
 )
 
@@ -193,8 +193,8 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-gray-200/30 dark:border-gray-700/30">
-        <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
-          <div className={`flex items-center ${isCollapsed ? "w-full justify-center" : "gap-2"}`}>
+        <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between gap-2"}`}>
+          <div className={`flex items-center ${isCollapsed ? "w-full justify-center" : "flex-1 min-w-0"}`}>
             {/* Logo with transform animation (desktop-only when collapsed) */}
             {!isMobile && isCollapsed ? (
               <TooltipProvider>
@@ -226,7 +226,7 @@ export function AppSidebar() {
                         transition={{ duration: 0.2 }}
                         className="absolute"
                       >
-                        <RighelloLogo className="w-8 h-8" />
+                        <RighelloLogo className="w-6 h-6" />
                       </motion.div>
                       
                       {/* Icon - crossfade IN on hover */}
@@ -248,17 +248,17 @@ export function AppSidebar() {
                 </Tooltip>
               </TooltipProvider>
             ) : (
-              <Link href="/dashboard" className="flex items-center gap-2 px-2">
-                <RighelloLogo className="w-8 h-8" />
+              <Link href="/dashboard" className="flex items-center gap-2 px-2 flex-1 min-w-0">
+                <RighelloLogo className="w-6 h-6 flex-shrink-0" />
                 {!isCollapsed && (
-                  <span className="text-lg font-semibold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+                  <span className="text-base font-semibold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent truncate">
                     Righello
                   </span>
                 )}
               </Link>
             )}
           </div>
-          {!isCollapsed && <SidebarTrigger />}
+          {!isCollapsed && <SidebarTrigger className="flex-shrink-0" />}
         </div>
       </SidebarHeader>
 

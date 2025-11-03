@@ -15,86 +15,136 @@ export interface DalleGenerationResponse {
 export async function generateImageWithDalle(
   params: DalleGenerationParams
 ): Promise<DalleGenerationResponse> {
-  try {
-    const apiKey = process.env.OPENAI_API_KEY
-    
-    if (!apiKey || apiKey.trim() === '') {
-      console.error('❌ OPENAI_API_KEY not found or empty')
-      return {
-        success: false,
-        imageUrl: null,
-        revisedPrompt: null,
-        error: 'Configurazione API mancante',
+  const MAX_RETRIES = 2
+  let lastError: any = null
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const apiKey = process.env.OPENAI_API_KEY
+      
+      if (!apiKey || apiKey.trim() === '') {
+        console.error('❌ OPENAI_API_KEY not found or empty')
+        return {
+          success: false,
+          imageUrl: null,
+          revisedPrompt: null,
+          error: 'Configurazione API mancante. Contatta l\'amministratore.',
+        }
       }
-    }
 
-    console.log('🎨 Generating image with DALL-E 3:', {
-      prompt: params.prompt.substring(0, 50) + '...',
-      size: params.size,
-      quality: params.quality,
-      style: params.style,
-    })
-
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt: params.prompt,
-        n: 1,
+      console.log(`🔄 Attempt ${attempt + 1}/${MAX_RETRIES + 1} - Generating image with DALL-E 3:`, {
+        prompt: params.prompt.substring(0, 50) + '...',
         size: params.size,
         quality: params.quality,
         style: params.style,
-      }),
-    })
+      })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error('❌ DALL-E API error:', errorData)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000)
+
+      const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: params.prompt,
+          n: 1,
+          size: params.size,
+          quality: params.quality,
+          style: params.style,
+        }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error(`❌ DALL-E API error (attempt ${attempt + 1}):`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData.error?.message,
+          code: errorData.error?.code,
+          type: errorData.error?.type
+        })
+        
+        const isRetryable = response.status === 429 || response.status >= 500
+        
+        if (attempt < MAX_RETRIES && isRetryable) {
+          const waitTime = Math.min(2000 * Math.pow(2, attempt), 10000)
+          console.log(`⏳ Retryable error, waiting ${waitTime}ms before retry...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+          continue
+        }
+        
+        return {
+          success: false,
+          imageUrl: null,
+          revisedPrompt: null,
+          error: errorData.error?.message || `Errore API (${response.status}): ${response.statusText}`,
+        }
+      }
+
+      const data = await response.json()
       
+      if (!data.data || data.data.length === 0) {
+        console.error('❌ No image data returned from DALL-E')
+        return {
+          success: false,
+          imageUrl: null,
+          revisedPrompt: null,
+          error: 'Nessuna immagine generata dalla risposta API',
+        }
+      }
+
+      const imageData = data.data[0]
+      
+      console.log(`✅ Image generated successfully on attempt ${attempt + 1}:`, {
+        url: imageData.url ? 'URL present' : 'No URL',
+        revisedPrompt: imageData.revised_prompt?.substring(0, 50) + '...',
+      })
+
       return {
-        success: false,
-        imageUrl: null,
-        revisedPrompt: null,
-        error: errorData.error?.message || 'Errore nella generazione immagine',
+        success: true,
+        imageUrl: imageData.url,
+        revisedPrompt: imageData.revised_prompt || null,
+      }
+    } catch (error: any) {
+      lastError = error
+      console.error(`❌ Attempt ${attempt + 1} failed:`, {
+        name: error?.name,
+        message: error?.message,
+        cause: error?.cause?.message,
+      })
+      
+      if (error?.name === 'AbortError') {
+        console.error('⏱️ Request timeout after 60 seconds')
+      }
+      
+      if (attempt < MAX_RETRIES) {
+        const waitTime = Math.min(2000 * Math.pow(2, attempt), 10000)
+        console.log(`⏳ Waiting ${waitTime}ms before retry...`)
+        await new Promise(resolve => setTimeout(resolve, waitTime))
       }
     }
+  }
 
-    const data = await response.json()
-    
-    if (!data.data || data.data.length === 0) {
-      console.error('❌ No image data returned from DALL-E')
-      return {
-        success: false,
-        imageUrl: null,
-        revisedPrompt: null,
-        error: 'Nessuna immagine generata',
-      }
-    }
-
-    const imageData = data.data[0]
-    
-    console.log('✅ Image generated successfully:', {
-      url: imageData.url ? 'URL present' : 'No URL',
-      revisedPrompt: imageData.revised_prompt?.substring(0, 50) + '...',
-    })
-
-    return {
-      success: true,
-      imageUrl: imageData.url,
-      revisedPrompt: imageData.revised_prompt || null,
-    }
-  } catch (error) {
-    console.error('❌ Error generating image with DALL-E:', error)
-    return {
-      success: false,
-      imageUrl: null,
-      revisedPrompt: null,
-      error: error instanceof Error ? error.message : 'Errore sconosciuto',
-    }
+  console.error('❌ All retry attempts failed for DALL-E image generation')
+  
+  const errorMessage = lastError?.name === 'AbortError'
+    ? 'La generazione dell\'immagine ha richiesto troppo tempo. Riprova tra qualche istante.'
+    : lastError?.message?.includes('fetch failed') || lastError?.message?.includes('network')
+    ? 'Errore di connessione con il servizio di generazione immagini. Controlla la tua connessione e riprova.'
+    : lastError?.message || 'Errore nella generazione dell\'immagine. Riprova tra qualche istante.'
+  
+  return {
+    success: false,
+    imageUrl: null,
+    revisedPrompt: null,
+    error: errorMessage,
   }
 }
 

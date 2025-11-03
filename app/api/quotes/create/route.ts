@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
+import { verifyFirebaseToken, getUserData, adminDb } from "@/lib/firebase-admin"
 import { db } from "@/lib/firebase"
 import { collection, addDoc, Timestamp } from "firebase/firestore"
 import { validateQuoteClientMode } from "@/types/quote"
@@ -115,11 +115,32 @@ export async function POST(request: NextRequest) {
     // SECURITY: Use only server-verified tenantId and userId, ignore any client-sent identifiers
     const now = new Date()
     
+    // Fetch platform client data if clientId is provided
+    let resolvedClientName = clientName || externalClientName || ""
+    let resolvedClientEmail = clientEmail || externalClientEmail || ""
+
+    if (clientId) {
+      try {
+        const clientDoc = await adminDb.collection('clients').doc(clientId).get()
+        if (clientDoc.exists) {
+          const clientData = clientDoc.data()
+          resolvedClientName = clientData?.name || clientData?.companyName || resolvedClientName || "N/A"
+          resolvedClientEmail = clientData?.email || resolvedClientEmail || ""
+        } else {
+          console.warn(`⚠️ Platform client ${clientId} not found in Firestore, using fallback name`)
+          resolvedClientName = resolvedClientName || "Cliente Piattaforma"
+        }
+      } catch (error) {
+        console.error(`❌ Failed to fetch platform client ${clientId}:`, error)
+        resolvedClientName = resolvedClientName || "Cliente Piattaforma"
+      }
+    }
+    
     // Build quote object based on client mode
     const baseQuote = {
       title,
       description: description || "",
-      clientName: clientName || externalClientName || "",
+      clientName: resolvedClientName,
       status: status || "draft",
       currency: currency || "EUR",
       items,
@@ -136,7 +157,7 @@ export async function POST(request: NextRequest) {
       ? {
           ...baseQuote,
           clientId,
-          clientEmail: clientEmail
+          clientEmail: resolvedClientEmail
         }
       : {
           ...baseQuote,

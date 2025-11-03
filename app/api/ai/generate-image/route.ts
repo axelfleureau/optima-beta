@@ -433,12 +433,25 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     )
-  } catch (error) {
-    console.error('❌ Image generation API error:', error)
+  } catch (error: any) {
+    console.error('❌ Image generation API error:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+      cause: error?.cause
+    })
+    
+    const errorMessage = error?.message?.includes('fetch failed') || error?.message?.includes('network')
+      ? "Errore di connessione con il servizio di generazione immagini. Controlla la tua connessione e riprova."
+      : error?.message?.includes('timeout') || error?.name === 'AbortError'
+      ? "La generazione dell'immagine ha richiesto troppo tempo. Riprova tra qualche istante."
+      : error?.message || 'Errore interno del server. Riprova tra qualche istante.'
+    
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Errore interno del server',
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
       { status: 500 }
     )

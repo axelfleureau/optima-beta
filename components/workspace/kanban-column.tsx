@@ -35,8 +35,8 @@ export function KanbanColumn({
   getScoreColor,
 }: KanbanColumnProps) {
   return (
-    <div key={column.id} className="flex flex-col min-w-[80vw] md:min-w-[320px] lg:min-w-[280px] xl:w-80 snap-start">
-      <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-t-2xl p-3 md:p-4 shadow-lg border-t-4 ${column.color}`}>
+    <div key={column.id} className="flex flex-col min-w-[80vw] md:min-w-[320px] lg:min-w-[280px] xl:w-80 snap-start h-full">
+      <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-t-2xl p-3 md:p-4 shadow-lg border-t-4 flex-shrink-0 ${column.color}`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 md:gap-3">
             <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg ${column.bgColor} flex items-center justify-center shadow-sm`}>
@@ -55,10 +55,9 @@ export function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl rounded-b-2xl p-3 md:p-4 space-y-3 transition-all duration-200 max-h-[calc(100vh-280px)] overflow-y-auto ${
+            className={`flex-1 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl rounded-b-2xl p-3 md:p-4 space-y-3 transition-all duration-200 overflow-y-auto min-h-0 ${
               snapshot.isDraggingOver ? "bg-blue-50/60 dark:bg-blue-900/20 ring-2 ring-blue-300 dark:ring-blue-600" : ""
             }`}
-            style={{ minHeight: "400px" }}
           >
             {tasks.map((task, index) => (
               <TaskCard

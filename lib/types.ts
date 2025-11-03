@@ -78,6 +78,7 @@ export interface Task {
   columnId: string
   priority: "low" | "medium" | "high" | "urgent"
   type?: string
+  contentType?: "post" | "video" | "campaign" | "analysis" | "website" | "promo-video" | "other"
   dueDate?: Timestamp | Date | null
   assignee?: string
   assignedUserId?: string | null
