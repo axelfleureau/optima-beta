@@ -907,8 +907,8 @@ export function TaskDetailDialog({
             <div>
               <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Tags</Label>
               <div className="flex flex-wrap gap-1">
-                {(task.tags || []).map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
+                {(task.tags || []).map((tag, index) => (
+                  <Badge key={`${tag}-${index}`} variant="secondary" className="text-xs">
                     <Tag className="h-3 w-3 mr-1" />
                     {tag}
                   </Badge>
