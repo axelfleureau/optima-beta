@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * Public Quote Approval API Route
  * 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"

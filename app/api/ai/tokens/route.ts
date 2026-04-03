@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import type { NextRequest } from "next/server"
 import { getAvailableTokens } from "@/lib/token-service"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"

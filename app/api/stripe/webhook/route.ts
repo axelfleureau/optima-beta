@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * Stripe Webhook Handler API Route
  * 

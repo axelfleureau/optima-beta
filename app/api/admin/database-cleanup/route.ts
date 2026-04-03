@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { type NextRequest, NextResponse } from "next/server"
 import { initializeApp, getApps } from "firebase/app"
 import { getFirestore, collection, getDocs, doc, query, orderBy, writeBatch } from "firebase/firestore"

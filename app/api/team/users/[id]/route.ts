@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken, getUserData, adminAuth, adminDb } from "@/lib/firebase-admin"
 import { canManageUser, hasPermission, type UserRole } from "@/lib/role-hierarchy"
@@ -56,7 +58,7 @@ export async function PATCH(
     if (email !== currentUserData.email) {
       const existingUser = await adminDb?.collection("users").where("email", "==", email).get()
       if (existingUser?.size && existingUser.size > 0) {
-        const existingDocs = existingUser.docs.filter(doc => doc.id !== userId)
+        const existingDocs = existingUser.docs.filter((doc: any) => doc.id !== userId)
         if (existingDocs.length > 0) {
           return NextResponse.json({ error: "Email già in uso da un altro utente" }, { status: 409 })
         }

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from "next/server"
 import { generateAIResponse, logTokenUsage } from "@/lib/ai-service"
 import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"

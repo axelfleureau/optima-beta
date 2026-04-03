@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * Mark Milestone as Ready API Route
  * 

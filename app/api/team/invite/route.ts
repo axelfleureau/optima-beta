@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from "next/server"
 import { verifyFirebaseToken, getUserData, adminAuth, adminDb } from "@/lib/firebase-admin"
 import { sendInviteEmail } from "@/lib/email"

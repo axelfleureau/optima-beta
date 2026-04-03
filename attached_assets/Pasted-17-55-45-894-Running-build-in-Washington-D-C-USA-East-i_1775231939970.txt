@@ -1,0 +1,54 @@
+17:55:45.894 Running build in Washington, D.C., USA (East) – iad1
+17:55:45.896 Build machine configuration: 2 cores, 8 GB
+17:55:46.183 Cloning github.com/axelfleureau/optima-beta (Branch: main, Commit: e43f544)
+17:55:46.184 Previous build caches not available.
+17:55:47.948 Cloning completed: 1.765s
+17:55:48.624 Running "vercel build"
+17:55:49.301 Vercel CLI 50.38.2
+17:55:49.620 Installing dependencies...
+17:56:10.090 
+17:56:10.091 added 689 packages in 20s
+17:56:10.092 
+17:56:10.092 80 packages are looking for funding
+17:56:10.092   run `npm fund` for details
+17:56:10.162 Detected Next.js version: 15.2.4
+17:56:10.170 Running "npm run build"
+17:56:10.282 
+17:56:10.282 > my-v0-project@0.1.0 build
+17:56:10.282 > next build
+17:56:10.282 
+17:56:10.850 Attention: Next.js now collects completely anonymous telemetry regarding usage.
+17:56:10.850 This information is used to shape Next.js' roadmap and prioritize features.
+17:56:10.850 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+17:56:10.850 https://nextjs.org/telemetry
+17:56:10.851 
+17:56:10.909    ▲ Next.js 15.2.4
+17:56:10.910    - Experiments (use with caution):
+17:56:10.910      · allowedDevOrigins
+17:56:10.910 
+17:56:10.963    Creating an optimized production build ...
+17:57:06.416  ✓ Compiled successfully
+17:57:06.421    Linting and checking validity of types ...
+17:57:31.111    Collecting page data ...
+17:57:32.377 Firebase Admin initialization error: Error: Service account object must contain a string "private_key" property.
+17:57:32.377     at <unknown> (.next/server/app/api/admin/database-cleanup/route.js:1:6856) {
+17:57:32.377   errorInfo: [Object],
+17:57:32.377   codePrefix: 'app'
+17:57:32.377 }
+17:57:32.640 Error: Neither apiKey nor config.authenticator provided
+17:57:32.641     at r._setAuthenticator (.next/server/chunks/2782.js:1:122862)
+17:57:32.641     at new r (.next/server/chunks/2782.js:1:117459)
+17:57:32.641     at 35614 (.next/server/app/api/quotes/[id]/approve/route.js:1:1792)
+17:57:32.641     at t (.next/server/webpack-runtime.js:1:128)
+17:57:32.641     at <unknown> (.next/server/app/api/quotes/[id]/approve/route.js:1:6018)
+17:57:32.641     at t.a (.next/server/webpack-runtime.js:1:891)
+17:57:32.641     at 63268 (.next/server/app/api/quotes/[id]/approve/route.js:1:5931)
+17:57:32.641     at t (.next/server/webpack-runtime.js:1:128)
+17:57:32.641     at <unknown> (.next/server/app/api/quotes/[id]/approve/route.js:1:819)
+17:57:32.641     at t.a (.next/server/webpack-runtime.js:1:891)
+17:57:32.646 
+17:57:32.646 > Build error occurred
+17:57:32.657 [Error: Failed to collect page data for /api/quotes/[id]/approve] {
+17:57:32.658   type: 'Error'
+17:57:32.658 }
+17:57:32.742 Error: Command "npm run build" exited with 1

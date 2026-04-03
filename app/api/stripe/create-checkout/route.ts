@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * Stripe Checkout Session Creation API Route
  * 

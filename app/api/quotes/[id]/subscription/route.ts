@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getQuoteById, updateQuoteSubscription } from '@/lib/quote-service-server'
 import { createMaintenanceSubscription } from '@/lib/services/stripe-subscription.service'

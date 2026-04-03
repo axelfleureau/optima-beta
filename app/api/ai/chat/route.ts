@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import type { NextRequest } from "next/server"
 import { streamText } from "ai"
 import { openai } from "@ai-sdk/openai"

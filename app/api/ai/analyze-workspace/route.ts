@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase-admin'
 import { analyzeWorkspaceCompleteness } from '@/lib/ai/completeness-scorer'
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
       .where('tenantId', '==', tenantId)
       .get()
     
-    const tasks = tasksSnapshot.docs.map(doc => ({
+    const tasks = tasksSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       title: doc.data().title || '',
       description: doc.data().description || '',
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
           .sort((a, b) => b.impactScore - a.impactScore)
           .slice(0, 5)
           .map(d => {
-            const task = tasks.find(t => t.id === d.taskId)
+            const task = tasks.find((t: any) => t.id === d.taskId)
             return {
               id: d.taskId,
               title: task?.title || 'Unknown',

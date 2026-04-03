@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from "next/server"
 import { recognizeIntent } from "@/lib/ai/intent-recognition"
 import type { CommandContext } from "@/lib/types"

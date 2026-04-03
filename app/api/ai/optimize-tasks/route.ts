@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { type NextRequest, NextResponse } from "next/server"
 import { optimizeTasksWithAI } from "@/lib/ai-task-optimizer"
 import type { TaskOptimizationRequest } from "@/lib/types"

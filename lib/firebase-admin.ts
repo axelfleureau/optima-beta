@@ -5,32 +5,48 @@ import { getFirestore } from "firebase-admin/firestore"
 let admin: any = null
 
 try {
-  // Inizializza Firebase Admin se non è già stato fatto
-  if (getApps().length === 0) {
+  if (!process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+    console.warn("Firebase Admin: env vars missing — SDK disabled (safe at build time)")
+  } else if (getApps().length === 0) {
     admin = initializeApp({
       credential: cert({
         projectId: "optima-righello",
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
       }),
-      databaseURL: "https://optima-righello-default-rtdb.firebaseio.com"
+      databaseURL: "https://optima-righello-default-rtdb.firebaseio.com",
     })
   } else {
     admin = getApps()[0]
   }
 } catch (error) {
   console.error("Firebase Admin initialization error:", error)
+  admin = null
 }
 
-export const adminAuth = admin ? getAuth(admin) : null
-export const adminDb = admin ? getFirestore(admin) : null
+let adminAuth: any = null
+let adminDb: any = null
 
-// Helper function to verify Firebase ID token
+try {
+  adminAuth = admin ? getAuth(admin) : null
+} catch (error) {
+  console.error("Firebase Admin getAuth error:", error)
+  adminAuth = null
+}
+
+try {
+  adminDb = admin ? getFirestore(admin) : null
+} catch (error) {
+  console.error("Firebase Admin getFirestore error:", error)
+  adminDb = null
+}
+
+export { adminAuth, adminDb }
+
 export async function verifyFirebaseToken(token: string) {
   if (!adminAuth) {
     throw new Error("Firebase Admin not initialized")
   }
-  
   try {
     const decodedToken = await adminAuth.verifyIdToken(token)
     return decodedToken
@@ -40,12 +56,10 @@ export async function verifyFirebaseToken(token: string) {
   }
 }
 
-// Helper function to get user data from Firestore
 export async function getUserData(uid: string) {
   if (!adminDb) {
     throw new Error("Firebase Admin DB not initialized")
   }
-  
   try {
     const userDoc = await adminDb.collection("users").doc(uid).get()
     if (!userDoc.exists) {

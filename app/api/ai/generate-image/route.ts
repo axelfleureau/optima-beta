@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase-admin'
