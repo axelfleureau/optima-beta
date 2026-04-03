@@ -34,4 +34,4 @@ Core modules: campaign analysis engine, content generation pipeline, client dash
 
 - Email: axel@wearerighello.com
 - Company: [wearerighello.com](https://www.wearerighello.com)
-- GitHub: [@axel-fleureau](https://github.com/axel-fleureau)
+- GitHub: [@axelfleureau](https://github.com/axelfleureau)
