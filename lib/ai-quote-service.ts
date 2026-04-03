@@ -14,7 +14,8 @@ import {
 import { getBaseUrl } from "@/lib/quote-utils"
 
 export interface QuoteItem {
-  description: string
+  name: string
+  description?: string
   quantity: number
   unitPrice: number
   total: number
@@ -24,9 +25,13 @@ export interface Quote {
   id: string
   title: string
   description?: string
-  clientId: string
+  clientId?: string
   clientName: string
-  status: "draft" | "sent" | "pending" | "accepted" | "rejected" | "expired" | "paid"
+  clientEmail?: string
+  externalClientName?: string
+  externalClientEmail?: string
+  clientMode?: 'platform' | 'external'
+  status: "draft" | "sent" | "in_review" | "pending_payment" | "approved" | "in_progress" | "completed" | "rejected" | "expired"
   currency: string
   items: QuoteItem[]
   total: number
@@ -35,6 +40,7 @@ export interface Quote {
   updatedAt: Date
   tenantId: string
   createdBy: string
+  shareToken?: string
 }
 
 export interface QuoteGenerationData {
@@ -633,6 +639,7 @@ export function convertToQuoteFormat(
 ): Omit<Quote, 'id'> {
   // SECURITY: Only use server-provided tenantId and createdBy, never client data
   const quoteItems: QuoteItem[] = quoteData.voci.map(voce => ({
+    name: voce.descrizione,
     description: voce.descrizione,
     quantity: voce.quantita,
     unitPrice: voce.prezzoUnitario,

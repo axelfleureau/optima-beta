@@ -234,16 +234,16 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               descrizione: editedData.preventivo.descrizione
             }
           })
-        } else if (editedData[section] !== undefined) {
+        } else if ((editedData as any)[section] !== undefined) {
           setGeneratedQuote({
             ...generatedQuote,
-            [section]: editedData[section]
+            [section]: (editedData as any)[section]
           })
         }
         feedback.success('Modifiche salvate', {})
       }
       setEditMode({ ...editMode, [section]: false })
-      setEditedData({ ...editedData, [section]: undefined, preventivo: undefined })
+      setEditedData({ ...editedData, [section]: undefined, preventivo: undefined } as Partial<GeneratedQuoteData>)
     } else {
       setEditMode({ ...editMode, [section]: true })
       if (generatedQuote) {
@@ -258,7 +258,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
         } else {
           setEditedData({
             ...editedData,
-            [section]: generatedQuote[section]
+            [section]: (generatedQuote as any)[section]
           })
         }
       }
@@ -268,9 +268,9 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
   const cancelEdit = (section: 'obiettivi' | 'attivita' | 'sitemap' | 'descrizione') => {
     setEditMode({ ...editMode, [section]: false })
     if (section === 'descrizione') {
-      setEditedData({ ...editedData, [section]: undefined, preventivo: undefined })
+      setEditedData({ ...editedData, preventivo: undefined } as Partial<GeneratedQuoteData>)
     } else {
-      setEditedData({ ...editedData, [section]: undefined })
+      setEditedData({ ...editedData, [section]: undefined } as Partial<GeneratedQuoteData>)
     }
   }
 
@@ -300,7 +300,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
             projectType: enrichedContext.projectType,
             projectTypeLabel: enrichedContext.projectTypeLabel,
             sectorLabel: enrichedContext.sectorLabel,
-            currentData: generatedQuote[section]
+            currentData: (generatedQuote as any)[section]
           }
         })
       })

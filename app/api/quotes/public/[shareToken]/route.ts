@@ -24,7 +24,7 @@ export async function GET(
 ) {
   try {
     // Rate limiting
-    const rateLimitResult = await rateLimit(request, "PUBLIC")
+    const rateLimitResult = await rateLimit(request, "DEFAULT")
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult.reset)
     }

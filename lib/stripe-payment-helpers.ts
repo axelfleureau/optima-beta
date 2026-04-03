@@ -57,7 +57,7 @@ export async function createQuotePaymentIntent(
         confirm: true, // AUTO-CHARGE: Immediately attempt to charge
         metadata: {
           quoteId: quote.id,
-          clientId: quote.clientId,
+          clientId: quote.clientId ?? null,
           tenantId: quote.tenantId,
           quoteName: quote.title,
         },

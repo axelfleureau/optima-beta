@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     if (clientId) {
       try {
-        const clientDoc = await adminDb.collection('clients').doc(clientId).get()
+        const clientDoc = await adminDb!.collection('clients').doc(clientId).get()
         if (clientDoc.exists) {
           const clientData = clientDoc.data()
           resolvedClientName = clientData?.name || clientData?.companyName || resolvedClientName || "N/A"

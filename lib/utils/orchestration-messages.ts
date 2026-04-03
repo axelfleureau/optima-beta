@@ -3,6 +3,8 @@ import { OrchestrationStep } from '@/lib/stores/orchestration-store'
 export const ORCHESTRATION_MESSAGES: Record<OrchestrationStep, string> = {
   idle: '',
   analyzing: 'Sto analizzando la tua richiesta...',
+  parsing: 'Interpreto i parametri...',
+  executing: 'Eseguo l\'operazione...',
   creating_task: 'Creo il task...',
   creating_calendar: 'Aggiungo l\'evento al calendario...',
   generating_copy: 'Genero il testo con GPT-4...',
@@ -16,11 +18,13 @@ export const ORCHESTRATION_MESSAGES: Record<OrchestrationStep, string> = {
 export const ORCHESTRATION_PROGRESS: Record<OrchestrationStep, number> = {
   idle: 0,
   analyzing: 10,
-  creating_task: 25,
-  creating_calendar: 35,
-  generating_copy: 50,
-  generating_image: 70,
-  generating_video: 70,
+  parsing: 20,
+  executing: 40,
+  creating_task: 55,
+  creating_calendar: 60,
+  generating_copy: 70,
+  generating_image: 80,
+  generating_video: 80,
   updating_content: 90,
   completed: 100,
   error: 0
