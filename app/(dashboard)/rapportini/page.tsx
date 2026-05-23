@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CalendarDays, CheckCircle2, Clock, FileText, LogIn, LogOut, Plus, Trash2, UserCheck, Users } from "lucide-react"
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, FileText, LogIn, LogOut, Plus, Trash2, UserCheck, Users } from "lucide-react"
 import { toast } from "sonner"
 
 type Member = {
@@ -71,6 +71,13 @@ function currentTime() {
   return new Date().toTimeString().slice(0, 5)
 }
 
+function toDateInputValue(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, "0")
+  const day = String(value.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 function formatMinutes(minutes: number) {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
@@ -84,6 +91,14 @@ function formatDateLabel(value: string) {
     weekday: "long",
     day: "2-digit",
     month: "long",
+    year: "numeric",
+  }).format(new Date(`${value}T00:00:00`))
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "short",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00`))
 }
@@ -106,6 +121,13 @@ export default function RapportiniPage() {
   const [activity, setActivity] = useState("")
   const [minutes, setMinutes] = useState("60")
   const [notes, setNotes] = useState("")
+
+  const shiftDate = (days: number) => {
+    const [year, month, day] = date.split("-").map(Number)
+    const next = new Date(year, month - 1, day)
+    next.setDate(next.getDate() + days)
+    setDate(toDateInputValue(next))
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -233,7 +255,36 @@ export default function RapportiniPage() {
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <label className="text-sm font-semibold text-slate-400">Giornata</label>
-                <Input className={fieldClass} type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-[8px] border border-white/10 bg-[#222a31]">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-label="Giorno precedente"
+                    className="h-11 rounded-none border-r border-white/10 text-slate-100 hover:bg-white/10 hover:text-white"
+                    onClick={() => shiftDate(-1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <label className="relative flex min-w-0 items-center justify-center px-3 text-sm font-semibold text-slate-100">
+                    <span className="pointer-events-none truncate">{formatShortDate(date)}</span>
+                    <Input
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      type="date"
+                      value={date}
+                      aria-label="Seleziona giornata"
+                      onChange={(event) => setDate(event.target.value)}
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-label="Giorno successivo"
+                    className="h-11 rounded-none border-l border-white/10 text-slate-100 hover:bg-white/10 hover:text-white"
+                    onClick={() => shiftDate(1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {payload?.isManager && (
