@@ -102,7 +102,8 @@ type ManagementData = {
   }>
 }
 
-const pageClass = "min-h-screen bg-[#090f1d] text-slate-100"
+const pageClass =
+  "h-[calc(100dvh-73px)] w-full overflow-y-auto overflow-x-hidden overscroll-contain bg-[#090f1d] text-slate-100 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-visible"
 const panelClass = "rounded-lg border border-white/10 bg-[#121b2b] shadow-[0_18px_70px_rgba(2,6,23,0.24)]"
 const insetPanelClass = "rounded-lg border border-white/10 bg-[#0e1625]"
 const mutedText = "text-slate-400"
