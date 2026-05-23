@@ -1,10 +1,10 @@
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { cookies } from 'next/headers'
-import { rateLimit, rateLimitResponse } from '@/lib/rate-limit'
+import type { NextRequest } from "next/server"
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { requireClerkUser } from "@/lib/server-clerk"
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 export async function POST(req: NextRequest) {
   const rateLimitResult = await rateLimit(req, "AI")
@@ -13,79 +13,47 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Verify authentication via cookie
-    const cookieStore = await cookies()
-    const token = cookieStore.get('firebase-auth-token')?.value
-    
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Authentication required" }, { status: 401 })
     }
 
+    const db = await getCloudflareDb()
+    if (!db) {
+      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+    }
+
+    const principal = await ensureWorkspacePrincipal(db, user)
     const { messageId, feedback, sessionId } = await req.json()
 
-    // Validate input (userId comes from auth token, not client)
     if (!messageId || !feedback) {
-      return NextResponse.json(
-        { error: 'Missing required fields: messageId, feedback' },
-        { status: 400 }
+      return Response.json({ error: "Missing required fields: messageId, feedback" }, { status: 400 })
+    }
+
+    if (feedback !== "positive" && feedback !== "negative") {
+      return Response.json({ error: 'Feedback must be either "positive" or "negative"' }, { status: 400 })
+    }
+
+    await db
+      .prepare(
+        `INSERT INTO ai_feedback
+         (id, organization_id, member_id, message_id, session_id, feedback, user_agent)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-    }
-
-    if (!['positive', 'negative'].includes(feedback)) {
-      return NextResponse.json(
-        { error: 'Feedback must be either "positive" or "negative"' },
-        { status: 400 }
+      .bind(
+        createId("fbk"),
+        principal.organizationId,
+        principal.memberId,
+        String(messageId),
+        sessionId ? String(sessionId) : null,
+        feedback,
+        req.headers.get("user-agent") || "unknown",
       )
-    }
+      .run()
 
-    // Verify token to get authentic user ID 
-    const verifyResponse = await fetch(`${req.nextUrl.origin}/api/auth/verify-token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
-    })
-
-    if (!verifyResponse.ok) {
-      return NextResponse.json(
-        { error: 'Invalid authentication' },
-        { status: 401 }
-      )
-    }
-
-    const { user } = await verifyResponse.json()
-    const authenticatedUserId = user.uid
-
-    // Store feedback in Firestore for analytics with authenticated user ID
-    const feedbackData = {
-      messageId,
-      feedback,
-      userId: authenticatedUserId, // Use verified user ID
-      sessionId: sessionId || null,
-      timestamp: serverTimestamp(),
-      userAgent: req.headers.get('user-agent') || 'unknown',
-    }
-
-    await addDoc(collection(db, 'ai_feedback'), feedbackData)
-
-    console.log('📝 AI Feedback received:', {
-      messageId: messageId.substring(0, 8) + '...',
-      feedback,
-      userId: authenticatedUserId.substring(0, 8) + '...',
-      sessionId: sessionId?.substring(0, 8) + '...' || 'none'
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Feedback received successfully'
-    })
+    return Response.json({ success: true, message: "Feedback received successfully" })
   } catch (error) {
-    console.error('❌ Error storing AI feedback:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error("AI feedback error:", error)
+    return Response.json({ error: "Internal server error" }, { status: 500 })
   }
 }

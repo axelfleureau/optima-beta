@@ -5,6 +5,7 @@ import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal, mapTaskRow, stringifyJson } from "@/lib/workspace-db"
 import { buildMemberDisplayName, requiresAssignmentAcceptance } from "@/lib/task-assignment-policy"
+import { createNotification } from "@/lib/notifications-db"
 
 function normalizePriority(value: unknown) {
   return value === "low" || value === "medium" || value === "high" || value === "urgent" ? value : "medium"
@@ -185,6 +186,31 @@ export async function POST(request: NextRequest) {
       )
       .bind(taskId)
       .first()
+
+    if (assignedUserId && assignedUserId !== principal.memberId) {
+      await createNotification(db, {
+        organizationId: principal.organizationId,
+        memberId: assignedUserId,
+        actorMemberId: principal.memberId,
+        type: "task_assigned",
+        title: assignmentStatus === "pending" ? "Nuova proposta task" : "Nuova task assegnata",
+        message:
+          assignmentStatus === "pending"
+            ? `Ti è stata proposta la task "${title}". Devi accettarla prima che diventi ufficiale.`
+            : `Ti è stata assegnata la task "${title}".`,
+        taskId,
+        metadata: {
+          taskTitle: title,
+          priority: normalizePriority(body.priority),
+          dueAt,
+          clientName,
+          projectName: row?.project_name || "",
+        },
+      }).catch((notificationError) => {
+        console.error("Task assignment notification error:", notificationError)
+      })
+    }
+
     return Response.json({ task: mapTaskRow(row) }, { status: 201 })
   } catch (error) {
     console.error("Tasks POST error:", error)

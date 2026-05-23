@@ -38,7 +38,6 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import { useNotifications } from "@/lib/notification-context"
 import { useUsers } from "@/hooks/use-users"
 import { useClients } from "@/hooks/use-clients"
 import { useWorkspaceData } from "@/hooks/use-workspace-data"
@@ -177,7 +176,6 @@ export function WorkspaceShell() {
   const [uploadingFiles, setUploadingFiles] = useState(false)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const { toast } = useToast()
-  const { addNotification } = useNotifications()
   const { users } = useUsers()
   const { projects, createProject } = useProjects()
   const isMounted = useIsMounted()
@@ -617,35 +615,6 @@ export function WorkspaceShell() {
           createdTask.id,
           pendingTaskFiles.map((item) => item.file),
         )
-      }
-
-      if (assignedUser && assignedUserId) {
-        try {
-          await addNotification({
-            userId: assignedUserId,
-            title: createdTask.assignmentStatus === "pending" ? "Nuova proposta task" : "Nuovo task assegnato",
-            message:
-              createdTask.assignmentStatus === "pending"
-                ? `Ti è stata proposta la task: "${taskForm.title}"`
-                : `Ti è stato assegnato il task: "${taskForm.title}"`,
-            type: "task_assigned",
-            taskId: createdTask.id,
-            metadata: {
-              taskTitle: taskForm.title,
-              priority: taskForm.priority,
-              dueDate: taskForm.dueDate,
-              assignedBy: userData?.firstName + " " + userData?.lastName,
-              clientName: targetClientName,
-            },
-          })
-        } catch (notificationError) {
-          console.error("Errore nell'invio della notifica:", notificationError)
-          toast({
-            title: "Avvertenza",
-            description: "Task creato ma notifica non inviata",
-            variant: "default",
-          })
-        }
       }
 
       toast({

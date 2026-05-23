@@ -1,8 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react"
 import { useAuth } from "@/lib/auth-context"
-import type { User } from "@/lib/types"
 
 export interface Notification {
   id: string
@@ -28,147 +27,153 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
 
+function mapNotification(raw: any): Notification {
+  return {
+    id: String(raw.id),
+    userId: String(raw.userId || ""),
+    title: String(raw.title || ""),
+    message: String(raw.message || ""),
+    type: raw.type || "general",
+    read: Boolean(raw.read),
+    createdAt: raw.createdAt ? new Date(raw.createdAt) : new Date(),
+    taskId: raw.taskId || undefined,
+    metadata: raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {},
+  }
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { userData } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Carica le notifiche per l'utente corrente
-  useEffect(() => {
+  const refreshNotifications = useCallback(async () => {
     if (!userData?.id) {
+      setNotifications([])
       setLoading(false)
       return
     }
 
-    let unsubscribe: (() => void) | undefined
+    try {
+      const response = await fetch("/api/notifications", {
+        cache: "no-store",
+        credentials: "same-origin",
+      })
 
-    const loadNotifications = async () => {
-      try {
-        const { db } = await import("@/lib/firebase")
-        const { collection, query, where, orderBy, onSnapshot } = await import("firebase/firestore")
-
-        // Usa una query semplice senza orderBy per evitare errori di indice composito
-        const notificationsQuery = query(
-          collection(db, "notifications"),
-          where("userId", "==", userData.id)
-        )
-
-        unsubscribe = onSnapshot(
-          notificationsQuery,
-          (snapshot) => {
-            const notificationsData = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-              createdAt: doc.data().createdAt?.toDate?.() || new Date(),
-            })) as Notification[]
-
-            // Ordina manualmente per createdAt (più recenti prima)
-            notificationsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-
-            setNotifications(notificationsData)
-            setLoading(false)
-          },
-          (error) => {
-            console.error("Errore listener notifiche:", error)
-            setNotifications([])
-            setLoading(false)
-          },
-        )
-      } catch (error) {
-        console.error("Errore nel caricamento notifiche:", error)
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error("Errore nel caricamento notifiche")
       }
-    }
 
-    loadNotifications()
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe()
-      }
+      const data = await response.json()
+      setNotifications((data.notifications || []).map(mapNotification))
+    } catch (error) {
+      console.error("Errore nel caricamento notifiche:", error)
+    } finally {
+      setLoading(false)
     }
   }, [userData?.id])
 
-  const addNotification = async (notification: Omit<Notification, "id" | "createdAt" | "read">) => {
-    try {
-      const { db } = await import("@/lib/firebase")
-      const { collection, addDoc } = await import("firebase/firestore")
+  useEffect(() => {
+    void refreshNotifications()
 
-      await addDoc(collection(db, "notifications"), {
-        ...notification,
-        read: false,
-        createdAt: new Date(),
-      })
-    } catch (error) {
-      console.error("Errore nell'aggiunta notifica:", error)
+    if (!userData?.id) return
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshNotifications()
+      }
+    }, 15000)
+
+    const handleFocus = () => void refreshNotifications()
+    window.addEventListener("focus", handleFocus)
+    document.addEventListener("visibilitychange", handleFocus)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener("focus", handleFocus)
+      document.removeEventListener("visibilitychange", handleFocus)
     }
-  }
+  }, [refreshNotifications, userData?.id])
 
-  const markAsRead = async (notificationId: string) => {
-    try {
-      const { db } = await import("@/lib/firebase")
-      const { doc, updateDoc } = await import("firebase/firestore")
-
-      await updateDoc(doc(db, "notifications", notificationId), {
-        read: true,
-        readAt: new Date(),
-      })
-    } catch (error) {
-      console.error("Errore nell'aggiornamento notifica:", error)
-    }
-  }
-
-  const markAllAsRead = async () => {
-    const unreadNotifications = notifications.filter(n => !n.read)
-    
-    try {
-      const { db } = await import("@/lib/firebase")
-      const { doc, updateDoc, writeBatch } = await import("firebase/firestore")
-
-      const batch = writeBatch(db)
-      
-      unreadNotifications.forEach((notification) => {
-        const notificationRef = doc(db, "notifications", notification.id)
-        batch.update(notificationRef, {
-          read: true,
-          readAt: new Date(),
+  const addNotification = useCallback(
+    async (notification: Omit<Notification, "id" | "createdAt" | "read">) => {
+      try {
+        const response = await fetch("/api/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(notification),
         })
-      })
 
-      await batch.commit()
-    } catch (error) {
-      console.error("Errore nell'aggiornamento notifiche:", error)
-    }
-  }
+        if (!response.ok) {
+          throw new Error("Errore nella creazione notifica")
+        }
 
-  const deleteNotification = async (notificationId: string) => {
-    try {
-      const { db } = await import("@/lib/firebase")
-      const { doc, deleteDoc } = await import("firebase/firestore")
-
-      await deleteDoc(doc(db, "notifications", notificationId))
-    } catch (error) {
-      console.error("Errore nell'eliminazione notifica:", error)
-    }
-  }
-
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  const value = {
-    notifications,
-    unreadCount,
-    addNotification,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-    loading,
-  }
-
-  return (
-    <NotificationContext.Provider value={value}>
-      {children}
-    </NotificationContext.Provider>
+        await refreshNotifications()
+      } catch (error) {
+        console.error("Errore nell'aggiunta notifica:", error)
+      }
+    },
+    [refreshNotifications],
   )
+
+  const markAsRead = useCallback((notificationId: string) => {
+    setNotifications((current) =>
+      current.map((notification) =>
+        notification.id === notificationId ? { ...notification, read: true } : notification,
+      ),
+    )
+
+    void fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ id: notificationId }),
+    }).catch((error) => {
+      console.error("Errore nell'aggiornamento notifica:", error)
+      void refreshNotifications()
+    })
+  }, [refreshNotifications])
+
+  const markAllAsRead = useCallback(() => {
+    setNotifications((current) => current.map((notification) => ({ ...notification, read: true })))
+
+    void fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ all: true }),
+    }).catch((error) => {
+      console.error("Errore nell'aggiornamento notifiche:", error)
+      void refreshNotifications()
+    })
+  }, [refreshNotifications])
+
+  const deleteNotification = useCallback((notificationId: string) => {
+    setNotifications((current) => current.filter((notification) => notification.id !== notificationId))
+
+    void fetch(`/api/notifications?id=${encodeURIComponent(notificationId)}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    }).catch((error) => {
+      console.error("Errore nell'eliminazione notifica:", error)
+      void refreshNotifications()
+    })
+  }, [refreshNotifications])
+
+  const value = useMemo(
+    () => ({
+      notifications,
+      unreadCount: notifications.filter((notification) => !notification.read).length,
+      addNotification,
+      markAsRead,
+      markAllAsRead,
+      deleteNotification,
+      loading,
+    }),
+    [addNotification, deleteNotification, loading, markAllAsRead, markAsRead, notifications],
+  )
+
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
 }
 
 export function useNotifications() {

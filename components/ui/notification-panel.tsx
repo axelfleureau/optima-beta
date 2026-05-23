@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -44,16 +45,16 @@ const notificationColors = {
 export function NotificationPanel() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, loading } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
+  const router = useRouter()
 
   const handleNotificationClick = (notification: any) => {
     if (!notification.read) {
       markAsRead(notification.id)
     }
     
-    // Se la notifica ha un taskId, potresti voler navigare a quella task
     if (notification.taskId) {
-      // TODO: Implementare navigazione alle task
-      console.log("Navigazione alla task:", notification.taskId)
+      setIsOpen(false)
+      router.push(`/workspace?taskId=${encodeURIComponent(notification.taskId)}&action=view`)
     }
   }
 
@@ -75,7 +76,7 @@ export function NotificationPanel() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent align="end" className="w-[calc(100vw-1.5rem)] max-w-96 sm:w-96">
         <div className="flex items-center justify-between p-3 border-b">
           <h3 className="font-semibold text-sm">Notifiche</h3>
           {unreadCount > 0 && (
@@ -110,7 +111,7 @@ export function NotificationPanel() {
                 return (
                   <div
                     key={notification.id}
-                    className={`px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer border-l-2 ${
+                    className={`group px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer border-l-2 ${
                       notification.read 
                         ? "border-transparent opacity-60" 
                         : "border-blue-500 bg-blue-50/30 dark:bg-blue-900/10"
@@ -137,7 +138,7 @@ export function NotificationPanel() {
                                 e.stopPropagation()
                                 deleteNotification(notification.id)
                               }}
-                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600"
+                              className="h-5 w-5 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-100 hover:text-red-600"
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>

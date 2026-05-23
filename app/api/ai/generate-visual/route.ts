@@ -1,9 +1,19 @@
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
-import { NextRequest, NextResponse } from "next/server"
-import { verifyFirebaseToken, getUserData } from "@/lib/firebase-admin"
-import { getOrganizationAdminId, logTokenUsage } from "@/lib/ai-service"
+import type { NextRequest } from "next/server"
+import { getCloudflareDb } from "@/lib/cloudflare-db"
+import { createMagnificImage, MAGNIFIC_IMAGE_MODEL, normalizeImagePayload } from "@/lib/magnific"
+import { logMagnificCreation } from "@/lib/magnific-db"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { requireClerkUser } from "@/lib/server-clerk"
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+
+function aspectRatioForFormat(value: unknown) {
+  if (value === "story" || value === "reel") return "9:16"
+  if (value === "landscape") return "16:9"
+  if (value === "portrait") return "4:5"
+  return "1:1"
+}
 
 export async function POST(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, "AI")
@@ -12,113 +22,74 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Verifica autenticazione
-    const token = request.cookies.get("firebase-auth-token")?.value
-    if (!token) {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 401 })
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Non autorizzato" }, { status: 401 })
     }
 
-    const decodedToken = await verifyFirebaseToken(token)
-    const userData = await getUserData(decodedToken.uid)
-    if (!userData) {
-      return NextResponse.json({ error: "Utente non trovato" }, { status: 404 })
+    const body = await request.json()
+    const basePrompt = typeof body.prompt === "string" ? body.prompt.trim() : ""
+
+    if (!basePrompt) {
+      return Response.json({ error: "Prompt richiesto" }, { status: 400 })
     }
 
-    const { prompt, format, index = 0, isCarousel = false } = await request.json()
+    const variations = [
+      "focus on product details",
+      "show broader context",
+      "highlight key benefits",
+      "include call to action elements",
+      "show a different angle or perspective",
+    ]
+    const prompt =
+      body.isCarousel && Number(body.index || 0) > 0
+        ? `${basePrompt}, ${variations[Number(body.index || 0) % variations.length]}`
+        : basePrompt
 
-    if (!prompt) {
-      return NextResponse.json({ error: "Prompt richiesto" }, { status: 400 })
-    }
+    const payload = normalizeImagePayload({
+      prompt,
+      aspect_ratio: body.aspect_ratio || body.aspectRatio || aspectRatioForFormat(body.format),
+      resolution: body.resolution || "2K",
+      reference_images: body.reference_images || body.referenceImages,
+      webhook_url: body.webhook_url || body.webhookUrl,
+    })
 
-    // Check for OpenAI API key
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      console.warn("⚠️ OPENAI_API_KEY non trovata")
-      return NextResponse.json({ 
-        error: "Chiave API OpenAI non configurata" 
-      }, { status: 503 })
-    }
+    const result = await createMagnificImage(payload)
+    const db = await getCloudflareDb()
 
-    // Get appropriate image size based on format
-    const sizeMap = {
-      square: "1024x1024",     // 1:1 per Instagram feed
-      story: "1024x1792",      // 9:16 per Stories
-      landscape: "1792x1024",  // 16:9 per Facebook/LinkedIn 
-      portrait: "1024x1280",   // 4:5 per Instagram
-      reel: "1024x1792"        // 9:16 per Reels/TikTok
-    }
-
-    const imageSize = sizeMap[format as keyof typeof sizeMap] || "1024x1024"
-
-    let currentPrompt = prompt
-
-    // Add variation for carousel images
-    if (isCarousel && index > 0) {
-      const variations = [
-        "focus on product details",
-        "show broader context", 
-        "highlight key benefits",
-        "include call to action elements",
-        "show different angle or perspective"
-      ]
-      const variation = variations[index % variations.length]
-      currentPrompt = `${prompt}, ${variation}`
-    }
-
-    console.log(`🎨 Chiamata DALL-E per visual ${index + 1}`)
-
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: currentPrompt,
-        n: 1,
-        size: imageSize,
-        quality: "standard",
-        response_format: "url"
+    if (db) {
+      const principal = await ensureWorkspacePrincipal(db, user)
+      await logMagnificCreation(db, principal, {
+        kind: "image",
+        model: MAGNIFIC_IMAGE_MODEL,
+        prompt: payload.prompt,
+        taskId: result.data.task_id,
+        status: result.data.status,
+        generated: result.data.generated || [],
+        request: payload,
       })
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      console.error(`❌ Errore DALL-E:`, error)
-      return NextResponse.json({ 
-        error: error.error?.message || "Errore generazione immagine" 
-      }, { status: response.status })
     }
 
-    const data = await response.json()
-    
-    if (!data.data?.[0]) {
-      return NextResponse.json({ 
-        error: "Nessuna immagine generata" 
-      }, { status: 500 })
-    }
-
-    // Log token usage for image generation (estimated)
-    try {
-      const { adminId } = await getOrganizationAdminId(decodedToken.uid)
-      await logTokenUsage(adminId, decodedToken.uid, 100, "image_generation")
-    } catch (logError) {
-      console.warn("Warning: could not log token usage:", logError)
-    }
-
-    console.log(`✅ Visual generato con successo`)
-
-    return NextResponse.json({
+    return Response.json({
       success: true,
-      imageUrl: data.data[0].url,
-      prompt: currentPrompt
+      provider: "magnific",
+      model: MAGNIFIC_IMAGE_MODEL,
+      taskId: result.data.task_id,
+      status: result.data.status,
+      imageUrl: result.data.generated?.[0] || null,
+      images: result.data.generated || [],
+      prompt,
+      data: result.data,
     })
-
   } catch (error) {
-    console.error("Error generating visual:", error)
-    return NextResponse.json({ 
-      error: "Errore interno del server" 
-    }, { status: 500 })
+    const err = error as Error & { status?: number; details?: unknown }
+    console.error("Error generating visual:", err)
+    return Response.json(
+      {
+        error: err.message || "Errore interno del server",
+        details: err.details || null,
+      },
+      { status: err.status || 500 },
+    )
   }
 }

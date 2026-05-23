@@ -6,6 +6,7 @@ import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal, mapTaskRow, stringifyJson } from "@/lib/workspace-db"
 import { buildMemberDisplayName, requiresAssignmentAcceptance } from "@/lib/task-assignment-policy"
 import { notifyTaskChange } from "@/lib/task-email-notifications"
+import { createNotification, notifyMembers } from "@/lib/notifications-db"
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -47,6 +48,20 @@ function dbFieldForKey(key: string) {
   if (key === "comments") return "comments_json"
   if (key === "subItems") return "sub_items_json"
   return FIELD_MAP[key]
+}
+
+function parseJsonArray(value: unknown) {
+  if (typeof value !== "string" || !value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function actorDisplayName(user: { firstName?: string; lastName?: string; email?: string }) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email || "Un membro del team"
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -116,11 +131,43 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         .bind(id, principal.organizationId)
         .first()
 
+      const requesterMemberId = existingTask.assignment_requested_by_member_id
+        ? String(existingTask.assignment_requested_by_member_id)
+        : null
+
+      if (requesterMemberId && requesterMemberId !== principal.memberId) {
+        await createNotification(db, {
+          organizationId: principal.organizationId,
+          memberId: requesterMemberId,
+          actorMemberId: principal.memberId,
+          type: "task_updated",
+          title: body.assignmentAction === "accept" ? "Assegnazione accettata" : "Assegnazione rifiutata",
+          message:
+            body.assignmentAction === "accept"
+              ? `${actorDisplayName(user)} ha accettato la task "${existingTask.title}".`
+              : `${actorDisplayName(user)} ha rifiutato la task "${existingTask.title}"${
+                  rejectionReason ? `: ${rejectionReason}` : "."
+                }`,
+          taskId: id,
+          metadata: {
+            taskTitle: existingTask.title,
+            assignmentAction: body.assignmentAction,
+            rejectionReason,
+          },
+        }).catch((notificationError) => {
+          console.error("Task assignment response notification error:", notificationError)
+        })
+      }
+
       return Response.json({ task: mapTaskRow(row) })
     }
 
     const assignments: string[] = []
     const values: unknown[] = []
+    const requestedAssignedUserId =
+      "assignedUserId" in body && typeof body.assignedUserId === "string" && body.assignedUserId.trim()
+        ? body.assignedUserId.trim()
+        : null
 
     if ("projectId" in body && body.projectId) {
       const project = await db
@@ -253,6 +300,49 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
       .bind(id, principal.organizationId)
       .first()
+
+    const previousComments = parseJsonArray(existingTask.comments_json)
+    const currentComments = parseJsonArray(row?.comments_json)
+    const commentAdded = "comments" in body && currentComments.length > previousComments.length
+
+    if (requestedAssignedUserId && requestedAssignedUserId !== principal.memberId) {
+      await createNotification(db, {
+        organizationId: principal.organizationId,
+        memberId: requestedAssignedUserId,
+        actorMemberId: principal.memberId,
+        type: "task_assigned",
+        title: row?.assignment_status === "pending" ? "Nuova proposta task" : "Nuova task assegnata",
+        message:
+          row?.assignment_status === "pending"
+            ? `${actorDisplayName(user)} ti ha proposto la task "${row?.title || existingTask.title}".`
+            : `${actorDisplayName(user)} ti ha assegnato la task "${row?.title || existingTask.title}".`,
+        taskId: id,
+        metadata: {
+          taskTitle: row?.title || existingTask.title,
+          assignmentStatus: row?.assignment_status || "accepted",
+        },
+      }).catch((notificationError) => {
+        console.error("Task reassignment notification error:", notificationError)
+      })
+    } else {
+      await notifyMembers(db, {
+        organizationId: principal.organizationId,
+        actorMemberId: principal.memberId,
+        memberIds: [row?.assignee_member_id, row?.created_by_member_id],
+        type: commentAdded ? "comment_added" : "task_updated",
+        title: commentAdded ? "Nuovo commento sulla task" : "Task aggiornata",
+        message: commentAdded
+          ? `${actorDisplayName(user)} ha aggiunto un commento a "${row?.title || existingTask.title}".`
+          : `${actorDisplayName(user)} ha aggiornato "${row?.title || existingTask.title}".`,
+        taskId: id,
+        metadata: {
+          taskTitle: row?.title || existingTask.title,
+          changedFields: Object.keys(body),
+        },
+      }).catch((notificationError) => {
+        console.error("Task update notification error:", notificationError)
+      })
+    }
 
     await notifyTaskChange({
       db,
