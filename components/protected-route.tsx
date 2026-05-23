@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import type { UserRole } from "@/lib/role-hierarchy"
 
@@ -15,6 +15,17 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   const { user, userData, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const [authInitTimedOut, setAuthInitTimedOut] = useState(false)
+
+  useEffect(() => {
+    if (!loading) {
+      setAuthInitTimedOut(false)
+      return
+    }
+
+    const timeout = window.setTimeout(() => setAuthInitTimedOut(true), 10000)
+    return () => window.clearTimeout(timeout)
+  }, [loading])
 
   useEffect(() => {
     if (!loading) {
@@ -40,8 +51,26 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   // Mostra loading durante l'inizializzazione
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-500"></div>
+      <div className="flex min-h-screen items-center justify-center bg-[#050811] p-6 text-white">
+        <div className="max-w-sm text-center">
+          <div className="mx-auto h-16 w-16 animate-spin rounded-full border-b-2 border-pink-500" />
+          {authInitTimedOut ? (
+            <div className="mt-6 rounded-lg border border-red-500/35 bg-red-500/10 p-4 text-left">
+              <p className="text-sm font-semibold text-red-100">Autenticazione ancora in inizializzazione.</p>
+              <p className="mt-2 text-sm text-red-100/75">
+                Se resta bloccata, ricarica la pagina o torna al login: potrebbe esserci un problema temporaneo con
+                Clerk o il dominio di autenticazione.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.replace(`/login?callbackUrl=${encodeURIComponent(pathname)}`)}
+                className="mt-4 rounded-lg bg-pink-500 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Torna al login
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
     )
   }

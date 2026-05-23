@@ -50,13 +50,16 @@ const DashboardCommandInput = dynamic(
   }
 )
 
+const dashboardPageClass =
+  "h-[calc(100dvh-73px)] w-full overflow-y-auto overflow-x-hidden overscroll-contain bg-transparent [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-visible"
+
 export function DashboardClient() {
   const { userData } = useAuth()
   const { stats, recentActivities, loading } = useDashboardData()
 
   if (loading) {
     return (
-      <div className="optima-app-surface min-h-screen">
+      <div className={`optima-app-surface ${dashboardPageClass}`}>
         <div className="container mx-auto px-4 py-4 md:px-6 md:py-8 max-w-7xl">
           <div className="space-y-6 md:space-y-8 animate-pulse">
             <div className="flex items-center gap-4">
@@ -127,7 +130,7 @@ export function DashboardClient() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className={dashboardPageClass}>
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
         <div className="space-y-6 md:space-y-8">
           {/* Header Section */}
