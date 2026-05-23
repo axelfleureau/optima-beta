@@ -40,8 +40,8 @@ type Feature = {
 const features: Feature[] = [
   {
     icon: Megaphone,
-    title: "Campagne",
-    body: "Calendari editoriali, contenuti, canali e obiettivi restano collegati a clienti e risultati.",
+    title: "Crescita e contenuti",
+    body: "Calendari editoriali, canali, asset e obiettivi restano collegati a clienti, prodotto e risultati.",
     accent: "#d6487e",
   },
   {
@@ -340,11 +340,11 @@ export default function HomePage() {
                 Nuova versione, stessa precisione
               </div>
               <h1 className="text-5xl font-black leading-none text-white sm:text-7xl lg:text-8xl">
-                Misura il marketing. Governa il lavoro.
+                Misura il lavoro. Governa l'azienda.
               </h1>
               <p className="mt-7 max-w-2xl text-lg font-medium leading-8 text-white/68">
-                Optima nasce per misurare campagne, clienti e contenuti con precisione millimetrica. Ora diventa il
-                sistema operativo per progetti, AI, preventivi, persone e controllo aziendale.
+                Optima nasce per dare precisione a tutto cio che Righello costruisce: prodotto, operazioni, clienti,
+                persone, AI, preventivi e crescita. Un cockpit unico per decidere prima e lavorare meglio.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link href="/register">
@@ -389,8 +389,8 @@ export default function HomePage() {
           <FadeIn>
             <SectionTitle
               eyebrow="Funzionalita"
-              title="La vecchia promessa era giusta. Ora ha un motore operativo."
-              body="La landing torna chiara: marketing, clienti, analytics, AI, calendario e preventivi. La differenza e che ogni modulo e collegato al lavoro reale dell'agenzia."
+              title="La vecchia promessa era giusta. Ora parla di tutta Righello."
+              body="La landing torna chiara: progetti, clienti, analytics, AI, calendario, preventivi e persone. Ogni modulo e collegato al lavoro reale dell'azienda."
             />
           </FadeIn>
 
@@ -455,7 +455,7 @@ export default function HomePage() {
             <div>
               <p className="text-sm font-black uppercase text-[#67e8f9]">Controllo aziendale</p>
               <h2 className="mt-3 text-4xl font-black leading-none text-white sm:text-6xl">
-                Non solo marketing. Anche persone, tempi e capacita.
+                Non solo comunicazione. Anche persone, tempi e capacita.
               </h2>
               <p className="mt-6 text-base font-medium leading-7 text-white/62">
                 La parte manageriale legge presenza, rapportini, carico, approcci problematici, task in ritardo e
@@ -556,7 +556,7 @@ export default function HomePage() {
                 Una piattaforma interna, con ambizione da prodotto vero.
               </h2>
               <p className="mt-5 max-w-2xl text-base font-medium leading-7 text-white/66">
-                Marketing, delivery, persone e AI nello stesso posto. Meno attrito, piu controllo, piu output.
+                Prodotto, delivery, clienti, persone e AI nello stesso posto. Meno attrito, piu controllo, piu output.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -594,7 +594,7 @@ export default function HomePage() {
             <Link href="/login" className="hover:text-white">
               Login
             </Link>
-            <span>Marketing intelligence OS</span>
+            <span>Company operating OS</span>
           </div>
         </div>
       </footer>

@@ -9,16 +9,25 @@ npm run dev
 npm run cf:build
 npm run cf:preview
 npm run cf:deploy:staging
+npm run cf:deploy:production
 npm run cf:deploy
 ```
 
-`cf:preview` runs the built app in the Workers runtime. `cf:deploy:staging` deploys the `staging` Wrangler environment.
+`cf:preview` runs the built app in the Workers runtime. `cf:deploy:staging` deploys the `staging` Wrangler environment. `cf:deploy:production` deploys the `production` Wrangler environment.
 
 Current staging URL:
 
 ```text
 https://optima-beta-staging.axel-15d.workers.dev
 ```
+
+Production is configured for:
+
+```text
+https://appbeta.wearerighello.com
+```
+
+The `wearerighello.com` DNS zone must be active in the same Cloudflare account before Wrangler can attach the Worker custom domain. If the domain is still hosted elsewhere, add the zone to Cloudflare, update the registrar nameservers to the Cloudflare nameservers shown in the dashboard, and remove the existing `appbeta` record that points to Vercel. After that, `npm run cf:deploy:production` can provision the custom domain route.
 
 ## Runtime secrets
 
