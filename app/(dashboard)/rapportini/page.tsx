@@ -55,13 +55,13 @@ type TimeTrackingPayload = {
 }
 
 const pageClass =
-  "h-[calc(100dvh-73px)] overflow-y-auto overflow-x-hidden overscroll-contain bg-[#0b1323] text-slate-100 touch-pan-y md:h-auto md:min-h-screen md:overflow-visible"
+  "h-[calc(100dvh-73px)] w-full max-w-full overflow-y-auto overflow-x-clip overscroll-contain bg-[#0b1323] text-slate-100 touch-pan-y md:h-auto md:min-h-screen md:overflow-x-clip md:overflow-y-visible"
 const panelClass =
-  "min-w-0 rounded-[8px] border border-white/10 bg-[#151d2c] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.28)] sm:p-5"
+  "w-full min-w-0 max-w-full overflow-hidden rounded-[8px] border border-white/10 bg-[#151d2c] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.28)] sm:p-5"
 const fieldClass =
-  "h-11 min-w-0 border-white/10 bg-[#222a31] text-slate-100 placeholder:text-slate-400 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
+  "h-11 w-full min-w-0 max-w-full border-white/10 bg-[#222a31] text-slate-100 placeholder:text-slate-400 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
 const selectClass =
-  "h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#222a31] px-3 text-sm font-semibold text-slate-100 outline-none focus:border-righello-pink/70"
+  "h-11 w-full min-w-0 max-w-full truncate rounded-md border border-white/10 bg-[#222a31] px-3 text-sm font-semibold text-slate-100 outline-none focus:border-righello-pink/70"
 
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -188,7 +188,7 @@ export default function RapportiniPage() {
   if (loading && !payload) {
     return (
       <div className={pageClass}>
-        <div className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 py-5 md:px-6 md:py-8">
+        <div className="mx-auto w-full max-w-[100vw] overflow-x-clip px-4 py-5 md:max-w-7xl md:px-6 md:py-8">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-righello-pink" />
         </div>
       </div>
@@ -197,7 +197,7 @@ export default function RapportiniPage() {
 
   return (
     <div className={pageClass}>
-      <div className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden px-4 py-5 md:px-6 md:py-8">
+      <div className="mx-auto w-full max-w-[100vw] space-y-6 overflow-x-clip px-4 py-5 [overflow-anchor:none] [&_*]:min-w-0 md:max-w-7xl md:px-6 md:py-8">
         <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <h1 className="flex min-w-0 items-center gap-3 text-2xl font-bold text-white sm:text-3xl md:text-4xl">
@@ -221,7 +221,7 @@ export default function RapportiniPage() {
           </Alert>
         )}
 
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[0.95fr_1fr]">
+        <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]">
           <section className={panelClass}>
             <div className="mb-5">
               <div className="break-words text-xs font-black uppercase tracking-[0.12em] text-righello-pink sm:tracking-[0.24em]">
@@ -252,9 +252,9 @@ export default function RapportiniPage() {
                 </div>
               )}
 
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
                 <Button
-                  className="min-h-12 h-auto whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
+                  className="h-auto min-h-12 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
                   onClick={() => mutateDay("check-in", { time: checkInTime }).then(() => toast.success("Check-in registrato")).catch((err) => toast.error(err.message))}
                 >
                   <LogIn className="mr-2 h-4 w-4" />
@@ -262,7 +262,7 @@ export default function RapportiniPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-h-12 h-auto whitespace-normal border-white/10 bg-[#0a0f1d] px-3 text-slate-100 hover:bg-white/10 hover:text-white"
+                  className="h-auto min-h-12 w-full min-w-0 whitespace-normal border-white/10 bg-[#0a0f1d] px-3 text-slate-100 hover:bg-white/10 hover:text-white"
                   onClick={() => mutateDay("check-out", { time: checkOutTime }).then(() => toast.success("Check-out registrato")).catch((err) => toast.error(err.message))}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
@@ -270,14 +270,14 @@ export default function RapportiniPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-h-12 h-auto whitespace-normal border-red-400/30 bg-red-950/20 px-3 text-red-100 hover:bg-red-500/15 hover:text-red-50"
+                  className="h-auto min-h-12 w-full min-w-0 whitespace-normal border-red-400/30 bg-red-950/20 px-3 text-red-100 hover:bg-red-500/15 hover:text-red-50"
                   onClick={() => mutateDay("absence", { reason: absenceReason }).then(() => toast.success("Assenza registrata")).catch((err) => toast.error(err.message))}
                 >
                   Segna assenza
                 </Button>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="grid gap-2">
                   <label className="text-sm font-semibold text-slate-400">Entrata</label>
                   <Input className={fieldClass} type="time" value={checkInTime} onChange={(event) => setCheckInTime(event.target.value)} />
@@ -288,7 +288,7 @@ export default function RapportiniPage() {
                 </div>
               </div>
 
-              <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+              <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
                 <div className="grid gap-2">
                   <label className="text-sm font-semibold text-slate-400">Attività svolta</label>
                   <Input
@@ -317,14 +317,14 @@ export default function RapportiniPage() {
               </div>
 
               <Button
-                className="min-h-11 h-auto whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
+                className="h-auto min-h-11 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
                 onClick={() => handleAddEntry().then(() => toast.success("Attività aggiunta")).catch((err) => toast.error(err.message))}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Aggiungi attività
               </Button>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-white/10 bg-[#1b242b] p-4">
                   <div className="text-sm text-slate-400">Ore presenza</div>
                   <div className="mt-1 text-3xl font-black text-white">{formatMinutes(payload?.totals.presenceMinutes || 0)}</div>
@@ -350,7 +350,7 @@ export default function RapportiniPage() {
               <h2 className="mt-1 text-2xl font-bold text-white">Cosa è stato fatto</h2>
             </div>
 
-            <div className="space-y-3">
+            <div className="w-full min-w-0 max-w-full space-y-3">
               {payload?.entries.length ? (
                 payload.entries.map((entry) => (
                   <div key={entry.id} className="min-w-0 rounded-[8px] border border-white/10 bg-[#222a31] p-4">
