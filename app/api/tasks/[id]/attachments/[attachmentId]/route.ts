@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { getTaskMediaBucket } from "@/lib/cloudflare-r2"
 import { requireClerkUser } from "@/lib/server-clerk"
+import { notifyTaskChange } from "@/lib/task-email-notifications"
 import { ensureWorkspacePrincipal, mapTaskRow, stringifyJson } from "@/lib/workspace-db"
 
 type RouteContext = {
@@ -49,7 +50,7 @@ async function getTaskAndAttachment(context: RouteContext) {
     return { error: Response.json({ error: "Allegato non trovato" }, { status: 404 }) }
   }
 
-  return { db, bucket, principal, task, taskId, attachment, attachments }
+  return { db, bucket, principal, user, task, taskId, attachment, attachments }
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -97,6 +98,17 @@ export async function DELETE(_request: Request, context: RouteContext) {
       .prepare(`SELECT * FROM tasks WHERE id = ? AND organization_id = ?`)
       .bind(result.taskId, result.principal.organizationId)
       .first()
+
+    await notifyTaskChange({
+      db: result.db,
+      principal: result.principal,
+      actor: result.user,
+      previousTask: result.task,
+      updatedTask,
+      changes: { attachments },
+    }).catch((emailError) => {
+      console.error("Task attachment delete email notification error:", emailError)
+    })
 
     return Response.json({ task: mapTaskRow(updatedTask) })
   } catch (error) {

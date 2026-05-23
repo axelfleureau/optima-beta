@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { getTaskMediaBucket } from "@/lib/cloudflare-r2"
 import { requireClerkUser } from "@/lib/server-clerk"
+import { notifyTaskChange } from "@/lib/task-email-notifications"
 import { ensureWorkspacePrincipal, mapTaskRow, stringifyJson } from "@/lib/workspace-db"
 
 type RouteContext = {
@@ -112,6 +113,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .prepare(`SELECT * FROM tasks WHERE id = ? AND organization_id = ?`)
       .bind(taskId, principal.organizationId)
       .first()
+
+    await notifyTaskChange({
+      db,
+      principal,
+      actor: user,
+      previousTask: task,
+      updatedTask,
+      changes: { attachments: uploadedAttachments },
+    }).catch((emailError) => {
+      console.error("Task attachment email notification error:", emailError)
+    })
 
     return Response.json({ task: mapTaskRow(updatedTask), attachments: uploadedAttachments }, { status: 201 })
   } catch (error) {

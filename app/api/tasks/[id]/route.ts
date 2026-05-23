@@ -5,6 +5,7 @@ import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal, mapTaskRow, stringifyJson } from "@/lib/workspace-db"
 import { buildMemberDisplayName, requiresAssignmentAcceptance } from "@/lib/task-assignment-policy"
+import { notifyTaskChange } from "@/lib/task-email-notifications"
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -252,6 +253,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
       .bind(id, principal.organizationId)
       .first()
+
+    await notifyTaskChange({
+      db,
+      principal,
+      actor: user,
+      previousTask: existingTask,
+      updatedTask: row,
+      changes: body,
+    }).catch((emailError) => {
+      console.error("Task email notification error:", emailError)
+    })
 
     return Response.json({ task: mapTaskRow(row) })
   } catch (error) {
