@@ -108,6 +108,32 @@ function formatTime(value?: string | null) {
   return new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
 }
 
+function TimePickerField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="grid min-w-0 gap-2">
+      <span className="text-sm font-semibold text-slate-400">{label}</span>
+      <label className="relative flex h-14 min-w-0 items-center justify-center overflow-hidden rounded-[8px] border border-white/10 bg-[#222a31] px-3 text-base font-semibold text-slate-100">
+        <span className="pointer-events-none truncate">{value || "--:--"}</span>
+        <Input
+          className="absolute inset-0 h-full w-full cursor-pointer appearance-none border-0 bg-transparent p-0 opacity-0"
+          type="time"
+          value={value}
+          aria-label={label}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+    </div>
+  )
+}
+
 export default function RapportiniPage() {
   const [date, setDate] = useState(today())
   const [selectedMemberId, setSelectedMemberId] = useState("")
@@ -329,14 +355,8 @@ export default function RapportiniPage() {
               </div>
 
               <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <label className="text-sm font-semibold text-slate-400">Entrata</label>
-                  <Input className={fieldClass} type="time" value={checkInTime} onChange={(event) => setCheckInTime(event.target.value)} />
-                </div>
-                <div className="grid gap-2">
-                  <label className="text-sm font-semibold text-slate-400">Uscita</label>
-                  <Input className={fieldClass} type="time" value={checkOutTime} onChange={(event) => setCheckOutTime(event.target.value)} />
-                </div>
+                <TimePickerField label="Entrata" value={checkInTime} onChange={setCheckInTime} />
+                <TimePickerField label="Uscita" value={checkOutTime} onChange={setCheckOutTime} />
               </div>
 
               <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
