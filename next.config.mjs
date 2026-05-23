@@ -7,9 +7,6 @@ const nextConfig = {
       '.replit.dev',
     ],
   },
-  outputFileTracingIncludes: {
-    '/*': ['./node_modules/jose/dist/**/*'],
-  },
   // Webpack configuration to fix chunk loading timeout
   webpack: (config, { isServer }) => {
     if (!isServer) {

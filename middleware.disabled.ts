@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+// Disabled for Cloudflare Workers Free size limits.
+// Dashboard layouts still use ProtectedRoute and sensitive API routes perform route-level auth.
+// Restore as middleware.ts if the Worker is moved to a paid plan or the server bundle is split.
+
 const PROTECTED_PREFIXES = [
   "/dashboard",
   "/campagne",
