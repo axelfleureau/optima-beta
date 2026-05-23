@@ -40,29 +40,29 @@ const modules: Module[] = [
   {
     icon: BriefcaseBusiness,
     label: "Delivery",
-    title: "Progetti e clienti",
-    body: "Clienti, progetti, fasi, task, allegati e commenti vivono nello stesso contesto operativo.",
+    title: "Progetti, clienti e task",
+    body: "Una regia unica per clienti, progetti, fasi, task, allegati, commenti e responsabilità operative.",
     accent: "#67e8f9",
   },
   {
     icon: UsersRound,
     label: "People",
-    title: "Persone e capacita",
-    body: "Presenze, rapportini, carico netto, segnali e responsabilita diventano dati decisionali.",
+    title: "Persone, tempi e carico",
+    body: "Presenze, rapportini, capacità netta, assegnazioni e segnali diventano strumenti di management.",
     accent: "#22c55e",
   },
   {
     icon: Bot,
     label: "AI",
     title: "Assistente operativo",
-    body: "AI con memoria, cronologia, contesto clienti, task e preventivi per lavorare piu veloce.",
+    body: "AI con memoria, cronologia, contesto su clienti, workspace e preventivi per accelerare le decisioni.",
     accent: "#a855f7",
   },
   {
     icon: FileText,
     label: "Sales",
-    title: "Preventivi",
-    body: "Dalla raccolta informazioni al documento, poi milestone, budget, progetto e follow up.",
+    title: "Preventivi e ricavi",
+    body: "Dalla raccolta informazioni alla proposta, poi budget, milestone, progetto e follow-up tracciati.",
     accent: "#f59e0b",
   },
 ]
@@ -71,12 +71,12 @@ const method: MethodStep[] = [
   {
     index: "01",
     title: "Discovery",
-    body: "Raccoglie input, vincoli, asset, referente, cliente, budget e finestre temporali.",
+    body: "Trasforma brief, vincoli, asset, referente, cliente e budget in una base operativa misurabile.",
   },
   {
     index: "02",
     title: "Planning",
-    body: "Trasforma priorita in fasi, owner, task, media, scadenze e date al piu presto/al piu tardi.",
+    body: "Organizza priorità, fasi, owner, task, media, scadenze e finestre al più presto/al più tardi.",
   },
   {
     index: "03",
@@ -86,7 +86,7 @@ const method: MethodStep[] = [
   {
     index: "04",
     title: "Reporting",
-    body: "Mostra output, margini, ritardi, carico, capacita, approcci problematici e prossime mosse.",
+    body: "Legge output, margini, ritardi, carico, capacità, approcci problematici e prossime mosse.",
   },
 ]
 
@@ -158,9 +158,9 @@ function SectionTitle({
 }) {
   return (
     <div className={center ? "mx-auto max-w-3xl text-center" : "max-w-3xl"}>
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-[#ff6aa6]">{eyebrow}</p>
-      <h2 className="mt-4 text-4xl font-black leading-[0.9] text-white sm:text-6xl">{title}</h2>
-      {body ? <p className="mt-5 text-base font-medium leading-7 text-white/62 sm:text-lg">{body}</p> : null}
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#ff6aa6]">{eyebrow}</p>
+      <h2 className="mt-4 text-4xl font-bold leading-[0.98] text-white sm:text-6xl">{title}</h2>
+      {body ? <p className="mt-5 text-base font-medium leading-8 text-white/66 sm:text-lg">{body}</p> : null}
     </div>
   )
 }
@@ -219,13 +219,13 @@ function ProductCockpit() {
         <div className="min-w-0 bg-[#0d1320]">
           <div className="flex flex-col gap-4 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#67e8f9]">Project operating system</p>
-              <h3 className="mt-1 truncate text-2xl font-black text-white sm:text-3xl">G&M Ambiente srl</h3>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#67e8f9]">Project operating system</p>
+              <h3 className="mt-1 truncate text-2xl font-bold text-white sm:text-3xl">G&M Ambiente srl</h3>
             </div>
             <div className="grid grid-cols-3 gap-2 sm:flex">
               {[
                 ["22", "task"],
-                ["71%", "capacita"],
+                ["71%", "capacità"],
                 ["1", "rischio"],
               ].map(([value, label]) => (
                 <div key={label} className="rounded-[8px] border border-white/10 bg-black/24 px-3 py-2 text-center">
@@ -274,9 +274,9 @@ function ProductCockpit() {
               <div className="rounded-[8px] border border-[#d6487e]/25 bg-[#d6487e]/10 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-black text-[#ff8fbd]">Command bar</p>
+                    <p className="text-sm font-bold text-[#ff8fbd]">Command bar</p>
                     <p className="mt-1 text-sm font-medium leading-6 text-white/68">
-                      "Mostrami ritardi, capacita disponibile e follow up critici."
+                      "Mostrami ritardi, capacità disponibile e follow-up critici."
                     </p>
                   </div>
                   <Command className="h-8 w-8 text-[#ff6aa6]" />
@@ -334,7 +334,7 @@ function ModuleCard({ module, index }: { module: Module; index: number }) {
       <p className="mt-8 text-xs font-black uppercase tracking-[0.2em]" style={{ color: module.accent }}>
         {module.label}
       </p>
-      <h3 className="mt-3 text-3xl font-black leading-none text-white">{module.title}</h3>
+      <h3 className="mt-3 text-3xl font-bold leading-tight text-white">{module.title}</h3>
       <p className="mt-4 text-sm font-medium leading-6 text-white/60">{module.body}</p>
     </article>
   )
@@ -525,16 +525,17 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:88px_88px] opacity-20" />
         <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-5xl text-center">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-[8px] border border-[#d6487e]/34 bg-[#d6487e]/12 px-3 py-2 text-sm font-black text-[#ff8fbd]">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-[8px] border border-[#d6487e]/34 bg-[#d6487e]/12 px-3 py-2 text-sm font-bold text-[#ff8fbd]">
               <Sparkles className="h-4 w-4" />
-              Il sistema operativo interno di Righello
+              Il sistema operativo per guidare Righello
             </div>
-            <h1 className="text-5xl font-black leading-[0.86] tracking-[-0.02em] text-white sm:text-7xl lg:text-8xl">
-              {splitWords("Misura il lavoro. Governa l'azienda.")}
+            <h1 className="text-5xl font-bold leading-[0.95] tracking-normal text-white sm:text-7xl lg:text-8xl">
+              {splitWords("Il controllo operativo per diventare leader.")}
             </h1>
-            <p className="mx-auto mt-7 max-w-3xl text-lg font-medium leading-8 text-white/68">
-              Optima unisce progetti, clienti, persone, AI, preventivi e segnali operativi in un cockpit pensato per
-              una tech company giovane, veloce e ossessionata dall'efficienza.
+            <p className="mx-auto mt-7 max-w-3xl text-lg font-medium leading-8 text-white/72">
+              Óptima è la piattaforma gestionale AI di Righello: project management, gestione clienti, time tracking,
+              preventivi, team operations e controllo aziendale in un solo cockpit per una tech company che vuole
+              crescere con metodo.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href="/register">
@@ -579,8 +580,8 @@ export default function HomePage() {
           <div className="reveal-section">
             <SectionTitle
               eyebrow="Sistema"
-              title="Non una landing marketing. Un prodotto per gestire l'azienda."
-              body="Righello non e solo comunicazione: produce tecnologia, servizi, contenuti, consulenza e operazioni. Optima serve a tenere insieme tutto il lavoro reale."
+              title="La piattaforma che tiene insieme delivery, persone e crescita."
+              body="Righello non fa solo marketing: costruisce software, contenuti, campagne, automazioni e processi per aziende che vogliono scalare. Óptima nasce per governare questo lavoro con visibilità, responsabilità e dati."
             />
           </div>
 
@@ -597,11 +598,11 @@ export default function HomePage() {
           <div className="reveal-section">
             <SectionTitle
               eyebrow="Metodo Righello"
-              title="Decisioni prima, meno attrito durante, output piu chiaro dopo."
-              body="Il cuore resta la gestione dei progetti, ma il vantaggio nasce dal collegare planning, persone, budget, finestre temporali e segnali di rischio."
+              title="Dal brief alla consegna, ogni passaggio lascia traccia."
+              body="Il cuore resta la gestione dei progetti, ma il vantaggio nasce dal collegare planning, persone, budget, scadenze, finestre temporali e segnali di rischio in una lettura unica."
             />
             <div className="mt-8 flex flex-wrap gap-2">
-              {["al piu presto", "al piu tardi", "owner", "margine", "carico", "output"].map((item) => (
+              {["al più presto", "al più tardi", "owner", "margine", "carico", "output"].map((item) => (
                 <span
                   key={item}
                   className="rounded-[8px] border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-bold text-white/62"
@@ -616,7 +617,7 @@ export default function HomePage() {
             {method.map((step) => (
               <article key={step.index} className="reveal-section rounded-[8px] border border-white/10 bg-[#0b101b] p-5">
                 <div className="text-sm font-black text-[#ff6aa6]">{step.index}</div>
-                <h3 className="mt-8 text-3xl font-black leading-none text-white">{step.title}</h3>
+                <h3 className="mt-8 text-3xl font-bold leading-tight text-white">{step.title}</h3>
                 <p className="mt-4 text-sm font-medium leading-6 text-white/60">{step.body}</p>
               </article>
             ))}
@@ -636,7 +637,7 @@ export default function HomePage() {
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {[
-                ["Capacita usata", "71%", "#22c55e"],
+                ["Capacità usata", "71%", "#22c55e"],
                 ["Task critiche", "1", "#ff6aa6"],
                 ["Output chiusi", "18", "#67e8f9"],
                 ["Margine stimato", "38%", "#f59e0b"],
@@ -670,19 +671,19 @@ export default function HomePage() {
           </div>
 
           <div className="reveal-section">
-            <p className="text-sm font-black uppercase tracking-[0.22em] text-[#67e8f9]">People operations</p>
-            <h2 className="mt-4 text-4xl font-black leading-[0.9] text-white sm:text-6xl">
-              Persone, tempi e responsabilita sono parte del progetto.
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#67e8f9]">People operations</p>
+            <h2 className="mt-4 text-4xl font-bold leading-[0.98] text-white sm:text-6xl">
+              Il lavoro non è solo task: è capacità, attenzione e tempo.
             </h2>
-            <p className="mt-6 text-base font-medium leading-7 text-white/62">
-              Il monitoraggio non deve essere burocratico: deve aiutare a vedere capacita non usata, sovraccarichi,
-              ritardi, assenze, rapportini e lavori che rischiano di uscire dal controllo.
+            <p className="mt-6 text-base font-medium leading-8 text-white/66">
+              Óptima rende leggibile il modo in cui il team lavora: capacità disponibile, sovraccarichi, ritardi,
+              presenze, rapportini e segnali di rischio diventano indicatori per decidere prima, non spiegazioni dopo.
             </p>
             <div className="mt-8 space-y-3">
               {[
                 ["Assegnazioni orizzontali", "Chi riceve una task da un pari la accetta prima che diventi ufficiale."],
-                ["Rapportini", "Il responsabile vede cosa e stato fatto, da chi, su quale progetto e con che tempo."],
-                ["Notifiche", "Cliente e agenzia ricevono mail quando commenti e follow up cambiano una task."],
+                ["Rapportini", "Il responsabile vede cosa è stato fatto, da chi, su quale progetto e con quale tempo."],
+                ["Notifiche operative", "Cliente e agenzia ricevono aggiornamenti quando commenti e follow-up cambiano una task."],
               ].map(([label, body]) => (
                 <div key={label} className="flex gap-3 rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
                   <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-[#22c55e]" />
@@ -702,8 +703,8 @@ export default function HomePage() {
           <div className="reveal-section">
             <SectionTitle
               eyebrow="Piani"
-              title="Semplice da provare, serio quando scala."
-              body="La struttura 90, 180, 360 resta riconoscibile, ma ora racconta workflow, AI moderna e controllo operativo."
+              title="Entra leggero. Scala quando il processo diventa serio."
+              body="La struttura 90, 180, 360 accompagna l'evoluzione: dalla gestione dei clienti al controllo aziendale, con AI, workspace, preventivi e time tracking integrati."
               center
             />
           </div>
@@ -765,12 +766,12 @@ export default function HomePage() {
                 <ShieldCheck className="h-7 w-7" />
                 <Target className="h-7 w-7" />
               </div>
-              <h2 className="mt-6 max-w-4xl text-4xl font-black leading-[0.9] text-white sm:text-6xl">
-                Il sistema operativo con cui Righello scala verso la leadership.
+              <h2 className="mt-6 max-w-4xl text-4xl font-bold leading-[0.98] text-white sm:text-6xl">
+                Costruito per una società che vuole diventare riferimento, non per sembrare organizzata.
               </h2>
-              <p className="mt-5 max-w-2xl text-base font-medium leading-7 text-white/66">
-                Progetti, clienti, persone e AI nello stesso cockpit per aumentare velocita, qualita e capacita
-                decisionale.
+              <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-white/70">
+                Progetti, clienti, persone e AI nello stesso cockpit per aumentare velocità, qualità, margine e
+                capacità decisionale.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -811,7 +812,7 @@ export default function HomePage() {
             <Link href="/login" className="hover:text-white">
               Login
             </Link>
-            <span>Company operating OS</span>
+            <span>AI company operating system</span>
           </div>
         </div>
       </footer>

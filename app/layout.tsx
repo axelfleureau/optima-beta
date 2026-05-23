@@ -5,9 +5,9 @@ import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 export const metadata = {
-  title: "Optima by Righello",
-  description: "Cockpit operativo AI per soci, team e clienti Righello.",
-  generator: "v0.dev",
+  title: "Óptima by Righello",
+  description:
+    "Piattaforma gestionale AI per project management, clienti, task, preventivi, team operations e controllo aziendale.",
 }
 
 export default function RootLayout({
