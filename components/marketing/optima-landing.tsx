@@ -766,10 +766,11 @@ export default function HomePage() {
                 <Target className="h-7 w-7" />
               </div>
               <h2 className="mt-6 max-w-4xl text-4xl font-black leading-[0.9] text-white sm:text-6xl">
-                Una piattaforma interna, con ambizione da prodotto vero.
+                Il sistema operativo con cui Righello scala verso la leadership.
               </h2>
               <p className="mt-5 max-w-2xl text-base font-medium leading-7 text-white/66">
-                Prodotto, delivery, clienti, persone e AI nello stesso posto. Meno attrito, piu controllo, piu output.
+                Progetti, clienti, persone e AI nello stesso cockpit per aumentare velocita, qualita e capacita
+                decisionale.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
