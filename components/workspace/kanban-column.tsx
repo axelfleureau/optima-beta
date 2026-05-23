@@ -37,7 +37,7 @@ export function KanbanColumn({
   getScoreColor,
 }: KanbanColumnProps) {
   return (
-    <div key={column.id} className="flex h-full min-h-0 min-w-[88vw] max-w-[88vw] snap-start flex-col sm:min-w-[420px] sm:max-w-[420px] lg:min-w-[312px] lg:max-w-none xl:w-88">
+    <div key={column.id} className="flex min-h-[70dvh] min-w-[88vw] max-w-[88vw] snap-start flex-col sm:min-w-[420px] sm:max-w-[420px] lg:h-full lg:min-h-0 lg:min-w-[312px] lg:max-w-none xl:w-88">
       <div className={`flex-shrink-0 rounded-t-lg border-x border-t bg-white/95 p-3 shadow-corporate-medium dark:border-slate-700 dark:bg-slate-900 md:p-4 ${column.color}`}>
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2 md:gap-3">
@@ -57,7 +57,7 @@ export function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`mobile-scroll-container min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-b-lg border-x border-b border-slate-200/80 bg-slate-100/70 p-3 transition-colors duration-150 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] dark:border-slate-700 dark:bg-slate-900/55 md:p-4 ${
+            className={`min-h-[55dvh] flex-1 space-y-3 overflow-visible rounded-b-lg border-x border-b border-slate-200/80 bg-slate-100/70 p-3 transition-colors duration-150 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] dark:border-slate-700 dark:bg-slate-900/55 md:p-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain ${
               snapshot.isDraggingOver ? "bg-cyan-50/80 ring-2 ring-cyan-300 dark:bg-cyan-950/30 dark:ring-cyan-500" : ""
             }`}
           >
