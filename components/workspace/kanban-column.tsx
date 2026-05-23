@@ -57,7 +57,7 @@ export function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`min-h-[340px] flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-b-lg border-x border-b border-slate-200/80 bg-slate-100/70 p-3 transition-colors duration-150 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] dark:border-slate-700 dark:bg-slate-900/55 md:p-4 lg:min-h-0 ${
+            className={`mobile-scroll-container min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-b-lg border-x border-b border-slate-200/80 bg-slate-100/70 p-3 transition-colors duration-150 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] dark:border-slate-700 dark:bg-slate-900/55 md:p-4 ${
               snapshot.isDraggingOver ? "bg-cyan-50/80 ring-2 ring-cyan-300 dark:bg-cyan-950/30 dark:ring-cyan-500" : ""
             }`}
           >

@@ -705,8 +705,8 @@ export function WorkspaceShell() {
   const activeColumns = showTenantWorkspace ? tenantColumns : defaultColumns
 
   return (
-    <div className="min-h-[100dvh] overflow-x-hidden bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-slate-50 lg:h-[100dvh] lg:overflow-hidden">
-      <div className="flex min-h-[100dvh] lg:h-full lg:min-h-0">
+    <div className="h-[calc(100dvh-73px)] overflow-hidden bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-slate-50 lg:h-[100dvh]">
+      <div className="flex h-full min-h-0">
         {/* Desktop Sidebar - Hidden on mobile */}
         <div className="hidden lg:block">
           <ClientSidebar
@@ -757,7 +757,7 @@ export function WorkspaceShell() {
           </SheetContent>
         </MobileSheet>
 
-        <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col lg:min-h-0">
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
           <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 shadow-corporate-medium backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/95 lg:static">
             <div className="p-3 sm:p-4 lg:p-6">
               <div className="flex items-start justify-between gap-3">
@@ -887,7 +887,7 @@ export function WorkspaceShell() {
             </div>
           </div>
 
-          <div className="min-h-[calc(100dvh-220px)] min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-100 p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y] dark:bg-slate-950 sm:p-4 lg:min-h-0 lg:overflow-hidden lg:p-6">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-100 p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y] dark:bg-slate-950 sm:p-4 lg:p-6">
             {tasksLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
