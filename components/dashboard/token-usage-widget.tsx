@@ -18,14 +18,14 @@ export function TokenUsageWidget() {
     : 0
   
   return (
-    <GlassCard className="p-6">
+    <GlassCard className="optima-glass-card rounded-2xl p-6" padding="none">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Zap className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-          <h3 className="font-semibold">Token Mensili</h3>
+          <Zap className="w-5 h-5 text-righello-pink" />
+          <h3 className="font-semibold text-slate-900 dark:text-white">Token Mensili</h3>
         </div>
         <Link href="/dashboard/settings/billing">
-          <GlassButton variant="ghost" size="sm">
+          <GlassButton variant="ghost" size="sm" className="rounded-full text-righello-pink hover:bg-righello-pink/10">
             Gestisci
             <ArrowRight className="w-3 h-3 ml-1" />
           </GlassButton>
@@ -34,17 +34,17 @@ export function TokenUsageWidget() {
       
       <div className="space-y-3">
         <div className="flex items-baseline justify-between">
-          <span className="text-2xl font-bold">
+          <span className="text-3xl font-black righello-text-gradient">
             {formatTokenLimit(tokenData.tokensUsed)}
           </span>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-slate-500 dark:text-white/40">
             / {formatTokenLimit(tokenData.tokensLimit)}
           </span>
         </div>
         
         <Progress value={usagePercentage} className="h-2" />
         
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-white/40">
           <span>{usagePercentage.toFixed(0)}% utilizzato</span>
           <span>{formatTokenLimit(tokenData.tokensAvailable)} disponibili</span>
         </div>

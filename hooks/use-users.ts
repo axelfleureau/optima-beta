@@ -1,90 +1,55 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import type { User } from "@/lib/types"
 
 export function useUsers() {
-  const { userData } = useAuth()
+  const { userData, loading: authLoading } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const userRole = userData?.role
-  const tenantId = userData?.tenantId
+  const refreshUsers = useCallback(async () => {
+    if (authLoading) return
 
-  useEffect(() => {
-    if (!tenantId) {
-      setLoading(false)
-      setError(null)
-      return
-    }
-
-    // Solo super-admin e admin possono vedere gli utenti
-    if (userRole !== "super-admin" && userRole !== "admin") {
+    if (!userData?.tenantId) {
       setUsers([])
       setLoading(false)
-      setError("Non hai i permessi per visualizzare gli utenti")
       return
     }
 
+    setLoading(true)
     setError(null)
 
-    let unsubscribe: (() => void) | undefined
+    try {
+      const response = await fetch("/api/team/users", {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      })
+      const payload = await response.json().catch(() => ({}))
 
-    const initFirestore = async () => {
-      try {
-        const { db } = await import("@/lib/firebase")
-        const { query, collection, where, onSnapshot } = await import("firebase/firestore")
-
-        let usersQuery
-
-        switch (userRole) {
-          case "super-admin":
-            // Super admin vede tutti gli utenti
-            usersQuery = collection(db, "users")
-            break
-
-          case "admin":
-            // Admin vede tutti gli utenti del proprio tenant (incluso se stesso)
-            usersQuery = query(collection(db, "users"), where("tenantId", "==", tenantId))
-            break
-
-          default:
-            setUsers([])
-            setLoading(false)
-            setError("Ruolo non autorizzato")
-            return
-        }
-
-        unsubscribe = onSnapshot(usersQuery, (snapshot) => {
-          const usersData = snapshot.docs
-            .map((doc) => ({
-              ...doc.data(),
-              createdAt: doc.data().createdAt?.toDate?.() || new Date(),
-              updatedAt: doc.data().updatedAt?.toDate?.() || undefined,
-            }))
-            .sort((a: any, b: any) => {
-              return b.createdAt.getTime() - a.createdAt.getTime()
-            }) as User[]
-
-          console.log(`Users loaded for role ${userRole}:`, usersData.length)
-          setUsers(usersData)
-          setLoading(false)
-        })
-      } catch (err) {
-        console.error("Error loading users:", err)
-        setError("Errore nel caricamento degli utenti")
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error(payload.error || "Errore nel caricamento utenti")
       }
+
+      setUsers((payload.users || []).map((user: User) => ({
+        ...user,
+        createdAt: user.createdAt ? new Date(user.createdAt as any) : new Date(),
+        updatedAt: user.updatedAt ? new Date(user.updatedAt as any) : undefined,
+      })))
+    } catch (err) {
+      console.error("Error loading users:", err)
+      setError(err instanceof Error ? err.message : "Errore nel caricamento utenti")
+      setUsers([])
+    } finally {
+      setLoading(false)
     }
+  }, [authLoading, userData?.tenantId])
 
-    initFirestore()
+  useEffect(() => {
+    refreshUsers()
+  }, [refreshUsers])
 
-    return () => {
-      if (unsubscribe) unsubscribe()
-    }
-  }, [userRole, tenantId])
-
-  return { users, loading, error }
+  return { users, loading, error, refreshUsers }
 }

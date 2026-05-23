@@ -60,21 +60,21 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 shadow-xl rounded-2xl">
-        <CardHeader className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 border-b border-slate-200/50 dark:border-slate-700/50">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">
+    <div className="min-w-0 space-y-4">
+      <Card className="rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
+        <CardHeader className="border-b border-slate-200/50 bg-gradient-to-r from-slate-50 to-slate-100 p-4 dark:border-slate-700/50 dark:from-slate-800 dark:to-slate-700">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="min-w-0 text-base font-bold text-slate-900 dark:text-slate-100 sm:text-xl">
               {format(weekStart, "d MMM", { locale: it })} - {format(weekEnd, "d MMM yyyy", { locale: it })}
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handlePrevWeek} className="border-slate-200 dark:border-slate-700">
+            <div className="grid grid-cols-[44px_1fr_44px] gap-2 sm:flex sm:items-center">
+              <Button variant="outline" size="sm" onClick={handlePrevWeek} className="rounded-[8px] border-slate-200 dark:border-slate-700">
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={handleToday} className="border-slate-200 dark:border-slate-700">
+              <Button variant="outline" size="sm" onClick={handleToday} className="rounded-[8px] border-slate-200 dark:border-slate-700">
                 Oggi
               </Button>
-              <Button variant="outline" size="sm" onClick={handleNextWeek} className="border-slate-200 dark:border-slate-700">
+              <Button variant="outline" size="sm" onClick={handleNextWeek} className="rounded-[8px] border-slate-200 dark:border-slate-700">
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
@@ -82,7 +82,7 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
         </CardHeader>
 
         <CardContent className="p-4">
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid gap-2 md:grid-cols-7">
             {daysInWeek.map((day) => {
               const dayPosts = getPostsForDay(day)
               const isDayToday = isToday(day)
@@ -90,7 +90,7 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
               return (
                 <div
                   key={day.toISOString()}
-                  className={`min-h-[200px] rounded-lg border ${
+                  className={`min-h-[124px] rounded-[8px] border md:min-h-[200px] ${
                     isDayToday
                       ? "border-pink-500 bg-pink-50/50 dark:bg-pink-900/10"
                       : "border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50"
@@ -114,14 +114,14 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
                       return (
                         <div
                           key={post.id}
-                          className={`p-2 rounded-lg bg-white dark:bg-slate-800 border cursor-pointer hover:shadow-md transition-all ${statusInfo.borderColor}`}
+                      className={`min-w-0 rounded-[8px] border bg-white p-2 transition-all hover:shadow-md dark:bg-slate-800 ${statusInfo.borderColor}`}
                           onClick={() => onEditPost(post)}
                           onMouseEnter={(e) => handlePostMouseEnter(post, e)}
                           onMouseLeave={() => setHoveredPost(null)}
                         >
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="mb-1 flex min-w-0 items-center gap-2">
                             <PlatformIcon className={`w-3 h-3 ${platformInfo.iconColor}`} />
-                            <span className="text-xs font-medium text-slate-900 dark:text-slate-100 line-clamp-1">
+                            <span className="min-w-0 truncate text-xs font-medium text-slate-900 dark:text-slate-100">
                               {post.name || post.title}
                             </span>
                           </div>

@@ -78,8 +78,16 @@ export function ContextForm() {
         <div key={param} className="space-y-2">
           <label className="text-sm font-medium text-foreground">Cliente</label>
           <Select
-            value={formData[param]}
-            onValueChange={(value) => setFormData({ ...formData, [param]: value })}
+            value={formData.clientId || formData[param]}
+            onValueChange={(value) => {
+              const client = clients?.find((item) => item.id === value)
+              setFormData({
+                ...formData,
+                [param]: paramLower.includes("name") ? client?.name || value : value,
+                clientId: value,
+                clientName: client?.name || "",
+              })
+            }}
           >
             <SelectTrigger className="bg-white/60 dark:bg-black/30 backdrop-blur-md border-white/40 dark:border-white/20">
               <SelectValue placeholder="Seleziona cliente..." />
@@ -111,8 +119,17 @@ export function ContextForm() {
         <div key={param} className="space-y-2">
           <label className="text-sm font-medium text-foreground">Assegna a</label>
           <Select
-            value={formData[param]}
-            onValueChange={(value) => setFormData({ ...formData, [param]: value })}
+            value={formData.assignedUserId || formData[param]}
+            onValueChange={(value) => {
+              const user = users?.find((item) => item.id === value)
+              const assignee = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : value
+              setFormData({
+                ...formData,
+                [param]: paramLower === "assignee" ? assignee : value,
+                assignedUserId: value,
+                assignee,
+              })
+            }}
           >
             <SelectTrigger className="bg-white/60 dark:bg-black/30 backdrop-blur-md border-white/40 dark:border-white/20">
               <SelectValue placeholder="Seleziona utente..." />

@@ -4,22 +4,10 @@
  * PHASE 5C: Quote Auto-Payment - Email Notifications
  * 
  * This service handles email notifications for payment events,
- * reusing the existing SMTP configuration from subscription service.
+ * using SendGrid's HTTP API for Cloudflare Workers compatibility.
  */
 
-import nodemailer from "nodemailer"
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_SECURE === "true",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-})
-
-const FROM_EMAIL = process.env.SMTP_FROM || "noreply@righello.com"
+import { sendEmail } from "@/lib/sendgrid"
 
 /**
  * Send payment success confirmation email to client
@@ -180,11 +168,11 @@ export async function sendPaymentSuccessEmail(
       </html>
     `
     
-    await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: clientEmail,
+    await sendEmail({
+      to: { email: clientEmail, name: clientName },
       subject,
       html,
+      categories: ["payment-success"],
     })
     
     console.log(`✅ Sent payment success email to ${clientEmail}`)
@@ -302,11 +290,11 @@ export async function sendPaymentFailureEmail(
       </html>
     `
     
-    await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: clientEmail,
+    await sendEmail({
+      to: { email: clientEmail, name: clientName },
       subject,
       html,
+      categories: ["payment-failure"],
     })
     
     console.log(`✅ Sent payment failure email to ${clientEmail}`)

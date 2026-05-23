@@ -69,21 +69,21 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 shadow-xl rounded-2xl">
-        <CardHeader className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 border-b border-slate-200/50 dark:border-slate-700/50">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">
+    <div className="min-w-0 space-y-4">
+      <Card className="rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
+        <CardHeader className="border-b border-slate-200/50 bg-gradient-to-r from-slate-50 to-slate-100 p-4 dark:border-slate-700/50 dark:from-slate-800 dark:to-slate-700">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="min-w-0 text-base font-bold capitalize text-slate-900 dark:text-slate-100 sm:text-xl">
               {format(selectedDate, "EEEE d MMMM yyyy", { locale: it })}
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handlePrevDay} className="border-slate-200 dark:border-slate-700">
+            <div className="grid grid-cols-[44px_1fr_44px] gap-2 sm:flex sm:items-center">
+              <Button variant="outline" size="sm" onClick={handlePrevDay} className="rounded-[8px] border-slate-200 dark:border-slate-700">
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={handleToday} className="border-slate-200 dark:border-slate-700">
+              <Button variant="outline" size="sm" onClick={handleToday} className="rounded-[8px] border-slate-200 dark:border-slate-700">
                 Oggi
               </Button>
-              <Button variant="outline" size="sm" onClick={handleNextDay} className="border-slate-200 dark:border-slate-700">
+              <Button variant="outline" size="sm" onClick={handleNextDay} className="rounded-[8px] border-slate-200 dark:border-slate-700">
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
@@ -91,14 +91,14 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
         </CardHeader>
 
         <CardContent className="p-0">
-          <ScrollArea className="h-[600px]">
-            <div className="p-4">
+          <ScrollArea className="h-[calc(100dvh-265px)] min-h-[420px] md:h-[600px]">
+            <div className="p-3 sm:p-4">
               {unscheduledPosts.length > 0 && (
-                <div className="mb-6 p-4 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="mb-6 rounded-[8px] border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800 dark:bg-amber-900/10 sm:p-4">
+                  <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2">
                     <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <h3 className="font-semibold text-amber-900 dark:text-amber-100">Da pianificare</h3>
-                    <Badge variant="outline" className="ml-auto bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                    <Badge variant="outline" className="ml-auto bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
                       {unscheduledPosts.length} {unscheduledPosts.length === 1 ? 'post' : 'post'}
                     </Badge>
                   </div>
@@ -116,13 +116,13 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                       return (
                         <div
                           key={post.id}
-                          className={`p-3 rounded-lg bg-white dark:bg-slate-800 border cursor-pointer hover:shadow-lg transition-all ${statusInfo.borderColor}`}
+                          className={`min-w-0 rounded-[8px] border bg-white p-3 transition-all hover:shadow-lg dark:bg-slate-800 ${statusInfo.borderColor}`}
                           onClick={() => onEditPost(post)}
                           onMouseEnter={(e) => handlePostMouseEnter(post, e)}
                           onMouseLeave={() => setHoveredPost(null)}
                         >
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <h4 className="font-semibold text-slate-900 dark:text-slate-100 flex-1">
+                          <div className="mb-2 flex min-w-0 items-start justify-between gap-3">
+                            <h4 className="min-w-0 flex-1 font-semibold text-slate-900 dark:text-slate-100">
                               {post.name || post.title}
                             </h4>
                             <Badge className={`${statusInfo.lightColor} dark:${statusInfo.darkColor} border font-medium shrink-0`}>
@@ -131,7 +131,7 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                             </Badge>
                           </div>
 
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
                             <Badge variant="outline" className={`${platformInfo.lightColor} dark:${platformInfo.darkColor}`}>
                               <PlatformIcon className="w-3 h-3 mr-1" />
                               {platformInfo.label}
@@ -160,14 +160,14 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                 const hourPosts = getPostsForHour(hour)
 
                 return (
-                  <div key={hour} className="flex border-b border-slate-200 dark:border-slate-700 min-h-[80px]">
-                    <div className="w-20 shrink-0 p-3 bg-slate-50 dark:bg-slate-800/50 border-r border-slate-200 dark:border-slate-700">
+                  <div key={hour} className="flex min-h-[80px] min-w-0 border-b border-slate-200 dark:border-slate-700">
+                    <div className="w-16 shrink-0 border-r border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800/50 sm:w-20 sm:p-3">
                       <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                         {hour.toString().padStart(2, "0")}:00
                       </p>
                     </div>
 
-                    <div className="flex-1 p-3 space-y-2">
+                    <div className="min-w-0 flex-1 space-y-2 p-2 sm:p-3">
                       {hourPosts.map((post) => {
                         const statusInfo = statusConfig[post.status]
                         const platformInfo = platformConfig[post.platform as keyof typeof platformConfig] || platformConfig.altro
@@ -181,13 +181,13 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                         return (
                           <div
                             key={post.id}
-                            className={`p-3 rounded-lg bg-white dark:bg-slate-800 border cursor-pointer hover:shadow-lg transition-all ${statusInfo.borderColor}`}
+                            className={`min-w-0 rounded-[8px] border bg-white p-3 transition-all hover:shadow-lg dark:bg-slate-800 ${statusInfo.borderColor}`}
                             onClick={() => onEditPost(post)}
                             onMouseEnter={(e) => handlePostMouseEnter(post, e)}
                             onMouseLeave={() => setHoveredPost(null)}
                           >
-                            <div className="flex items-start justify-between gap-3 mb-2">
-                              <h4 className="font-semibold text-slate-900 dark:text-slate-100 flex-1">
+                            <div className="mb-2 flex min-w-0 items-start justify-between gap-3">
+                              <h4 className="min-w-0 flex-1 font-semibold text-slate-900 dark:text-slate-100">
                                 {post.name || post.title}
                               </h4>
                               <Badge className={`${statusInfo.lightColor} dark:${statusInfo.darkColor} border font-medium shrink-0`}>
@@ -196,7 +196,7 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                               </Badge>
                             </div>
 
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
                               <Badge variant="outline" className={`${platformInfo.lightColor} dark:${platformInfo.darkColor}`}>
                                 <PlatformIcon className="w-3 h-3 mr-1" />
                                 {platformInfo.label}
@@ -208,7 +208,7 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                               </Badge>
 
                               {post.scheduledTime && (
-                                <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
+                                <span className="ml-0 text-xs text-slate-500 dark:text-slate-400 sm:ml-auto">
                                   {post.scheduledTime}
                                 </span>
                               )}

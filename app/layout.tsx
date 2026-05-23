@@ -1,14 +1,12 @@
 import type React from "react"
-import { AuthProvider } from "@/lib/auth-context"
-import { NotificationProvider } from "@/lib/notification-context"
+import { ClerkProvider } from "@clerk/nextjs"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { CommandBar } from "@/components/command-bar/command-bar"
 import "./globals.css"
 
 export const metadata = {
-  title: "Righello Platform",
-  description: "AI Operations Platform for International Service Businesses",
+  title: "Optima by Righello",
+  description: "Cockpit operativo AI per soci, team e clienti Righello.",
   generator: "v0.dev",
 }
 
@@ -20,15 +18,17 @@ export default function RootLayout({
   return (
     <html lang="it" suppressHydrationWarning>
       <body>
-        <AuthProvider>
-          <NotificationProvider>
-            <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-              {children}
-              <Toaster />
-              <CommandBar />
-            </ThemeProvider>
-          </NotificationProvider>
-        </AuthProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "globalThis.__name=globalThis.__name||function(fn){return fn}",
+          }}
+        />
+        <ClerkProvider>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   )

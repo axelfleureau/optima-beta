@@ -11,7 +11,7 @@ import { db } from '@/lib/firebase'
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit'
 import { resizeImage, getInstagramResizeConfig } from '@/lib/utils/image-resize'
 import { uploadImageToStorage } from '@/lib/utils/storage-upload'
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue } from '@/lib/firebase-admin-firestore'
 
 export async function POST(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, "AI")

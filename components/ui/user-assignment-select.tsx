@@ -35,6 +35,8 @@ const roleColors = {
   client: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
 }
 
+const UNASSIGNED_VALUE = "__unassigned__"
+
 export function UserAssignmentSelect({ 
   value, 
   onValueChange, 
@@ -77,7 +79,10 @@ export function UserAssignmentSelect({
   }
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select
+      value={value || UNASSIGNED_VALUE}
+      onValueChange={(nextValue) => onValueChange(nextValue === UNASSIGNED_VALUE ? "" : nextValue)}
+    >
       <SelectTrigger className={className}>
         <SelectValue placeholder={placeholder}>
           {selectedUser && (
@@ -98,7 +103,7 @@ export function UserAssignmentSelect({
       </SelectTrigger>
       <SelectContent>
         {/* Opzione per non assegnare */}
-        <SelectItem value="">
+        <SelectItem value={UNASSIGNED_VALUE}>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
               <UserX className="h-4 w-4 text-gray-400" />

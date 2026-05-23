@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useClients } from "@/hooks/use-clients"
 import { useAIFeedback } from "@/hooks/use-ai-feedback"
 import { cn } from "@/lib/utils"
+import { normalizeFutureCommandDate } from "@/lib/utils/date-parser"
 
 type Step = "client" | "date" | "platform" | "confirm"
 
@@ -91,9 +92,13 @@ export function ContextGatheringDialog({
 
   useEffect(() => {
     if (open) {
+      const normalizedPublishDate = entities?.publishDate
+        ? normalizeFutureCommandDate(entities.publishDate, "")
+        : undefined
+
       setSelectedClientId(entities?.clientId || null)
       setSelectedClientName(entities?.clientName || null)
-      setPublishDate(entities?.publishDate ? new Date(entities.publishDate) : undefined)
+      setPublishDate(normalizedPublishDate ? new Date(`${normalizedPublishDate}T00:00:00`) : undefined)
       setPlatform((entities?.platform as Platform) || null)
     }
   }, [open, entities])

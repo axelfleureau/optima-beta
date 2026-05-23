@@ -5,24 +5,65 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MessageSquare, Plus, Clock, Loader2, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { getUserChatSessionsPaginated, type ChatSession, type PaginatedChatSessions } from "@/lib/chat-service"
 import { cn } from "@/lib/utils"
-import type { DocumentSnapshot } from "firebase/firestore"
+import type { ChatSession, PaginatedChatSessions } from "@/lib/chat-types"
 
 interface ChatHistorySidebarProps {
   userId: string
   currentSessionId: string | null
   onSessionSelect: (sessionId: string) => void
   onNewChat: () => void
+  refreshKey?: number
 }
 
-export function ChatHistorySidebar({ userId, currentSessionId, onSessionSelect, onNewChat }: ChatHistorySidebarProps) {
+function parseSession(raw: any): ChatSession {
+  return {
+    id: raw.id,
+    title: raw.title || "Nuova conversazione",
+    userId: raw.userId || "",
+    lastMessage: raw.lastMessage || "",
+    lastMessageAt: raw.lastMessageAt ? new Date(raw.lastMessageAt) : new Date(),
+    createdAt: raw.createdAt ? new Date(raw.createdAt) : new Date(),
+    updatedAt: raw.updatedAt ? new Date(raw.updatedAt) : new Date(),
+    messageCount: Number(raw.messageCount || 0),
+  }
+}
+
+async function getChatSessions(limit: number, offset: number | null): Promise<PaginatedChatSessions> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset || 0),
+  })
+  const response = await fetch(`/api/ai/chat/sessions?${params.toString()}`, {
+    credentials: "include",
+    cache: "no-store",
+  })
+
+  if (!response.ok) {
+    throw new Error(`Errore caricamento cronologia: ${response.status}`)
+  }
+
+  const payload = await response.json()
+  return {
+    sessions: (payload.sessions || []).map(parseSession),
+    nextOffset: payload.nextOffset ?? null,
+    hasMore: Boolean(payload.hasMore),
+  }
+}
+
+export function ChatHistorySidebar({
+  userId,
+  currentSessionId,
+  onSessionSelect,
+  onNewChat,
+  refreshKey = 0,
+}: ChatHistorySidebarProps) {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [filteredSessions, setFilteredSessions] = useState<ChatSession[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null)
+  const [nextOffset, setNextOffset] = useState<number | null>(0)
   const [searchQuery, setSearchQuery] = useState("")
   const observerRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -35,10 +76,10 @@ export function ChatHistorySidebar({ userId, currentSessionId, onSessionSelect, 
       setLoading(true)
       console.log("📚 Loading initial chat sessions...")
 
-      const result: PaginatedChatSessions = await getUserChatSessionsPaginated(userId, SESSIONS_PER_PAGE, null)
+      const result: PaginatedChatSessions = await getChatSessions(SESSIONS_PER_PAGE, 0)
 
       setSessions(result.sessions)
-      setLastDoc(result.lastDoc)
+      setNextOffset(result.nextOffset)
       setHasMore(result.hasMore)
 
       console.log(`✅ Loaded ${result.sessions.length} initial sessions, hasMore: ${result.hasMore}`)
@@ -53,8 +94,8 @@ export function ChatHistorySidebar({ userId, currentSessionId, onSessionSelect, 
 
   // Load more sessions for infinite scroll
   const loadMoreSessions = useCallback(async () => {
-    if (loadingMore || !hasMore || searchQuery || !lastDoc) {
-      console.log("🚫 Skipping loadMore:", { loadingMore, hasMore, searchQuery, hasLastDoc: !!lastDoc })
+    if (loadingMore || !hasMore || searchQuery || nextOffset === null) {
+      console.log("🚫 Skipping loadMore:", { loadingMore, hasMore, searchQuery, nextOffset })
       return
     }
 
@@ -62,14 +103,14 @@ export function ChatHistorySidebar({ userId, currentSessionId, onSessionSelect, 
       setLoadingMore(true)
       console.log("📖 Loading more sessions...")
 
-      const result: PaginatedChatSessions = await getUserChatSessionsPaginated(userId, SESSIONS_PER_PAGE, lastDoc)
+      const result: PaginatedChatSessions = await getChatSessions(SESSIONS_PER_PAGE, nextOffset)
 
       if (result.sessions.length === 0) {
         setHasMore(false)
         console.log("📝 No more sessions to load")
       } else {
         setSessions((prev) => [...prev, ...result.sessions])
-        setLastDoc(result.lastDoc)
+        setNextOffset(result.nextOffset)
         setHasMore(result.hasMore)
         console.log(
           `✅ Loaded ${result.sessions.length} more sessions (total: ${sessions.length + result.sessions.length})`,
@@ -81,13 +122,13 @@ export function ChatHistorySidebar({ userId, currentSessionId, onSessionSelect, 
     } finally {
       setLoadingMore(false)
     }
-  }, [userId, loadingMore, hasMore, searchQuery, lastDoc, sessions.length])
+  }, [userId, loadingMore, hasMore, searchQuery, nextOffset, sessions.length])
 
   useEffect(() => {
     if (userId) {
       loadInitialSessions()
     }
-  }, [userId])
+  }, [userId, refreshKey])
 
   // Filter sessions based on search query with debouncing
   useEffect(() => {

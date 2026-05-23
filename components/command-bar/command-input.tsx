@@ -8,7 +8,7 @@ import { useAIFeedback } from "@/hooks/use-ai-feedback"
 import { GlassInput } from "@/components/ui/glass-input"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Loader2, Sparkles, Search } from "lucide-react"
+import { CornerDownLeft, Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { NLPResponse } from "@/lib/types"
 
@@ -56,34 +56,24 @@ export function CommandInput() {
     debouncedSetInput.cancel()
     setInput(localInput)
     
-    console.log("🔵 Command Bar handleSubmit called")
-    console.log("📝 Input value (local):", localInput)
-    console.log("📍 Context:", context)
-    console.log("⚡ Status:", status)
-
     if (!localInput.trim()) {
-      console.log("❌ Empty input, returning")
       feedback.info('Inserisci un comando')
       return
     }
 
     if (!context) {
-      console.error("❌ Context is null! Cannot execute command")
       feedback.error('Comando non disponibile', 'Contesto non caricato', 'Attendi o ricarica la pagina')
       return
     }
 
     if (status === "processing") {
-      console.log("⏳ Already processing, returning")
       return
     }
 
     try {
       actionState.start('Analisi comando...')
-      console.log("✅ Executing command with latest input...")
       await executeCommand(localInput, context)
       actionState.complete()
-      feedback.success('Comando eseguito')
     } catch (error) {
       actionState.error(error instanceof Error ? error.message : 'Errore sconosciuto')
       feedback.error('Esecuzione comando', error instanceof Error ? error.message : 'Errore sconosciuto', 'Verifica input e riprova')
@@ -134,7 +124,6 @@ export function CommandInput() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      console.log("⌨️ Enter key pressed - triggering submit")
       e.preventDefault()
       handleSubmit(e as any)
     }
@@ -144,12 +133,12 @@ export function CommandInput() {
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className="relative p-4">
-        <div className="absolute left-7 top-1/2 -translate-y-1/2 pointer-events-none">
+      <div className="relative p-5 pb-3">
+        <div className="absolute left-8 top-[2.15rem] pointer-events-none">
           {isProcessing ? (
-            <Loader2 className="h-5 w-5 text-violet-500 animate-spin" />
+            <Loader2 className="h-5 w-5 text-righello-pink animate-spin" />
           ) : (
-            <Sparkles className="h-5 w-5 text-violet-500" />
+            <Sparkles className="h-5 w-5 text-righello-pink" />
           )}
         </div>
 
@@ -164,11 +153,11 @@ export function CommandInput() {
           onKeyDown={handleKeyDown}
           placeholder="Chiedi qualsiasi cosa... es: 'crea task per cliente Acme con priorità alta'"
           className={cn(
-            "pl-12 pr-4 text-base h-14",
-            "border-4 border-violet-500/50 dark:border-violet-400/50",
-            "bg-black/80 dark:bg-black/90",
-            "focus-visible:border-violet-500 focus-visible:ring-8 focus-visible:ring-violet-500/30",
-            "focus-visible:shadow-[0_0_40px_rgba(139,92,246,0.4)]",
+            "pl-12 pr-24 text-base h-14",
+            "border border-slate-300 dark:border-slate-700",
+            "bg-white dark:bg-slate-900",
+            "text-slate-950 dark:text-slate-50 placeholder:text-slate-400",
+            "focus-visible:border-righello-pink focus-visible:ring-4 focus-visible:ring-righello-pink/15",
             isProcessing && "animate-pulse"
           )}
           disabled={isProcessing}
@@ -177,33 +166,46 @@ export function CommandInput() {
           autoFocus
         />
 
+        <Button
+          type="submit"
+          size="sm"
+          disabled={isProcessing || !localInput.trim() || !context}
+          className="absolute right-7 top-[1.65rem] h-9 bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
+        >
+          {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CornerDownLeft className="h-4 w-4" />}
+          <span className="ml-1 hidden sm:inline">Esegui</span>
+        </Button>
+
         {isProcessing && (
           <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-violet-500/20 to-transparent animate-shimmer" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-righello-pink/10 to-transparent animate-shimmer" />
           </div>
         )}
       </div>
 
       {!context && (
-        <div className="px-4 pb-2">
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            ⚠️ Caricamento contesto in corso... Attendi prima di eseguire comandi.
+        <div className="px-5 pb-3">
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            Caricamento contesto in corso. Tra un istante potrai eseguire il comando.
           </p>
         </div>
       )}
 
       {actionState.isLoading && (
-        <div className="flex items-center gap-2 px-4 pb-2">
-          <Loader2 className="h-4 w-4 animate-spin text-violet-500" />
+        <div className="flex items-center gap-2 px-5 pb-3">
+          <Loader2 className="h-4 w-4 animate-spin text-righello-pink" />
           <span className="text-sm text-muted-foreground">{actionState.message}</span>
         </div>
       )}
 
       {status === "idle" && !localInput && context && !actionState.isLoading && (
-        <div className="px-4 pb-2">
-          <p className="text-xs text-muted-foreground">
-            💡 Prova: "crea task per...", "cerca task di...", "assegna task a...", "vai al calendario"
-          </p>
+        <div className="flex flex-wrap items-center gap-2 px-5 pb-3 text-xs text-muted-foreground">
+          <span className="font-semibold text-slate-600 dark:text-slate-300">Prova:</span>
+          <span>"crea task per G&M urgente"</span>
+          <span className="hidden sm:inline">•</span>
+          <span>"cerca task validation"</span>
+          <span className="hidden sm:inline">•</span>
+          <span>"vai al team"</span>
         </div>
       )}
 

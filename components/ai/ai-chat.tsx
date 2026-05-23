@@ -8,10 +8,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Send, Bot, User, MessageSquare, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, RefreshCw, AlertTriangle } from "lucide-react"
+import { Loader2, Send, Bot, User, MessageSquare, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, RefreshCw, AlertTriangle, Database, Network } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import type { ChatMessage } from "@/lib/chat-service"
+import type { ChatMessage } from "@/lib/chat-types"
 import DOMPurify from 'dompurify'
 
 interface Message {
@@ -48,6 +48,8 @@ export function AIChat({
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId || null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
+  const [modelName, setModelName] = useState("Modello Óptima")
+  const [contextSources, setContextSources] = useState<string[]>([])
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
@@ -81,19 +83,21 @@ export function AIChat({
         timestamp: msg.timestamp,
       }))
       setMessages(historyMessages)
-    } else if (showWelcome || messages.length === 0) {
+    } else if (showWelcome) {
       // Show welcome message for new chats
       setMessages([
         {
           id: "welcome",
           content:
-            "👋 **Ciao! Sono l'assistente AI di Optima.**\n\nSono qui per aiutarti con:\n\n• **Copywriting** e contenuti creativi\n• **Strategie marketing** personalizzate\n• **Campagne pubblicitarie** efficaci\n• **Social media** e engagement\n• **Email marketing** e automazioni\n• **Analisi competitor** e mercato\n\n✨ **Come posso aiutarti oggi?**",
+            "👋 **Ciao, sono l'assistente operativo di Óptima.**\n\nPosso aiutarti a ragionare su:\n\n• **Progetti**, task, priorità e scadenze\n• **Clienti** e stato lavori\n• **Team**, presenza, carico e colli di bottiglia\n• **Preventivi** e prossime azioni commerciali\n• **AI content** quando serve creare copy o idee\n\nQuando i dati sono disponibili, uso il contesto della piattaforma. Quando mancano, te lo dico senza inventare.",
           role: "assistant",
           timestamp: new Date(),
         },
       ])
+    } else {
+      setMessages([])
     }
-  }, [initialMessages, showWelcome])
+  }, [initialMessages, showWelcome, sessionId])
 
   // Update session ID when prop changes
   useEffect(() => {
@@ -159,6 +163,58 @@ export function AIChat({
       console.log("📖 Starting to read stream...")
 
       try {
+        let buffer = ""
+
+        const handleSsePayload = (jsonStr: string) => {
+          if (!jsonStr) return
+          const data = JSON.parse(jsonStr)
+
+          if (data.sessionId && data.sessionId !== currentSessionId) {
+            console.log("🆔 Setting session ID:", data.sessionId)
+            setCurrentSessionId(data.sessionId)
+            if (onSessionCreated) {
+              onSessionCreated(data.sessionId)
+            }
+          }
+
+          if (data.model) {
+            setModelName(String(data.model))
+          }
+
+          if (Array.isArray(data.contextSources)) {
+            setContextSources(data.contextSources.map(String))
+          }
+
+          if (data.error) {
+            console.error("❌ Stream error:", data.error)
+            throw new Error(data.error)
+          }
+
+          if (data.content) {
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id === assistantMessageId) {
+                  const newContent = (msg.content || "") + data.content
+                  return { ...msg, content: newContent }
+                }
+                return msg
+              }),
+            )
+          }
+
+          if (data.done) {
+            console.log("🏁 Stream marked as done")
+            setMessages((prev) =>
+              prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, isStreaming: false, canRegenerate: true } : msg)),
+            )
+
+            if (onMessageSent) {
+              console.log("🔄 Notifying parent of message completion")
+              onMessageSent()
+            }
+          }
+        }
+
         while (true) {
           const { done, value } = await reader.read()
 
@@ -167,60 +223,25 @@ export function AIChat({
             break
           }
 
-          const chunk = decoder.decode(value, { stream: true })
-          const lines = chunk.split("\n")
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split("\n")
+          buffer = lines.pop() || ""
 
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               try {
                 const jsonStr = line.slice(6).trim()
-                if (jsonStr) {
-                  const data = JSON.parse(jsonStr)
-
-                  if (data.sessionId && !currentSessionId) {
-                    console.log("🆔 Setting session ID:", data.sessionId)
-                    setCurrentSessionId(data.sessionId)
-                    if (onSessionCreated) {
-                      onSessionCreated(data.sessionId)
-                    }
-                  }
-
-                  if (data.error) {
-                    console.error("❌ Stream error:", data.error)
-                    throw new Error(data.error)
-                  }
-
-                  if (data.content) {
-                    console.log("📝 Received content chunk:", data.content.substring(0, 50) + "...")
-                    setMessages((prev) =>
-                      prev.map((msg) => {
-                        if (msg.id === assistantMessageId) {
-                          const newContent = (msg.content || "") + data.content
-                          return { ...msg, content: newContent }
-                        }
-                        return msg
-                      }),
-                    )
-                  }
-
-                  if (data.done) {
-                    console.log("🏁 Stream marked as done")
-                    setMessages((prev) =>
-                      prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, isStreaming: false } : msg)),
-                    )
-
-                    // Notify parent component that message was sent (to refresh token info)
-                    if (onMessageSent) {
-                      console.log("🔄 Notifying parent of message completion")
-                      onMessageSent()
-                    }
-                  }
-                }
+                handleSsePayload(jsonStr)
               } catch (parseError) {
                 console.error("❌ Error parsing SSE data:", parseError, "Line:", line)
+                throw parseError
               }
             }
           }
+        }
+
+        if (buffer.startsWith("data: ")) {
+          handleSsePayload(buffer.slice(6).trim())
         }
       } finally {
         reader.releaseLock()
@@ -327,28 +348,39 @@ export function AIChat({
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
 
+      let buffer = ""
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split("\n")
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || ""
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const jsonStr = line.slice(6).trim()
             if (jsonStr) {
-              const data = JSON.parse(jsonStr)
-              if (data.content) {
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === messageId) {
-                      const newContent = (msg.content || "") + data.content
-                      return { ...msg, content: newContent }
-                    }
-                    return msg
-                  })
-                )
+              try {
+                const data = JSON.parse(jsonStr)
+                if (data.model) setModelName(String(data.model))
+                if (Array.isArray(data.contextSources)) setContextSources(data.contextSources.map(String))
+                if (data.error) throw new Error(data.error)
+                if (data.content) {
+                  setMessages((prev) =>
+                    prev.map((msg) => {
+                      if (msg.id === messageId) {
+                        const newContent = (msg.content || "") + data.content
+                        return { ...msg, content: newContent }
+                      }
+                      return msg
+                    })
+                  )
+                }
+              } catch (parseError) {
+                console.error("❌ Error parsing SSE data:", parseError, "Line:", line)
+                throw parseError
               }
             }
           }
@@ -563,11 +595,11 @@ export function AIChat({
   }
 
   return (
-    <div className="h-[700px] flex flex-col bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden border border-pink-200 dark:border-gray-700 shadow-lg">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-pink-200 bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 shadow-lg dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-pink-200 dark:border-gray-700 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="relative">
               <Avatar className="h-10 w-10 bg-gradient-to-r from-pink-500 to-rose-600 shadow-md">
                 <AvatarFallback className="bg-transparent text-white">
@@ -576,11 +608,11 @@ export function AIChat({
               </Avatar>
               <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 shadow-sm"></div>
             </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Assistente AI Optima</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <div className="min-w-0">
+              <h3 className="truncate font-semibold text-gray-900 dark:text-white">Assistente AI Optima</h3>
+              <p className="flex items-center gap-1 truncate text-sm text-gray-500 dark:text-gray-400">
                 <Sparkles className="h-3 w-3 text-pink-500" />
-                Marketing Expert • Memoria Conversazioni Attiva
+                Assistente operativo • Memoria e contesto piattaforma
               </p>
             </div>
           </div>
@@ -612,7 +644,7 @@ export function AIChat({
 
               <div
                 className={cn(
-                  "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
+              "max-w-[85%] min-w-0 rounded-2xl px-4 py-3 shadow-sm",
                   message.role === "user"
                     ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white ml-auto shadow-md"
                     : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700",
@@ -725,8 +757,8 @@ export function AIChat({
       </ScrollArea>
 
       {/* Input */}
-      <div className="bg-white dark:bg-gray-800 border-t border-pink-200 dark:border-gray-700 p-4">
-        <div className="flex gap-3 items-end">
+      <div className="bg-white dark:bg-gray-800 border-t border-pink-200 dark:border-gray-700 p-3 sm:p-4">
+        <div className="flex gap-2 sm:gap-3 items-end">
           <div className="flex-1 relative">
             <Textarea
               ref={textareaRef}
@@ -749,8 +781,17 @@ export function AIChat({
           </Button>
         </div>
 
-        <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-          <span>Powered by GPT-4o Mini • Memoria conversazioni + Token tracking attivi</span>
+        <div className="mt-2 flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex min-w-0 items-center gap-2 truncate">
+            <Network className="h-3 w-3 flex-shrink-0 text-pink-500" />
+            <span className="truncate">{modelName} • memoria conversazioni • contesto operativo</span>
+          </span>
+          {contextSources.length > 0 && (
+            <span className="flex min-w-0 items-center gap-1 truncate">
+              <Database className="h-3 w-3 flex-shrink-0 text-cyan-400" />
+              <span className="truncate">{contextSources.join(", ")}</span>
+            </span>
+          )}
           {currentSessionId && <span>Sessione: {currentSessionId.slice(-8)}</span>}
         </div>
       </div>

@@ -4,8 +4,14 @@ import type { NextRequest } from "next/server"
 import { generateObject } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
-import { getOrganizationAdminId, logTokenUsage, estimateTokens } from "@/lib/token-service"
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { requireClerkUser } from "@/lib/server-clerk"
+import { OPENAI_REASONING_MODEL } from "@/lib/ai/models"
+
+function estimateTokens(input: string) {
+  return Math.ceil(input.length / 4)
+}
 
 const PhaseSchema = z.object({
   id: z.string(),
@@ -86,14 +92,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { taskDescription, clientId, context, userId } = await request.json()
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-    if (!taskDescription || !userId) {
-      return Response.json({ error: 'Missing required fields: taskDescription and userId' }, { status: 400 })
+    const { taskDescription, clientId, context } = await request.json()
+
+    if (!taskDescription) {
+      return Response.json({ error: 'Missing required fields: taskDescription' }, { status: 400 })
     }
 
     console.log("🚀 Task Breakdown request:", {
-      userId,
+      userId: user.id,
       taskLength: taskDescription.length,
       clientId,
       hasContext: !!context,
@@ -113,28 +124,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let adminId: string
-    let userRole: string
-
-    try {
-      const result = await getOrganizationAdminId(userId)
-      adminId = result.adminId
-      userRole = result.userRole
-      console.log(`Task Breakdown API: User ${userId} (${userRole}) will use admin ${adminId} tokens`)
-    } catch (error) {
-      console.error("Error getting admin ID, using userId as fallback:", error)
-      adminId = userId
-      userRole = "unknown"
-    }
-
-    if (!adminId || adminId === "undefined") {
-      console.error("❌ Invalid adminId, cannot proceed with token logging")
-      return new Response(JSON.stringify({ error: "Invalid user configuration" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
-    }
-
     const userPrompt = `Task da analizzare: "${taskDescription}"
 
 ${clientId ? `Cliente: ${clientId}` : ""}
@@ -142,7 +131,7 @@ ${context ? `Contesto aggiuntivo: ${JSON.stringify(context)}` : ""}
 
 Decomponi questa task in fasi professionali. Se è task semplice, non over-engineer.`
 
-    console.log("🤖 Generating task breakdown with OpenAI GPT-4o...")
+    console.log(`🤖 Generating task breakdown with OpenAI ${OPENAI_REASONING_MODEL}...`)
 
     const messages = [
       { role: "system" as const, content: SYSTEM_PROMPT },
@@ -155,7 +144,7 @@ Decomponi questa task in fasi professionali. Se è task semplice, non over-engin
 
     try {
       const result = await generateObject({
-        model: openai("gpt-4o"),
+        model: openai(OPENAI_REASONING_MODEL),
         schema: BreakdownSchema,
         messages,
         temperature: 0.7,
@@ -171,11 +160,24 @@ Decomponi questa task in fasi professionali. Se è task semplice, non over-engin
         `💰 Total tokens used: ${totalTokensUsed} (${estimatedInputTokens} input + ${actualOutputTokens} output)`,
       )
 
-      try {
-        await logTokenUsage(adminId, userId, totalTokensUsed, "other")
-        console.log("✅ Successfully logged token usage for task breakdown")
-      } catch (error) {
-        console.error("❌ Error logging token usage:", error)
+      const db = await getCloudflareDb()
+      if (db) {
+        try {
+          await db.prepare(
+            `INSERT INTO ai_usage (id, organization_id, member_id, feature, model, input_tokens, output_tokens)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            createId("ai"),
+            user.organizationId,
+            user.id,
+            "task-breakdown",
+            OPENAI_REASONING_MODEL,
+            estimatedInputTokens,
+            actualOutputTokens,
+          ).run()
+        } catch (error) {
+          console.error("❌ Error logging task breakdown usage:", error)
+        }
       }
 
       return new Response(

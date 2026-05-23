@@ -11,11 +11,32 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Calendar, Clock, User, Paperclip, Plus, X, Edit3, Check, GripVertical, Star, Tag, Send } from "lucide-react"
-import type { Task, SubItem, TaskComment } from "@/lib/types"
+import {
+  Calendar,
+  Clock,
+  User,
+  Paperclip,
+  Plus,
+  X,
+  Edit3,
+  Check,
+  GripVertical,
+  Star,
+  Tag,
+  Send,
+  Upload,
+  Eye,
+  Download,
+  Trash2,
+  FileArchive,
+  FileImage,
+  FileText,
+} from "lucide-react"
+import type { Project, Task, SubItem, TaskComment } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { useUsers } from "@/hooks/use-users"
+import { cn } from "@/lib/utils"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import { TaskAssetGallery } from '@/components/task-asset-gallery'
 
@@ -24,8 +45,13 @@ interface TaskDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdateTask: (taskId: string, updates: Partial<Task>) => Promise<void>
+  projects?: Project[]
+  onUploadAttachments?: (taskId: string, files: File[]) => Promise<unknown>
+  onDeleteAttachment?: (taskId: string, attachmentId: string) => Promise<unknown>
   onAddComment: (taskId: string, comment: Omit<TaskComment, "id" | "createdAt">) => Promise<void>
   onUpdateSubItems: (taskId: string, subItems: SubItem[]) => Promise<void>
+  onAcceptAssignment?: (taskId: string) => Promise<void>
+  onRejectAssignment?: (taskId: string, reason?: string) => Promise<void>
 }
 
 const taskTypes = [
@@ -48,13 +74,36 @@ const statusOptions = [
   { value: "on-hold", label: "On Hold" },
 ]
 
+const dialogSurfaceClass =
+  "border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-[#05070b] dark:text-slate-50"
+
+const labelClass =
+  "mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+
+const compactLabelClass =
+  "mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 md:mb-2 md:text-sm"
+
+const editableSurfaceClass =
+  "rounded-md border border-slate-200 bg-white p-3 text-slate-950 shadow-sm transition-colors hover:border-righello-pink/50 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 dark:hover:border-righello-pink/60 dark:hover:bg-slate-900/80"
+
+const inputSurfaceClass =
+  "border-slate-200 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:ring-righello-pink/25 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
+
+const selectSurfaceClass =
+  "border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+
 export function TaskDetailDialog({
   task,
   open,
   onOpenChange,
   onUpdateTask,
+  projects = [],
+  onUploadAttachments,
+  onDeleteAttachment,
   onAddComment,
   onUpdateSubItems,
+  onAcceptAssignment,
+  onRejectAssignment,
 }: TaskDetailDialogProps) {
   const { userData } = useAuth()
   const { users, loading: usersLoading } = useUsers()
@@ -77,6 +126,10 @@ export function TaskDetailDialog({
   const [newComment, setNewComment] = useState("")
   const [newSubItem, setNewSubItem] = useState("")
   const [subItems, setSubItems] = useState<SubItem[]>([])
+  const [uploadingAttachments, setUploadingAttachments] = useState(false)
+  const [previewAttachment, setPreviewAttachment] = useState<any | null>(null)
+  const [assignmentRejectionReason, setAssignmentRejectionReason] = useState("")
+  const [respondingAssignment, setRespondingAssignment] = useState<"accept" | "reject" | null>(null)
 
   useEffect(() => {
     if (task) {
@@ -100,10 +153,18 @@ export function TaskDetailDialog({
         setDueDate("")
       }
       setSubItems(task.subItems || [])
+      setAssignmentRejectionReason("")
     }
   }, [task])
 
   if (!task) return null
+
+  const currentMember = users.find((member) => member.email?.toLowerCase() === userData?.email?.toLowerCase())
+  const currentMemberId = currentMember?.id
+  const assignmentStatus = task.assignmentStatus || "accepted"
+  const isPendingAssignment = assignmentStatus === "pending"
+  const isRejectedAssignment = assignmentStatus === "rejected"
+  const canRespondToAssignment = isPendingAssignment && task.assignedUserId === currentMemberId
 
   const handleSaveTitle = async () => {
     if (title.trim() !== task.title) {
@@ -132,6 +193,36 @@ export function TaskDetailDialog({
   const handleUpdateField = async (field: keyof Task, value: any) => {
     await onUpdateTask(task.id, { [field]: value })
     toast({ title: "Campo aggiornato", description: `${field} modificato con successo` })
+  }
+
+  const handleAcceptAssignment = async () => {
+    if (!onAcceptAssignment) return
+
+    setRespondingAssignment("accept")
+    try {
+      await onAcceptAssignment(task.id)
+      toast({
+        title: "Assegnazione accettata",
+        description: "La task ora risulta ufficialmente assegnata a te",
+      })
+    } finally {
+      setRespondingAssignment(null)
+    }
+  }
+
+  const handleRejectAssignment = async () => {
+    if (!onRejectAssignment) return
+
+    setRespondingAssignment("reject")
+    try {
+      await onRejectAssignment(task.id, assignmentRejectionReason.trim() || undefined)
+      toast({
+        title: "Assegnazione rifiutata",
+        description: "La risposta è stata registrata nello storico della task",
+      })
+    } finally {
+      setRespondingAssignment(null)
+    }
   }
 
   const handleDueDateChange = async (newDate: string) => {
@@ -222,18 +313,88 @@ export function TaskDetailDialog({
     return Math.round((completed / subItems.length) * 100)
   }
 
+  const formatFileSize = (bytes: number) => {
+    if (!bytes) return "0 KB"
+    const units = ["B", "KB", "MB", "GB"]
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+    return `${Number((bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1))} ${units[index]}`
+  }
+
+  const getAttachmentIcon = (type?: string, name?: string) => {
+    const normalizedType = type || ""
+    const normalizedName = (name || "").toLowerCase()
+
+    if (normalizedType.startsWith("image/")) return <FileImage className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
+    if (normalizedName.endsWith(".zip") || normalizedName.endsWith(".rar") || normalizedName.endsWith(".7z")) {
+      return <FileArchive className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+    }
+    return <FileText className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+  }
+
+  const getAttachmentPreviewKind = (attachment?: any) => {
+    const type = String(attachment?.type || "").toLowerCase()
+    const name = String(attachment?.name || "").toLowerCase()
+
+    if (type.startsWith("image/")) return "image"
+    if (type.includes("pdf") || name.endsWith(".pdf")) return "pdf"
+    if (type.startsWith("video/")) return "video"
+    if (type.startsWith("audio/")) return "audio"
+    return "file"
+  }
+
+  const handleUploadAttachments = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0 || !onUploadAttachments) return
+
+    const files = Array.from(fileList)
+    setUploadingAttachments(true)
+    try {
+      await onUploadAttachments(task.id, files)
+      toast({
+        title: "Allegati caricati",
+        description: `${files.length} file aggiunti alla task`,
+      })
+    } catch (error) {
+      toast({
+        title: "Upload non riuscito",
+        description: error instanceof Error ? error.message : "Errore durante il caricamento degli allegati",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingAttachments(false)
+    }
+  }
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!onDeleteAttachment) return
+
+    try {
+      await onDeleteAttachment(task.id, attachmentId)
+      if (previewAttachment?.id === attachmentId) {
+        setPreviewAttachment(null)
+      }
+      toast({ title: "Allegato rimosso" })
+    } catch (error) {
+      toast({
+        title: "Rimozione non riuscita",
+        description: error instanceof Error ? error.message : "Errore durante la rimozione dell'allegato",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-full md:max-w-4xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
-        <DialogHeader className="space-y-4">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className={cn("left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none border-0 p-4 pt-12 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-4xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:p-6", dialogSurfaceClass)}>
+        <DialogHeader className="space-y-4 pr-8 text-left sm:pr-0">
           {/* Title - Inline Editable */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             {editingTitle ? (
-              <div className="flex items-center gap-2 flex-1">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="text-lg font-semibold"
+                  className={cn("text-lg font-semibold", inputSurfaceClass)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSaveTitle()
                     if (e.key === "Escape") {
@@ -260,7 +421,7 @@ export function TaskDetailDialog({
               </div>
             ) : (
               <DialogTitle
-                className="text-lg font-semibold cursor-pointer hover:bg-gray-50 p-2 rounded flex-1"
+                className="min-w-0 flex-1 cursor-pointer rounded p-2 text-xl font-semibold leading-tight text-slate-950 transition-colors hover:bg-slate-100 dark:text-slate-50 dark:hover:bg-slate-900/80 sm:text-lg"
                 onClick={() => setEditingTitle(true)}
               >
                 {task.title}
@@ -270,7 +431,7 @@ export function TaskDetailDialog({
           </div>
 
           {/* Meta Information Row */}
-          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-600">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-xs md:text-sm text-slate-600 dark:text-slate-400">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4 flex-shrink-0" />
               <span className="truncate">Creata il {(task.createdAt instanceof Date ? task.createdAt : (task.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
@@ -297,11 +458,18 @@ export function TaskDetailDialog({
                 router.push(`/clienti?clientId=${task.clientId}`)
                 onOpenChange(false)
               }}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-100 transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-100 transition-colors dark:bg-purple-500/15 dark:text-purple-200 dark:hover:bg-purple-500/25"
             >
               <User className="h-3 w-3" />
               <span>{task.clientName || "Cliente"}</span>
             </button>
+          )}
+
+          {task.projectId && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200">
+              <FileText className="h-3 w-3" />
+              <span>{task.projectName || "Progetto"}</span>
+            </span>
           )}
 
           {/* Calendar Entry Link - Clickable (if calendarId exists) */}
@@ -311,7 +479,7 @@ export function TaskDetailDialog({
                 router.push(`/calendario-editoriale?entryId=${(task as any).calendarId}`)
                 onOpenChange(false)
               }}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition-colors dark:bg-blue-500/15 dark:text-blue-200 dark:hover:bg-blue-500/25"
             >
               <Calendar className="h-3 w-3" />
               <span>Collegato a calendario</span>
@@ -327,7 +495,7 @@ export function TaskDetailDialog({
                   description: `Questa task dipende da ${task.dependencies?.length || 0} altre task`
                 })
               }}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-xs font-medium hover:bg-orange-100 transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-xs font-medium hover:bg-orange-100 transition-colors dark:bg-orange-500/15 dark:text-orange-200 dark:hover:bg-orange-500/25"
             >
               <Star className="h-3 w-3" />
               <span>{task.dependencies.length} dipendenze</span>
@@ -335,12 +503,79 @@ export function TaskDetailDialog({
           )}
         </div>
 
-        <div className="flex flex-col md:grid md:grid-cols-3 gap-4 md:gap-6">
+        {(isPendingAssignment || isRejectedAssignment) && (
+          <div
+            className={cn(
+              "mb-4 rounded-md border p-4",
+              isPendingAssignment
+                ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
+                : "border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100",
+            )}
+          >
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  {isPendingAssignment ? <Clock className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                  <span>
+                    {isPendingAssignment
+                      ? canRespondToAssignment
+                        ? "Assegnazione da accettare"
+                        : "Assegnazione in attesa"
+                      : "Assegnazione rifiutata"}
+                  </span>
+                </div>
+                <p className="text-sm leading-6 opacity-90">
+                  {isPendingAssignment
+                    ? canRespondToAssignment
+                      ? "Un collega pari ruolo ti ha proposto questa task. Accettandola diventa ufficialmente tua; puoi rifiutarla lasciando una nota facoltativa."
+                      : `La task è stata proposta a ${task.assignee || "un esecutore"} e diventerà ufficiale solo dopo l'accettazione.`
+                    : "La proposta di assegnazione è stata rifiutata e resta visibile nello storico operativo."}
+                </p>
+                {isRejectedAssignment && task.assignmentRejectionReason && (
+                  <p className="rounded-md bg-black/5 p-2 text-sm dark:bg-white/10">
+                    Motivo: {task.assignmentRejectionReason}
+                  </p>
+                )}
+              </div>
+
+              {canRespondToAssignment && (
+                <div className="w-full space-y-2 md:w-[320px]">
+                  <Textarea
+                    value={assignmentRejectionReason}
+                    onChange={(event) => setAssignmentRejectionReason(event.target.value)}
+                    placeholder="Motivo del rifiuto (facoltativo)"
+                    rows={2}
+                    className={cn("text-sm", inputSurfaceClass)}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      className="h-11 border-rose-300 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-500/40 dark:bg-slate-950 dark:text-rose-200 dark:hover:bg-rose-500/10"
+                      disabled={respondingAssignment !== null}
+                      onClick={handleRejectAssignment}
+                    >
+                      {respondingAssignment === "reject" ? "Invio..." : "Rifiuta"}
+                    </Button>
+                    <Button
+                      className="h-11 bg-emerald-600 text-white hover:bg-emerald-700"
+                      disabled={respondingAssignment !== null}
+                      onClick={handleAcceptAssignment}
+                    >
+                      {respondingAssignment === "accept" ? "Invio..." : "Accetta"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-4 pb-6 md:grid md:grid-cols-3 md:gap-6 md:pb-0">
           {/* Main Content - 2/3 width */}
-          <div className="order-2 md:order-1 md:col-span-2 space-y-4 md:space-y-6">
+          <div className="order-2 space-y-4 md:order-1 md:col-span-2 md:space-y-6">
             {/* Description - Inline Editable */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Descrizione</Label>
+              <Label className={labelClass}>Descrizione</Label>
               {editingDescription ? (
                 <div className="space-y-2">
                   <Textarea
@@ -348,6 +583,7 @@ export function TaskDetailDialog({
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
                     placeholder="Descrizione breve della task..."
+                    className={inputSurfaceClass}
                     onKeyDown={(e) => {
                       if (e.key === "Escape") {
                         setDescription(task.description || "")
@@ -375,20 +611,20 @@ export function TaskDetailDialog({
                 </div>
               ) : (
                 <div
-                  className="p-3 border rounded-md cursor-pointer hover:bg-gray-50 min-h-[80px]"
+                  className={cn(editableSurfaceClass, "min-h-[88px] cursor-pointer whitespace-pre-wrap break-words leading-6")}
                   onClick={() => setEditingDescription(true)}
                 >
                   {task.description || (
-                    <span className="text-gray-400 italic">Clicca per aggiungere una descrizione...</span>
+                    <span className="text-slate-400 italic dark:text-slate-500">Clicca per aggiungere una descrizione...</span>
                   )}
-                  <Edit3 className="h-4 w-4 ml-2 inline opacity-50" />
+                  <Edit3 className="h-4 w-4 ml-2 inline text-slate-500 opacity-70 dark:text-slate-400" />
                 </div>
               )}
             </div>
 
             {/* Rich Description - Inline Editable */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Descrizione Dettagliata</Label>
+              <Label className={labelClass}>Descrizione Dettagliata</Label>
               {editingRichDescription ? (
                 <div className="space-y-2">
                   <Textarea
@@ -396,7 +632,7 @@ export function TaskDetailDialog({
                     onChange={(e) => setRichDescription(e.target.value)}
                     rows={6}
                     placeholder="Descrizione dettagliata con supporto Markdown..."
-                    className="font-mono text-sm"
+                    className={cn("font-mono text-sm", inputSurfaceClass)}
                     onKeyDown={(e) => {
                       if (e.key === "Escape") {
                         setRichDescription(task.richDescription || "")
@@ -424,22 +660,22 @@ export function TaskDetailDialog({
                 </div>
               ) : (
                 <div
-                  className="p-3 border rounded-md cursor-pointer hover:bg-gray-50 min-h-[120px]"
+                  className={cn(editableSurfaceClass, "min-h-[120px] cursor-pointer break-words leading-6")}
                   onClick={() => setEditingRichDescription(true)}
                 >
                   {task.richDescription ? (
                     <div className="whitespace-pre-wrap">{task.richDescription}</div>
                   ) : (
-                    <span className="text-gray-400 italic">Clicca per aggiungere una descrizione dettagliata...</span>
+                    <span className="text-slate-400 italic dark:text-slate-500">Clicca per aggiungere una descrizione dettagliata...</span>
                   )}
-                  <Edit3 className="h-4 w-4 ml-2 inline opacity-50" />
+                  <Edit3 className="h-4 w-4 ml-2 inline text-slate-500 opacity-70 dark:text-slate-400" />
                 </div>
               )}
             </div>
 
             {/* Deliverable Section with Save/Cancel */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Deliverable Atteso</Label>
+              <Label className={labelClass}>Deliverable Atteso</Label>
               
               <div className="space-y-3">
                 {/* Type Select - Sempre editabile */}
@@ -447,10 +683,10 @@ export function TaskDetailDialog({
                   value={deliverableType}
                   onValueChange={setDeliverableType}
                 >
-                  <SelectTrigger className="h-11 md:h-10">
+                  <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
                     <SelectValue placeholder="Tipo deliverable..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
                     <SelectItem value="file">
                       <div className="flex items-center gap-2">
                         <Paperclip className="h-4 w-4" />
@@ -492,7 +728,7 @@ export function TaskDetailDialog({
                       value={deliverable}
                       onChange={(e) => setDeliverable(e.target.value)}
                       rows={2}
-                      className="text-sm"
+                      className={cn("text-sm", inputSurfaceClass)}
                       autoFocus
                     />
                     <div className="flex gap-2">
@@ -525,15 +761,15 @@ export function TaskDetailDialog({
                   </div>
                 ) : (
                   <div
-                    className="p-3 border rounded-md cursor-pointer hover:bg-gray-50 min-h-[60px]"
+                    className={cn(editableSurfaceClass, "min-h-[60px] cursor-pointer")}
                     onClick={() => setEditingDeliverable(true)}
                   >
                     {task.expectedDeliverable ? (
                       <p className="text-sm whitespace-pre-wrap">{task.expectedDeliverable}</p>
                     ) : (
-                      <span className="text-gray-400 italic text-sm">Clicca per definire il deliverable atteso...</span>
+                      <span className="text-slate-400 italic text-sm dark:text-slate-500">Clicca per definire il deliverable atteso...</span>
                     )}
-                    <Edit3 className="h-4 w-4 ml-2 inline opacity-50" />
+                    <Edit3 className="h-4 w-4 ml-2 inline text-slate-500 opacity-70 dark:text-slate-400" />
                   </div>
                 )}
               </div>
@@ -541,7 +777,7 @@ export function TaskDetailDialog({
 
             {/* Sub-items with Drag & Drop */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Sub-attività</Label>
+              <Label className={labelClass}>Sub-attività</Label>
               <DragDropContext onDragEnd={handleSubItemDragEnd}>
                 <Droppable droppableId="subitems">
                   {(provided) => (
@@ -552,17 +788,17 @@ export function TaskDetailDialog({
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
-                              className={`flex items-center gap-2 p-2 border rounded-md ${
+                              className={`flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2 text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 ${
                                 snapshot.isDragging ? "shadow-lg" : ""
                               }`}
                             >
                               <div {...provided.dragHandleProps}>
-                                <GripVertical className="h-4 w-4 text-gray-400" />
+                                <GripVertical className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                               </div>
                               <div className="p-2 md:p-0">
                                 <Checkbox checked={item.completed} onCheckedChange={() => handleToggleSubItem(item.id)} className="h-5 w-5 md:h-4 md:w-4" />
                               </div>
-                              <span className={`flex-1 ${item.completed ? "line-through text-gray-500" : ""}`}>
+                              <span className={`flex-1 ${item.completed ? "text-slate-500 line-through dark:text-slate-500" : ""}`}>
                                 {item.title}
                               </span>
                               <Button size="sm" variant="ghost" className="h-11 w-11 md:h-8 md:w-8 p-0" onClick={() => handleRemoveSubItem(item.id)}>
@@ -587,7 +823,7 @@ export function TaskDetailDialog({
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleAddSubItem()
                   }}
-                  className="h-12 md:h-10"
+                  className={cn("h-12 md:h-10", inputSurfaceClass)}
                 />
                 <Button size="sm" className="h-12 w-12 md:h-10 md:w-10" onClick={handleAddSubItem}>
                   <Plus className="h-5 w-5 md:h-4 md:w-4" />
@@ -597,7 +833,7 @@ export function TaskDetailDialog({
 
             {/* Comments Section */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Commenti ({(task.comments || []).length})</Label>
+              <Label className={cn(labelClass, "mb-3")}>Commenti ({(task.comments || []).length})</Label>
 
               {/* Add new comment */}
               <div className="flex gap-2 mb-4">
@@ -618,7 +854,7 @@ export function TaskDetailDialog({
                         handleAddComment()
                       }
                     }}
-                    className="h-11 md:h-10"
+                    className={cn("h-11 md:h-10", inputSurfaceClass)}
                   />
                   <Button size="sm" className="h-11 w-11 md:h-10 md:w-10" onClick={handleAddComment} disabled={!newComment.trim()}>
                     <Send className="h-5 w-5 md:h-4 md:w-4" />
@@ -641,11 +877,11 @@ export function TaskDetailDialog({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm">{comment.authorName}</span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-slate-500 dark:text-slate-500">
                           {(comment.createdAt instanceof Date ? comment.createdAt : (comment.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.text}</p>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap dark:text-slate-300">{comment.text}</p>
                     </div>
                   </div>
                 ))}
@@ -654,17 +890,17 @@ export function TaskDetailDialog({
 
             {/* Activity Timeline */}
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Timeline Attività</Label>
+              <Label className={cn(labelClass, "mb-3")}>Timeline Attività</Label>
               
               <div className="space-y-3 max-h-48 overflow-y-auto">
                 {/* Created Event */}
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                    <Plus className="h-4 w-4 text-purple-600" />
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center dark:bg-purple-500/15">
+                    <Plus className="h-4 w-4 text-purple-600 dark:text-purple-300" />
                   </div>
                   <div className="flex-1 pt-1">
                     <p className="text-sm font-medium">Task creata</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-500">
                       {(task.createdAt instanceof Date ? task.createdAt : (task.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT", { 
                         day: 'numeric', 
                         month: 'short', 
@@ -679,12 +915,12 @@ export function TaskDetailDialog({
                 {/* Assignment Event (if assigned) */}
                 {task.assignedUserId && (
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                      <User className="h-4 w-4 text-blue-600" />
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center dark:bg-blue-500/15">
+                      <User className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                     </div>
                     <div className="flex-1 pt-1">
                       <p className="text-sm font-medium">Assegnata a {task.assignee}</p>
-                      <p className="text-xs text-gray-500">Data assegnazione non tracciata</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-500">Data assegnazione non tracciata</p>
                     </div>
                   </div>
                 )}
@@ -692,12 +928,12 @@ export function TaskDetailDialog({
                 {/* Due Date Event (if exists) */}
                 {task.dueDate && (
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-                      <Clock className="h-4 w-4 text-orange-600" />
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center dark:bg-orange-500/15">
+                      <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
                     </div>
                     <div className="flex-1 pt-1">
                       <p className="text-sm font-medium">Scadenza impostata</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-500">
                         {(task.dueDate instanceof Date ? task.dueDate : (task.dueDate as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}
                       </p>
                     </div>
@@ -706,12 +942,12 @@ export function TaskDetailDialog({
 
                 {/* Last Updated */}
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
-                    <Edit3 className="h-4 w-4 text-gray-600" />
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center dark:bg-slate-800">
+                    <Edit3 className="h-4 w-4 text-slate-600 dark:text-slate-300" />
                   </div>
                   <div className="flex-1 pt-1">
                     <p className="text-sm font-medium">Ultimo aggiornamento</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-500">
                       {(task.updatedAt instanceof Date ? task.updatedAt : (task.updatedAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT", {
                         day: 'numeric',
                         month: 'short',
@@ -738,13 +974,39 @@ export function TaskDetailDialog({
           </div>
 
           {/* Sidebar - 1/3 width */}
-          <div className="order-1 md:order-2 space-y-3 md:space-y-4">
+          <div className="order-1 space-y-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-950/60 md:order-2 md:border-0 md:bg-transparent md:p-0 dark:md:bg-transparent md:space-y-4">
+            {/* Project */}
+            <div>
+              <Label className={compactLabelClass}>Progetto</Label>
+              <Select
+                value={task.projectId || "none"}
+                onValueChange={(value) => {
+                  void handleUpdateField("projectId", value === "none" ? null : value)
+                }}
+              >
+                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
+                  <SelectValue placeholder="Collega a progetto" />
+                </SelectTrigger>
+                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                  <SelectItem value="none">Senza progetto</SelectItem>
+                  {projects
+                    .filter((project) => (task.clientId === "tenant" ? !project.clientId : !project.clientId || project.clientId === task.clientId))
+                    .map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                        {project.members?.length ? ` · ${project.members.length} persone` : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Status */}
             <div className="space-y-3">
-              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Stato</Label>
+              <Label className={compactLabelClass}>Stato</Label>
               
               {/* Status Badge Prominent */}
-              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100">
                 <div className={`h-3 w-3 rounded-full ${
                   task.status === 'done' ? 'bg-green-500' :
                   task.status === 'in-progress' ? 'bg-blue-500' :
@@ -760,11 +1022,11 @@ export function TaskDetailDialog({
               {/* Progress Bar (if has sub-items) */}
               {subItems && subItems.length > 0 && (
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-gray-600">
+                  <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
                     <span>Progresso sub-attività</span>
                     <span>{calculateProgress()}%</span>
                   </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden dark:bg-slate-800">
                     <div
                       className="h-full bg-purple-500 transition-all duration-300"
                       style={{ width: `${calculateProgress()}%` }}
@@ -778,10 +1040,10 @@ export function TaskDetailDialog({
                 value={task.status || task.columnId}
                 onValueChange={(value) => handleUpdateField("status", value)}
               >
-                <SelectTrigger className="h-11 md:h-10">
+                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
                   {statusOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -793,12 +1055,12 @@ export function TaskDetailDialog({
 
             {/* Type/Category */}
             <div>
-              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Tipologia</Label>
+              <Label className={compactLabelClass}>Tipologia</Label>
               <Select value={task.type || ""} onValueChange={(value) => handleUpdateField("type", value)}>
-                <SelectTrigger className="h-11 md:h-10">
+                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
                   <SelectValue placeholder="Seleziona tipologia" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
                   {taskTypes.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
@@ -810,12 +1072,12 @@ export function TaskDetailDialog({
 
             {/* Priority */}
             <div>
-              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Priorità</Label>
+              <Label className={compactLabelClass}>Priorità</Label>
               <Select value={task.priority} onValueChange={(value) => handleUpdateField("priority", value)}>
-                <SelectTrigger className="h-11 md:h-10">
+                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
                   <SelectItem value="low">Bassa</SelectItem>
                   <SelectItem value="medium">Media</SelectItem>
                   <SelectItem value="high">Alta</SelectItem>
@@ -828,7 +1090,7 @@ export function TaskDetailDialog({
 
             {/* Score */}
             <div>
-              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Punteggio Valutazione</Label>
+              <Label className={compactLabelClass}>Punteggio Valutazione</Label>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -836,7 +1098,7 @@ export function TaskDetailDialog({
                   max="10"
                   value={task.score || 0}
                   onChange={(e) => handleUpdateField("score", Number.parseInt(e.target.value) || 0)}
-                  className="w-20 h-11 md:h-10"
+                  className={cn("w-20 h-11 md:h-10", inputSurfaceClass)}
                 />
                 <div className="flex items-center gap-1">
                   <Star className={`h-4 w-4 ${getScoreColor(task.score || 0)}`} />
@@ -847,36 +1109,34 @@ export function TaskDetailDialog({
 
             {/* Due Date */}
             <div>
-              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Scadenza</Label>
-              <Input type="date" value={dueDate} onChange={(e) => handleDueDateChange(e.target.value)} className="h-11 md:h-10" />
+              <Label className={compactLabelClass}>Scadenza</Label>
+              <Input type="date" value={dueDate} onChange={(e) => handleDueDateChange(e.target.value)} className={cn("h-11 md:h-10", inputSurfaceClass)} />
             </div>
 
             {/* Assignee */}
             <div>
-              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Assegnato a</Label>
+              <Label className={compactLabelClass}>Assegnato a</Label>
               <Select
                 value={task.assignedUserId || "unassigned"}
                 onValueChange={(value) => {
                   if (value === "unassigned") {
                     handleUpdateField("assignedUserId", null)
-                    handleUpdateField("assignee", null)
                   } else {
                     const selectedUser = users.find(u => u.id === value)
                     if (selectedUser) {
                       handleUpdateField("assignedUserId", value)
-                      handleUpdateField("assignee", `${selectedUser.firstName || ""} ${selectedUser.lastName || ""}`.trim() || selectedUser.email)
                     }
                   }
                 }}
               >
-                <SelectTrigger className="h-11 md:h-10">
+                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
                   <SelectValue placeholder="Seleziona utente..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
                   <SelectItem value="unassigned">
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-500 italic">Non assegnato</span>
+                      <User className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                      <span className="text-slate-500 italic dark:text-slate-400">Non assegnato</span>
                     </div>
                   </SelectItem>
                   {users.map((user) => (
@@ -895,17 +1155,17 @@ export function TaskDetailDialog({
               </Select>
               
               {usersLoading && (
-                <p className="text-xs text-gray-500 mt-1">Caricamento utenti...</p>
+                <p className="text-xs text-slate-500 mt-1 dark:text-slate-500">Caricamento utenti...</p>
               )}
               
               {users.length === 0 && !usersLoading && (
-                <p className="text-xs text-gray-500 mt-1">Nessun utente disponibile nel tenant</p>
+                <p className="text-xs text-slate-500 mt-1 dark:text-slate-500">Nessun utente disponibile nel tenant</p>
               )}
             </div>
 
             {/* Tags */}
             <div>
-              <Label className="text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2 block">Tags</Label>
+              <Label className={compactLabelClass}>Tags</Label>
               <div className="flex flex-wrap gap-1">
                 {(task.tags || []).map((tag, index) => (
                   <Badge key={`${tag}-${index}`} variant="secondary" className="text-xs">
@@ -917,24 +1177,174 @@ export function TaskDetailDialog({
             </div>
 
             {/* Attachments */}
-            {task.attachments && task.attachments.length > 0 && (
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Allegati ({task.attachments.length})
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Allegati ({task.attachments?.length || 0})
                 </Label>
+                {onUploadAttachments && (
+                  <>
+                    <input
+                      id={`task-attachment-upload-${task.id}`}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => {
+                        void handleUploadAttachments(event.target.files)
+                        event.currentTarget.value = ""
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                    className="h-10 border-slate-200 bg-white text-xs text-slate-800 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-900 md:h-8"
+                      disabled={uploadingAttachments}
+                      onClick={() => document.getElementById(`task-attachment-upload-${task.id}`)?.click()}
+                    >
+                      {uploadingAttachments ? (
+                        <span className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-righello-pink border-t-transparent" />
+                      ) : (
+                        <Upload className="mr-2 h-3.5 w-3.5" />
+                      )}
+                      Carica
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {task.attachments && task.attachments.length > 0 ? (
                 <div className="space-y-2">
                   {task.attachments.map((attachment: any) => (
-                    <div key={attachment.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                      <Paperclip className="h-4 w-4" />
-                      <span className="text-sm truncate flex-1">{attachment.name}</span>
+                    <div
+                      key={attachment.id}
+                      className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2 text-slate-800 shadow-sm dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
+                    >
+                      {getAttachmentIcon(attachment.type, attachment.name)}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{attachment.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{formatFileSize(Number(attachment.size || 0))}</p>
+                      </div>
+                      {attachment.url && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
+                          onClick={() => setPreviewAttachment(attachment)}
+                          aria-label={`Visualizza ${attachment.name}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {attachment.url && (
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                          <a href={attachment.url} target="_blank" rel="noreferrer" aria-label={`Apri ${attachment.name}`}>
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                      {onDeleteAttachment && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 hover:text-rose-400"
+                          onClick={() => void handleDeleteAttachment(attachment.id)}
+                          aria-label={`Rimuovi ${attachment.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400">
+                  <Paperclip className="mb-2 h-4 w-4" />
+                  Nessun allegato. Puoi caricare immagini, PDF, ZIP e documenti operativi.
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewAttachment} onOpenChange={(isOpen) => !isOpen && setPreviewAttachment(null)}>
+        <DialogContent className={cn("left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[92vh] sm:max-w-[96vw] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border md:max-w-5xl", dialogSurfaceClass)}>
+          {previewAttachment && (
+            <>
+              <DialogHeader className="border-b border-slate-200 px-4 py-3 dark:border-slate-800 md:px-5">
+                <DialogTitle className="flex min-w-0 items-center gap-2 text-base md:text-lg">
+                  {getAttachmentIcon(previewAttachment.type, previewAttachment.name)}
+                  <span className="truncate">{previewAttachment.name}</span>
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="h-[calc(100dvh-62px)] overflow-auto bg-slate-50 p-3 dark:bg-black sm:h-auto sm:max-h-[78vh] md:p-5">
+                {getAttachmentPreviewKind(previewAttachment) === "image" && (
+                  <div className="flex min-h-[45vh] items-center justify-center">
+                    <img
+                      src={previewAttachment.url}
+                      alt={previewAttachment.name}
+                      className="max-h-[72vh] max-w-full rounded-md object-contain shadow-sm"
+                    />
+                  </div>
+                )}
+
+                {getAttachmentPreviewKind(previewAttachment) === "pdf" && (
+                  <iframe
+                    src={previewAttachment.url}
+                    title={previewAttachment.name}
+                    className="h-[72vh] w-full rounded-md border border-slate-200 bg-white dark:border-slate-800"
+                  />
+                )}
+
+                {getAttachmentPreviewKind(previewAttachment) === "video" && (
+                  <video
+                    src={previewAttachment.url}
+                    controls
+                    className="mx-auto max-h-[72vh] w-full rounded-md bg-black"
+                  />
+                )}
+
+                {getAttachmentPreviewKind(previewAttachment) === "audio" && (
+                  <div className="mx-auto flex min-h-[260px] max-w-xl flex-col items-center justify-center gap-4 rounded-lg border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-950">
+                    {getAttachmentIcon(previewAttachment.type, previewAttachment.name)}
+                    <div>
+                      <p className="font-medium text-slate-950 dark:text-slate-50">{previewAttachment.name}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{formatFileSize(Number(previewAttachment.size || 0))}</p>
+                    </div>
+                    <audio src={previewAttachment.url} controls className="w-full" />
+                  </div>
+                )}
+
+                {getAttachmentPreviewKind(previewAttachment) === "file" && (
+                  <div className="mx-auto flex min-h-[320px] max-w-xl flex-col items-center justify-center gap-4 rounded-lg border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-950">
+                    {getAttachmentIcon(previewAttachment.type, previewAttachment.name)}
+                    <div>
+                      <p className="font-medium text-slate-950 dark:text-slate-50">{previewAttachment.name}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {formatFileSize(Number(previewAttachment.size || 0))}
+                      </p>
+                    </div>
+                    <p className="max-w-sm text-sm text-slate-600 dark:text-slate-300">
+                      Questo formato non ha anteprima browser affidabile. Puoi comunque aprirlo o scaricarlo.
+                    </p>
+                    <Button asChild className="bg-righello-pink text-white hover:bg-righello-pink/90">
+                      <a href={previewAttachment.url} target="_blank" rel="noreferrer">
+                        <Download className="mr-2 h-4 w-4" />
+                        Apri file
+                      </a>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

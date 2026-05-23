@@ -34,13 +34,26 @@ import { useAuth } from "@/lib/auth-context"
 import { Mail, Loader2, UserPlus, Building, Phone, MapPin } from "lucide-react"
 import { toast } from "sonner"
 
+const normalizeEmailValue = (value: unknown) =>
+  typeof value === "string" ? value.trim().toLowerCase() : value
+
+const requiredEmail = z.preprocess(
+  normalizeEmailValue,
+  z.string().min(1, "Email è obbligatoria").email("Inserisci un indirizzo email valido"),
+)
+
+const optionalEmail = z.preprocess(
+  normalizeEmailValue,
+  z.union([z.literal(""), z.string().email("Inserisci un indirizzo email valido")]).optional(),
+)
+
 const clientSchema = z.object({
   name: z.string().min(1, "Nome è obbligatorio"),
-  email: z.string().email("Inserisci un indirizzo email valido"),
+  email: requiredEmail,
   phone: z.string().optional(),
   company: z.string().optional(),
   industry: z.string().optional(),
-  contactEmail: z.string().email("Inserisci un indirizzo email valido").optional().or(z.literal("")),
+  contactEmail: optionalEmail,
   contactPhone: z.string().optional(),
   address: z.string().optional(),
   status: z.enum(["active", "inactive", "prospect", "suspended"], {
@@ -200,9 +213,17 @@ export function ClientFormDialog({ open, onOpenChange }: ClientFormDialogProps) 
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <Input 
+                          {...field}
                           placeholder="cliente@example.com" 
                           className="pl-10"
-                          {...field} 
+                          inputMode="email"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          onBlur={(event) => {
+                            const value = event.target.value.trim().toLowerCase()
+                            field.onChange(value)
+                            field.onBlur()
+                          }}
                         />
                       </div>
                     </FormControl>
@@ -323,9 +344,17 @@ export function ClientFormDialog({ open, onOpenChange }: ClientFormDialogProps) 
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <Input 
+                          {...field}
                           placeholder="contatto@azienda.com" 
                           className="pl-10"
-                          {...field} 
+                          inputMode="email"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          onBlur={(event) => {
+                            const value = event.target.value.trim().toLowerCase()
+                            field.onChange(value)
+                            field.onBlur()
+                          }}
                         />
                       </div>
                     </FormControl>

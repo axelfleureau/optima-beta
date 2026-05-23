@@ -4,11 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Ban, Mail, Phone, AlertTriangle } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
 
 export default function SuspendedPage() {
-  const { userData, signOut } = useAuth()
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -65,15 +62,13 @@ export default function SuspendedPage() {
               </div>
             </div>
 
-            {userData?.role === "admin" && (
-              <Alert className="bg-blue-900/20 border-blue-500/50">
-                <AlertDescription className="text-blue-400">
-                  <strong>Sei un amministratore di agenzia?</strong>
-                  <br />
-                  Verifica lo stato del tuo piano di abbonamento o contatta il supporto per assistenza immediata.
-                </AlertDescription>
-              </Alert>
-            )}
+            <Alert className="bg-blue-900/20 border-blue-500/50">
+              <AlertDescription className="text-blue-400">
+                <strong>Sei un amministratore di agenzia?</strong>
+                <br />
+                Verifica lo stato del tuo piano di abbonamento o contatta il supporto per assistenza immediata.
+              </AlertDescription>
+            </Alert>
 
             <div className="flex flex-col gap-2 pt-4">
               <Button
@@ -87,8 +82,8 @@ export default function SuspendedPage() {
                 </a>
               </Button>
 
-              <Button variant="ghost" className="w-full text-gray-400 hover:text-gray-300" onClick={() => signOut()}>
-                Esci dall'Account
+              <Button variant="ghost" className="w-full text-gray-400 hover:text-gray-300" asChild>
+                <a href="/login">Torna al login</a>
               </Button>
             </div>
           </CardContent>

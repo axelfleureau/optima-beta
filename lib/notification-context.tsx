@@ -53,19 +53,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           where("userId", "==", userData.id)
         )
 
-        unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
-          const notificationsData = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate?.() || new Date(),
-          })) as Notification[]
+        unsubscribe = onSnapshot(
+          notificationsQuery,
+          (snapshot) => {
+            const notificationsData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+            })) as Notification[]
 
-          // Ordina manualmente per createdAt (più recenti prima)
-          notificationsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          
-          setNotifications(notificationsData)
-          setLoading(false)
-        })
+            // Ordina manualmente per createdAt (più recenti prima)
+            notificationsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+            setNotifications(notificationsData)
+            setLoading(false)
+          },
+          (error) => {
+            console.error("Errore listener notifiche:", error)
+            setNotifications([])
+            setLoading(false)
+          },
+        )
       } catch (error) {
         console.error("Errore nel caricamento notifiche:", error)
         setLoading(false)

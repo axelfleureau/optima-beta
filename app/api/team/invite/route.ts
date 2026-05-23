@@ -1,129 +1,117 @@
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
-import { NextRequest, NextResponse } from "next/server"
-import { verifyFirebaseToken, getUserData, adminAuth, adminDb } from "@/lib/firebase-admin"
+import type { NextRequest } from "next/server"
+import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { sendInviteEmail } from "@/lib/email"
+import { canManageUser, type UserRole } from "@/lib/role-hierarchy"
+import { requireClerkUser } from "@/lib/server-clerk"
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+
+const INVITABLE_ROLES = new Set(["admin", "direzione", "capo-reparto", "junior", "client"])
+const INVITER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
+
+function normalizeEmail(value: unknown) {
+  return String(value || "").trim().toLowerCase()
+}
+
+function appUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://optima-beta-staging.axel-15d.workers.dev"
+}
 
 export async function POST(request: NextRequest) {
-  let decodedToken: any = null
-  let inviterData: any = null
-
   try {
-    // Verifica autenticazione
-    const token = request.cookies.get("firebase-auth-token")?.value
-    if (!token) {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 401 })
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Non autorizzato" }, { status: 401 })
     }
 
-    decodedToken = await verifyFirebaseToken(token)
-    inviterData = await getUserData(decodedToken.uid)
+    const db = await getCloudflareDb()
+    if (!db) {
+      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+    }
 
-    if (!inviterData || !["admin", "super-admin"].includes(inviterData.role || "")) {
-      return NextResponse.json({ error: "Non hai i permessi per invitare utenti" }, { status: 403 })
+    const principal = await ensureWorkspacePrincipal(db, user)
+    if (!INVITER_ROLES.has(principal.role)) {
+      return Response.json({ error: "Non hai i permessi per invitare utenti" }, { status: 403 })
     }
 
     const body = await request.json()
-    const { email, firstName, lastName, role, companyName, message } = body
+    const email = normalizeEmail(body.email)
+    const firstName = String(body.firstName || "").trim()
+    const lastName = String(body.lastName || "").trim()
+    const role = String(body.role || "").trim()
 
-    // Validazione dati
     if (!email || !firstName || !lastName || !role) {
-      return NextResponse.json({ error: "Campi obbligatori mancanti" }, { status: 400 })
+      return Response.json({ error: "Campi obbligatori mancanti" }, { status: 400 })
     }
 
-    if (!["admin", "user", "client"].includes(role)) {
-      return NextResponse.json({ error: "Ruolo non valido" }, { status: 400 })
+    if (!INVITABLE_ROLES.has(role)) {
+      return Response.json({ error: "Ruolo non valido" }, { status: 400 })
     }
 
-    // Verifica che l'utente non esista già
-    const existingUser = await adminDb?.collection("users").where("email", "==", email).get()
-    if (existingUser?.size && existingUser.size > 0) {
-      return NextResponse.json({ error: "Un utente con questa email esiste già" }, { status: 409 })
+    if (!canManageUser(principal.role as UserRole, role as UserRole)) {
+      return Response.json({ error: "Non puoi invitare utenti con questo ruolo" }, { status: 403 })
     }
 
-    // Crea utente Firebase Auth
-    const newUser = await adminAuth?.createUser({
-      email,
-      displayName: `${firstName} ${lastName}`,
-      password: generateTempPassword(), // Genera password temporanea
-    })
+    const existingMember = await db
+      .prepare(
+        `SELECT id
+         FROM members
+         WHERE organization_id = ? AND lower(email) = lower(?)
+         LIMIT 1`,
+      )
+      .bind(principal.organizationId, email)
+      .first()
 
-    if (!newUser) {
-      return NextResponse.json({ error: "Errore nella creazione utente" }, { status: 500 })
+    if (existingMember) {
+      return Response.json({ error: "Un utente con questa email esiste già nel team" }, { status: 409 })
     }
 
-    // Crea documento utente in Firestore
-    const userData = {
-      id: newUser.uid,
-      email,
+    const inviteUrl = `${appUrl()}/register?email=${encodeURIComponent(email)}`
+    const inviterName = `${user.firstName} ${user.lastName}`.trim() || user.email
+    const memberId = crypto.randomUUID().replace(/-/g, "")
+    const invitedMemberId = `mem_${memberId}`
+    const invitedClerkUserId = `invite:${email}`
+
+    await sendInviteEmail({
+      to: email,
       firstName,
       lastName,
+      inviterName,
+      inviterEmail: user.email,
       role,
-      tenantId: inviterData.tenantId,
-      parentTenantId: inviterData.role === "super-admin" ? undefined : inviterData.tenantId,
-      companyName: companyName || undefined,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isSuspended: false,
-      emailVerified: false,
-      status: "invited",
-      invitedBy: decodedToken.uid,
-      invitedAt: new Date(),
-    }
-
-    await adminDb?.collection("users").doc(newUser.uid).set(userData)
-
-    // Genera link per reset password (primo accesso)
-    const resetLink = await adminAuth?.generatePasswordResetLink(email)
-
-    // Invia email di invito
-    try {
-      await sendInviteEmail({
-        to: email,
-        firstName,
-        lastName,
-        inviterName: `${inviterData.firstName} ${inviterData.lastName}`,
-        inviterEmail: inviterData.email || "",
-        role,
-        resetLink: resetLink || "",
-        customMessage: message,
-      })
-    } catch (emailError) {
-      console.error("Error sending invite email:", emailError)
-      // Non blocchiamo il processo se l'email fallisce
-    }
-
-    return NextResponse.json({
-      success: true,
-      userId: newUser.uid,
-      message: "Utente invitato con successo",
+      resetLink: inviteUrl,
+      customMessage: body.message,
     })
 
-  } catch (error) {
-    console.error("Error inviting user:", error)
-    return NextResponse.json({ error: "Errore interno del server" }, { status: 500 })
-  }
-}
+    await db
+      .prepare(
+        `INSERT INTO members
+         (id, organization_id, clerk_user_id, email, first_name, last_name, role, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'invited')`,
+      )
+      .bind(invitedMemberId, principal.organizationId, invitedClerkUserId, email, firstName, lastName, role)
+      .run()
 
-// Genera una password temporanea sicura
-function generateTempPassword(length: number = 12): string {
-  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
-  let password = ""
-  
-  // Usa crypto per generazione sicura
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const array = new Uint32Array(length)
-    crypto.getRandomValues(array)
-    for (let i = 0; i < length; i++) {
-      password += charset[array[i] % charset.length]
-    }
-  } else {
-    // Fallback per ambienti Node.js
-    const crypto = require('crypto')
-    const randomBytes = crypto.randomBytes(length)
-    for (let i = 0; i < length; i++) {
-      password += charset[randomBytes[i] % charset.length]
-    }
+    return Response.json({
+      success: true,
+      message: "Invito inviato e membro aggiunto al team",
+      recipient: email,
+      user: {
+        id: invitedMemberId,
+        clerkUserId: invitedClerkUserId,
+        email,
+        firstName,
+        lastName,
+        role,
+        tenantId: principal.organizationId,
+        status: "invited",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  } catch (error) {
+    console.error("Team invite error:", error)
+    return Response.json({ error: "Errore durante l'invio dell'invito" }, { status: 500 })
   }
-  
-  return password
 }

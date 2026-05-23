@@ -18,6 +18,7 @@ interface Column {
 interface KanbanColumnProps {
   column: Column
   tasks: Task[]
+  dragEnabled: boolean
   showAllClients: boolean
   onTaskClick: (task: Task) => void
   onAddTaskToColumn: (columnId: string) => void
@@ -28,6 +29,7 @@ interface KanbanColumnProps {
 export function KanbanColumn({
   column,
   tasks,
+  dragEnabled,
   showAllClients,
   onTaskClick,
   onAddTaskToColumn,
@@ -35,16 +37,16 @@ export function KanbanColumn({
   getScoreColor,
 }: KanbanColumnProps) {
   return (
-    <div key={column.id} className="flex flex-col min-w-[80vw] md:min-w-[320px] lg:min-w-[280px] xl:w-80 snap-start h-full">
-      <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-t-2xl p-3 md:p-4 shadow-lg border-t-4 flex-shrink-0 ${column.color}`}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg ${column.bgColor} flex items-center justify-center shadow-sm`}>
+    <div key={column.id} className="flex h-full min-h-0 min-w-[88vw] max-w-[88vw] snap-start flex-col sm:min-w-[420px] sm:max-w-[420px] lg:min-w-[312px] lg:max-w-none xl:w-88">
+      <div className={`flex-shrink-0 rounded-t-lg border-x border-t bg-white/95 p-3 shadow-corporate-medium dark:border-slate-700 dark:bg-slate-900 md:p-4 ${column.color}`}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2 md:gap-3">
+            <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${column.bgColor} shadow-sm`}>
               <Clock className={`h-3 w-3 md:h-4 md:w-4 ${column.iconColor}`} />
             </div>
-            <h3 className="font-semibold text-sm md:text-base text-slate-900 dark:text-slate-100">{column.title}</h3>
+            <h3 className="truncate text-sm font-bold text-slate-950 dark:text-slate-50 md:text-base">{column.title}</h3>
           </div>
-          <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs">
+          <Badge variant="secondary" className="bg-slate-100 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
             {tasks.length}
           </Badge>
         </div>
@@ -55,8 +57,8 @@ export function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl rounded-b-2xl p-3 md:p-4 space-y-3 transition-all duration-200 overflow-y-auto min-h-0 ${
-              snapshot.isDraggingOver ? "bg-blue-50/60 dark:bg-blue-900/20 ring-2 ring-blue-300 dark:ring-blue-600" : ""
+            className={`min-h-[340px] flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-b-lg border-x border-b border-slate-200/80 bg-slate-100/70 p-3 transition-colors duration-150 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] dark:border-slate-700 dark:bg-slate-900/55 md:p-4 lg:min-h-0 ${
+              snapshot.isDraggingOver ? "bg-cyan-50/80 ring-2 ring-cyan-300 dark:bg-cyan-950/30 dark:ring-cyan-500" : ""
             }`}
           >
             {tasks.map((task, index) => (
@@ -64,6 +66,7 @@ export function KanbanColumn({
                 key={task.id}
                 task={task}
                 index={index}
+                dragEnabled={dragEnabled}
                 showAllClients={showAllClients}
                 onTaskClick={onTaskClick}
                 getPriorityColor={getPriorityColor}
@@ -74,7 +77,7 @@ export function KanbanColumn({
 
             <Button
               variant="ghost"
-              className="w-full border-2 border-dashed border-slate-300 dark:border-slate-600 h-10 md:h-12 text-xs md:text-sm text-slate-500 dark:text-slate-400 hover:border-pink-400 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-all duration-200"
+              className="h-12 w-full border-2 border-dashed border-slate-400/70 text-sm font-semibold text-slate-500 transition-all duration-200 hover:border-righello-pink hover:bg-righello-pink/10 hover:text-righello-pink dark:border-slate-600 dark:text-slate-300 dark:hover:border-righello-pink"
               onClick={() => onAddTaskToColumn(column.id)}
             >
               <Plus className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />

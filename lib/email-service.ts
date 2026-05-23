@@ -1,18 +1,11 @@
 // Email Service for Invoice Delivery
-import nodemailer from 'nodemailer'
 import type { Quote } from '@/lib/ai-quote-service'
 import { getInvoicePDFBlob, type InvoicePaymentData } from '@/lib/invoice-generator'
+import { sendEmail } from '@/lib/sendgrid'
 
-// Configure Nodemailer transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-})
+function toBase64(arrayBuffer: ArrayBuffer) {
+  return Buffer.from(arrayBuffer).toString('base64')
+}
 
 export async function sendInvoiceEmail(
   invoiceNumber: string,
@@ -22,17 +15,8 @@ export async function sendInvoiceEmail(
   clientEmail: string
 ): Promise<boolean> {
   try {
-    // Validate email configuration
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-      console.warn('SMTP credentials not configured. Skipping invoice email.')
-      return false
-    }
-
     // Generate PDF invoice
     const pdfBlob = getInvoicePDFBlob(invoiceNumber, payment, quote, clientName, clientEmail)
-    
-    // Convert Blob to Buffer for Nodemailer
-    const pdfBuffer = Buffer.from(await pdfBlob.arrayBuffer())
     
     // Determine payment type label for email
     let paymentTypeLabel = 'Pagamento Completo'
@@ -73,19 +57,19 @@ export async function sendInvoiceEmail(
       </div>
     `
     
-    // Send email with PDF attachment
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"Righello Digital" <noreply@righello.com>',
-      to: clientEmail,
+    await sendEmail({
+      to: { email: clientEmail, name: clientName },
       subject: `Fattura ${invoiceNumber} - Pagamento Ricevuto`,
       html: emailHTML,
       attachments: [
         {
           filename: `Fattura_${invoiceNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
+          content: toBase64(await pdfBlob.arrayBuffer()),
+          type: 'application/pdf',
+          disposition: 'attachment',
         },
       ],
+      categories: ['invoice'],
     })
     
     console.log(`✅ Invoice email sent to ${clientEmail} for invoice ${invoiceNumber}`)
@@ -171,11 +155,6 @@ export async function sendMilestoneReminder(
   clientEmail: string
 ): Promise<boolean> {
   try {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-      console.warn('SMTP credentials not configured. Skipping milestone reminder email.')
-      return false
-    }
-
     const content = getMilestoneReminderContent(reminderType, data)
     const formattedAmount = new Intl.NumberFormat('it-IT', {
       style: 'currency',
@@ -247,11 +226,11 @@ export async function sendMilestoneReminder(
       </div>
     `
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"Righello Digital" <noreply@righello.com>',
-      to: clientEmail,
+    await sendEmail({
+      to: { email: clientEmail, name: data.clientName },
       subject: content.subject,
       html: emailHTML,
+      categories: ['milestone-reminder', reminderType],
     })
 
     console.log(`✅ Milestone reminder (${reminderType}) sent to ${clientEmail} for milestone "${data.milestoneName}"`)

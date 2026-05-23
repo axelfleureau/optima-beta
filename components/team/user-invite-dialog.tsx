@@ -39,7 +39,7 @@ const inviteUserSchema = z.object({
   email: z.string().email("Inserisci un indirizzo email valido"),
   firstName: z.string().min(1, "Nome è obbligatorio"),
   lastName: z.string().min(1, "Cognome è obbligatorio"),
-  role: z.enum(["admin", "direzione", "capo-reparto", "junior"], {
+  role: z.enum(["admin", "direzione", "capo-reparto", "junior", "client"], {
     required_error: "Seleziona un ruolo",
   }),
   companyName: z.string().optional(),
@@ -51,6 +51,7 @@ type InviteUserForm = z.infer<typeof inviteUserSchema>
 interface UserInviteDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onInvited?: () => void | Promise<void>
 }
 
 const roleOptions = [
@@ -78,9 +79,15 @@ const roleOptions = [
     description: "Gestione esclusiva delle task assegnate",
     icon: User,
   },
+  {
+    value: "client" as const,
+    label: "Cliente",
+    description: "Accesso cliente a lavori, task e avanzamenti",
+    icon: Users,
+  },
 ]
 
-export function UserInviteDialog({ open, onOpenChange }: UserInviteDialogProps) {
+export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDialogProps) {
   const { userData } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   
@@ -138,11 +145,13 @@ export function UserInviteDialog({ open, onOpenChange }: UserInviteDialogProps) 
 
       // Only parse JSON if response has content and is JSON
       const contentType = response.headers.get("content-type")
-      if (response.status !== 204 && contentType && contentType.includes("application/json")) {
-        const result = await response.json()
-      }
+      const result =
+        response.status !== 204 && contentType && contentType.includes("application/json")
+          ? await response.json()
+          : null
       
-      toast.success(`Invito inviato con successo a ${data.email}`)
+      toast.success(result?.message || `Invito inviato con successo a ${data.email}`)
+      await onInvited?.()
       
       // Reset form and close dialog
       form.reset()
@@ -156,8 +165,7 @@ export function UserInviteDialog({ open, onOpenChange }: UserInviteDialogProps) 
     }
   }
 
-  // Solo admin e super-admin possono invitare utenti
-  if (userData?.role !== "admin" && userData?.role !== "super-admin") {
+  if (availableRoleOptions.length === 0) {
     return null
   }
 

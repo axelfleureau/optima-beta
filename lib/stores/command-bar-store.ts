@@ -124,7 +124,16 @@ export const useCommandBarStore = create<CommandBarState>((set, get) => ({
   searchResults: [],
 
   open: () => {
-    set({ isOpen: true, inputValue: "", status: "idle", error: null })
+    set({
+      isOpen: true,
+      inputValue: "",
+      status: "idle",
+      intent: null,
+      nlpResponse: null,
+      missingParams: [],
+      error: null,
+      searchResults: [],
+    })
   },
 
   close: () => {
@@ -141,7 +150,7 @@ export const useCommandBarStore = create<CommandBarState>((set, get) => ({
   },
 
   setInput: (value: string) => {
-    set({ inputValue: value })
+    set({ inputValue: value, error: null })
     if (!value) {
       set({ suggestions: defaultSuggestions, searchResults: [] })
     }
@@ -160,42 +169,46 @@ export const useCommandBarStore = create<CommandBarState>((set, get) => ({
   setError: (error) => set({ error }),
 
   setContext: (context) => {
-    console.log("💾 Setting context in store:", context)
     set({ context })
   },
 
   setSearchResults: (results) => set({ searchResults: results }),
 
   executeCommand: async (message: string, context: CommandContext) => {
-    console.log("🚀 executeCommand started with streaming")
-    console.log("📝 Message:", message)
-    console.log("📍 Context:", context)
-    
-    const state = get()
-    set({ status: "processing", error: null })
+    const cleanMessage = message.trim()
 
-    // Import orchestration store and streaming function
+    set({
+      status: "processing",
+      error: null,
+      missingParams: [],
+      nlpResponse: null,
+      searchResults: [],
+    })
+
     const { useOrchestrationStore } = await import("@/lib/stores/orchestration-store")
-    const { recognizeIntentWithStreaming } = await import("@/lib/ai/intent-recognition")
 
     try {
-      // Stage 1: Analyzing (with streaming reasoning)
       useOrchestrationStore.getState().setStage('analyzing')
-      useOrchestrationStore.getState().setStreamingReasoning('')
-      
-      const nlpResponse: NLPResponse = await recognizeIntentWithStreaming(
-        message,
-        context,
-        (chunk: string) => {
-          // Stream reasoning chunks to the store
-          useOrchestrationStore.getState().appendStreamingReasoning(chunk)
-        }
-      )
+      useOrchestrationStore.getState().setStreamingReasoning("Sto leggendo il comando e recuperando il contesto operativo.")
 
-      // Stage 2: Parsing (extract and display entities)
+      const response = await fetch("/api/ai/command", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ message: cleanMessage, context }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.error || "Non riesco a interpretare il comando")
+      }
+
+      const nlpResponse = payload as NLPResponse
+
       useOrchestrationStore.getState().setStage('parsing')
-      
-      // Convert entities to display format
+
       const entityArray = Object.entries(nlpResponse.entities || {}).map(([key, value]) => {
         const icons: Record<string, string> = {
           contentType: '📄',
@@ -225,69 +238,56 @@ export const useCommandBarStore = create<CommandBarState>((set, get) => ({
           icon: icons[key] || '•'
         }
       })
-      
-      useOrchestrationStore.getState().setExtractedEntities(entityArray)
-      
-      // Small delay to show parsed entities
-      await new Promise(resolve => setTimeout(resolve, 800))
 
-      console.log("🧠 NLP Response:", nlpResponse)
+      useOrchestrationStore.getState().setExtractedEntities(entityArray)
+      await new Promise(resolve => setTimeout(resolve, 350))
+
       set({ nlpResponse, intent: nlpResponse.intent })
 
       if (nlpResponse.missingParams && nlpResponse.missingParams.length > 0) {
-        console.log("📝 Missing params detected:", nlpResponse.missingParams)
-        useOrchestrationStore.getState().reset()
+        useOrchestrationStore.getState().setStage('idle')
         set({
           status: "gathering",
           missingParams: nlpResponse.missingParams,
         })
       } else {
-        // Stage 3: Executing
-        console.log("⚡ Executing intent:", nlpResponse.intent)
         useOrchestrationStore.getState().setStage('executing')
         useOrchestrationStore.getState().setActionStream('Esecuzione comando in corso...')
-        
+
         set({ status: "executing" })
         const { executeIntent } = await import("@/lib/command-bar/handlers")
         const result = await executeIntent(nlpResponse.intent, nlpResponse.entities, context)
-
-        console.log("📊 Intent execution result:", result)
 
         const searchIntents = ["SEARCH_TASK", "SEARCH_GLOBAL"]
         const isSearchIntent = searchIntents.includes(nlpResponse.intent)
 
         if (result.success && result.data && isSearchIntent) {
-          console.log("🔍 Search results:", result.data)
           useOrchestrationStore.getState().setStage('completed')
-          useOrchestrationStore.getState().setActionStream('✅ Ricerca completata!')
-          
-          set({ 
+          useOrchestrationStore.getState().setActionStream(result.message || 'Ricerca completata')
+
+          set({
             status: "idle",
             searchResults: Array.isArray(result.data) ? result.data : [result.data]
           })
-          
+
           setTimeout(() => {
             useOrchestrationStore.getState().reset()
           }, 2000)
         } else if (result.success) {
-          console.log("✅ Command executed successfully")
           useOrchestrationStore.getState().setStage('completed')
-          useOrchestrationStore.getState().setActionStream('✅ Comando eseguito con successo!')
-          
+          useOrchestrationStore.getState().setActionStream(result.message || 'Comando eseguito con successo')
+
           set({ status: "idle" })
           setTimeout(() => {
             get().close()
             useOrchestrationStore.getState().reset()
           }, 1500)
         } else {
-          console.error("❌ Command execution failed:", result.error)
           useOrchestrationStore.getState().setError(result.error || "Esecuzione fallita")
           set({ status: "idle", error: result.error || "Command execution failed" })
         }
       }
     } catch (error: any) {
-      console.error("💥 Command execution error:", error)
-      const { useOrchestrationStore } = await import("@/lib/stores/orchestration-store")
       useOrchestrationStore.getState().setError(error.message || "Errore durante l'esecuzione")
       set({
         status: "idle",

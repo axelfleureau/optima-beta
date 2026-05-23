@@ -6,22 +6,7 @@
  */
 
 import Stripe from 'stripe'
-
-// Environment validation
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
-
-if (!STRIPE_SECRET_KEY) {
-  throw new Error("Missing required environment variable: STRIPE_SECRET_KEY")
-}
-
-// Initialize Stripe
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
-  typescript: true,
-  telemetry: false,
-  maxNetworkRetries: 3,
-  timeout: 10000,
-})
+import { getStripeClient } from '@/lib/stripe-client'
 
 export interface CreateSubscriptionParams {
   quoteId: string
@@ -49,6 +34,7 @@ export async function createMaintenanceSubscription(
   const { quoteId, tenantId, customerId, monthlyAmount, customerEmail, customerName, quoteTitle } = params
   
   try {
+    const stripe = getStripeClient()
     console.log('🔄 Creating maintenance subscription for quote:', quoteId)
     
     // 1. Create a Stripe Price for recurring monthly payment
@@ -116,6 +102,7 @@ export async function cancelSubscription(
   immediately: boolean = false
 ): Promise<Stripe.Subscription> {
   try {
+    const stripe = getStripeClient()
     if (immediately) {
       // Cancel immediately
       const subscription = await stripe.subscriptions.cancel(subscriptionId)
@@ -140,6 +127,7 @@ export async function cancelSubscription(
  */
 export async function pauseSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
   try {
+    const stripe = getStripeClient()
     const subscription = await stripe.subscriptions.update(subscriptionId, {
       pause_collection: {
         behavior: 'void', // Skip invoices
@@ -158,6 +146,7 @@ export async function pauseSubscription(subscriptionId: string): Promise<Stripe.
  */
 export async function resumeSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
   try {
+    const stripe = getStripeClient()
     const subscription = await stripe.subscriptions.update(subscriptionId, {
       pause_collection: '', // Resume billing
     })
@@ -174,6 +163,7 @@ export async function resumeSubscription(subscriptionId: string): Promise<Stripe
  */
 export async function getSubscriptionStatus(subscriptionId: string) {
   try {
+    const stripe = getStripeClient()
     const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
     return {
       id: subscription.id,
@@ -189,5 +179,5 @@ export async function getSubscriptionStatus(subscriptionId: string) {
   }
 }
 
-// Export stripe instance for webhook handlers
-export { stripe }
+// Export lazy accessor for webhook handlers.
+export { getStripeClient }

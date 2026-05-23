@@ -2,6 +2,8 @@ import { openai } from "@ai-sdk/openai"
 import { generateObject, streamText } from "ai"
 import { z } from "zod"
 import type { CommandContext, NLPResponse, CommandIntent } from "@/lib/types"
+import { formatDateForCommand, normalizeFutureCommandDate } from "@/lib/utils/date-parser"
+import { OPENAI_REASONING_MODEL } from "@/lib/ai/models"
 
 const IntentSchema = z.object({
   intent: z.enum([
@@ -44,6 +46,7 @@ export async function recognizeIntent(
   const clientNames = context.availableClients?.map((c) => c.name).join(", ") || "nessun cliente"
   const userNames =
     context.availableUsers?.map((u) => `${u.firstName} ${u.lastName}`).join(", ") || "nessun utente"
+  const currentDate = formatDateForCommand(new Date())
 
   const systemPrompt = `Sei un assistente AI per la piattaforma di marketing Optima. 
 Analizza i comandi dell'utente ed estrai:
@@ -151,6 +154,8 @@ Analizza i comandi dell'utente ed estrai:
 5. **SuggestedAction**: Azione suggerita per l'utente
 
 Contesto disponibile:
+- Data corrente reale: ${currentDate}
+- Regola date: usa sempre date future per publishDate o dueDate. Se l'utente indica una data senza anno, usa il prossimo giorno futuro coerente con la data corrente.
 - User role: ${context.userRole}
 - Current view: ${context.currentView || "unknown"}
 - Clienti disponibili: ${clientNames}
@@ -164,7 +169,8 @@ Esempi TASK:
 Esempi CONTENT CREATION (con entity extraction avanzata):
 - "Crea post Instagram per cliente Acme" → CREATE_CONTENT_POST, entities: {contentType: "post", platform: ["instagram"], clientName: "Acme"}
 - "Genera reel ironico per Stark Industries sul prodotto Arc Reactor per giovani 18-25" → CREATE_CONTENT_REEL, entities: {contentType: "reel", clientName: "Stark Industries", topic: "prodotto Arc Reactor", tone: "ironico", targetAudience: "giovani 18-25"}
-- "Pianifica TikTok motivazionale per domani su nuovo servizio, stile minimalista, CTA visita sito" → CREATE_CONTENT_REEL, entities: {contentType: "reel", platform: ["tiktok"], topic: "nuovo servizio", publishDate: "2025-10-10", tone: "motivazionale", visualStyle: "minimalista", callToAction: "visita sito"}
+- "Pianifica TikTok motivazionale per domani su nuovo servizio, stile minimalista, CTA visita sito" → CREATE_CONTENT_REEL, entities: {contentType: "reel", platform: ["tiktok"], topic: "nuovo servizio", publishDate: "data di domani in formato YYYY-MM-DD", tone: "motivazionale", visualStyle: "minimalista", callToAction: "visita sito"}
+- "Crea post Instagram per Acme il 14 ottobre" → CREATE_CONTENT_POST, entities: {contentType: "post", platform: ["instagram"], clientName: "Acme", publishDate: "prossimo 14 ottobre futuro in formato YYYY-MM-DD"}
 - "Fai 3 post social professionali per cliente X con hashtag #marketing #business" → CREATE_CONTENT_BATCH, entities: {contentType: "post", clientName: "cliente X", quantity: 3, tone: "professionale", hashtags: ["#marketing", "#business"]}
 - "Crea video YouTube 60 secondi per lancio prodotto, target professionisti B2B, tono informativo" → CREATE_CONTENT_VIDEO, entities: {contentType: "video", platform: ["youtube"], topic: "lancio prodotto", length: 60, targetAudience: "professionisti B2B", tone: "informativo"}
 - "Post Instagram e Facebook elegante su nuova collezione, target mamme 30-45, CTA acquista ora" → CREATE_CONTENT_POST, entities: {contentType: "post", platform: ["instagram", "facebook"], topic: "nuova collezione", visualStyle: "elegante", targetAudience: "mamme 30-45", callToAction: "acquista ora"}
@@ -208,7 +214,7 @@ Rispondi SEMPRE in JSON con lo schema richiesto.`
 
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai(OPENAI_REASONING_MODEL),
       schema: IntentSchema,
       prompt: `${systemPrompt}\n\nComando utente: "${message}"`,
       temperature: 0.3,
@@ -217,7 +223,7 @@ Rispondi SEMPRE in JSON con lo schema richiesto.`
     const response: NLPResponse = {
       intent: object.intent as CommandIntent,
       confidence: object.confidence,
-      entities: object.entities,
+      entities: normalizeDateEntities(object.intent as CommandIntent, object.entities, message),
       missingParams: object.missingParams,
       suggestedAction: object.suggestedAction,
       reasoning: object.reasoning,
@@ -245,6 +251,7 @@ export async function recognizeIntentWithStreaming(
   const clientNames = context.availableClients?.map((c) => c.name).join(", ") || "nessun cliente"
   const userNames =
     context.availableUsers?.map((u) => `${u.firstName} ${u.lastName}`).join(", ") || "nessun utente"
+  const currentDate = formatDateForCommand(new Date())
 
   // Stage 1: Stream reasoning about the user's intent
   const reasoningPrompt = `Sei un assistente AI per la piattaforma di marketing Optima. 
@@ -253,6 +260,8 @@ Analizza il seguente comando dell'utente e spiega in modo conciso cosa stai comp
 Comando: "${message}"
 
 Contesto:
+- Data corrente reale: ${currentDate}
+- Regola date: se una data non include l'anno, interpreta il prossimo giorno futuro coerente con la data corrente.
 - User role: ${context.userRole}
 - Current view: ${context.currentView || "unknown"}
 - Clienti disponibili: ${clientNames}
@@ -269,7 +278,7 @@ Rispondi in italiano in modo naturale e conversazionale.`
     // Stream the reasoning
     if (onReasoningChunk) {
       const { textStream } = await streamText({
-        model: openai("gpt-4o"),
+        model: openai(OPENAI_REASONING_MODEL),
         prompt: reasoningPrompt,
         temperature: 0.5,
       })
@@ -335,6 +344,8 @@ Analizza i comandi dell'utente ed estrai:
    - quantity: numero di contenuti da creare (per batch)
 
 Contesto disponibile:
+- Data corrente reale: ${currentDate}
+- Regola date: usa sempre date future per publishDate o dueDate. Se l'utente indica una data senza anno, usa il prossimo giorno futuro coerente con la data corrente.
 - User role: ${context.userRole}
 - Current view: ${context.currentView || "unknown"}
 - Clienti disponibili: ${clientNames}
@@ -343,7 +354,7 @@ Contesto disponibile:
 Rispondi SEMPRE in JSON con lo schema richiesto.`
 
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai(OPENAI_REASONING_MODEL),
       schema: IntentSchema,
       prompt: `${systemPrompt}\n\nComando utente: "${message}"`,
       temperature: 0.3,
@@ -352,7 +363,7 @@ Rispondi SEMPRE in JSON con lo schema richiesto.`
     const response: NLPResponse = {
       intent: object.intent as CommandIntent,
       confidence: object.confidence,
-      entities: object.entities,
+      entities: normalizeDateEntities(object.intent as CommandIntent, object.entities, message),
       missingParams: object.missingParams,
       suggestedAction: object.suggestedAction,
       reasoning: object.reasoning,
@@ -370,4 +381,25 @@ Rispondi SEMPRE in JSON con lo schema richiesto.`
       suggestedAction: "Riprova con un comando più chiaro",
     }
   }
+}
+
+function normalizeDateEntities(intent: CommandIntent, rawEntities: Record<string, any> | undefined, message: string) {
+  const entities = { ...(rawEntities || {}) }
+  const isContentIntent = intent.startsWith("CREATE_CONTENT_")
+
+  if (isContentIntent) {
+    const normalizedPublishDate = normalizeFutureCommandDate(entities.publishDate, message)
+    if (normalizedPublishDate) entities.publishDate = normalizedPublishDate
+  }
+
+  if (entities.dueDate) {
+    const normalizedDueDate = normalizeFutureCommandDate(entities.dueDate, message)
+    if (normalizedDueDate) entities.dueDate = normalizedDueDate
+  }
+
+  if (typeof entities.platform === "string") {
+    entities.platform = [entities.platform]
+  }
+
+  return entities
 }

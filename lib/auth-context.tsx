@@ -1,26 +1,32 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState } from "react"
-import { type User as FirebaseUser, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth"
-import { doc, getDoc } from "firebase/firestore"
-import { auth, db } from "./firebase"
-import { useRouter } from "next/navigation"
+import { createContext, useContext, useMemo } from "react"
+import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/nextjs"
 import type { User } from "./types"
-import { 
-  hasPermission, 
-  canManageUser, 
-  canAssignTaskTo, 
-  getAssignableRoles, 
-  getManageableRoles, 
+import {
+  canAssignTaskTo,
+  canManageUser,
   canViewResource,
-  getRoleDisplayName,
+  getAssignableRoles,
+  getManageableRoles,
   getRoleColor,
-  type UserRole 
+  getRoleDisplayName,
+  hasPermission,
+  type UserRole,
 } from "@/lib/role-hierarchy"
 
+type CompatAuthUser = {
+  uid: string
+  id: string
+  email?: string | null
+  displayName?: string | null
+  photoURL?: string | null
+  getIdToken: () => Promise<string | undefined>
+}
+
 interface AuthContextType {
-  user: FirebaseUser | null
+  user: CompatAuthUser | null
   userData: User | null
   loading: boolean
   isSuperAdmin: boolean
@@ -31,7 +37,6 @@ interface AuthContextType {
   isClient: boolean
   isSuspended: boolean
   signOut: () => Promise<void>
-  // Role hierarchy functions
   hasPermission: (permission: any) => boolean
   canManageUser: (targetRole: UserRole) => boolean
   canAssignTaskTo: (assigneeRole: UserRole) => boolean
@@ -44,163 +49,94 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const VALID_ROLES: UserRole[] = ["super-admin", "admin", "direzione", "capo-reparto", "junior", "client"]
+
+function normalizeRole(value: unknown, email?: string): UserRole {
+  if (typeof value === "string" && VALID_ROLES.includes(value as UserRole)) {
+    return value as UserRole
+  }
+
+  if (value === "org:admin" || value === "admin") {
+    return "admin"
+  }
+
+  if (email?.endsWith("@wearerighello.com")) {
+    return "admin"
+  }
+
+  return "junior"
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<FirebaseUser | null>(null)
-  const [userData, setUserData] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const { isLoaded, isSignedIn, getToken } = useClerkAuth()
+  const { user: clerkUser } = useUser()
+  const clerk = useClerk()
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user)
+  const email = clerkUser?.primaryEmailAddress?.emailAddress || clerkUser?.emailAddresses?.[0]?.emailAddress || ""
+  const metadataRole = clerkUser?.publicMetadata?.role || clerkUser?.unsafeMetadata?.role
+  const role = normalizeRole(metadataRole, email)
+  const tenantId = String(clerkUser?.publicMetadata?.tenantId || clerkUser?.id || "")
 
-        try {
-          // ⚡ PERFORMANCE: Esegui token API e Firestore fetch in PARALLELO
-          const [tokenResponse, userDocResponse] = await Promise.allSettled([
-            // Token API call con timeout ridotto
-            (async () => {
-              const token = await user.getIdToken()
-              const controller = new AbortController()
-              const timeoutId = setTimeout(() => controller.abort(), 3000) // Ridotto a 3 secondi
-              
-              try {
-                const response = await fetch("/api/auth/set-secure-token", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ token }),
-                  signal: controller.signal
-                })
-                clearTimeout(timeoutId)
-                return response.ok
-              } catch (error) {
-                clearTimeout(timeoutId)
-                return false
-              }
-            })(),
-            // Firestore fetch in parallelo
-            getDoc(doc(db, "users", user.uid))
-          ])
+  const user = useMemo<CompatAuthUser | null>(() => {
+    if (!isLoaded || !isSignedIn || !clerkUser) return null
 
-          // Carica i dati utente PRIMA del redirect
-          const userDoc = userDocResponse.status === 'fulfilled' ? userDocResponse.value : null
-          if (userDoc?.exists()) {
-            const data = userDoc.data() as any
-            
-            const processedData: User = {
-              ...data,
-              id: user.uid,
-              createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt || new Date(),
-              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
-            }
-            
-            setUserData(processedData)
-
-            // ⚡ PERFORMANCE: Imposta loading=false SUBITO per migliorare UX
-            setLoading(false)
-
-            // Verifica sospensione account
-            if (processedData.isSuspended) {
-              router.push("/suspended")
-              return
-            }
-
-            // Fai il redirect solo se siamo nella pagina di login
-            if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-              // Comunica al login page che il processo è completato con successo
-              window.dispatchEvent(new CustomEvent('auth-success'))
-              router.push("/dashboard")
-            }
-          } else {
-            setLoading(false)
-          }
-        } catch (error) {
-          console.error("Errore nel caricamento dati utente:", error)
-          setLoading(false)
-        }
-      } else {
-        setUser(null)
-        setUserData(null)
-        setLoading(false)
-        // Le cookie HttpOnly saranno rimosse automaticamente dal middleware
-        // quando il token scade o viene invalidato
-      }
-    })
-
-    return () => unsubscribe()
-  }, [router])
-
-  const signOut = async () => {
-    try {
-      // Chiama API per rimuovere token sicuro
-      try {
-        await fetch("/api/auth/logout", { method: "POST" })
-      } catch (error) {
-        console.error("Errore nel logout sicuro:", error)
-      }
-      await firebaseSignOut(auth)
-      router.push("/login")
-    } catch (error) {
-      console.error("Errore nel logout:", error)
+    return {
+      uid: clerkUser.id,
+      id: clerkUser.id,
+      email,
+      displayName: clerkUser.fullName || email,
+      photoURL: clerkUser.imageUrl,
+      getIdToken: async () => (await getToken()) || undefined,
     }
-  }
+  }, [clerkUser, email, getToken, isLoaded, isSignedIn])
 
-  // Computed properties per i ruoli
-  const isSuperAdmin = userData?.role === "super-admin"
-  const isAdmin = userData?.role === "admin"
-  const isDirezione = userData?.role === "direzione"
-  const isCapoReparto = userData?.role === "capo-reparto"
-  const isJunior = userData?.role === "junior"
-  const isClient = userData?.role === "client"
-  const isSuspended = userData?.isSuspended || false
-  
-  // Role hierarchy helper functions
-  const userRole = userData?.role as UserRole
+  const userData = useMemo<User | null>(() => {
+    if (!isLoaded || !isSignedIn || !clerkUser) return null
+
+    const now = new Date()
+    return {
+      id: clerkUser.id,
+      email,
+      firstName: clerkUser.firstName || clerkUser.fullName || email || "Utente",
+      lastName: clerkUser.lastName || "",
+      role,
+      tenantId,
+      createdAt: clerkUser.createdAt || now,
+      updatedAt: clerkUser.updatedAt || now,
+      isSuspended: false,
+      companyName: String(clerkUser.publicMetadata?.companyName || "Righello"),
+      plan: String(clerkUser.publicMetadata?.plan || "Base"),
+      status: "active",
+      aiTokensUsed: Number(clerkUser.publicMetadata?.aiTokensUsed || 0),
+      aiTokensLimit: Number(clerkUser.publicMetadata?.aiTokensLimit || 1000000),
+    }
+  }, [clerkUser, email, isLoaded, isSignedIn, role, tenantId])
+
+  const userRole = userData?.role as UserRole | undefined
   const userId = userData?.id || ""
-  
-  const roleHelpers = {
-    hasPermission: (permission: any) => userRole ? hasPermission(userRole, permission) : false,
-    canManageUser: (targetRole: UserRole) => userRole ? canManageUser(userRole, targetRole) : false,
-    canAssignTaskTo: (assigneeRole: UserRole) => userRole ? canAssignTaskTo(userRole, assigneeRole) : false,
-    getAssignableRoles: () => userRole ? getAssignableRoles(userRole) : [],
-    getManageableRoles: () => userRole ? getManageableRoles(userRole) : [],
-    canViewResource: (resourceOwnerId: string) => userRole ? canViewResource(userRole, resourceOwnerId, userId) : false,
-    getRoleDisplayName: () => userRole ? getRoleDisplayName(userRole) : "",
-    getRoleColor: () => userRole ? getRoleColor(userRole) : ""
-  }
-
-  // Reindirizzamento automatico per clienti
-  useEffect(() => {
-    if (!loading && userData && isClient) {
-      const currentPath = window.location.pathname
-      const allowedClientPaths = ["/workspace", "/ai-assistant", "/login", "/register", "/suspended"]
-
-      if (!allowedClientPaths.some((path) => currentPath.startsWith(path))) {
-        router.push("/workspace")
-      }
-    }
-  }, [userData, isClient, loading, router])
-
-  // Reindirizzamento per account sospesi
-  useEffect(() => {
-    if (!loading && userData && isSuspended && window.location.pathname !== "/suspended") {
-      router.push("/suspended")
-    }
-  }, [userData, isSuspended, loading, router])
 
   const value: AuthContextType = {
     user,
     userData,
-    loading,
-    isSuperAdmin,
-    isAdmin,
-    isDirezione,
-    isCapoReparto,
-    isJunior,
-    isClient,
-    isSuspended,
-    signOut,
-    ...roleHelpers,
+    loading: !isLoaded,
+    isSuperAdmin: userRole === "super-admin",
+    isAdmin: userRole === "admin",
+    isDirezione: userRole === "direzione",
+    isCapoReparto: userRole === "capo-reparto",
+    isJunior: userRole === "junior",
+    isClient: userRole === "client",
+    isSuspended: false,
+    signOut: async () => {
+      await clerk.signOut({ redirectUrl: "/login" })
+    },
+    hasPermission: (permission: any) => (userRole ? hasPermission(userRole, permission) : false),
+    canManageUser: (targetRole: UserRole) => (userRole ? canManageUser(userRole, targetRole) : false),
+    canAssignTaskTo: (assigneeRole: UserRole) => (userRole ? canAssignTaskTo(userRole, assigneeRole) : false),
+    getAssignableRoles: () => (userRole ? getAssignableRoles(userRole) : []),
+    getManageableRoles: () => (userRole ? getManageableRoles(userRole) : []),
+    canViewResource: (resourceOwnerId: string) => (userRole ? canViewResource(userRole, resourceOwnerId, userId) : false),
+    getRoleDisplayName: () => (userRole ? getRoleDisplayName(userRole) : ""),
+    getRoleColor: () => (userRole ? getRoleColor(userRole) : ""),
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     const quotesSnapshot = await adminDb.collection('quotes').get()
-    const quotes: Quote[] = quotesSnapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+    const quotes: Quote[] = quotesSnapshot.docs.map((doc: any) => {
       const data = doc.data()
       
       const normalizedRemindersSent: Quote['remindersSent'] = {}

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { DragDropContext } from "@hello-pangea/dnd"
 import { KanbanColumn } from "./kanban-column"
 import type { Task } from "@/lib/types"
@@ -35,6 +36,18 @@ export function KanbanBoard({
   getPriorityColor,
   getScoreColor,
 }: KanbanBoardProps) {
+  const [dragEnabled, setDragEnabled] = useState(false)
+
+  useEffect(() => {
+    const query = window.matchMedia("(pointer: fine) and (min-width: 768px)")
+    const updateDragMode = () => setDragEnabled(query.matches)
+
+    updateDragMode()
+    query.addEventListener("change", updateDragMode)
+
+    return () => query.removeEventListener("change", updateDragMode)
+  }, [])
+
   const getTasksForColumn = (columnId: string) => {
     return tasks.filter(
       (task) =>
@@ -49,19 +62,22 @@ export function KanbanBoard({
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex gap-4 md:gap-6 pb-4 h-full scroll-smooth snap-x snap-mandatory md:snap-none">
-        {columns.map((column) => (
-          <KanbanColumn
-            key={column.id}
-            column={column}
-            tasks={getTasksForColumn(column.id)}
-            showAllClients={showAllClients}
-            onTaskClick={onTaskClick}
-            onAddTaskToColumn={onAddTaskToColumn}
-            getPriorityColor={getPriorityColor}
-            getScoreColor={getScoreColor}
-          />
-        ))}
+      <div className="h-full min-h-0 w-full min-w-0 overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth pb-4 [-webkit-overflow-scrolling:touch] [touch-action:auto] lg:pb-0">
+        <div className="flex h-full w-max min-w-full snap-x snap-mandatory gap-3 pb-2 md:gap-5 md:snap-none lg:gap-6">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.id}
+              column={column}
+              tasks={getTasksForColumn(column.id)}
+              dragEnabled={dragEnabled}
+              showAllClients={showAllClients}
+              onTaskClick={onTaskClick}
+              onAddTaskToColumn={onAddTaskToColumn}
+              getPriorityColor={getPriorityColor}
+              getScoreColor={getScoreColor}
+            />
+          ))}
+        </div>
       </div>
     </DragDropContext>
   )

@@ -21,23 +21,26 @@ export function MobileHeader() {
   if (!isMobile) return null
 
   return (
-    <div className="flex items-center justify-between p-4 border-b bg-background md:hidden">
+    <div className="sticky top-0 z-40 flex items-center justify-between border-b border-white/10 bg-[#050505]/92 p-4 text-white backdrop-blur-xl md:hidden">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="h-9 w-9"
+          className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.04] text-white hover:bg-white/10 hover:text-white"
         >
           <Menu className="h-5 w-5" />
           <span className="sr-only">Toggle sidebar</span>
         </Button>
         
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">O</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-righello-pink text-sm font-black text-white shadow-lg shadow-righello-pink/20">
+            O
           </div>
-          <span className="font-semibold text-lg">Optima</span>
+          <div className="leading-none">
+            <span className="block text-lg font-bold">Optima</span>
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">by Righello</span>
+          </div>
         </div>
       </div>
 
@@ -46,9 +49,9 @@ export function MobileHeader() {
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/10">
               <Avatar className="h-9 w-9">
-                <AvatarFallback>
+                <AvatarFallback className="bg-righello-pink text-white">
                   {userData?.firstName?.[0]}{userData?.lastName?.[0]}
                 </AvatarFallback>
               </Avatar>

@@ -105,7 +105,7 @@ export function ClientSidebar({
   }
 
   return (
-    <div className="w-80 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-700/50 shadow-xl flex flex-col">
+    <div className="flex h-full min-h-0 w-80 flex-col overflow-hidden border-r border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
       <div className="p-4 border-b border-slate-200/50 dark:border-slate-700/50">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -148,7 +148,7 @@ export function ClientSidebar({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
         <div className="space-y-3">
           <button
             onClick={onSelectAllClients}

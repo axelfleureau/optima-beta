@@ -9,9 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
@@ -30,7 +28,8 @@ import {
   Edit2,
   Euro,
   Users,
-  UserPlus
+  UserPlus,
+  Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SECTOR_TEMPLATES } from "@/lib/quote-templates"
@@ -70,7 +69,7 @@ export interface EnrichedPromptData {
 interface PromptEnrichmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onComplete: (enrichedData: EnrichedPromptData) => void
+  onComplete: (enrichedData: EnrichedPromptData) => void | Promise<void>
 }
 
 const PROJECT_TYPES = [
@@ -141,6 +140,7 @@ const TIMELINE_OPTIONS = [
 export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: PromptEnrichmentDialogProps) {
   const { clients, loading: clientsLoading } = useClients()
   const [currentStep, setCurrentStep] = useState(1)
+  const [isCompleting, setIsCompleting] = useState(false)
   const [formData, setFormData] = useState<Partial<EnrichedPromptData>>({
     budgetRange: { min: 3000, max: 10000 },
     complexity: 'standard',
@@ -166,11 +166,22 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
     ? !!formData.clientId 
     : !!(formData.clientName && formData.clientEmail)
 
-  const handleNext = () => {
+  const resetFormData = () => {
+    setFormData({
+      budgetRange: { min: 3000, max: 10000 },
+      complexity: 'standard',
+      timeline: '8-12 settimane',
+      clientMode: 'external'
+    })
+    setCurrentStep(1)
+  }
+
+  const handleNext = async () => {
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1)
     } else {
       if (isStep4Valid && formData.projectType && formData.sector && formData.description) {
+        setIsCompleting(true)
         const enrichedData: EnrichedPromptData = {
           projectType: formData.projectType,
           projectTypeLabel: selectedProjectType?.label || '',
@@ -187,10 +198,12 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
           clientCompany: formData.clientCompany,
           additionalNotes: formData.additionalNotes
         }
-        onComplete(enrichedData)
-        onOpenChange(false)
-        setFormData({ budgetRange: { min: 3000, max: 10000 }, complexity: 'standard', timeline: '8-12 settimane', clientMode: 'external' })
-        setCurrentStep(1)
+        try {
+          await Promise.resolve(onComplete(enrichedData))
+          resetFormData()
+        } finally {
+          setIsCompleting(false)
+        }
       }
     }
   }
@@ -206,7 +219,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
       case 1: return isStep1Valid
       case 2: return isStep2Valid
       case 3: return isStep3Valid
-      case 4: return isStep4Valid
+      case 4: return isStep4Valid && !isCompleting
       default: return false
     }
   }
@@ -227,10 +240,17 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-white/30 dark:border-white/10">
-        <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-          <DialogTitle className="text-2xl text-gray-900 dark:text-white">
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (isCompleting) return
+        if (!isOpen) resetFormData()
+        onOpenChange(isOpen)
+      }}
+    >
+      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 bg-white/90 dark:bg-black/75 backdrop-blur-xl border border-white/30 dark:border-white/10 sm:h-auto sm:max-h-[90dvh]">
+        <DialogHeader className="flex-shrink-0 px-4 pb-3 pt-5 sm:px-6 sm:pb-4 sm:pt-6">
+          <DialogTitle className="pr-8 text-xl text-gray-900 dark:text-white sm:text-2xl">
             Raccolta Informazioni Preventivo
           </DialogTitle>
           <div className="flex items-center gap-2 mt-4">
@@ -250,7 +270,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
           </p>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 max-h-[calc(90vh-180px)] px-6">
+        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 sm:px-6">
           <AnimatePresence mode="wait" custom={currentStep}>
             <motion.div
               key={currentStep}
@@ -779,14 +799,14 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
               )}
             </motion.div>
           </AnimatePresence>
-        </ScrollArea>
+        </div>
 
-        <div className="flex-shrink-0 px-6 py-4 border-t border-white/20 dark:border-white/10 bg-white/50 dark:bg-black/30 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
+        <div className="flex-shrink-0 border-t border-white/20 bg-white/75 px-4 py-3 backdrop-blur-sm dark:border-white/10 dark:bg-black/50 sm:px-6 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
             <GlassButton
               variant="ghost"
               onClick={handleBack}
-              disabled={currentStep === 1}
+              disabled={currentStep === 1 || isCompleting}
             >
               <ChevronLeft className="w-4 h-4 mr-2" />
               Indietro
@@ -797,8 +817,9 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
               onClick={handleNext}
               disabled={!canGoNext()}
             >
-              {currentStep === 4 ? 'Genera Preventivo' : 'Avanti'}
-              <ChevronRight className="w-4 h-4 ml-2" />
+              {isCompleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {currentStep === 4 ? (isCompleting ? 'Genero...' : 'Genera Preventivo') : 'Avanti'}
+              {!isCompleting && <ChevronRight className="w-4 h-4 ml-2" />}
             </GlassButton>
           </div>
         </div>

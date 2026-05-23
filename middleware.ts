@@ -1,70 +1,62 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl 
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/campagne",
+  "/preventivi",
+  "/workspace",
+  "/client-workspace",
+  "/ai-assistant",
+  "/clienti",
+  "/calendario-editoriale",
+  "/team",
+  "/settings",
+  "/super-admin",
+  "/api/ai",
+  "/api/admin",
+  "/api/calendar",
+  "/api/clients",
+  "/api/dashboard",
+  "/api/settings",
+  "/api/tasks",
+  "/api/team",
+]
 
-  // Percorsi che richiedono autenticazione
-  const protectedPaths = [
-    "/dashboard",
-    "/campagne",
-    "/preventivi", 
-    "/workspace",
-    "/client-workspace",
-    "/ai-assistant",
-    "/clienti",
-    "/calendario-editoriale",
-    "/team",
-    "/settings",
-    "/super-admin"
-  ]
+const PUBLIC_API_PREFIXES = [
+  "/api/quotes/public",
+  "/api/stripe/webhook",
+  "/api/cron",
+  "/api/auth",
+  "/api/placeholder",
+]
 
-  // Percorsi riservati solo agli admin/agency (non ai clienti)
-  const agencyOnlyPaths = [
-    "/campagne",
-    "/preventivi",
-    "/clienti", 
-    "/calendario-editoriale",
-    "/team",
-    "/settings"
-  ]
+function hasClerkSession(request: NextRequest) {
+  return request.cookies.has("__session") || request.cookies.has("__client_uat")
+}
 
-  // Percorsi riservati solo ai super-admin
-  const superAdminOnlyPaths = [
-    "/super-admin"
-  ]
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  // Percorsi riservati solo ai clienti
-  const clientOnlyPaths = ["/client-workspace"]
-
-  // Verifica se il percorso richiede autenticazione
-  const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path))
-
-  // Per ora disabiliamo il middleware e lasciamo che AuthContext gestisca l'autenticazione
-  // Questo evita problemi di compatibilità con Firebase Admin SDK nel middleware
-  
-  if (isProtectedPath) {
-    // TEMPORANEO: Disabilita controllo cookie per risolvere race condition login
-    // Il controllo dell'autenticazione è gestito da AuthContext e ProtectedRoute
-    // const token = request.cookies.get("firebase-auth-token")?.value
-    // if (!token) {
-    //   return NextResponse.redirect(new URL("/login", request.url))
-    // }
+  if (PUBLIC_API_PREFIXES.some((path) => pathname.startsWith(path))) {
+    return NextResponse.next()
   }
 
-  return NextResponse.next()
+  const protectedPath = PROTECTED_PREFIXES.some((path) => pathname.startsWith(path))
+  if (!protectedPath || hasClerkSession(request)) {
+    return NextResponse.next()
+  }
+
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const loginUrl = new URL("/login", request.url)
+  loginUrl.searchParams.set("callbackUrl", pathname)
+  return NextResponse.redirect(loginUrl)
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - login, register (auth pages)
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|login|register).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|woff2?)$).*)",
   ],
 }

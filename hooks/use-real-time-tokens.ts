@@ -1,9 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { doc, onSnapshot } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { getOrganizationAdminId } from "@/lib/token-service"
+import { useEffect, useState } from "react"
 
 export interface TokenData {
   tokensUsed: number
@@ -18,9 +15,9 @@ export interface TokenData {
 export function useRealTimeTokens(userId: string): TokenData {
   const [tokenData, setTokenData] = useState<TokenData>({
     tokensUsed: 0,
-    tokensAvailable: 0,
-    tokensTotal: 0,
-    tokensLimit: 0,
+    tokensAvailable: 1_000_000,
+    tokensTotal: 1_000_000,
+    tokensLimit: 1_000_000,
     lastUpdated: new Date(),
     loading: true,
     error: null,
@@ -28,100 +25,53 @@ export function useRealTimeTokens(userId: string): TokenData {
 
   useEffect(() => {
     if (!userId) {
-      setTokenData((prev) => ({
-        ...prev,
-        loading: false,
-        error: "No user ID provided",
-      }))
+      setTokenData((prev) => ({ ...prev, loading: false }))
       return
     }
 
-    let unsubscribe: (() => void) | null = null
+    let cancelled = false
 
-    const setupListener = async () => {
+    const fetchTokens = async () => {
       try {
-        console.log("🔄 Setting up real-time token listener for user:", userId)
+        const response = await fetch("/api/dashboard", {
+          credentials: "include",
+          cache: "no-store",
+        })
 
-        // Get the admin ID for this user (who owns the tokens)
-        const { adminId, userRole } = await getOrganizationAdminId(userId)
-        console.log(`📊 Token listener: User ${userId} (${userRole}) will track admin ${adminId} tokens`)
-
-        if (!adminId || adminId === "undefined") {
-          throw new Error(`Invalid admin ID for user: ${userId}`)
+        if (!response.ok) {
+          throw new Error(`Token request failed: ${response.status}`)
         }
 
-        // Listen to the admin's document for token changes
-        const adminDocRef = doc(db, "users", adminId)
+        const payload = await response.json()
+        const tokensUsed = Math.max(0, Number(payload.stats?.aiTokensUsed || 0))
+        const tokensLimit = Math.max(1000, Number(payload.stats?.aiTokensLimit || 1_000_000))
 
-        unsubscribe = onSnapshot(
-          adminDocRef,
-          (doc) => {
-            if (doc.exists()) {
-              const data = doc.data()
-
-              // Get token data from the admin document
-              const tokensUsed = Math.max(0, data.aiTokensUsed || 0)
-              const tokensLimit = Math.max(1000, data.aiTokensLimit || 1000000)
-              const tokensAvailable = Math.max(0, tokensLimit - tokensUsed)
-
-              const newTokenData: TokenData = {
-                tokensUsed,
-                tokensAvailable,
-                tokensTotal: tokensLimit,
-                tokensLimit,
-                lastUpdated: new Date(),
-                loading: false,
-                error: null,
-              }
-
-              console.log("📊 Real-time token update for admin", adminId, ":", {
-                used: tokensUsed,
-                available: tokensAvailable,
-                total: tokensLimit,
-              })
-
-              setTokenData(newTokenData)
-            } else {
-              console.warn(`⚠️ Admin document ${adminId} does not exist`)
-              // Set default values if admin document doesn't exist
-              const defaultData: TokenData = {
-                tokensUsed: 0,
-                tokensAvailable: 1000000,
-                tokensTotal: 1000000,
-                tokensLimit: 1000000,
-                lastUpdated: new Date(),
-                loading: false,
-                error: null,
-              }
-              setTokenData(defaultData)
-            }
-          },
-          (error) => {
-            console.error("❌ Real-time token listener error:", error)
-            setTokenData((prev) => ({
-              ...prev,
-              loading: false,
-              error: error.message,
-            }))
-          },
-        )
+        if (!cancelled) {
+          setTokenData({
+            tokensUsed,
+            tokensAvailable: Math.max(0, tokensLimit - tokensUsed),
+            tokensTotal: tokensLimit,
+            tokensLimit,
+            lastUpdated: new Date(),
+            loading: false,
+            error: null,
+          })
+        }
       } catch (error) {
-        console.error("❌ Error setting up token listener:", error)
-        setTokenData((prev) => ({
-          ...prev,
-          loading: false,
-          error: error instanceof Error ? error.message : "Unknown error",
-        }))
+        if (!cancelled) {
+          setTokenData((prev) => ({
+            ...prev,
+            loading: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          }))
+        }
       }
     }
 
-    setupListener()
+    fetchTokens()
 
     return () => {
-      if (unsubscribe) {
-        console.log("🔌 Cleaning up real-time token listener")
-        unsubscribe()
-      }
+      cancelled = true
     }
   }, [userId])
 

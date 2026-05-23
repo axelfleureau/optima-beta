@@ -19,7 +19,7 @@ import { OrchestrationFeedback } from "@/components/command-bar/orchestration-fe
 import { ContentAgentOrchestrator, type OrchestrationResult } from "@/lib/services/content-agent-orchestrator"
 import { auth } from "@/lib/firebase"
 import type { CommandContext, NLPResponse } from "@/lib/types"
-import { parseDateExpression, formatDateForCommand } from "@/lib/utils/date-parser"
+import { parseDateExpression, formatDateForCommand, normalizeFutureCommandDate } from "@/lib/utils/date-parser"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
 
@@ -188,6 +188,18 @@ export function DashboardCommandInput() {
       }
 
       const nlpResponse: NLPResponse = await response.json()
+      if (nlpResponse.entities?.publishDate) {
+        const normalizedPublishDate = normalizeFutureCommandDate(nlpResponse.entities.publishDate, originalInput)
+        if (normalizedPublishDate) {
+          nlpResponse.entities.publishDate = normalizedPublishDate
+        }
+      }
+      if (nlpResponse.entities?.dueDate) {
+        const normalizedDueDate = normalizeFutureCommandDate(nlpResponse.entities.dueDate, originalInput)
+        if (normalizedDueDate) {
+          nlpResponse.entities.dueDate = normalizedDueDate
+        }
+      }
       
       console.log("✅ NLP Result:", nlpResponse)
       console.log("🎯 Intent:", nlpResponse.intent)

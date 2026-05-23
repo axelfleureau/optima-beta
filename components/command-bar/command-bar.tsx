@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { usePathname, useSearchParams } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { useCommandBarStore } from "@/lib/stores/command-bar-store"
 import { useAuth } from "@/lib/auth-context"
@@ -19,32 +20,26 @@ export function CommandBar() {
   const { userData } = useAuth()
   const { clients } = useClients()
   const { users } = useUsers()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    if (!isOpen) {
-      console.log("⏭️ Command Bar closed - skipping context update")
-      return
-    }
-
-    console.log("🔧 Command Bar context useEffect triggered")
-    console.log("👤 userData:", userData ? "loaded" : "null")
-    console.log("👥 clients:", clients ? `${clients.length} clients` : "null")
-    console.log("🧑‍💼 users:", users ? `${users.length} users` : "null")
+    if (!isOpen) return
 
     if (userData && clients) {
+      const selectedClient = searchParams.get("clientId") || undefined
       const newContext = {
         tenantId: userData.tenantId,
         userId: userData.id,
         userRole: userData.role,
+        currentView: pathname,
+        selectedClient,
         availableClients: clients,
         availableUsers: users || [],
       }
-      console.log("✅ Setting context:", newContext)
       setContext(newContext)
-    } else {
-      console.log("⚠️ Cannot set context yet - waiting for userData and clients")
     }
-  }, [isOpen, userData, clients, users, setContext])
+  }, [isOpen, userData, clients, users, setContext, pathname, searchParams])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -71,9 +66,9 @@ export function CommandBar() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
       <DialogContent
         className={cn(
-          "max-w-2xl p-0 gap-0 overflow-hidden relative",
-          "bg-white/80 dark:bg-black/50 backdrop-blur-2xl",
-          "shadow-glass-lg border border-slate-200/50 dark:border-slate-700/50",
+          "max-w-3xl p-0 gap-0 overflow-hidden relative",
+          "bg-white dark:bg-slate-950",
+          "shadow-2xl border border-slate-200 dark:border-slate-800",
           "animate-in fade-in-0 zoom-in-95"
         )}
       >
@@ -96,12 +91,12 @@ export function CommandBar() {
               <div className="relative z-10">
                 <CommandInput />
                 
-                <div className="px-4 pb-4">
+                <div className="px-5 pb-4">
                   <OrchestrationFeedback />
                 </div>
 
                 {status === "gathering" && missingParams.length > 0 && (
-                  <div className="p-4 border-t border-white/20 dark:border-white/10">
+                  <div className="p-5 border-t border-slate-200 dark:border-slate-800">
                     <ContextForm />
                   </div>
                 )}
@@ -116,16 +111,20 @@ export function CommandBar() {
           </motion.div>
         </AnimatePresence>
 
-        <div className="px-4 py-2 border-t border-white/20 dark:border-white/10 bg-white/50 dark:bg-black/30">
+        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-1 bg-white/60 dark:bg-black/40 rounded border border-white/40 dark:border-white/20 font-mono text-[10px]">
+              <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-[10px]">
                 ⌘K
               </kbd>
               <span>per aprire</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-1 bg-white/60 dark:bg-black/40 rounded border border-white/40 dark:border-white/20 font-mono text-[10px]">
+              <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-[10px]">
+                ↵
+              </kbd>
+              <span>esegui</span>
+              <kbd className="ml-3 px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-[10px]">
                 ESC
               </kbd>
               <span>per chiudere</span>

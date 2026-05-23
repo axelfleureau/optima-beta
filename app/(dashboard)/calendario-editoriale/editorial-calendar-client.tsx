@@ -36,8 +36,6 @@ export default function EditorialCalendarClient() {
   const [editingPost, setEditingPost] = useState<EditorialPost | null>(null)
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
 
   const { viewMode, selectedDate, setSelectedDate, setPosts, filteredPosts: contextFilteredPosts } = useCalendarExperience()
@@ -68,12 +66,17 @@ export default function EditorialCalendarClient() {
   }, [posts, setPosts])
 
   const filteredPosts = useMemo(() => {
-    return posts.filter(
-      (post) =>
-        post.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (post.caption && post.caption.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        post.platform?.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
+    const search = searchTerm.toLowerCase()
+    return posts.filter((post) => {
+      const platform = Array.isArray(post.platform) ? post.platform.join(" ") : post.platform
+      return (
+        post.name?.toLowerCase().includes(search) ||
+        post.title?.toLowerCase().includes(search) ||
+        post.caption?.toLowerCase().includes(search) ||
+        post.content?.toLowerCase().includes(search) ||
+        platform?.toLowerCase().includes(search)
+      )
+    })
   }, [posts, searchTerm])
 
   const postsByStatus = useMemo(() => {
@@ -93,7 +96,7 @@ export default function EditorialCalendarClient() {
   // Don't render anything until mounted
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 flex justify-center items-center">
+      <div className="flex h-[calc(100dvh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Inizializzazione...</p>
@@ -105,7 +108,7 @@ export default function EditorialCalendarClient() {
   // Show loading if user data is not available
   if (!userData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 flex justify-center items-center">
+      <div className="flex h-[calc(100dvh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Autenticazione...</p>
@@ -235,7 +238,7 @@ export default function EditorialCalendarClient() {
 
   if (postsLoading || clientsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 flex justify-center items-center">
+      <div className="flex h-[calc(100dvh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento calendario editoriale...</p>
@@ -250,9 +253,9 @@ export default function EditorialCalendarClient() {
   }))
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800">
+    <div className="h-[calc(100dvh-73px)] overflow-y-auto overflow-x-hidden overscroll-contain bg-slate-100 text-slate-950 touch-pan-y dark:bg-[#0b1323] dark:text-slate-100 md:h-auto md:min-h-screen md:overflow-visible">
       {/* Header migliorato */}
-      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-lg">
+      <div className="min-w-0 border-b border-slate-200/50 bg-white/85 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#111827]/88">
         <CalendarHeader
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -264,11 +267,11 @@ export default function EditorialCalendarClient() {
         />
       </div>
 
-      <div className="container mx-auto px-6 py-8">
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="space-y-6">
+      <div className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 py-4 md:px-6 md:py-8">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="min-w-0 space-y-4 md:space-y-6">
           <CalendarTabs activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as "table" | "kanban" | "calendar")} />
 
-          <TabsContent value="table" className="space-y-6">
+          <TabsContent value="table" className="min-w-0 space-y-4 md:space-y-6">
             <TableView
               posts={filteredPosts}
               onEditPost={openEditForm}
@@ -279,7 +282,7 @@ export default function EditorialCalendarClient() {
             />
           </TabsContent>
 
-          <TabsContent value="kanban" className="space-y-6">
+          <TabsContent value="kanban" className="min-w-0 space-y-4 md:space-y-6">
             <KanbanView
               postsByStatus={postsByStatus}
               onDragEnd={onDragEnd}
@@ -288,8 +291,8 @@ export default function EditorialCalendarClient() {
             />
           </TabsContent>
 
-          <TabsContent value="calendar" className="space-y-6">
-            <div className="mb-4">
+          <TabsContent value="calendar" className="min-w-0 space-y-4 md:space-y-6">
+            <div className="mb-2 min-w-0 md:mb-4">
               <ViewSwitcher />
             </div>
             

@@ -124,7 +124,7 @@ export default function WorkspacePage() {
   }, [highlightedTaskId, setHighlight])
 
   return (
-    <div className="h-screen">
+    <div className="min-h-screen">
       <DynamicWorkspace />
       <AutoGenPreview />
     </div>

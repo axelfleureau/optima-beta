@@ -7,6 +7,7 @@ import { estimateTokens } from "@/lib/token-service"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, increment } from "firebase/firestore"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { OPENAI_FAST_MODEL } from "@/lib/ai/models"
 
 // 🔧 NUOVA FUNZIONE: Trova l'ID documento Firebase basandosi su username/email
 async function findUserDocumentId(identifier: string): Promise<string | null> {
@@ -269,9 +270,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`💰 Template token estimate: ${estimatedTokens} tokens`)
 
-    // Stream the AI response using GPT-4o-mini
+    // Stream the AI response using the fast text model.
     const result = streamText({
-      model: openaiClient("gpt-4o-mini"),
+      model: openaiClient(OPENAI_FAST_MODEL),
       messages: [
         {
           role: "system",

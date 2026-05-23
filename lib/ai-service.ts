@@ -276,7 +276,7 @@ async function callOpenAI(
   messages: Array<{ role: string; content: string }>,
   maxTokens = 1000,
   temperature = 0.7,
-  model = "gpt-4o-mini",
+  model = "gpt-5-mini",
 ): Promise<any> {
   try {
     // Call our API route instead of OpenAI directly

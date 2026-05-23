@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { recognizeIntent } from "@/lib/ai/intent-recognition"
 import type { CommandContext } from "@/lib/types"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { requireClerkUser } from "@/lib/server-clerk"
 
 export async function POST(request: Request) {
   const rateLimitResult = await rateLimit(request, "AI")
@@ -12,6 +13,11 @@ export async function POST(request: Request) {
   }
 
   try {
+    const user = await requireClerkUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json()
     const { message, context } = body as { message: string; context: CommandContext }
 
@@ -29,12 +35,7 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log("🎤 Processing command:", message)
-    console.log("📍 Context:", context)
-
     const nlpResponse = await recognizeIntent(message, context)
-
-    console.log("✅ NLP Response:", nlpResponse)
 
     return NextResponse.json(nlpResponse)
   } catch (error: any) {

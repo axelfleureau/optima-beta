@@ -6,6 +6,7 @@ import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 import { getOrganizationAdminId, logTokenUsage, estimateTokens } from "@/lib/token-service"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { OPENAI_REASONING_MODEL } from "@/lib/ai/models"
 
 const BestPracticesSchema = z.object({
   taskType: z.string(),
@@ -167,7 +168,7 @@ ${taskDescription ? `Description: ${taskDescription}` : ""}
 
 Fornisci checklist, tips professionali, warnings e resources per questo tipo di task.`
 
-    console.log("🤖 Generating best practices with OpenAI GPT-4o...")
+    console.log(`🤖 Generating best practices with OpenAI ${OPENAI_REASONING_MODEL}...`)
 
     const messages = [
       { role: "system" as const, content: SYSTEM_PROMPT },
@@ -180,7 +181,7 @@ Fornisci checklist, tips professionali, warnings e resources per questo tipo di 
 
     try {
       const result = await generateObject({
-        model: openai("gpt-4o"),
+        model: openai(OPENAI_REASONING_MODEL),
         schema: BestPracticesSchema,
         messages,
         temperature: 0.7,

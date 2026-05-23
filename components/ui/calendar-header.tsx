@@ -25,54 +25,54 @@ export function CalendarHeader({
   userRole,
 }: CalendarHeaderProps) {
   return (
-    <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-lg">
-      <div className="container mx-auto px-6 py-6">
+    <div className="border-b border-slate-200/50 bg-white/80 shadow-lg backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
+      <div className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 py-4 sm:px-6 sm:py-6">
         {/* Titolo principale */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-            <Calendar className="h-8 w-8 text-white" />
+        <div className="mb-4 flex min-w-0 items-start gap-3 sm:mb-6 sm:items-center sm:gap-4">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br from-purple-500 to-pink-600 shadow-lg sm:h-14 sm:w-14">
+            <Calendar className="h-6 w-6 text-white sm:h-8 sm:w-8" />
           </div>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-xl font-bold text-transparent dark:from-slate-100 dark:to-slate-300 sm:text-2xl">
               Calendario Editoriale
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
+            <p className="mt-1 flex items-start gap-2 text-sm leading-5 text-slate-600 dark:text-slate-400 sm:items-center sm:text-base">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 sm:mt-0" />
               Gestisci e pianifica i tuoi contenuti con precisione
             </p>
           </div>
 
           {/* Tutorial link */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800">
+          <div className="hidden items-center gap-2 rounded-[8px] border border-pink-200 bg-pink-50 px-3 py-2 dark:border-pink-800 dark:bg-pink-900/20 md:flex">
             <PlayCircle className="h-4 w-4 text-pink-600 dark:text-pink-400" />
-            <span className="text-sm text-pink-700 dark:text-pink-300 font-medium">
+            <span className="text-sm font-medium text-pink-700 dark:text-pink-300">
               Guarda il tutorial per ottimizzare il tuo workflow
             </span>
           </div>
         </div>
 
         {/* Controlli */}
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1 max-w-2xl">
+        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row lg:max-w-2xl">
             {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 placeholder="Cerca contenuti..."
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50 focus:bg-white dark:focus:bg-slate-800 transition-all duration-200"
+                className="min-w-0 rounded-[8px] border-slate-200/50 bg-white/70 pl-10 backdrop-blur-sm transition-all duration-200 focus:bg-white dark:border-slate-700/50 dark:bg-slate-800/70 dark:focus:bg-slate-800"
               />
             </div>
 
             {/* Client selector - solo per admin */}
             {userRole !== "client" && (
-              <div className="min-w-[200px]">
+              <div className="min-w-0 sm:w-56">
                 <Select
                   value={selectedClientId || "all"}
                   onValueChange={(value) => onClientChange(value === "all" ? null : value)}
                 >
-                  <SelectTrigger className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50 focus:bg-white dark:focus:bg-slate-800 transition-all duration-200">
+                  <SelectTrigger className="min-w-0 rounded-[8px] border-slate-200/50 bg-white/70 backdrop-blur-sm transition-all duration-200 focus:bg-white dark:border-slate-700/50 dark:bg-slate-800/70 dark:focus:bg-slate-800">
                     <SelectValue placeholder="Seleziona cliente..." />
                   </SelectTrigger>
                   <SelectContent className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50">
@@ -91,7 +91,7 @@ export function CalendarHeader({
           {/* New Post Button */}
           <Button
             onClick={onNewPost}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+            className="w-full rounded-[8px] bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg transition-all duration-200 hover:from-purple-700 hover:to-pink-700 hover:shadow-xl sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             Nuovo Post

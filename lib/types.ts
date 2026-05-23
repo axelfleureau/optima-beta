@@ -53,6 +53,29 @@ export interface Client {
   lastActivity?: Timestamp | Date
 }
 
+export interface ProjectMember {
+  id: string
+  name: string
+  email: string
+  role?: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  clientId?: string | null
+  clientName?: string
+  tenantId: string
+  status: "planned" | "active" | "in-progress" | "completed" | "on-hold" | "archived"
+  budgetCents?: number
+  startsAt?: Timestamp | Date | null
+  dueAt?: Timestamp | Date | null
+  members?: ProjectMember[]
+  memberIds?: string[]
+  createdAt: Timestamp | Date
+  updatedAt: Timestamp | Date
+}
+
 export interface Campaign {
   id: string
   name: string
@@ -82,8 +105,15 @@ export interface Task {
   dueDate?: Timestamp | Date | null
   assignee?: string
   assignedUserId?: string | null
+  assignmentStatus?: "accepted" | "pending" | "rejected"
+  assignmentRequestedByMemberId?: string | null
+  assignmentRequestedAt?: Timestamp | Date | null
+  assignmentRespondedAt?: Timestamp | Date | null
+  assignmentRejectionReason?: string | null
   clientId: string
   clientName?: string
+  projectId?: string | null
+  projectName?: string
   tenantId: string
   createdAt: Timestamp | Date
   updatedAt: Timestamp | Date

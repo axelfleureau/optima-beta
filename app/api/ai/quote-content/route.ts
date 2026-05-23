@@ -6,6 +6,7 @@ import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 import { getOrganizationAdminId, logTokenUsage, estimateTokens } from "@/lib/token-service"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { OPENAI_FAST_MODEL } from "@/lib/ai/models"
 
 const quoteContentSchema = z.object({
   titolo: z.string(),
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
         const timeoutId = setTimeout(() => controller.abort(), 30000)
         
         const result = await generateObject({
-          model: openai("gpt-4o-mini"),
+          model: openai(OPENAI_FAST_MODEL),
           schema: quoteContentSchema,
           mode: 'json',
           messages,

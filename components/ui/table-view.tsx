@@ -23,7 +23,7 @@ interface TableViewProps {
 export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selectedClientId, userRole }: TableViewProps) {
   // Helper per ottenere la data del post (compatibile con legacy)
   const getPostDate = (post: EditorialPost): Date => {
-    if (post.date) {
+    if (post.date && typeof post.date.toDate === "function") {
       return post.date.toDate()
     }
     // Usa scheduledDate e scheduledTime se disponibili
@@ -33,8 +33,85 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
   }
 
   return (
-    <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 shadow-xl rounded-2xl overflow-hidden">
+    <Card className="overflow-hidden rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
       <CardContent className="p-0">
+        <div className="space-y-3 p-3 md:hidden">
+          {posts.length === 0 && (
+            <div className="rounded-[8px] border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+              <List className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Nessun post trovato</p>
+              {!selectedClientId && userRole !== "client" && (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+                  Seleziona un cliente per visualizzare i contenuti
+                </p>
+              )}
+            </div>
+          )}
+
+          {posts.map((post) => {
+            const statusInfo = statusConfig[post.status]
+            const StatusIcon = statusInfo.icon
+            const postText = post.caption || post.content
+
+            return (
+              <div
+                key={post.id}
+                className="min-w-0 rounded-[8px] border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
+              >
+                <div className="mb-3 flex min-w-0 items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-slate-950 dark:text-slate-100">
+                      {post.name || post.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {format(getPostDate(post), "dd MMM yyyy", { locale: it })}
+                      {post.scheduledTime ? `, ${post.scheduledTime}` : ""}
+                    </p>
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-[8px]">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => onEditPost(post)}>
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Modifica
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onDeletePost(post.id)} className="text-red-600">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Elimina
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Badge className={`${statusInfo.lightColor} dark:${statusInfo.darkColor} border text-[11px] font-medium`}>
+                    <StatusIcon className="mr-1 h-3 w-3" />
+                    {statusInfo.label}
+                  </Badge>
+                  <Badge variant="outline" className="text-[11px]">
+                    {post.platform}
+                  </Badge>
+                  <Badge variant="outline" className="text-[11px]">
+                    {post.format}
+                  </Badge>
+                </div>
+
+                {postText && <p className="mt-3 line-clamp-3 text-sm text-slate-600 dark:text-slate-400">{postText}</p>}
+
+                <Button onClick={() => onEditPost(post)} variant="outline" size="sm" className="mt-3 w-full rounded-[8px]">
+                  Apri post
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
         <Table>
           <TableHeader>
             <TableRow className="border-slate-200/50 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/50">
@@ -152,12 +229,13 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
             })}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
-      <CardFooter className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-200/50 dark:border-slate-700/50">
+      <CardFooter className="border-t border-slate-200/50 bg-slate-50/50 p-4 dark:border-slate-700/50 dark:bg-slate-800/50 sm:p-6">
         <Button
           variant="outline"
           onClick={onNewPost}
-          className="w-full border-dashed border-2 border-slate-300 dark:border-slate-600 hover:border-pink-500 hover:text-pink-500 transition-colors bg-transparent"
+          className="w-full rounded-[8px] border-2 border-dashed border-slate-300 bg-transparent transition-colors hover:border-pink-500 hover:text-pink-500 dark:border-slate-600"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
           Aggiungi nuovo post

@@ -7,13 +7,21 @@ const nextConfig = {
       '.replit.dev',
     ],
   },
-  serverExternalPackages: ['firebase-admin'],
+  outputFileTracingIncludes: {
+    '/*': ['./node_modules/jose/dist/**/*'],
+  },
   // Webpack configuration to fix chunk loading timeout
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Increase chunk loading timeout to 60 seconds (default is 120000ms/2min)
       config.output.chunkLoadTimeout = 60000
     }
+
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "firebase-admin/firestore": new URL("./lib/firebase-admin-firestore.ts", import.meta.url).pathname,
+    }
+
     return config
   },
   // Allow all hosts for Replit proxy environment

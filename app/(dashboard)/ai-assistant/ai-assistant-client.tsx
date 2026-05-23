@@ -8,6 +8,8 @@ import { Sparkles, Zap, MessageSquare, TrendingUp, Activity, CheckCircle, Loader
 import { useAuth } from "@/lib/auth-context"
 import { useRealTimeTokens } from "@/hooks/use-real-time-tokens"
 import { TokenUsageAlert, TokenUsageStats } from "@/components/ai/token-usage-alert"
+import { MagnificStudio } from "@/components/ai/magnific-studio"
+import type { ChatMessage } from "@/lib/chat-types"
 
 // Dynamic imports for client-side dependencies
 import dynamic from "next/dynamic"
@@ -42,6 +44,7 @@ export default function AIAssistantClient() {
   const [chatHistory, setChatHistory] = useState<any[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
 
   // Handle mounting
   useEffect(() => {
@@ -53,8 +56,23 @@ export default function AIAssistantClient() {
       setLoadingHistory(true)
       console.log("📚 Loading chat history for session:", sessionId)
 
-      const { getChatHistory } = await import("@/lib/chat-service")
-      const history = await getChatHistory(sessionId)
+      const response = await fetch(`/api/ai/chat/sessions/${sessionId}`, {
+        credentials: "include",
+        cache: "no-store",
+      })
+      if (!response.ok) {
+        throw new Error(`Errore caricamento messaggi: ${response.status}`)
+      }
+
+      const payload = await response.json()
+      const history: ChatMessage[] = (payload.messages || []).map((message: any) => ({
+        id: message.id,
+        content: message.content || "",
+        role: message.role,
+        timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+        sessionId: message.sessionId,
+        userId: message.userId || user?.uid || "",
+      }))
       setChatHistory(history)
       console.log("✅ Loaded", history.length, "messages")
     } catch (error) {
@@ -83,10 +101,12 @@ export default function AIAssistantClient() {
   const handleSessionCreated = (sessionId: string) => {
     console.log("🎉 New session created:", sessionId)
     setSelectedSessionId(sessionId)
+    setHistoryRefreshKey((key) => key + 1)
   }
 
   const handleMessageSent = () => {
     console.log("📨 Message sent, token data will update automatically via real-time listener")
+    setHistoryRefreshKey((key) => key + 1)
   }
 
   // Show loading while mounting or auth is loading
@@ -151,17 +171,17 @@ export default function AIAssistantClient() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Main Container with Professional Grid System */}
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        <div className="space-y-8">
+      <div className="container mx-auto px-4 py-4 md:px-6 md:py-8 max-w-7xl">
+        <div className="space-y-6 md:space-y-8">
           {/* Header Section */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3 md:gap-4">
                 <Sparkles className="h-8 w-8 text-slate-600 dark:text-slate-400" />
                 Assistente AI
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">
-                Il tuo assistente marketing intelligente con memoria delle conversazioni
+              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-lg">
+                Assistente operativo con memoria, cronologia e contesto live da progetti, task, clienti e team
               </p>
               {user && (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Benvenuto, {user.displayName || user.email}</p>
@@ -182,8 +202,10 @@ export default function AIAssistantClient() {
             className="mb-2"
           />
 
+          <MagnificStudio />
+
           {/* Token Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
             <Card className="border-0 shadow-lg bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 overflow-hidden">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-300">
@@ -269,7 +291,7 @@ export default function AIAssistantClient() {
                   </Badge>
                 </div>
                 <div className="space-y-2">
-                  {["Memoria conversazioni attiva", "Token tracking in tempo reale", "GPT-4o Mini disponibile"].map(
+                  {["Memoria conversazioni attiva", "Contesto operativo Óptima", "Modello GPT aggiornato"].map(
                     (feature, index) => (
                       <div key={index} className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
                         <div
@@ -286,8 +308,8 @@ export default function AIAssistantClient() {
           </div>
 
           {/* Main Chat Interface */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="flex h-[700px]">
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex h-[calc(100dvh-9rem)] min-h-[560px] md:h-[700px]">
               {/* Sidebar */}
               {showSidebar && (
                 <div className="hidden lg:block">
@@ -296,6 +318,7 @@ export default function AIAssistantClient() {
                     currentSessionId={selectedSessionId}
                     onSessionSelect={handleSessionSelect}
                     onNewChat={handleNewChat}
+                    refreshKey={historyRefreshKey}
                   />
                 </div>
               )}

@@ -72,7 +72,18 @@ const defaultColumns = [
 export function DynamicWorkspace() {
   const { user, userData } = useAuth()
   const { loading: clientsLoading } = useClients()
-  const { tasks: allTasks, loading: tasksLoading, moveTask, updateTask, addComment, updateSubItems } = useWorkspaceData()
+  const {
+    tasks: allTasks,
+    loading: tasksLoading,
+    moveTask,
+    updateTask,
+    uploadTaskAttachments,
+    deleteTaskAttachment,
+    addComment,
+    updateSubItems,
+    acceptTaskAssignment,
+    rejectTaskAssignment,
+  } = useWorkspaceData()
   const [showTaskDetailDialog, setShowTaskDetailDialog] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const { highlightedTaskId } = useWorkspaceNav()
@@ -83,7 +94,9 @@ export function DynamicWorkspace() {
     if (!result.destination) return
     const { source, destination, draggableId } = result
     if (source.droppableId === destination.droppableId && source.index === destination.index) return
-    await moveTask(draggableId, destination.droppableId)
+    void moveTask(draggableId, destination.droppableId, {
+      destinationIndex: destination.index,
+    })
   }
 
   const handleTaskClick = (task: Task) => {
@@ -135,7 +148,7 @@ export function DynamicWorkspace() {
   if (isClient) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="flex flex-col h-screen">
+        <div className="flex min-h-screen flex-col">
           <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-lg">
             <div className="p-6">
               <div className="flex items-center gap-4">
@@ -150,7 +163,7 @@ export function DynamicWorkspace() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+          <div className="flex-1 overflow-x-auto overflow-y-auto p-6">
             {tasksLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
@@ -368,8 +381,12 @@ export function DynamicWorkspace() {
             open={showTaskDetailDialog}
             onOpenChange={setShowTaskDetailDialog}
             onUpdateTask={updateTask}
+            onUploadAttachments={uploadTaskAttachments}
+            onDeleteAttachment={deleteTaskAttachment}
             onAddComment={addComment}
             onUpdateSubItems={updateSubItems}
+            onAcceptAssignment={acceptTaskAssignment}
+            onRejectAssignment={rejectTaskAssignment}
           />
         </div>
       </div>

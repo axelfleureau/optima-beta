@@ -1,14 +1,97 @@
 import type { CommandIntent, CommandContext, CommandExecutionResult } from "@/lib/types"
-import { addDoc, collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+
+async function parseApiResponse(response: Response) {
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Operazione non riuscita")
+  }
+
+  return payload
+}
+
+function findClientId(entities: Record<string, any>, context: CommandContext) {
+  if (entities.clientId) return entities.clientId
+  if (!entities.clientName) return null
+
+  const requestedName = String(entities.clientName).toLowerCase()
+  return (
+    context.availableClients?.find((client) =>
+      client.name.toLowerCase().includes(requestedName) ||
+      requestedName.includes(client.name.toLowerCase()),
+    )?.id || null
+  )
+}
+
+function findUser(entities: Record<string, any>, context: CommandContext) {
+  if (entities.assignedUserId) {
+    return context.availableUsers?.find((user) => user.id === entities.assignedUserId)
+  }
+
+  if (!entities.assignee) return null
+  const requestedName = String(entities.assignee).toLowerCase()
+
+  return (
+    context.availableUsers?.find((user) => {
+      const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim().toLowerCase()
+      return fullName.includes(requestedName) || user.email?.toLowerCase().includes(requestedName)
+    }) || null
+  )
+}
+
+function normalizeStatus(value: unknown) {
+  const status = typeof value === "string" ? value.toLowerCase() : ""
+  const map: Record<string, string> = {
+    todo: "to-do",
+    "to do": "to-do",
+    "to-do": "to-do",
+    backlog: "backlog",
+    urgenze: "urgenze",
+    urgent: "urgenze",
+    "in corso": "in-corso",
+    "in-corso": "in-corso",
+    "in progress": "in-progress",
+    "in-progress": "in-progress",
+    validation: "validation",
+    review: "review",
+    done: "done",
+    completed: "completed",
+  }
+
+  return map[status] || "to-do"
+}
+
+async function fetchWorkspaceTasks() {
+  const payload = await parseApiResponse(
+    await fetch("/api/tasks", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    }),
+  )
+
+  return Array.isArray(payload.tasks) ? payload.tasks : []
+}
+
+async function createWorkspaceTask(taskData: Record<string, any>) {
+  const payload = await parseApiResponse(
+    await fetch("/api/tasks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(taskData),
+    }),
+  )
+
+  return payload.task
+}
 
 export async function executeIntent(
   intent: CommandIntent,
   entities: Record<string, any>,
   context: CommandContext
 ): Promise<CommandExecutionResult> {
-  console.log("🎯 Executing intent:", intent, "with entities:", entities)
-
   try {
     switch (intent) {
       case "CREATE_TASK":
@@ -61,16 +144,7 @@ async function handleCreateTask(
   context: CommandContext
 ): Promise<CommandExecutionResult> {
   try {
-    let clientId = entities.clientId
-
-    if (!clientId && entities.clientName) {
-      const clientDoc = context.availableClients?.find(
-        (c) => c.name.toLowerCase().includes(entities.clientName.toLowerCase())
-      )
-      if (clientDoc) {
-        clientId = clientDoc.id
-      }
-    }
+    const clientId = findClientId(entities, context)
 
     if (!clientId) {
       return {
@@ -80,31 +154,29 @@ async function handleCreateTask(
       }
     }
 
+    const client = context.availableClients?.find((item) => item.id === clientId)
+    const assignee = findUser(entities, context)
     const taskData = {
       title: entities.title || "Nuova Task",
       description: entities.description || "",
-      status: entities.status || "todo",
-      columnId: entities.status || "to-do",
+      status: normalizeStatus(entities.status),
+      columnId: normalizeStatus(entities.status),
       priority: entities.priority || "medium",
       clientId: clientId,
-      tenantId: context.tenantId,
-      createdBy: context.userId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      assignedUserId: entities.assignedUserId || null,
+      clientName: client?.name || entities.clientName || "",
+      assignedUserId: assignee?.id || entities.assignedUserId || null,
+      assignee: assignee ? `${assignee.firstName || ""} ${assignee.lastName || ""}`.trim() : entities.assignee || "",
       dueDate: entities.dueDate || null,
       tags: entities.tags || [],
-      comments: [],
-      subItems: [],
       attachments: [],
     }
 
-    const docRef = await addDoc(collection(db, "tasks"), taskData)
+    const createdTask = await createWorkspaceTask(taskData)
 
     return {
       success: true,
       message: `Task "${taskData.title}" creata con successo!`,
-      data: { id: docRef.id, ...taskData },
+      data: createdTask,
     }
   } catch (error: any) {
     console.error("Create task error:", error)
@@ -121,28 +193,22 @@ async function handleSearchTask(
   context: CommandContext
 ): Promise<CommandExecutionResult> {
   try {
-    const tasksRef = collection(db, "tasks")
-    let q = query(tasksRef, where("tenantId", "==", context.tenantId))
+    const clientId = findClientId(entities, context)
+    const queryText = String(entities.query || entities.search || entities.title || entities.taskTitle || "").toLowerCase()
+    const status = entities.status ? normalizeStatus(entities.status) : null
+    const priority = entities.priority ? String(entities.priority).toLowerCase() : null
 
-    if (entities.clientName && context.availableClients) {
-      const client = context.availableClients.find((c) =>
-        c.name.toLowerCase().includes(entities.clientName.toLowerCase())
-      )
-      if (client) {
-        q = query(tasksRef, where("tenantId", "==", context.tenantId), where("clientId", "==", client.id))
-      }
-    }
+    const tasks = (await fetchWorkspaceTasks()).filter((task: any) => {
+      const matchesClient = !clientId || task.clientId === clientId
+      const matchesStatus = !status || task.columnId === status || task.status === status
+      const matchesPriority = !priority || task.priority === priority
+      const matchesText =
+        !queryText ||
+        task.title?.toLowerCase().includes(queryText) ||
+        task.description?.toLowerCase().includes(queryText)
 
-    if (entities.status) {
-      q = query(q, where("status", "==", entities.status))
-    }
-
-    if (entities.priority) {
-      q = query(q, where("priority", "==", entities.priority))
-    }
-
-    const snapshot = await getDocs(q)
-    const tasks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      return matchesClient && matchesStatus && matchesPriority && matchesText
+    })
 
     return {
       success: true,
@@ -174,16 +240,11 @@ async function handleAssignTask(
 
     let taskId = entities.taskId
     if (!taskId && entities.taskTitle) {
-      const tasksRef = collection(db, "tasks")
-      const q = query(
-        tasksRef,
-        where("tenantId", "==", context.tenantId),
-        where("title", "==", entities.taskTitle)
+      const requestedTitle = String(entities.taskTitle).toLowerCase()
+      const task = (await fetchWorkspaceTasks()).find((item: any) =>
+        item.title?.toLowerCase().includes(requestedTitle),
       )
-      const snapshot = await getDocs(q)
-      if (!snapshot.empty) {
-        taskId = snapshot.docs[0].id
-      }
+      taskId = task?.id
     }
 
     if (!taskId) {
@@ -194,17 +255,8 @@ async function handleAssignTask(
       }
     }
 
-    let assignedUserId = entities.assignedUserId
-    if (!assignedUserId && entities.assignee && context.availableUsers) {
-      const user = context.availableUsers.find(
-        (u) =>
-          `${u.firstName} ${u.lastName}`.toLowerCase().includes(entities.assignee.toLowerCase()) ||
-          u.email.toLowerCase().includes(entities.assignee.toLowerCase())
-      )
-      if (user) {
-        assignedUserId = user.id
-      }
-    }
+    const assignedUser = findUser(entities, context)
+    const assignedUserId = assignedUser?.id || entities.assignedUserId
 
     if (!assignedUserId) {
       return {
@@ -214,17 +266,28 @@ async function handleAssignTask(
       }
     }
 
-    const taskRef = doc(db, "tasks", taskId)
-    await updateDoc(taskRef, {
-      assignedUserId,
-      assignee: entities.assignee,
-      updatedAt: new Date(),
-    })
+    const assignee = assignedUser
+      ? `${assignedUser.firstName || ""} ${assignedUser.lastName || ""}`.trim()
+      : entities.assignee
+
+    const payload = await parseApiResponse(
+      await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          assignedUserId,
+          assignee,
+        }),
+      }),
+    )
 
     return {
       success: true,
-      message: `Task assegnata con successo a ${entities.assignee}`,
-      data: { taskId, assignedUserId },
+      message: `Task assegnata con successo a ${assignee || "utente selezionato"}`,
+      data: payload.task,
     }
   } catch (error: any) {
     console.error("Assign task error:", error)
@@ -241,29 +304,49 @@ async function handleUpdateTask(
   context: CommandContext
 ): Promise<CommandExecutionResult> {
   try {
-    if (!entities.taskId) {
+    let taskId = entities.taskId
+
+    if (!taskId && (entities.taskTitle || entities.title)) {
+      const requestedTitle = String(entities.taskTitle || entities.title).toLowerCase()
+      const task = (await fetchWorkspaceTasks()).find((item: any) =>
+        item.title?.toLowerCase().includes(requestedTitle),
+      )
+      taskId = task?.id
+    }
+
+    if (!taskId) {
       return {
         success: false,
         message: "Task ID non specificato",
-        error: "Impossibile aggiornare senza ID task",
+        error: "Impossibile aggiornare senza identificare la task",
       }
     }
 
-    const taskRef = doc(db, "tasks", entities.taskId)
-    const updateData: Record<string, any> = { updatedAt: new Date() }
-
-    if (entities.title) updateData.title = entities.title
+    const updateData: Record<string, any> = {}
+    if (entities.newTitle) updateData.title = entities.newTitle
     if (entities.description) updateData.description = entities.description
-    if (entities.status) updateData.status = entities.status
+    if (entities.status) {
+      updateData.status = normalizeStatus(entities.status)
+      updateData.columnId = normalizeStatus(entities.status)
+    }
     if (entities.priority) updateData.priority = entities.priority
     if (entities.dueDate) updateData.dueDate = entities.dueDate
 
-    await updateDoc(taskRef, updateData)
+    const payload = await parseApiResponse(
+      await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(updateData),
+      }),
+    )
 
     return {
       success: true,
       message: "Task aggiornata con successo",
-      data: updateData,
+      data: payload.task,
     }
   } catch (error: any) {
     console.error("Update task error:", error)
@@ -339,25 +422,18 @@ async function handleSearchGlobal(
 ): Promise<CommandExecutionResult> {
   try {
     const searchTerm = entities.query || entities.search || ""
-    const results: any[] = []
-
-    const tasksRef = collection(db, "tasks")
-    const tasksQuery = query(tasksRef, where("tenantId", "==", context.tenantId))
-    const tasksSnapshot = await getDocs(tasksQuery)
-    const tasks = tasksSnapshot.docs
-      .map((doc) => ({ id: doc.id, type: "task", ...doc.data() }))
+    const tasks = (await fetchWorkspaceTasks())
+      .map((task: any) => ({ ...task, type: "task" }))
       .filter(
         (task: any) =>
           task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           task.description?.toLowerCase().includes(searchTerm.toLowerCase())
       )
 
-    results.push(...tasks)
-
     return {
       success: true,
-      message: `Trovati ${results.length} risultati`,
-      data: results,
+      message: `Trovati ${tasks.length} risultati`,
+      data: tasks,
     }
   } catch (error: any) {
     console.error("Global search error:", error)
@@ -541,8 +617,8 @@ async function handleCreateWebsite(
         attachments: [],
       }
       
-      const docRef = await addDoc(collection(db, "tasks"), taskData)
-      createdTasks.push({ id: docRef.id, ...taskData })
+      const createdTask = await createWorkspaceTask(taskData)
+      createdTasks.push(createdTask)
     }
     
     return {
@@ -632,8 +708,8 @@ async function handleCreateGraphicDesign(
         attachments: [],
       }
       
-      const docRef = await addDoc(collection(db, "tasks"), taskData)
-      createdTasks.push({ id: docRef.id, ...taskData })
+      const createdTask = await createWorkspaceTask(taskData)
+      createdTasks.push(createdTask)
     }
     
     return {
@@ -724,8 +800,8 @@ async function handleCreateVideoProduction(
         attachments: [],
       }
       
-      const docRef = await addDoc(collection(db, "tasks"), taskData)
-      createdTasks.push({ id: docRef.id, ...taskData })
+      const createdTask = await createWorkspaceTask(taskData)
+      createdTasks.push(createdTask)
     }
     
     return {
@@ -816,8 +892,8 @@ async function handleCreateSoftwareDev(
         attachments: [],
       }
       
-      const docRef = await addDoc(collection(db, "tasks"), taskData)
-      createdTasks.push({ id: docRef.id, ...taskData })
+      const createdTask = await createWorkspaceTask(taskData)
+      createdTasks.push(createdTask)
     }
     
     return {
@@ -903,8 +979,8 @@ async function handleCreateCampaignProject(
         attachments: [],
       }
       
-      const docRef = await addDoc(collection(db, "tasks"), taskData)
-      createdTasks.push({ id: docRef.id, ...taskData })
+      const createdTask = await createWorkspaceTask(taskData)
+      createdTasks.push(createdTask)
     }
     
     return {

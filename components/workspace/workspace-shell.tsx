@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import {
   Plus,
   Filter,
@@ -32,7 +34,7 @@ import {
   X,
   FileText,
   ImageIcon,
-  Menu,
+  Briefcase,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
@@ -40,13 +42,14 @@ import { useNotifications } from "@/lib/notification-context"
 import { useUsers } from "@/hooks/use-users"
 import { useClients } from "@/hooks/use-clients"
 import { useWorkspaceData } from "@/hooks/use-workspace-data"
+import { useProjects } from "@/hooks/use-projects"
 import { TaskDetailDialog } from "@/components/task-detail-dialog"
 import { UserAssignmentSelect } from "@/components/ui/user-assignment-select"
 import { ClientSidebar } from "./client-sidebar"
 import { KanbanBoard } from "./kanban-board"
 import { useWorkspaceLayout } from "@/hooks/use-workspace-layout"
 import { useIsMounted } from "@/hooks/use-is-mounted"
-import type { Task } from "@/lib/types"
+import type { Project, Task } from "@/lib/types"
 
 // Import Sheet dynamically with ssr: false to prevent hydration mismatch
 const MobileSheet = dynamic(
@@ -165,6 +168,7 @@ export function WorkspaceShell() {
   const [searchTerm, setSearchTerm] = useState("")
   const [showClientDialog, setShowClientDialog] = useState(false)
   const [showTaskDialog, setShowTaskDialog] = useState(false)
+  const [showProjectDialog, setShowProjectDialog] = useState(false)
   const [showTaskDetailDialog, setShowTaskDetailDialog] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showWorkspaceAlert, setShowWorkspaceAlert] = useState(false)
@@ -175,6 +179,7 @@ export function WorkspaceShell() {
   const { toast } = useToast()
   const { addNotification } = useNotifications()
   const { users } = useUsers()
+  const { projects, createProject } = useProjects()
   const isMounted = useIsMounted()
 
   const {
@@ -210,7 +215,48 @@ export function WorkspaceShell() {
     columnId: showTenantWorkspace ? "backlog" : "to-do",
     attachments: [] as TaskAttachment[],
     tags: [] as string[],
+    projectId: "",
   })
+
+  const [projectForm, setProjectForm] = useState({
+    name: "",
+    status: "active" as Project["status"],
+    dueAt: "",
+    memberIds: [] as string[],
+  })
+
+  const resetTaskForm = () => {
+    for (const attachment of taskForm.attachments) {
+      if (attachment.url.startsWith("blob:")) {
+        URL.revokeObjectURL(attachment.url)
+      }
+    }
+
+    setTaskForm({
+      title: "",
+      description: "",
+      richDescription: "",
+      priority: "medium",
+      type: "",
+      score: 0,
+      dueDate: "",
+      assignee: "",
+      columnId: showTenantWorkspace ? "backlog" : "to-do",
+      attachments: [],
+      tags: [],
+      projectId: "",
+    })
+    setPendingTaskFiles([])
+  }
+
+  const resetProjectForm = () => {
+    setProjectForm({
+      name: "",
+      status: "active",
+      dueAt: "",
+      memberIds: [],
+    })
+  }
 
   useEffect(() => {
     setTaskForm((prev) => ({
@@ -222,11 +268,17 @@ export function WorkspaceShell() {
   const {
     tasks: allTasks,
     loading: tasksLoading,
+    createTask,
     moveTask,
     updateTask,
+    uploadTaskAttachments,
+    deleteTaskAttachment,
     addComment,
     updateSubItems,
+    acceptTaskAssignment,
+    rejectTaskAssignment,
   } = useWorkspaceData()
+  const [pendingTaskFiles, setPendingTaskFiles] = useState<Array<{ id: string; file: File }>>([])
 
   const tasks = allTasks.filter((task) => {
     if (showTenantWorkspace) {
@@ -237,6 +289,23 @@ export function WorkspaceShell() {
       return task.clientId === selectedClientId
     }
   })
+
+  const visibleProjects = projects.filter((project) => {
+    if (showTenantWorkspace) {
+      return !project.clientId
+    }
+    if (showAllClients) {
+      return Boolean(project.clientId)
+    }
+    return project.clientId === selectedClientId
+  })
+
+  const selectedProject = projects.find((project) => project.id === taskForm.projectId)
+
+  const getUserName = (memberId: string) => {
+    const member = users.find((user) => user.id === memberId)
+    return member ? [member.firstName, member.lastName].filter(Boolean).join(" ") || member.email : ""
+  }
 
   useEffect(() => {
     if (selectedTask && allTasks.length > 0) {
@@ -259,26 +328,34 @@ export function WorkspaceShell() {
       return
     }
 
-    await moveTask(draggableId, destination.droppableId)
+    void moveTask(draggableId, destination.droppableId, {
+      destinationIndex: destination.index,
+    }).catch(() => {
+      toast({
+        title: "Spostamento non salvato",
+        description: "La task è stata riportata nella posizione precedente.",
+        variant: "destructive",
+      })
+    })
   }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high":
-        return "border-l-red-500 bg-gradient-to-r from-red-50 to-red-100"
+        return "border-l-red-500"
       case "medium":
-        return "border-l-yellow-500 bg-gradient-to-r from-yellow-50 to-yellow-100"
+        return "border-l-amber-500"
       case "low":
-        return "border-l-green-500 bg-gradient-to-r from-green-50 to-green-100"
+        return "border-l-emerald-500"
       default:
-        return "border-l-gray-300 bg-gradient-to-r from-gray-50 to-gray-100"
+        return "border-l-slate-300"
     }
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 8) return "text-red-600 bg-red-100"
-    if (score >= 5) return "text-yellow-600 bg-yellow-100"
-    return "text-green-600 bg-green-100"
+    if (score >= 8) return "bg-red-100 text-red-700"
+    if (score >= 5) return "bg-amber-100 text-amber-700"
+    return "bg-emerald-100 text-emerald-700"
   }
 
   const generatePassword = () => {
@@ -299,10 +376,11 @@ export function WorkspaceShell() {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
+        const attachmentId = `${Date.now()}-${i}`
         const url = URL.createObjectURL(file)
 
         const attachment: TaskAttachment = {
-          id: `${Date.now()}-${i}`,
+          id: attachmentId,
           name: file.name,
           url: url,
           type: file.type,
@@ -310,6 +388,7 @@ export function WorkspaceShell() {
         }
 
         newAttachments.push(attachment)
+        setPendingTaskFiles((current) => [...current, { id: attachmentId, file }])
       }
 
       setTaskForm((prev) => ({
@@ -338,6 +417,7 @@ export function WorkspaceShell() {
       ...prev,
       attachments: prev.attachments.filter((att) => att.id !== attachmentId),
     }))
+    setPendingTaskFiles((current) => current.filter((item) => item.id !== attachmentId))
   }
 
   const formatFileSize = (bytes: number) => {
@@ -509,13 +589,10 @@ export function WorkspaceShell() {
     }
 
     try {
-      const { db } = await import("@/lib/firebase")
-      const { collection, addDoc } = await import("firebase/firestore")
-
       const assignedUser = users.find((u) => `${u.firstName} ${u.lastName}`.trim() === taskForm.assignee.trim())
       const assignedUserId = assignedUser?.id || null
 
-      const taskDocRef = await addDoc(collection(db, "tasks"), {
+      const createdTask = await createTask({
         title: taskForm.title,
         description: taskForm.description,
         richDescription: taskForm.richDescription,
@@ -528,25 +605,31 @@ export function WorkspaceShell() {
         assignedUserId: assignedUserId,
         clientId: targetClientId,
         clientName: targetClientName,
-        tenantId: user?.uid,
+        projectId: taskForm.projectId || null,
+        projectName: selectedProject?.name || "",
         dueDate: taskForm.dueDate ? new Date(taskForm.dueDate) : null,
-        attachments: taskForm.attachments,
+        attachments: [],
         tags: taskForm.tags,
-        comments: [],
-        subItems: [],
-        parentItemId: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       })
+
+      if (pendingTaskFiles.length > 0) {
+        await uploadTaskAttachments(
+          createdTask.id,
+          pendingTaskFiles.map((item) => item.file),
+        )
+      }
 
       if (assignedUser && assignedUserId) {
         try {
           await addNotification({
             userId: assignedUserId,
-            title: "Nuovo task assegnato",
-            message: `Ti è stato assegnato il task: "${taskForm.title}"`,
+            title: createdTask.assignmentStatus === "pending" ? "Nuova proposta task" : "Nuovo task assegnato",
+            message:
+              createdTask.assignmentStatus === "pending"
+                ? `Ti è stata proposta la task: "${taskForm.title}"`
+                : `Ti è stato assegnato il task: "${taskForm.title}"`,
             type: "task_assigned",
-            taskId: taskDocRef.id,
+            taskId: createdTask.id,
             metadata: {
               taskTitle: taskForm.title,
               priority: taskForm.priority,
@@ -567,28 +650,61 @@ export function WorkspaceShell() {
 
       toast({
         title: "Successo",
-        description: "Task aggiunta con successo",
+        description:
+          createdTask.assignmentStatus === "pending"
+            ? "Task proposta: l'esecutore deve accettarla prima che sia ufficiale"
+            : "Task aggiunta con successo",
       })
 
       setShowTaskDialog(false)
-      setTaskForm({
-        title: "",
-        description: "",
-        richDescription: "",
-        priority: "medium",
-        type: "",
-        score: 0,
-        dueDate: "",
-        assignee: "",
-        columnId: showTenantWorkspace ? "backlog" : "to-do",
-        attachments: [],
-        tags: [],
-      })
+      resetTaskForm()
     } catch (error) {
       console.error("Error adding task:", error)
       toast({
         title: "Errore",
         description: "Errore durante l'aggiunta della task",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleAddProject = async () => {
+    if (!projectForm.name.trim()) {
+      toast({
+        title: "Errore",
+        description: "Il nome del progetto è obbligatorio",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!showTenantWorkspace && !selectedClientId && !showAllClients) {
+      setShowWorkspaceAlert(true)
+      return
+    }
+
+    try {
+      const project = await createProject({
+        name: projectForm.name,
+        status: projectForm.status,
+        clientId: showTenantWorkspace || showAllClients ? null : selectedClientId,
+        dueAt: projectForm.dueAt ? new Date(projectForm.dueAt) : null,
+        memberIds: projectForm.memberIds,
+      })
+
+      toast({
+        title: "Progetto creato",
+        description: `${project.name} è pronto per contenere task e ore.`,
+      })
+
+      setTaskForm((current) => ({ ...current, projectId: project.id }))
+      setShowProjectDialog(false)
+      resetProjectForm()
+    } catch (error) {
+      console.error("Error adding project:", error)
+      toast({
+        title: "Errore",
+        description: error instanceof Error ? error.message : "Errore durante la creazione del progetto",
         variant: "destructive",
       })
     }
@@ -620,8 +736,8 @@ export function WorkspaceShell() {
   const activeColumns = showTenantWorkspace ? tenantColumns : defaultColumns
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700">
-      <div className="flex min-h-[100dvh]">
+    <div className="min-h-[100dvh] overflow-x-hidden bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-slate-50 lg:h-[100dvh] lg:overflow-hidden">
+      <div className="flex min-h-[100dvh] lg:h-full lg:min-h-0">
         {/* Desktop Sidebar - Hidden on mobile */}
         <div className="hidden lg:block">
           <ClientSidebar
@@ -642,7 +758,7 @@ export function WorkspaceShell() {
 
         {/* Mobile Sidebar - Sheet/Drawer (client-side only to prevent hydration mismatch) */}
         <MobileSheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
-          <SheetContent side="left" className="w-80 p-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl lg:hidden">
+          <SheetContent side="left" className="h-[100dvh] max-h-[100dvh] w-80 overflow-hidden bg-white/80 p-0 backdrop-blur-xl dark:bg-slate-800/80 lg:hidden">
             <ClientSidebar
               clients={clients}
               allTasks={allTasks}
@@ -672,40 +788,40 @@ export function WorkspaceShell() {
           </SheetContent>
         </MobileSheet>
 
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-lg">
-            <div className="p-4 lg:p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 lg:gap-4">
+        <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col lg:min-h-0">
+          <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 shadow-corporate-medium backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/95 lg:static">
+            <div className="p-3 sm:p-4 lg:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2 lg:gap-4">
                   {/* Mobile Workspace/Client Selector */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="lg:hidden"
+                    className="h-10 w-10 flex-shrink-0 lg:hidden"
                     onClick={() => setMobileSheetOpen(true)}
                     aria-label="Seleziona workspace/cliente"
                   >
                     <Building className="h-5 w-5" />
                   </Button>
                   
-                  <div className="flex items-center gap-2 lg:gap-4">
+                  <div className="flex min-w-0 items-center gap-2 lg:gap-4">
                     {showTenantWorkspace ? (
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-                        <Building className="h-6 w-6 text-white" />
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg lg:h-12 lg:w-12 lg:rounded-xl">
+                        <Building className="h-5 w-5 text-white lg:h-6 lg:w-6" />
                       </div>
                     ) : showAllClients ? (
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                        <Globe className="h-6 w-6 text-white" />
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg lg:h-12 lg:w-12 lg:rounded-xl">
+                        <Globe className="h-5 w-5 text-white lg:h-6 lg:w-6" />
                       </div>
                     ) : (
                       <div
-                        className={`w-12 h-12 rounded-xl ${selectedClient?.color || "bg-gradient-to-br from-gray-400 to-gray-600"} shadow-lg flex items-center justify-center`}
+                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${selectedClient?.color || "bg-gradient-to-br from-gray-400 to-gray-600"} shadow-lg lg:h-12 lg:w-12 lg:rounded-xl`}
                       >
-                        <span className="text-white font-bold text-lg">{selectedClient?.name?.charAt(0) || "?"}</span>
+                        <span className="text-base font-bold text-white lg:text-lg">{selectedClient?.name?.charAt(0) || "?"}</span>
                       </div>
                     )}
-                    <div>
-                      <h1 className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                    <div className="min-w-0">
+                      <h1 className="truncate bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-lg font-bold text-transparent dark:from-slate-100 dark:to-slate-300 lg:text-2xl">
                         {showTenantWorkspace
                           ? userData?.companyName || "Team Interno"
                           : showAllClients
@@ -744,7 +860,7 @@ export function WorkspaceShell() {
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="h-10 flex-shrink-0 bg-gradient-to-r from-pink-500 to-rose-600 px-3 text-white shadow-lg transition-all duration-200 hover:from-pink-600 hover:to-rose-700 hover:shadow-xl lg:h-9"
                     onClick={handleNewTaskClick}
                   >
                     <Plus className="h-4 w-4 lg:mr-2" />
@@ -752,10 +868,57 @@ export function WorkspaceShell() {
                   </Button>
                 </div>
               </div>
+              <div className="relative mt-3 md:hidden">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Cerca task..."
+                  className="h-11 w-full border-slate-200/70 bg-white/80 pl-10 text-base shadow-sm backdrop-blur-sm dark:border-slate-700/70 dark:bg-slate-950/70"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="mt-3 flex flex-col gap-2 rounded-lg border border-slate-200/70 bg-white/60 p-2 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/45 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    <Briefcase className="h-3.5 w-3.5" />
+                    Progetti
+                  </div>
+                  {visibleProjects.length > 0 ? (
+                    visibleProjects.slice(0, 4).map((project) => (
+                      <Badge
+                        key={project.id}
+                        variant="outline"
+                        className="max-w-[210px] truncate border-righello-cyan/35 bg-righello-cyan/10 text-righello-cyan"
+                        title={project.name}
+                      >
+                        {project.name}
+                        {project.members?.length ? ` · ${project.members.length} persone` : ""}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Nessun progetto collegato a questo workspace
+                    </span>
+                  )}
+                  {visibleProjects.length > 4 && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">+{visibleProjects.length - 4}</span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 flex-shrink-0 border-slate-300 bg-white/70 text-slate-800 hover:bg-white dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100"
+                  onClick={() => setShowProjectDialog(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nuovo Progetto
+                </Button>
+              </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto overflow-y-hidden p-4 lg:p-6">
+          <div className="min-h-[calc(100dvh-220px)] min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-100 p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y] dark:bg-slate-950 sm:p-4 lg:min-h-0 lg:overflow-hidden lg:p-6">
             {tasksLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
@@ -784,13 +947,131 @@ export function WorkspaceShell() {
           open={showTaskDetailDialog}
           onOpenChange={setShowTaskDetailDialog}
           onUpdateTask={updateTask}
+          projects={projects}
+          onUploadAttachments={uploadTaskAttachments}
+          onDeleteAttachment={deleteTaskAttachment}
           onAddComment={addComment}
           onUpdateSubItems={updateSubItems}
+          onAcceptAssignment={acceptTaskAssignment}
+          onRejectAssignment={rejectTaskAssignment}
         />
 
-        <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
-          <DialogContent className="sm:max-w-[600px] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50">
-            <DialogHeader>
+        <Dialog
+          open={showProjectDialog}
+          onOpenChange={(nextOpen) => {
+            setShowProjectDialog(nextOpen)
+            if (!nextOpen) resetProjectForm()
+          }}
+        >
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-[560px] rounded-lg border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50">
+            <DialogHeader className="text-left">
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                <Briefcase className="h-5 w-5 text-righello-cyan" />
+                Nuovo Progetto
+              </DialogTitle>
+              <DialogDescription className="text-slate-600 dark:text-slate-400">
+                Crea un contenitore di lavoro dentro il cliente e assegna subito il team operativo.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="projectName">Nome progetto *</Label>
+                <Input
+                  id="projectName"
+                  value={projectForm.name}
+                  onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })}
+                  className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50"
+                  placeholder="Es. Sito Tomasella 2026"
+                />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label>Stato</Label>
+                  <Select
+                    value={projectForm.status}
+                    onValueChange={(value) => setProjectForm({ ...projectForm, status: value as Project["status"] })}
+                  >
+                    <SelectTrigger className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="planned">Pianificato</SelectItem>
+                      <SelectItem value="active">Attivo</SelectItem>
+                      <SelectItem value="in-progress">In corso</SelectItem>
+                      <SelectItem value="on-hold">In pausa</SelectItem>
+                      <SelectItem value="completed">Completato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="projectDueAt">Scadenza</Label>
+                  <Input
+                    id="projectDueAt"
+                    type="date"
+                    value={projectForm.dueAt}
+                    onChange={(event) => setProjectForm({ ...projectForm, dueAt: event.target.value })}
+                    className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Persone assegnate al progetto</Label>
+                <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900/70">
+                  {users.length > 0 ? (
+                    users.map((member) => {
+                      const checked = projectForm.memberIds.includes(member.id)
+                      const name = getUserName(member.id)
+
+                      return (
+                        <label
+                          key={member.id}
+                          className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white dark:hover:bg-slate-800"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(nextChecked) => {
+                              setProjectForm((current) => ({
+                                ...current,
+                                memberIds: nextChecked
+                                  ? [...current.memberIds, member.id]
+                                  : current.memberIds.filter((id) => id !== member.id),
+                              }))
+                            }}
+                          />
+                          <span className="min-w-0 flex-1 truncate">{name}</span>
+                          <span className="text-xs text-slate-500">{member.role}</span>
+                        </label>
+                      )
+                    })
+                  ) : (
+                    <p className="px-2 py-4 text-sm text-slate-500">Nessun membro disponibile.</p>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Le task restano assegnabili a una persona specifica, ma il progetto puo avere piu responsabili operativi.
+                </p>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setShowProjectDialog(false)}>
+                Annulla
+              </Button>
+              <Button type="button" className="bg-righello-pink text-white hover:bg-righello-pink/90" onClick={handleAddProject}>
+                Crea Progetto
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={showTaskDialog}
+          onOpenChange={(nextOpen) => {
+            setShowTaskDialog(nextOpen)
+            if (!nextOpen) resetTaskForm()
+          }}
+        >
+          <DialogContent className="left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none border-0 bg-white/95 p-4 pt-12 backdrop-blur-xl dark:bg-slate-900/95 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[600px] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:border-slate-200/50 sm:p-6 dark:sm:border-slate-700/50">
+            <DialogHeader className="text-left">
               <DialogTitle className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                 {showTenantWorkspace
                   ? "Aggiungi Task Interna"
@@ -806,41 +1087,73 @@ export function WorkspaceShell() {
                     : "Inserisci i dettagli della nuova task. Il titolo è obbligatorio."}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right font-medium">
+            <div className="grid gap-4 py-4 sm:max-h-[60vh] sm:overflow-y-auto">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="title" className="font-medium sm:text-right">
                   Titolo *
                 </Label>
                 <Input
                   id="title"
                   value={taskForm.title}
                   onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="bg-white/60 backdrop-blur-sm dark:bg-slate-700/60 sm:col-span-3 border-slate-200/50 dark:border-slate-600/50"
                   placeholder="Inserisci il titolo della task..."
                 />
               </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="description" className="text-right font-medium pt-2">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
+                <Label htmlFor="description" className="font-medium sm:pt-2 sm:text-right">
                   Descrizione
                 </Label>
                 <Textarea
                   id="description"
                   value={taskForm.description}
                   onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="bg-white/60 backdrop-blur-sm dark:bg-slate-700/60 sm:col-span-3 border-slate-200/50 dark:border-slate-600/50"
                   placeholder="Descrivi la task..."
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="priority" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="project" className="font-medium sm:text-right">
+                  Progetto
+                </Label>
+                <div className="flex gap-2 sm:col-span-3">
+                  <Select
+                    value={taskForm.projectId || "none"}
+                    onValueChange={(value) => setTaskForm({ ...taskForm, projectId: value === "none" ? "" : value })}
+                  >
+                    <SelectTrigger className="min-w-0 flex-1 border-slate-200/50 bg-white/60 backdrop-blur-sm dark:border-slate-600/50 dark:bg-slate-700/60">
+                      <SelectValue placeholder="Collega a un progetto..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Senza progetto</SelectItem>
+                      {visibleProjects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                          {project.members?.length ? ` · ${project.members.length} persone` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 flex-shrink-0 border-slate-200/50 bg-white/60 px-3 dark:border-slate-600/50 dark:bg-slate-700/60"
+                    onClick={() => setShowProjectDialog(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="priority" className="font-medium sm:text-right">
                   Priorità
                 </Label>
                 <Select
                   value={taskForm.priority}
                   onValueChange={(value) => setTaskForm({ ...taskForm, priority: value as "low" | "medium" | "high" })}
                 >
-                  <SelectTrigger className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50">
+                  <SelectTrigger className="bg-white/60 backdrop-blur-sm dark:bg-slate-700/60 sm:col-span-3 border-slate-200/50 dark:border-slate-600/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -850,12 +1163,12 @@ export function WorkspaceShell() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="type" className="font-medium sm:text-right">
                   Tipo
                 </Label>
                 <Select value={taskForm.type} onValueChange={(value) => setTaskForm({ ...taskForm, type: value })}>
-                  <SelectTrigger className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50">
+                  <SelectTrigger className="bg-white/60 backdrop-blur-sm dark:bg-slate-700/60 sm:col-span-3 border-slate-200/50 dark:border-slate-600/50">
                     <SelectValue placeholder="Seleziona tipo..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -867,8 +1180,8 @@ export function WorkspaceShell() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="score" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="score" className="font-medium sm:text-right">
                   Score (1-10)
                 </Label>
                 <Input
@@ -878,22 +1191,22 @@ export function WorkspaceShell() {
                   max="10"
                   value={taskForm.score}
                   onChange={(e) => setTaskForm({ ...taskForm, score: Number.parseInt(e.target.value) || 0 })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="bg-white/60 backdrop-blur-sm dark:bg-slate-700/60 sm:col-span-3 border-slate-200/50 dark:border-slate-600/50"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="assignee" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="assignee" className="font-medium sm:text-right">
                   Assegnato a
                 </Label>
                 <UserAssignmentSelect
                   value={taskForm.assignee}
                   onValueChange={(value) => setTaskForm({ ...taskForm, assignee: value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="bg-white/60 backdrop-blur-sm dark:bg-slate-700/60 sm:col-span-3 border-slate-200/50 dark:border-slate-600/50"
                   placeholder="Seleziona utente..."
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="dueDate" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="dueDate" className="font-medium sm:text-right">
                   Scadenza
                 </Label>
                 <Input
@@ -901,18 +1214,18 @@ export function WorkspaceShell() {
                   type="date"
                   value={taskForm.dueDate}
                   onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="bg-white/60 backdrop-blur-sm dark:bg-slate-700/60 sm:col-span-3 border-slate-200/50 dark:border-slate-600/50"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="column" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="column" className="font-medium sm:text-right">
                   Colonna
                 </Label>
                 <Select
                   value={taskForm.columnId}
                   onValueChange={(value) => setTaskForm({ ...taskForm, columnId: value })}
                 >
-                  <SelectTrigger className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50">
+                  <SelectTrigger className="bg-white/60 backdrop-blur-sm dark:bg-slate-700/60 sm:col-span-3 border-slate-200/50 dark:border-slate-600/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -925,9 +1238,9 @@ export function WorkspaceShell() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right font-medium pt-2">Allegati</Label>
-                <div className="col-span-3 space-y-3">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
+                <Label className="font-medium sm:pt-2 sm:text-right">Allegati</Label>
+                <div className="space-y-3 sm:col-span-3">
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
@@ -981,10 +1294,13 @@ export function WorkspaceShell() {
                 </div>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 variant="outline"
-                onClick={() => setShowTaskDialog(false)}
+                onClick={() => {
+                  setShowTaskDialog(false)
+                  resetTaskForm()
+                }}
                 className="bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
               >
                 Annulla
@@ -1000,7 +1316,7 @@ export function WorkspaceShell() {
         </Dialog>
 
         <Dialog open={showClientDialog} onOpenChange={setShowClientDialog}>
-          <DialogContent className="sm:max-w-[500px] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50">
+          <DialogContent className="max-h-[92dvh] overflow-y-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                 Aggiungi Nuovo Cliente
@@ -1009,33 +1325,33 @@ export function WorkspaceShell() {
                 Inserisci i dettagli del nuovo cliente. Verrà creato automaticamente un account per l'accesso.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="clientName" className="text-right font-medium">
+            <div className="grid gap-4 py-4 sm:max-h-[60vh] sm:overflow-y-auto">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="clientName" className="font-medium sm:text-right">
                   Nome *
                 </Label>
                 <Input
                   id="clientName"
                   value={clientForm.name}
                   onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="sm:col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
                   placeholder="Nome del cliente..."
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="industry" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="industry" className="font-medium sm:text-right">
                   Settore
                 </Label>
                 <Input
                   id="industry"
                   value={clientForm.industry}
                   onChange={(e) => setClientForm({ ...clientForm, industry: e.target.value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="sm:col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
                   placeholder="Settore di attività..."
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="contactEmail" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="contactEmail" className="font-medium sm:text-right">
                   Email *
                 </Label>
                 <Input
@@ -1043,40 +1359,40 @@ export function WorkspaceShell() {
                   type="email"
                   value={clientForm.contactEmail}
                   onChange={(e) => setClientForm({ ...clientForm, contactEmail: e.target.value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="sm:col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
                   placeholder="email@cliente.com"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="contactPhone" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="contactPhone" className="font-medium sm:text-right">
                   Telefono
                 </Label>
                 <Input
                   id="contactPhone"
                   value={clientForm.contactPhone}
                   onChange={(e) => setClientForm({ ...clientForm, contactPhone: e.target.value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="sm:col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
                   placeholder="+39 123 456 7890"
                 />
               </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="address" className="text-right font-medium pt-2">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
+                <Label htmlFor="address" className="font-medium sm:pt-2 sm:text-right">
                   Indirizzo
                 </Label>
                 <Textarea
                   id="address"
                   value={clientForm.address}
                   onChange={(e) => setClientForm({ ...clientForm, address: e.target.value })}
-                  className="col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
+                  className="sm:col-span-3 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
                   placeholder="Indirizzo completo..."
                   rows={2}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="password" className="text-right font-medium">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="password" className="font-medium sm:text-right">
                   Password *
                 </Label>
-                <div className="col-span-3 flex gap-2">
+                <div className="flex flex-col gap-2 sm:col-span-3 sm:flex-row">
                   <div className="relative flex-1">
                     <Input
                       id="password"
@@ -1107,9 +1423,9 @@ export function WorkspaceShell() {
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right font-medium">Email di benvenuto</Label>
-                <div className="col-span-3 flex items-center space-x-2">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label className="font-medium sm:text-right">Email di benvenuto</Label>
+                <div className="flex items-center space-x-2 sm:col-span-3">
                   <Switch
                     checked={clientForm.sendWelcomeEmail}
                     onCheckedChange={(checked) => setClientForm({ ...clientForm, sendWelcomeEmail: checked })}

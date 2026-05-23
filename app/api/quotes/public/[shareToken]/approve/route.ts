@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { Timestamp } from "firebase-admin/firestore"
+import { Timestamp } from "@/lib/firebase-admin-firestore"
 import { adminDb } from "@/lib/firebase-admin"
 import { stripeService } from "@/lib/services/stripe.service"
 import { validateShareToken, isValidEmail, isQuoteExpired, getBaseUrl } from "@/lib/quote-utils"

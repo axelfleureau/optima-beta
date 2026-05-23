@@ -3,7 +3,7 @@
 import type React from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect } from "react"
-import { useAuthStatus, useAuthUser } from "@/hooks/viewmodels"
+import { useAuth } from "@/lib/auth-context"
 import type { UserRole } from "@/lib/role-hierarchy"
 
 interface ProtectedRouteProps {
@@ -12,22 +12,21 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { isAuthenticated, isInitialized, loading } = useAuthStatus()
-  const { user } = useAuthUser()
+  const { user, userData, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    if (isInitialized && !loading) {
+    if (!loading) {
       // Se l'utente non è autenticato, reindirizza al login
-      if (!isAuthenticated) {
+      if (!user) {
         router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`)
         return
       }
 
       // Se è richiesto un ruolo specifico, verifica che l'utente lo abbia
-      if (requiredRole && user) {
-        const userRole = user.role
+      if (requiredRole && userData) {
+        const userRole = userData.role
         const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
 
         if (!requiredRoles.includes(userRole)) {
@@ -36,10 +35,10 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
         }
       }
     }
-  }, [isAuthenticated, isInitialized, user, loading, router, pathname, requiredRole])
+  }, [user, userData, loading, router, pathname, requiredRole])
 
   // Mostra loading durante l'inizializzazione
-  if (!isInitialized || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-500"></div>
@@ -48,7 +47,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   // Se l'utente è autenticato e ha i permessi necessari, mostra il contenuto
-  if (isAuthenticated && user) {
+  if (user) {
     return <>{children}</>
   }
 

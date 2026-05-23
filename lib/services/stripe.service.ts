@@ -6,7 +6,7 @@
  */
 
 import Stripe from "stripe"
-import { Timestamp } from "firebase-admin/firestore"
+import { Timestamp } from "@/lib/firebase-admin-firestore"
 import { updateQuoteStatus, updateMilestoneStatus, getQuoteById, updateQuoteSubscription } from "@/lib/quote-service-server"
 import { sendInvoiceEmail } from "@/lib/email-service"
 import type { InvoicePaymentData } from "@/lib/invoice-generator"
@@ -22,27 +22,27 @@ import type {
   PAYMENT_CONSTANTS
 } from "@/types/payment"
 
-// Environment validation
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
+// Environment validation happens lazily so Next.js can collect route metadata at build time.
 const NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 
-if (!STRIPE_SECRET_KEY) {
-  throw new Error("Missing required environment variable: STRIPE_SECRET_KEY")
-}
+let stripeClient: Stripe | null = null
 
-if (!STRIPE_WEBHOOK_SECRET) {
-  console.warn("Warning: STRIPE_WEBHOOK_SECRET not set. Webhook verification will be disabled.")
-}
+function getStripe(): Stripe {
+  const secretKey = process.env.STRIPE_SECRET_KEY
+  if (!secretKey) {
+    throw new Error("Missing required environment variable: STRIPE_SECRET_KEY")
+  }
 
-// Initialize Stripe with security best practices
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
-  typescript: true,
-  telemetry: false, // Disable telemetry for privacy
-  maxNetworkRetries: 3,
-  timeout: 10000, // 10 second timeout
-})
+  stripeClient ??= new Stripe(secretKey, {
+    apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
+    typescript: true,
+    telemetry: false,
+    maxNetworkRetries: 3,
+    timeout: 10000,
+  })
+
+  return stripeClient
+}
 
 /**
  * Stripe Service Class
@@ -105,7 +105,7 @@ export class StripeService {
       ]
 
       // Create checkout session
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         payment_method_types: request.paymentMethodTypes || ["card"],
         line_items: lineItems,
         mode: "payment",
@@ -204,7 +204,7 @@ export class StripeService {
       }
 
       // Create checkout session for deposit
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: [
           {
@@ -312,7 +312,7 @@ export class StripeService {
       }
 
       // Create checkout session for milestone
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: [
           {
@@ -392,9 +392,10 @@ export class StripeService {
     try {
       // Verify webhook signature if secret is available
       let event: Stripe.Event
-      if (STRIPE_WEBHOOK_SECRET) {
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+      if (webhookSecret) {
         try {
-          event = stripe.webhooks.constructEvent(payload, signature, STRIPE_WEBHOOK_SECRET)
+          event = getStripe().webhooks.constructEvent(payload, signature, webhookSecret)
         } catch (err) {
           console.error("Webhook signature verification failed:", err)
           return {
@@ -475,7 +476,7 @@ export class StripeService {
    */
   async getPaymentIntent(paymentIntentId: string): Promise<PaymentServiceResponse<Stripe.PaymentIntent>> {
     try {
-      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+      const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId)
       return {
         success: true,
         data: paymentIntent,
@@ -493,7 +494,7 @@ export class StripeService {
    */
   async getCheckoutSession(sessionId: string): Promise<PaymentServiceResponse<Stripe.Checkout.Session>> {
     try {
-      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      const session = await getStripe().checkout.sessions.retrieve(sessionId, {
         expand: ["payment_intent"],
       })
       return {
@@ -523,7 +524,7 @@ export class StripeService {
   private async getOrCreateCustomer(email: string, name: string, tenantId: string): Promise<string> {
     try {
       // Search for existing customer by email
-      const customers = await stripe.customers.list({
+      const customers = await getStripe().customers.list({
         email: email,
         limit: 1,
       })
@@ -533,7 +534,7 @@ export class StripeService {
       }
 
       // Create new customer
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: email,
         name: name,
         metadata: {
@@ -808,7 +809,7 @@ export class StripeService {
       }
       
       // Get subscription to extract metadata
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+      const subscription = await getStripe().subscriptions.retrieve(subscriptionId)
       const { quoteId, tenantId } = subscription.metadata || {}
       
       if (!quoteId || !tenantId) {
@@ -973,7 +974,7 @@ export const stripeService = new StripeService()
 // Export constants for use in other modules
 export const STRIPE_CONFIG = {
   PUBLISHABLE_KEY: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-  WEBHOOK_SECRET: STRIPE_WEBHOOK_SECRET,
+  WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   SUPPORTED_PAYMENT_METHODS: ["card", "sepa_debit", "ideal", "bancontact"] as const,
   CHECKOUT_SESSION_EXPIRES_HOURS: 24,
   WEBHOOK_TOLERANCE_SECONDS: 300, // 5 minutes

@@ -1,15 +1,5 @@
-import nodemailer from "nodemailer"
-import { TokenPlan, getPlanById } from "@/lib/constants/token-plans"
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_SECURE === "true",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-})
+import { TokenPlan } from "@/lib/constants/token-plans"
+import { sendEmail } from "@/lib/sendgrid"
 
 interface SubscriptionEmailData {
   userEmail: string
@@ -19,8 +9,6 @@ interface SubscriptionEmailData {
 }
 
 export class SubscriptionEmailService {
-  private static from = process.env.SMTP_FROM || "noreply@optima.ai"
-  
   static async sendSubscriptionConfirmation(data: SubscriptionEmailData) {
     const { userEmail, userName, plan, billingCycleEnd } = data
     
@@ -102,11 +90,11 @@ export class SubscriptionEmailService {
     `
     
     try {
-      await transporter.sendMail({
-        from: this.from,
-        to: userEmail,
+      await sendEmail({
+        to: { email: userEmail, name: userName },
         subject,
         html,
+        categories: ["subscription-confirmation"],
       })
       
       console.log(`✅ Sent subscription confirmation to ${userEmail}`)
@@ -194,11 +182,11 @@ export class SubscriptionEmailService {
     `
     
     try {
-      await transporter.sendMail({
-        from: this.from,
-        to: userEmail,
+      await sendEmail({
+        to: { email: userEmail, name: userName },
         subject,
         html,
+        categories: ["subscription-upgrade"],
       })
       
       console.log(`✅ Sent upgrade notification to ${userEmail}`)
@@ -276,11 +264,11 @@ export class SubscriptionEmailService {
     `
     
     try {
-      await transporter.sendMail({
-        from: this.from,
-        to: userEmail,
+      await sendEmail({
+        to: { email: userEmail, name: userName },
         subject,
         html,
+        categories: ["subscription-cancellation"],
       })
       
       console.log(`✅ Sent cancellation confirmation to ${userEmail}`)

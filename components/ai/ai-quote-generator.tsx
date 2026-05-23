@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -63,6 +63,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedQuote, setGeneratedQuote] = useState<GeneratedQuoteData | null>(null)
   const [enrichmentDialogOpen, setEnrichmentDialogOpen] = useState(false)
+  const isCompletingEnrichmentRef = useRef(false)
   
   const [editMode, setEditMode] = useState<{
     obiettivi?: boolean
@@ -100,6 +101,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       return
     }
 
+    isCompletingEnrichmentRef.current = true
+
     try {
       actionState.start('Raccolta dati preventivo...')
       setIsGenerating(true)
@@ -116,10 +119,12 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
         credentials: 'include',
         body: JSON.stringify({
           projectDescription: enrichedData.description,
+          description: enrichedData.description,
           clientName: enrichedData.clientName,
           clientEmail: enrichedData.clientEmail || '',
           clientCompany: enrichedData.clientCompany || '',
           budget: `${enrichedData.budgetRange.min}-${enrichedData.budgetRange.max}`,
+          budgetRange: enrichedData.budgetRange,
           deadline: enrichedData.timeline,
           additionalRequirements: enrichedData.additionalNotes || '',
           projectType: enrichedData.projectType,
@@ -161,6 +166,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       setEnrichmentDialogOpen(true)
     } finally {
       setIsGenerating(false)
+      isCompletingEnrichmentRef.current = false
     }
   }
 
@@ -373,7 +379,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
         open={open && enrichmentDialogOpen}
         onOpenChange={(isOpen) => {
           setEnrichmentDialogOpen(isOpen)
-          if (!isOpen && step === 'enrichment') {
+          if (!isOpen && step === 'enrichment' && !isCompletingEnrichmentRef.current) {
             onOpenChange(false)
           }
         }}

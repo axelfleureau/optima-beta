@@ -7,7 +7,7 @@
  * ⚠️ NEVER import this file in client components or hooks
  */
 
-import { Timestamp } from 'firebase-admin/firestore'
+import { Timestamp } from '@/lib/firebase-admin-firestore'
 import { adminDb } from '@/lib/firebase-admin'
 import { generateShareToken, getBaseUrl } from '@/lib/quote-utils'
 

@@ -1,5 +1,3 @@
-import sharp from 'sharp'
-
 export interface ResizeConfig {
   targetWidth: number
   targetHeight: number
@@ -7,7 +5,12 @@ export interface ResizeConfig {
 }
 
 /**
- * Resize/crop image to target dimensions
+ * Fetch image bytes in a Workers-compatible way.
+ *
+ * The previous implementation used sharp, which pulls native binaries into the
+ * Worker bundle and cannot run in workerd. Keep this function as a stable
+ * compatibility boundary until image resizing is moved to Cloudflare Images or
+ * another edge-compatible transformer.
  */
 export async function resizeImage(
   imageBuffer: Buffer | string,
@@ -27,15 +30,8 @@ export async function resizeImage(
       inputBuffer = imageBuffer
     }
 
-    const processed = await sharp(inputBuffer)
-      .resize(config.targetWidth, config.targetHeight, {
-        fit: config.strategy === 'crop' ? 'cover' : config.strategy,
-        position: 'center',
-      })
-      .jpeg({ quality: 90 })
-      .toBuffer()
-
-    return processed
+    void config
+    return inputBuffer
 
   } catch (error) {
     console.error('❌ Image resize error:', error)

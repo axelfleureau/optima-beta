@@ -55,9 +55,10 @@ const config = {
         },
         // Righello Brand Colors
         righello: {
-          pink: "#D946A6",
-          "pink-light": "#E879B9",
-          "pink-dark": "#BE185D",
+          pink: "#D6487E",
+          "pink-light": "#E85A8F",
+          "pink-dark": "#C03A6E",
+          cyan: "#06B6D4",
           charcoal: "#1A1A1A",
           "dark-gray": "#2C2C2C",
           "light-gray": "#F0F0EA",
@@ -103,8 +104,8 @@ const config = {
         "glass-hover": "glass-hover 150ms cubic-bezier(0.4, 0, 0.2, 1)",
       },
       fontFamily: {
-        sans: ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
-        display: ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        sans: ['"Degular Display"', "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        display: ['"Degular Display"', "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
       },
       fontSize: {
         xs: ["0.75rem", { lineHeight: "1rem" }],
@@ -146,6 +147,7 @@ const config = {
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+        "righello-brand": "linear-gradient(135deg, #D6487E 0%, #06B6D4 100%)",
         "gradient-mesh-subtle": "radial-gradient(at 0% 0%, rgba(148, 163, 184, 0.05) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(203, 213, 225, 0.05) 0px, transparent 50%)",
         "gradient-mesh-slate": "radial-gradient(at 0% 0%, rgba(100, 116, 139, 0.08) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(148, 163, 184, 0.08) 0px, transparent 50%)",
         "border-gradient-subtle": "linear-gradient(135deg, rgba(148, 163, 184, 0.3) 0%, rgba(203, 213, 225, 0.2) 100%)",

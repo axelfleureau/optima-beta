@@ -13,10 +13,7 @@ import type { Quote } from "@/lib/ai-quote-service"
 import type { Client } from "@/lib/types"
 import type { Payment } from "@/types/payment"
 import { createPayment } from "@/collections/payments"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
-})
+import { getStripeClient } from "@/lib/stripe-client"
 
 /**
  * Create a Payment Intent for automatic quote payment
@@ -38,6 +35,8 @@ export async function createQuotePaymentIntent(
   tenantAccountId: string
 ): Promise<{ paymentIntent: Stripe.PaymentIntent; payment: Payment }> {
   try {
+    const stripe = getStripeClient()
+
     // Convert EUR to cents (Stripe uses smallest currency unit)
     const amountInCents = Math.round(quote.total * 100)
     

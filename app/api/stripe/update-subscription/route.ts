@@ -3,12 +3,8 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from "next/server"
 import { adminAuth, adminDb } from "@/lib/firebase-admin"
 import { getPlanById } from "@/lib/constants/token-plans"
-import Stripe from "stripe"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
-})
+import { getStripeClient } from "@/lib/stripe-client"
 
 async function getUserFromToken(req: NextRequest) {
   const authHeader = req.headers.get("Authorization")
@@ -51,6 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const stripe = getStripeClient()
     const user = await getUserFromToken(req)
     if (!user) {
       return NextResponse.json(

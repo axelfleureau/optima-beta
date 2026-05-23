@@ -1,0 +1,115 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "optima-beta",
+  "main": "cloudflare-worker.js",
+  "compatibility_date": "2026-05-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": ["0 9 * * *"]
+  },
+  "vars": {
+    "APP_ENV": "production",
+    "NEXT_PUBLIC_APP_ENV": "production",
+    "NEXT_PUBLIC_SITE_URL": "https://optima-beta.axel-15d.workers.dev",
+    "NEXT_PUBLIC_APP_URL": "https://optima-beta.axel-15d.workers.dev",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dmFsdWVkLWdsaWRlci0zMi5jbGVyay5hY2NvdW50cy5kZXYk",
+    "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/login",
+    "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "/register",
+    "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/dashboard",
+    "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL": "/dashboard",
+    "SENDGRID_FROM_EMAIL": "info@wearerighello.com",
+    "SENDGRID_FROM_NAME": "Optima by Righello",
+    "OPENAI_REASONING_MODEL": "gpt-5.2",
+    "OPENAI_FAST_MODEL": "gpt-5-mini",
+    "OPENAI_CHAT_MODEL": "gpt-5.2"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "optima-beta-production-db",
+      "database_id": "ba367f62-caf8-4148-89ed-e81a4e9b9568",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "TASK_MEDIA",
+      "bucket_name": "optima-beta-task-media"
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "optima-beta-staging",
+      "vars": {
+        "APP_ENV": "staging",
+        "NEXT_PUBLIC_APP_ENV": "staging",
+        "NEXT_PUBLIC_SITE_URL": "https://optima-beta-staging.axel-15d.workers.dev",
+        "NEXT_PUBLIC_APP_URL": "https://optima-beta-staging.axel-15d.workers.dev",
+        "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dmFsdWVkLWdsaWRlci0zMi5jbGVyay5hY2NvdW50cy5kZXYk",
+        "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/login",
+        "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "/register",
+        "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/dashboard",
+        "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL": "/dashboard",
+        "SENDGRID_FROM_EMAIL": "info@wearerighello.com",
+        "SENDGRID_FROM_NAME": "Optima by Righello",
+        "OPENAI_REASONING_MODEL": "gpt-5.2",
+        "OPENAI_FAST_MODEL": "gpt-5-mini",
+        "OPENAI_CHAT_MODEL": "gpt-5.2"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "optima-beta-staging-db",
+          "database_id": "6dc15948-1424-417c-9fea-6be4c5f3a6eb",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "TASK_MEDIA",
+          "bucket_name": "optima-beta-task-media"
+        }
+      ]
+    },
+    "production": {
+      "name": "optima-beta-production",
+      "vars": {
+        "APP_ENV": "production",
+        "NEXT_PUBLIC_APP_ENV": "production",
+        "NEXT_PUBLIC_SITE_URL": "https://optima-beta-production.axel-15d.workers.dev",
+        "NEXT_PUBLIC_APP_URL": "https://optima-beta-production.axel-15d.workers.dev",
+        "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dmFsdWVkLWdsaWRlci0zMi5jbGVyay5hY2NvdW50cy5kZXYk",
+        "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/login",
+        "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "/register",
+        "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/dashboard",
+        "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL": "/dashboard",
+        "SENDGRID_FROM_EMAIL": "info@wearerighello.com",
+        "SENDGRID_FROM_NAME": "Optima by Righello",
+        "OPENAI_REASONING_MODEL": "gpt-5.2",
+        "OPENAI_FAST_MODEL": "gpt-5-mini",
+        "OPENAI_CHAT_MODEL": "gpt-5.2"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "optima-beta-production-db",
+          "database_id": "ba367f62-caf8-4148-89ed-e81a4e9b9568",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "TASK_MEDIA",
+          "bucket_name": "optima-beta-task-media"
+        }
+      ]
+    }
+  }
+}

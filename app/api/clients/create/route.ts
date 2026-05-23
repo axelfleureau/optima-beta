@@ -3,15 +3,28 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { verifyFirebaseToken, getUserData, adminAuth, adminDb } from "@/lib/firebase-admin"
-import { FieldValue } from "firebase-admin/firestore"
+import { FieldValue } from "@/lib/firebase-admin-firestore"
+
+const normalizeEmailValue = (value: unknown) =>
+  typeof value === "string" ? value.trim().toLowerCase() : value
+
+const requiredEmail = z.preprocess(
+  normalizeEmailValue,
+  z.string().min(1, "Email richiesta").email("Email non valida"),
+)
+
+const optionalEmail = z.preprocess(
+  normalizeEmailValue,
+  z.union([z.literal(""), z.string().email("Email di contatto non valida")]).optional(),
+)
 
 const createClientSchema = z.object({
   name: z.string().min(1, 'Nome richiesto').max(100),
-  email: z.string().email('Email non valida'),
+  email: requiredEmail,
   phone: z.string().optional(),
   company: z.string().max(200).optional(),
   industry: z.string().optional(),
-  contactEmail: z.string().email('Email di contatto non valida').optional().or(z.literal('')),
+  contactEmail: optionalEmail,
   contactPhone: z.string().optional(),
   address: z.string().optional(),
   status: z.string().min(1, 'Stato richiesto')

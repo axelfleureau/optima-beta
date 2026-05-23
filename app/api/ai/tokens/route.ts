@@ -1,8 +1,9 @@
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
 import type { NextRequest } from "next/server"
-import { getAvailableTokens } from "@/lib/token-service"
+import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { requireClerkUser } from "@/lib/server-clerk"
 
 export async function GET(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, "AI")
@@ -11,37 +12,47 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
-
-    if (!userId) {
-      console.error("Missing userId parameter")
-      return new Response(JSON.stringify({ error: "Missing userId parameter" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("Token API: Getting tokens for user:", userId)
+    const db = await getCloudflareDb()
+    const usage = db
+      ? await db
+          .prepare(
+            `SELECT COALESCE(SUM(input_tokens + output_tokens), 0) AS tokensUsed
+             FROM ai_usage
+             WHERE organization_id = ?`,
+          )
+          .bind(user.organizationId)
+          .first()
+      : null
 
-    // Get fresh token data from database
-    const tokenInfo = await getAvailableTokens(userId)
+    const tokensUsed = Number(usage?.tokensUsed || 0)
+    const tokensTotal = 1000000
 
-    console.log("Token API: Returning token info:", tokenInfo)
-
-    return new Response(JSON.stringify(tokenInfo), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        Pragma: "no-cache",
-        Expires: "0",
+    return Response.json(
+      {
+        tokensUsed,
+        tokensTotal,
+        tokensAvailable: Math.max(0, tokensTotal - tokensUsed),
+        organizationName: "Organizzazione",
+        adminId: user.organizationId,
+        userRole: user.role,
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
     console.error("Token API Error:", error)
-    return new Response(
-      JSON.stringify({
+    return Response.json(
+      {
         error: "Failed to fetch token information",
         tokensUsed: 0,
         tokensTotal: 1000000,
@@ -49,11 +60,8 @@ export async function GET(request: NextRequest) {
         organizationName: "Organizzazione",
         adminId: "",
         userRole: "error",
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
       },
+      { status: 500 },
     )
   }
 }
