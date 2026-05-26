@@ -10,9 +10,9 @@ function record(name, ok, detail = "") {
   console.log(`${marker} ${name}${detail ? ` - ${detail}` : ""}`)
 }
 
-async function fetchText(path) {
+async function fetchText(path, redirect = "manual") {
   const response = await fetch(`${baseUrl}${path}`, {
-    redirect: "manual",
+    redirect,
     headers: {
       "User-Agent": "optima-readiness-check/1.0",
     },
@@ -48,6 +48,15 @@ async function main() {
   record("served by OpenNext", openNext === "1", `x-opennext=${openNext || "missing"}`)
   record("uses Clerk live key", login.text.includes("pk_live_"), "pk_live present in HTML")
   record("does not expose Clerk test key", !login.text.includes("pk_test_"), "pk_test absent")
+  record("uses Clerk proxy", login.text.includes(`${baseUrl}/__clerk`) || login.text.includes("/__clerk"), "__clerk proxy present in HTML")
+  record("does not call Clerk custom subdomain directly", !login.text.includes("clerk.appbeta.wearerighello.com"), "custom FAPI host absent in HTML")
+
+  const clerkScript = await fetchText("/__clerk/npm/@clerk/clerk-js@5/dist/clerk.browser.js", "follow")
+  record(
+    "Clerk proxy serves browser script",
+    clerkScript.response.status === 200 && clerkScript.text.includes("Clerk"),
+    `status ${clerkScript.response.status}`,
+  )
 
   const buildId = await fetchText("/BUILD_ID")
   record("BUILD_ID available", buildId.response.status === 200 && buildId.text.trim().length > 0, buildId.text.trim())

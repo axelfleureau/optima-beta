@@ -15,6 +15,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const clerkProxyUrl = process.env.NEXT_PUBLIC_CLERK_PROXY_URL
+
   return (
     <html lang="it" suppressHydrationWarning>
       <body>
@@ -23,7 +25,7 @@ export default function RootLayout({
             __html: "globalThis.__name=globalThis.__name||function(fn){return fn}",
           }}
         />
-        <ClerkProvider>
+        <ClerkProvider proxyUrl={clerkProxyUrl}>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
             {children}
             <Toaster />
