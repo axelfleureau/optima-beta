@@ -1,0 +1,81 @@
+import { resolve4, resolveCname } from "node:dns/promises"
+
+const baseUrl = (process.env.OPTIMA_PRODUCTION_URL || "https://appbeta.wearerighello.com").replace(/\/$/, "")
+
+const checks = []
+
+function record(name, ok, detail = "") {
+  checks.push({ name, ok, detail })
+  const marker = ok ? "ok" : "fail"
+  console.log(`${marker} ${name}${detail ? ` - ${detail}` : ""}`)
+}
+
+async function fetchText(path) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    redirect: "manual",
+    headers: {
+      "User-Agent": "optima-readiness-check/1.0",
+    },
+  })
+  return {
+    response,
+    text: await response.text(),
+  }
+}
+
+async function dnsExists(hostname) {
+  try {
+    const cname = await resolveCname(hostname)
+    return { ok: cname.length > 0, detail: cname.join(", ") }
+  } catch {
+    try {
+      const addresses = await resolve4(hostname)
+      return { ok: addresses.length > 0, detail: addresses.join(", ") }
+    } catch {
+      return { ok: false, detail: "missing DNS record" }
+    }
+  }
+}
+
+async function main() {
+  console.log(`Checking Optima production readiness: ${baseUrl}`)
+
+  const login = await fetchText("/login")
+  const server = login.response.headers.get("server") || ""
+  const openNext = login.response.headers.get("x-opennext") || ""
+  record("login responds", login.response.status === 200, `status ${login.response.status}`)
+  record("served by Cloudflare", server.toLowerCase().includes("cloudflare"), `server=${server || "unknown"}`)
+  record("served by OpenNext", openNext === "1", `x-opennext=${openNext || "missing"}`)
+  record("uses Clerk live key", login.text.includes("pk_live_"), "pk_live present in HTML")
+  record("does not expose Clerk test key", !login.text.includes("pk_test_"), "pk_test absent")
+
+  const buildId = await fetchText("/BUILD_ID")
+  record("BUILD_ID available", buildId.response.status === 200 && buildId.text.trim().length > 0, buildId.text.trim())
+
+  const health = await fetchText("/api/health")
+  let healthJson = null
+  try {
+    healthJson = JSON.parse(health.text)
+  } catch {
+    // Ignore, recorded below.
+  }
+  record("health endpoint ready", health.response.status === 200 && healthJson?.ok === true, healthJson ? JSON.stringify(healthJson.checks) : `status ${health.response.status}`)
+
+  for (const hostname of ["clerk.appbeta.wearerighello.com", "accounts.appbeta.wearerighello.com"]) {
+    const result = await dnsExists(hostname)
+    record(`${hostname} DNS`, result.ok, result.detail)
+  }
+
+  const failed = checks.filter((check) => !check.ok)
+  if (failed.length > 0) {
+    console.error(`Production readiness failed: ${failed.length} check(s) failing.`)
+    process.exit(1)
+  }
+
+  console.log("Production readiness passed.")
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exit(1)
+})

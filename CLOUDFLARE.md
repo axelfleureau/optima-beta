@@ -29,6 +29,22 @@ https://appbeta.wearerighello.com
 
 The `wearerighello.com` DNS zone must be active in the same Cloudflare account before Wrangler can attach the Worker custom domain. If the domain is still hosted elsewhere, add the zone to Cloudflare, update the registrar nameservers to the Cloudflare nameservers shown in the dashboard, and remove the existing `appbeta` record that points to Vercel. After that, `npm run cf:deploy:production` can provision the custom domain route.
 
+Clerk production uses custom auth subdomains. Add these DNS-only records in the `wearerighello.com` zone before considering production login ready:
+
+```text
+clerk.appbeta             CNAME  frontend-api.clerk.services
+accounts.appbeta          CNAME  accounts.clerk.services
+clkmail.appbeta           CNAME  mail.kpyb0k2why3k.clerk.services
+clk._domainkey.appbeta    CNAME  dkim1.kpyb0k2why3k.clerk.services
+clk2._domainkey.appbeta   CNAME  dkim2.kpyb0k2why3k.clerk.services
+```
+
+Verify production readiness with:
+
+```bash
+npm run check:production
+```
+
 ## Runtime secrets
 
 Do not commit secret values. Set them in Cloudflare with Wrangler:
