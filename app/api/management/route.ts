@@ -184,7 +184,23 @@ export async function GET() {
                  AND te.member_id = m.id) AS last_entry_at
            FROM members m
            WHERE m.organization_id = ?
-             AND m.status = 'active'
+             AND (
+               m.status = 'active'
+               OR EXISTS (
+                 SELECT 1
+                   FROM time_entries te
+                  WHERE te.organization_id = m.organization_id
+                    AND te.member_id = m.id
+                    AND date(te.entry_date) >= date('now', '-6 days')
+               )
+               OR EXISTS (
+                 SELECT 1
+                   FROM tasks t
+                  WHERE t.organization_id = m.organization_id
+                    AND t.assignee_member_id = m.id
+                    AND ${openStatusSql("t")}
+               )
+             )
              AND m.role IN ('admin', 'direzione', 'capo-reparto', 'junior', 'member')
            ORDER BY tracked_week_minutes DESC, open_tasks DESC, m.first_name ASC
            LIMIT 24`,

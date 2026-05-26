@@ -38,6 +38,21 @@ export interface Client {
   clientTenantId?: string
   color?: string
   industry?: string
+  code?: string
+  type?: string
+  source?: string
+  contactName?: string
+  pec?: string
+  vatNumber?: string
+  fiscalCode?: string
+  sdiCode?: string
+  city?: string
+  postalCode?: string
+  workType?: string
+  notes?: string
+  oneDriveFolder?: string
+  oneDriveRemotePath?: string
+  notionUrl?: string
   contactEmail?: string
   contactPhone?: string
   address?: string
