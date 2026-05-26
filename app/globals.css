@@ -147,6 +147,43 @@ body:not([data-scroll-locked]) {
   color: white;
 }
 
+html[data-financial-visible="false"] .financial-sensitive {
+  position: relative;
+  display: inline-block;
+  min-width: 3.5ch;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  color: transparent !important;
+  text-shadow: none !important;
+  caret-color: transparent;
+  user-select: none;
+  background:
+    linear-gradient(90deg, rgba(148, 163, 184, 0.24), rgba(214, 72, 126, 0.22), rgba(6, 182, 212, 0.2)),
+    rgba(15, 23, 42, 0.62);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(214, 72, 126, 0.08);
+}
+
+html[data-financial-visible="false"] .financial-sensitive::after {
+  content: "••••";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.78em;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  pointer-events: none;
+}
+
+html[data-financial-visible="true"] .financial-sensitive {
+  transition: filter 0.18s ease, background-color 0.18s ease;
+}
+
 /* Righello Design System Classes */
 .righello-gradient {
   background: linear-gradient(135deg, var(--righello-pink) 0%, var(--righello-cyan) 100%);

@@ -14,6 +14,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { NotificationProvider } from "@/lib/notification-context"
 import { CommandBar } from "@/components/command-bar/command-bar"
 import { ScrollStabilityGuard } from "@/components/scroll-stability-guard"
+import { FinancialPrivacyProvider } from "@/components/financial-privacy-provider"
 
 // Lazy load Image Generator Dialog - reduces initial bundle size
 const ImageGenerator = dynamic(
@@ -46,16 +47,18 @@ export function DashboardShell({
           <ScrollStabilityGuard />
           <ProtectedRoute>
             <SidebarProvider>
-              <div className="optima-app-surface flex min-h-[100dvh] w-full overflow-x-hidden [overflow-anchor:none]">
-                <AppSidebar />
-                <main className="min-w-0 flex-1 overflow-x-hidden [-webkit-overflow-scrolling:touch]">
-                  <MobileHeader />
-                  <RouteError />
-                  <div className="min-h-full">
-                    {children}
-                  </div>
-                </main>
-              </div>
+              <FinancialPrivacyProvider>
+                <div className="optima-app-surface flex min-h-[100dvh] w-full overflow-x-hidden [overflow-anchor:none]">
+                  <AppSidebar />
+                  <main className="min-w-0 flex-1 overflow-x-hidden [-webkit-overflow-scrolling:touch]">
+                    <MobileHeader />
+                    <RouteError />
+                    <div className="min-h-full">
+                      {children}
+                    </div>
+                  </main>
+                </div>
+              </FinancialPrivacyProvider>
             </SidebarProvider>
           </ProtectedRoute>
 
