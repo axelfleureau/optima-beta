@@ -31,7 +31,7 @@ import { CalendarDayView } from "../../../components/calendar/calendar-day-view"
 export default function EditorialCalendarClient() {
   const { userData } = useAuth()
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<"table" | "kanban" | "calendar">("table")
+  const [activeTab, setActiveTab] = useState<"table" | "kanban" | "calendar">("calendar")
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<EditorialPost | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -253,9 +253,8 @@ export default function EditorialCalendarClient() {
   }))
 
   return (
-    <div className="h-[calc(100dvh-73px)] overflow-y-auto overflow-x-hidden overscroll-contain bg-slate-100 text-slate-950 touch-pan-y dark:bg-[#0b1323] dark:text-slate-100 md:h-auto md:min-h-screen md:overflow-visible">
-      {/* Header migliorato */}
-      <div className="min-w-0 border-b border-slate-200/50 bg-white/85 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#111827]/88">
+    <div className="h-[calc(100dvh-73px)] overflow-y-auto overflow-x-hidden overscroll-contain bg-slate-50 text-slate-950 touch-pan-y dark:bg-[#0b1323] dark:text-slate-100 md:h-auto md:min-h-screen md:overflow-visible">
+      <div className="sticky top-0 z-30 min-w-0 border-b border-slate-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-[#111827]/95">
         <CalendarHeader
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -267,7 +266,7 @@ export default function EditorialCalendarClient() {
         />
       </div>
 
-      <div className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 py-4 md:px-6 md:py-8">
+      <div className="mx-auto w-full overflow-x-hidden px-4 py-4 md:px-6">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="min-w-0 space-y-4 md:space-y-6">
           <CalendarTabs activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as "table" | "kanban" | "calendar")} />
 

@@ -59,7 +59,7 @@ function calculateTimelineRange(date: Date, mode: ViewMode): TimelineRange {
 }
 
 export function CalendarExperienceProvider({ children }: { children: React.ReactNode }) {
-  const [viewMode, setViewModeState] = useState<ViewMode>("month")
+  const [viewMode, setViewModeState] = useState<ViewMode>("week")
   const [selectedDate, setSelectedDateState] = useState<Date>(new Date())
   const [filters, setFiltersState] = useState<CalendarFilters>({})
   const [posts, setPosts] = useState<EditorialPost[]>([])
