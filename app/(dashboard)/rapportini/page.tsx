@@ -84,6 +84,9 @@ type TimeTrackingPayload = {
   totals: {
     activityMinutes: number
     presenceMinutes: number
+    grossPresenceMinutes?: number
+    expectedOfficeMinutes?: number
+    lunchBreakMinutes?: number
   }
   options: {
     tasks: Option[]
@@ -698,10 +701,11 @@ export default function RapportiniPage() {
 
               <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-white/10 bg-[#1b242b] p-4">
-                  <div className="text-sm text-slate-400">Ore presenza</div>
+                  <div className="text-sm text-slate-400">Ore presenza nette</div>
                   <div className="mt-1 text-3xl font-black text-white">{formatMinutes(payload?.totals.presenceMinutes || 0)}</div>
                   <div className="mt-2 text-xs text-slate-500">
                     {formatTime(payload?.day?.checkInAt)} - {formatTime(payload?.day?.checkOutAt)}
+                    {payload?.totals.lunchBreakMinutes ? ` · pausa ${formatMinutes(payload.totals.lunchBreakMinutes)}` : ""}
                   </div>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-[#1b242b] p-4">

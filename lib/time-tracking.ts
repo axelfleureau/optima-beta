@@ -1,6 +1,10 @@
 import type { WorkspacePrincipal } from "@/lib/workspace-db"
 
 export const TIME_MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
+export const DEFAULT_WORK_START_TIME = "09:00"
+export const DEFAULT_LUNCH_BREAK_MINUTES = 60
+export const DEFAULT_WORK_DAYS_PER_WEEK = 5
+export const PRESENCE_GRACE_MINUTES = 15
 
 export function canManageTime(principal: WorkspacePrincipal) {
   return TIME_MANAGER_ROLES.has(principal.role)
@@ -18,10 +22,107 @@ export function normalizeMinutes(value: unknown) {
   return Math.max(1, Math.min(1440, Math.round(minutes)))
 }
 
+export function normalizeTime(value: unknown, fallback = DEFAULT_WORK_START_TIME) {
+  if (typeof value !== "string") return fallback
+  const raw = value.trim()
+  if (!/^\d{2}:\d{2}$/.test(raw)) return fallback
+  const [hours, minutes] = raw.split(":").map(Number)
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return fallback
+  }
+  return raw
+}
+
+export function timeToMinutes(time: string) {
+  const normalized = normalizeTime(time)
+  const [hours, minutes] = normalized.split(":").map(Number)
+  return hours * 60 + minutes
+}
+
+export function minutesToTime(minutes: number) {
+  const safeMinutes = ((Math.round(minutes) % 1440) + 1440) % 1440
+  const hours = Math.floor(safeMinutes / 60)
+  const remainder = safeMinutes % 60
+  return `${String(hours).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+}
+
+export function dailyGrossCapacityMinutes(weeklyCapacityMinutes: unknown, workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK) {
+  const weekly = Number(weeklyCapacityMinutes || 2400)
+  const days = Number.isFinite(workDaysPerWeek) && workDaysPerWeek > 0 ? workDaysPerWeek : DEFAULT_WORK_DAYS_PER_WEEK
+  return Math.max(0, Math.round(weekly / days))
+}
+
+export function dailyNetCapacityMinutes(
+  weeklyCapacityMinutes: unknown,
+  lunchBreakMinutes = DEFAULT_LUNCH_BREAK_MINUTES,
+  workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK,
+) {
+  return Math.max(0, dailyGrossCapacityMinutes(weeklyCapacityMinutes, workDaysPerWeek) - lunchBreakMinutes)
+}
+
+export function weeklyNetCapacityMinutes(
+  weeklyCapacityMinutes: unknown,
+  lunchBreakMinutes = DEFAULT_LUNCH_BREAK_MINUTES,
+  workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK,
+) {
+  const weekly = Number(weeklyCapacityMinutes || 2400)
+  if (!Number.isFinite(weekly)) return 0
+  return Math.max(0, Math.round(weekly - lunchBreakMinutes * workDaysPerWeek))
+}
+
+export function expectedCheckoutTime(
+  workStartTime = DEFAULT_WORK_START_TIME,
+  weeklyCapacityMinutes: unknown = 2400,
+  workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK,
+) {
+  return minutesToTime(timeToMinutes(workStartTime) + dailyGrossCapacityMinutes(weeklyCapacityMinutes, workDaysPerWeek))
+}
+
+export function workScheduleForMember(weeklyCapacityMinutes: unknown, workStartTime = DEFAULT_WORK_START_TIME) {
+  const normalizedStart = normalizeTime(workStartTime, DEFAULT_WORK_START_TIME)
+  const dailyCapacityMinutes = dailyGrossCapacityMinutes(weeklyCapacityMinutes)
+  const lunchBreakMinutes = DEFAULT_LUNCH_BREAK_MINUTES
+  const expectedOfficeMinutes = dailyNetCapacityMinutes(weeklyCapacityMinutes, lunchBreakMinutes)
+  return {
+    workStartTime: normalizedStart,
+    expectedCheckOutTime: expectedCheckoutTime(normalizedStart, weeklyCapacityMinutes),
+    dailyCapacityMinutes,
+    lunchBreakMinutes,
+    expectedOfficeMinutes,
+    workDaysPerWeek: DEFAULT_WORK_DAYS_PER_WEEK,
+  }
+}
+
 export function minutesBetween(start?: string | null, end?: string | null) {
   if (!start || !end) return 0
   const startMs = new Date(start).getTime()
   const endMs = new Date(end).getTime()
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return 0
   return Math.round((endMs - startMs) / 60000)
+}
+
+export function currentPresenceMinutes(checkInAt?: string | null, checkOutAt?: string | null) {
+  if (!checkInAt) return 0
+  if (checkOutAt) return minutesBetween(checkInAt, checkOutAt)
+
+  const startMs = new Date(checkInAt).getTime()
+  const nowMs = Date.now()
+  if (!Number.isFinite(startMs) || nowMs <= startMs) return 0
+  return Math.round((nowMs - startMs) / 60000)
+}
+
+export function netPresenceMinutes(
+  grossPresenceMinutes: number,
+  lunchBreakMinutes = DEFAULT_LUNCH_BREAK_MINUTES,
+  lunchThresholdMinutes = 360,
+) {
+  if (!Number.isFinite(grossPresenceMinutes) || grossPresenceMinutes <= 0) return 0
+  return Math.max(0, Math.round(grossPresenceMinutes - (grossPresenceMinutes >= lunchThresholdMinutes ? lunchBreakMinutes : 0)))
+}
+
+export function minutesSinceMidnightFromDate(value?: string | null) {
+  if (!value) return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.getHours() * 60 + parsed.getMinutes()
 }

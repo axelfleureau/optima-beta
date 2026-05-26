@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic"
 
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
+import { DEFAULT_LUNCH_BREAK_MINUTES, DEFAULT_WORK_DAYS_PER_WEEK, weeklyNetCapacityMinutes } from "@/lib/time-tracking"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 const DONE_STATUSES = new Set(["done", "completed", "validation"])
@@ -140,11 +141,11 @@ export async function GET() {
                  AND date(te.entry_date) >= date('now', '-6 days')) AS tracked_week_minutes,
              (SELECT COALESCE(ROUND(SUM(
                        CASE
-                         WHEN wd.check_in_at IS NOT NULL AND wd.check_out_at IS NOT NULL
+                         WHEN wd.check_in_at IS NOT NULL AND wd.status != 'absent'
                          THEN CASE
-                           WHEN ((julianday(wd.check_out_at) - julianday(wd.check_in_at)) * 1440) >= 360
-                           THEN ((julianday(wd.check_out_at) - julianday(wd.check_in_at)) * 1440) - 60
-                           ELSE (julianday(wd.check_out_at) - julianday(wd.check_in_at)) * 1440
+                           WHEN ((julianday(COALESCE(wd.check_out_at, CURRENT_TIMESTAMP)) - julianday(wd.check_in_at)) * 1440) >= 360
+                           THEN ((julianday(COALESCE(wd.check_out_at, CURRENT_TIMESTAMP)) - julianday(wd.check_in_at)) * 1440) - ${DEFAULT_LUNCH_BREAK_MINUTES}
+                           ELSE (julianday(COALESCE(wd.check_out_at, CURRENT_TIMESTAMP)) - julianday(wd.check_in_at)) * 1440
                          END
                          ELSE 0
                        END
@@ -201,7 +202,7 @@ export async function GET() {
                     AND ${openStatusSql("t")}
                )
              )
-             AND m.role IN ('admin', 'direzione', 'capo-reparto', 'junior', 'member')
+             AND m.role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior', 'member', 'dipendente', 'employee')
            ORDER BY tracked_week_minutes DESC, open_tasks DESC, m.first_name ASC
            LIMIT 24`,
         )
@@ -279,12 +280,13 @@ export async function GET() {
 
     const people = (memberRows.results || []).map((row: any) => {
       const capacity = toNumber(row.weekly_capacity_minutes) || 2400
+      const netCapacity = weeklyNetCapacityMinutes(capacity)
       const tracked = toNumber(row.tracked_week_minutes)
       const presence = toNumber(row.presence_week_minutes)
       const planned = toNumber(row.planned_week_minutes)
       const committed = Math.max(tracked, planned)
-      const utilizationBasis = presence > 0 ? presence : capacity
-      const utilization = utilizationBasis > 0 ? Math.round((committed / utilizationBasis) * 100) : 0
+      const utilization = netCapacity > 0 ? Math.round((committed / netCapacity) * 100) : 0
+      const presenceCoverage = netCapacity > 0 ? Math.round((presence / netCapacity) * 100) : 0
       const overdue = toNumber(row.overdue_tasks)
       const role = toText(row.role, "member")
       const hasOperationalData = tracked > 0 || planned > 0 || presence > 0
@@ -294,11 +296,14 @@ export async function GET() {
         email: toText(row.email),
         role,
         weeklyCapacityHours: Math.round((capacity / 60) * 10) / 10,
+        netCapacityHours: Math.round((netCapacity / 60) * 10) / 10,
+        lunchBreakHours: Math.round(((DEFAULT_LUNCH_BREAK_MINUTES * DEFAULT_WORK_DAYS_PER_WEEK) / 60) * 10) / 10,
         presenceWeekHours: Math.round((presence / 60) * 10) / 10,
         trackedWeekHours: Math.round((tracked / 60) * 10) / 10,
         plannedWeekHours: Math.round((planned / 60) * 10) / 10,
         committedWeekHours: Math.round((committed / 60) * 10) / 10,
-        utilizationBasis: presence > 0 ? "presence" : "weekly-capacity",
+        utilizationBasis: "net-capacity",
+        presenceCoverage,
         utilization,
         status: utilizationStatus(utilization, overdue, role, hasOperationalData),
         openTasks: toNumber(row.open_tasks),
@@ -322,9 +327,7 @@ export async function GET() {
                 ? "Carico sotto soglia"
                 : "Ritardi da presidiare",
           subject: person.name,
-          detail: `${person.utilization}% carico ${
-            person.utilizationBasis === "presence" ? "sulla presenza netta rilevata" : "sulla capacita settimanale"
-          }, ${person.trackedWeekHours}h registrate, ${person.plannedWeekHours}h pianificate, ${person.presenceWeekHours}h presenza, ${person.openTasks} task aperti, ${person.overdueTasks} in ritardo`,
+          detail: `${person.utilization}% carico sulla capacita netta settimanale (${person.committedWeekHours}h/${person.netCapacityHours}h), ${person.trackedWeekHours}h registrate, ${person.plannedWeekHours}h pianificate, ${person.presenceWeekHours}h presenza netta, ${person.openTasks} task aperti, ${person.overdueTasks} in ritardo`,
           severity: person.status === "overload" || person.overdueTasks > 0 ? "high" : "medium",
         })),
       ...projects

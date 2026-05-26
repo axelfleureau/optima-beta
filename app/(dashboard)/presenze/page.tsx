@@ -24,10 +24,17 @@ type PersonPresence = {
   checkOutAt: string | null
   absenceReason: string
   notes: string
+  grossPresenceMinutes: number
   presenceMinutes: number
   activityMinutes: number
+  dailyCapacityMinutes: number
   expectedOfficeMinutes: number
   lunchBreakMinutes: number
+  workStartTime: string
+  expectedCheckOutTime: string
+  minutesLate: number
+  minutesEarly: number
+  presenceSignal: "late" | "early-exit" | null
   coverageRatio: number
   activityRatio: number
 }
@@ -52,6 +59,7 @@ type PresencePayload = {
 
 const pageClass = "min-h-screen overflow-x-hidden bg-[#050914] text-white"
 const panelClass = "rounded-[8px] border border-white/10 bg-[#0a1020]/90 shadow-[0_18px_70px_rgba(0,0,0,0.26)]"
+const defaultWorkStartTime = "09:00"
 
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -116,9 +124,15 @@ function statusMeta(status: PresenceStatus) {
   }
 }
 
+function presenceSignalLabel(person: PersonPresence) {
+  if (person.presenceSignal === "late") return `Entrata +${formatMinutes(person.minutesLate)}`
+  if (person.presenceSignal === "early-exit") return `Uscita -${formatMinutes(person.minutesEarly)}`
+  return ""
+}
+
 export default function PresenzePage() {
   const [date, setDate] = useState(today())
-  const [checkInTime, setCheckInTime] = useState(currentTime())
+  const [checkInTime, setCheckInTime] = useState(defaultWorkStartTime)
   const [checkOutTime, setCheckOutTime] = useState(currentTime())
   const [payload, setPayload] = useState<PresencePayload | null>(null)
   const [loading, setLoading] = useState(true)
@@ -154,7 +168,15 @@ export default function PresenzePage() {
 
   const self = payload?.self || null
   const presentPeople = useMemo(() => payload?.people.filter((person) => person.status === "present") || [], [payload])
-  const pendingPeople = useMemo(() => payload?.people.filter((person) => person.status === "missing" || person.status === "absent") || [], [payload])
+  const pendingPeople = useMemo(
+    () => payload?.people.filter((person) => person.status === "missing" || person.status === "absent" || person.presenceSignal) || [],
+    [payload],
+  )
+
+  useEffect(() => {
+    if (self?.workStartTime && self.status === "missing") setCheckInTime(self.workStartTime)
+    if (self?.expectedCheckOutTime && self.status !== "present") setCheckOutTime(self.expectedCheckOutTime)
+  }, [self?.expectedCheckOutTime, self?.status, self?.workStartTime])
 
   const mutateSelf = async (action: "check-in" | "check-out" | "absence", time?: string) => {
     const response = await fetch("/api/time-tracking/check", {
@@ -191,7 +213,7 @@ export default function PresenzePage() {
               Chi è operativo adesso.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 md:text-base">
-              Vista rapida per verificare presenze segnate in app, uscite, assenze e copertura delle ore nette in ufficio.
+              Vista rapida per verificare chi è in ufficio, chi ha segnato assenze e come sta andando la copertura delle ore nette. La giornata parte di norma alle 09:00, ma l'entrata reale può essere anticipata o posticipata.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -237,6 +259,7 @@ export default function PresenzePage() {
                 <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-sm text-slate-400">Entrata</p>
                   <p className="mt-1 text-3xl font-black text-white">{formatTime(self?.checkInAt)}</p>
+                  <p className="mt-1 text-xs text-slate-500">Prevista {self?.workStartTime || defaultWorkStartTime}</p>
                   <Input
                     type="time"
                     value={checkInTime}
@@ -247,6 +270,7 @@ export default function PresenzePage() {
                 <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-sm text-slate-400">Uscita</p>
                   <p className="mt-1 text-3xl font-black text-white">{formatTime(self?.checkOutAt)}</p>
+                  <p className="mt-1 text-xs text-slate-500">Indicativa {self?.expectedCheckOutTime || "17:00"}</p>
                   <Input
                     type="time"
                     value={checkOutTime}
@@ -293,8 +317,16 @@ export default function PresenzePage() {
                 </div>
                 <Progress className="mt-4 h-2 bg-white/10" value={(self?.coverageRatio || 0) * 100} />
                 <p className="mt-3 text-xs leading-5 text-slate-500">
-                  Calcolo ufficio: capacità giornaliera meno {formatMinutes(self?.lunchBreakMinutes || 60)} di pausa pranzo.
+                  Calcolo ufficio: {formatMinutes(self?.dailyCapacityMinutes || 480)} lorde, meno{" "}
+                  {formatMinutes(self?.lunchBreakMinutes || 60)} di pausa pranzo. Le entrate prima/dopo le 09:00 vengono tracciate senza forzare il dato.
                 </p>
+                {self?.presenceSignal && (
+                  <div className="mt-3 rounded-[8px] border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+                    {self.presenceSignal === "late"
+                      ? `Entrata oltre la tolleranza di ${formatMinutes(self.minutesLate)}.`
+                      : `Uscita anticipata di ${formatMinutes(self.minutesEarly)} rispetto alla giornata indicativa.`}
+                  </div>
+                )}
               </div>
 
               <Button asChild variant="outline" className="w-full rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10">
@@ -420,6 +452,11 @@ function PresenceMiniCard({ person }: { person: PersonPresence }) {
         <span>Entrata {formatTime(person.checkInAt)}</span>
         <span>Uscita {formatTime(person.checkOutAt)}</span>
       </div>
+      {person.presenceSignal && (
+        <Badge className="mt-3 rounded-[8px] border border-amber-300/25 bg-amber-300/10 text-amber-100">
+          {presenceSignalLabel(person)}
+        </Badge>
+      )}
     </div>
   )
 }
@@ -433,7 +470,10 @@ function PersonRow({ person }: { person: PersonPresence }) {
       </div>
       <PresenceBadge status={person.status} />
       <div className="text-sm text-slate-300">
-        {formatTime(person.checkInAt)} - {formatTime(person.checkOutAt)}
+        <p>{formatTime(person.checkInAt)} - {formatTime(person.checkOutAt)}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Rif. {person.workStartTime} - {person.expectedCheckOutTime}
+        </p>
       </div>
       <div>
         <div className="flex justify-between text-xs text-slate-500">
@@ -441,6 +481,7 @@ function PersonRow({ person }: { person: PersonPresence }) {
           <span>{Math.round(person.coverageRatio * 100)}%</span>
         </div>
         <Progress className="mt-2 h-2 bg-white/10" value={person.coverageRatio * 100} />
+        {person.presenceSignal && <p className="mt-1 text-xs text-amber-200">{presenceSignalLabel(person)}</p>}
       </div>
     </div>
   )

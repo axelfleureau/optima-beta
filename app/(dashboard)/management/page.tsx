@@ -56,11 +56,14 @@ type ManagementData = {
     email: string
     role: string
     weeklyCapacityHours: number
+    netCapacityHours: number
+    lunchBreakHours: number
     presenceWeekHours: number
     trackedWeekHours: number
     plannedWeekHours: number
     committedWeekHours: number
-    utilizationBasis: "presence" | "weekly-capacity"
+    utilizationBasis: "net-capacity"
+    presenceCoverage: number
     utilization: number
     status: "balanced" | "overload" | "underload"
     openTasks: number
@@ -488,11 +491,10 @@ export default function ManagementPage() {
                             <div>
                               <p className="text-xs text-slate-500">Ore</p>
                               <p className="mt-1 font-bold text-white">
-                                {formatHours(person.committedWeekHours)} /{" "}
-                                {formatHours(person.utilizationBasis === "presence" ? person.presenceWeekHours : person.weeklyCapacityHours)}
+                                {formatHours(person.committedWeekHours)} / {formatHours(person.netCapacityHours)}
                               </p>
                               <p className="mt-1 text-xs text-slate-500">
-                                {person.utilizationBasis === "presence" ? "base presenza netta" : "base capacita"} ·{" "}
+                                base netta settimanale · {formatHours(person.presenceWeekHours)} presenza ·{" "}
                                 {formatHours(person.trackedWeekHours)} registrate · {formatHours(person.plannedWeekHours)} pianificate
                               </p>
                             </div>

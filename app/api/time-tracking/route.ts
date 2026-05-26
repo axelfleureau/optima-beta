@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
-import { canManageTime, minutesBetween, normalizeDate } from "@/lib/time-tracking"
+import { canManageTime, currentPresenceMinutes, netPresenceMinutes, normalizeDate, workScheduleForMember } from "@/lib/time-tracking"
 
 function rowToMember(row: any) {
   return {
@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
     const selectedMember = await db
       .prepare(
         `SELECT id, email, first_name, last_name, role
+                , weekly_capacity_minutes
          FROM members
          WHERE organization_id = ? AND id = ?
          LIMIT 1`,
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
              FROM members
              WHERE organization_id = ?
                AND status = 'active'
-               AND role IN ('admin', 'direzione', 'capo-reparto', 'junior')
+               AND role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior', 'member', 'dipendente', 'employee')
              ORDER BY first_name, last_name, email`,
           )
           .bind(principal.organizationId)
@@ -153,7 +154,9 @@ export async function GET(request: NextRequest) {
 
     const mappedEntries: ReturnType<typeof rowToEntry>[] = (entries.results || []).map(rowToEntry)
     const activityMinutes = mappedEntries.reduce((sum: number, entry: ReturnType<typeof rowToEntry>) => sum + entry.minutes, 0)
-    const presenceMinutes = minutesBetween(day?.check_in_at, day?.check_out_at)
+    const schedule = workScheduleForMember((selectedMember as any).weekly_capacity_minutes)
+    const grossPresenceMinutes = currentPresenceMinutes(day?.check_in_at, day?.check_out_at)
+    const presenceMinutes = netPresenceMinutes(grossPresenceMinutes, schedule.lunchBreakMinutes)
 
     return Response.json({
       role: principal.role,
@@ -175,6 +178,9 @@ export async function GET(request: NextRequest) {
       totals: {
         activityMinutes,
         presenceMinutes,
+        grossPresenceMinutes,
+        expectedOfficeMinutes: schedule.expectedOfficeMinutes,
+        lunchBreakMinutes: schedule.lunchBreakMinutes,
       },
       options: {
         tasks: (taskOptions.results || []).map((task: any) => ({

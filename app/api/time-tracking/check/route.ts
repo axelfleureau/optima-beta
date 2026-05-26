@@ -4,13 +4,14 @@ import type { NextRequest } from "next/server"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
-import { canManageTime, normalizeDate } from "@/lib/time-tracking"
+import { canManageTime, minutesBetween, normalizeDate, normalizeTime, workScheduleForMember } from "@/lib/time-tracking"
 
-function isoForDateTime(date: string, time?: unknown) {
-  if (typeof time === "string" && /^\d{2}:\d{2}$/.test(time)) {
-    return new Date(`${date}T${time}:00`).toISOString()
-  }
-  return new Date().toISOString()
+function currentTime() {
+  return new Date().toTimeString().slice(0, 5)
+}
+
+function isoForDateTime(date: string, time?: unknown, fallback = currentTime()) {
+  return new Date(`${date}T${normalizeTime(time, fallback)}:00`).toISOString()
 }
 
 export async function POST(request: NextRequest) {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const member = await db
-      .prepare(`SELECT id FROM members WHERE organization_id = ? AND id = ? LIMIT 1`)
+      .prepare(`SELECT id, weekly_capacity_minutes FROM members WHERE organization_id = ? AND id = ? LIMIT 1`)
       .bind(principal.organizationId, memberId)
       .first()
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     const existing = await db
       .prepare(
-        `SELECT id
+        `SELECT id, check_in_at, check_out_at, status
          FROM work_days
          WHERE organization_id = ? AND member_id = ? AND entry_date = ?
          LIMIT 1`,
@@ -68,6 +69,10 @@ export async function POST(request: NextRequest) {
           .bind(isoForDateTime(date, body.time), principal.organizationId, memberId, date)
           .run()
       } else if (action === "check-out") {
+        const checkOutAt = isoForDateTime(date, body.time)
+        if (existing.check_in_at && minutesBetween(String(existing.check_in_at), checkOutAt) <= 0) {
+          return Response.json({ error: "L'uscita deve essere successiva all'entrata" }, { status: 400 })
+        }
         await db
           .prepare(
             `UPDATE work_days
@@ -77,7 +82,7 @@ export async function POST(request: NextRequest) {
                  updated_at = CURRENT_TIMESTAMP
              WHERE organization_id = ? AND member_id = ? AND entry_date = ?`,
           )
-          .bind(isoForDateTime(date, body.time), principal.organizationId, memberId, date)
+          .bind(checkOutAt, principal.organizationId, memberId, date)
           .run()
       } else if (action === "absence") {
         await db
@@ -104,11 +109,16 @@ export async function POST(request: NextRequest) {
           .run()
       }
     } else {
-      const checkInAt = action === "check-in" ? isoForDateTime(date, body.time) : null
+      const schedule = workScheduleForMember((member as any).weekly_capacity_minutes)
+      const checkInAt = action === "check-in" ? isoForDateTime(date, body.time, schedule.workStartTime) : action === "check-out" ? isoForDateTime(date, schedule.workStartTime) : null
       const checkOutAt = action === "check-out" ? isoForDateTime(date, body.time) : null
       const status = action === "absence" ? "absent" : action === "check-out" ? "closed" : "open"
       const absenceReason = action === "absence" ? String(body.reason || "Assenza").trim() : null
       const notes = action === "notes" ? String(body.notes || "").trim() : null
+
+      if (checkInAt && checkOutAt && minutesBetween(checkInAt, checkOutAt) <= 0) {
+        return Response.json({ error: "L'uscita deve essere successiva all'entrata" }, { status: 400 })
+      }
 
       await db
         .prepare(

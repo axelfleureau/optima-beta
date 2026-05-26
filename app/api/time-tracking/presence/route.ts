@@ -4,21 +4,20 @@ import type { NextRequest } from "next/server"
 
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
-import { canManageTime, minutesBetween, normalizeDate } from "@/lib/time-tracking"
+import {
+  PRESENCE_GRACE_MINUTES,
+  canManageTime,
+  currentPresenceMinutes,
+  minutesSinceMidnightFromDate,
+  netPresenceMinutes,
+  normalizeDate,
+  timeToMinutes,
+  workScheduleForMember,
+} from "@/lib/time-tracking"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 function formatName(row: any) {
   return `${row.first_name || ""} ${row.last_name || ""}`.trim() || row.email || "Utente"
-}
-
-function currentPresenceMinutes(checkInAt?: string | null, checkOutAt?: string | null) {
-  if (!checkInAt) return 0
-  if (checkOutAt) return minutesBetween(checkInAt, checkOutAt)
-
-  const startMs = new Date(checkInAt).getTime()
-  const nowMs = Date.now()
-  if (!Number.isFinite(startMs) || nowMs <= startMs) return 0
-  return Math.round((nowMs - startMs) / 60000)
 }
 
 function getPresenceStatus(row: any) {
@@ -31,13 +30,21 @@ function getPresenceStatus(row: any) {
 
 function mapPresenceRow(row: any) {
   const weeklyCapacityMinutes = Number(row.weekly_capacity_minutes || 2400)
-  const dailyCapacityMinutes = Math.round(weeklyCapacityMinutes / 5)
-  const lunchBreakMinutes = 60
-  const expectedOfficeMinutes = Math.max(0, dailyCapacityMinutes - lunchBreakMinutes)
+  const schedule = workScheduleForMember(weeklyCapacityMinutes)
   const activityMinutes = Number(row.activity_minutes || 0)
   const status = getPresenceStatus(row)
   const visibleCheckOutAt = status === "present" ? null : row.check_out_at || null
-  const presenceMinutes = currentPresenceMinutes(row.check_in_at, visibleCheckOutAt)
+  const grossPresenceMinutes = currentPresenceMinutes(row.check_in_at, visibleCheckOutAt)
+  const presenceMinutes = netPresenceMinutes(grossPresenceMinutes, schedule.lunchBreakMinutes)
+  const checkInMinute = minutesSinceMidnightFromDate(row.check_in_at)
+  const checkOutMinute = minutesSinceMidnightFromDate(visibleCheckOutAt)
+  const expectedStartMinute = timeToMinutes(schedule.workStartTime)
+  const expectedEndMinute = timeToMinutes(schedule.expectedCheckOutTime)
+  const minutesLate =
+    status !== "absent" && checkInMinute !== null ? Math.max(0, checkInMinute - expectedStartMinute - PRESENCE_GRACE_MINUTES) : 0
+  const minutesEarly =
+    status === "closed" && checkOutMinute !== null ? Math.max(0, expectedEndMinute - checkOutMinute - PRESENCE_GRACE_MINUTES) : 0
+  const presenceSignal = minutesLate > 0 ? "late" : minutesEarly > 0 ? "early-exit" : null
 
   return {
     id: String(row.id),
@@ -49,11 +56,18 @@ function mapPresenceRow(row: any) {
     checkOutAt: visibleCheckOutAt,
     absenceReason: row.absence_reason || "",
     notes: row.notes || "",
+    grossPresenceMinutes,
     presenceMinutes,
     activityMinutes,
-    expectedOfficeMinutes,
-    lunchBreakMinutes,
-    coverageRatio: expectedOfficeMinutes > 0 ? Math.min(1, presenceMinutes / expectedOfficeMinutes) : 0,
+    dailyCapacityMinutes: schedule.dailyCapacityMinutes,
+    expectedOfficeMinutes: schedule.expectedOfficeMinutes,
+    lunchBreakMinutes: schedule.lunchBreakMinutes,
+    workStartTime: schedule.workStartTime,
+    expectedCheckOutTime: schedule.expectedCheckOutTime,
+    minutesLate,
+    minutesEarly,
+    presenceSignal,
+    coverageRatio: schedule.expectedOfficeMinutes > 0 ? Math.min(1, presenceMinutes / schedule.expectedOfficeMinutes) : 0,
     activityRatio: presenceMinutes > 0 ? Math.min(1, activityMinutes / presenceMinutes) : 0,
   }
 }
@@ -101,7 +115,7 @@ export async function GET(request: NextRequest) {
           AND te.entry_date = ?
          WHERE m.organization_id = ?
            AND m.status = 'active'
-           AND m.role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior')
+           AND m.role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior', 'member', 'dipendente', 'employee')
            AND (? = 1 OR m.id = ?)
          ORDER BY
            CASE
