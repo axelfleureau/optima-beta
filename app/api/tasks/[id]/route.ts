@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import type { NextRequest } from "next/server"
-import { getCloudflareDb } from "@/lib/cloudflare-db"
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal, mapTaskRow, stringifyJson } from "@/lib/workspace-db"
 import { buildMemberDisplayName, requiresAssignmentAcceptance } from "@/lib/task-assignment-policy"
@@ -27,6 +27,86 @@ const FIELD_MAP: Record<string, string> = {
   clientName: "client_name",
   projectId: "project_id",
   parentItemId: "parent_item_id",
+}
+
+const DONE_TASK_STATES = new Set(["done", "completed"])
+const AUTO_DONE_NOTE_PREFIX = "Completata da workspace:"
+
+function taskWorkflowState(row: any, fallback?: unknown) {
+  return String(row?.column_id || row?.status || fallback || "").trim().toLowerCase()
+}
+
+function isDoneTaskState(value: unknown) {
+  return DONE_TASK_STATES.has(String(value || "").trim().toLowerCase())
+}
+
+function todayInRome() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date())
+}
+
+function autoDoneMinutes(row: any) {
+  const actualMinutes = Number(row?.actual_minutes || 0)
+  if (Number.isFinite(actualMinutes) && actualMinutes > 0) return Math.round(actualMinutes)
+
+  const estimatedMinutes = Number(row?.estimated_minutes || 0)
+  if (Number.isFinite(estimatedMinutes) && estimatedMinutes > 0) return Math.round(estimatedMinutes)
+
+  return 60
+}
+
+async function ensureAutomaticDoneTimeEntry({
+  db,
+  organizationId,
+  actorMemberId,
+  previousTask,
+  updatedTask,
+}: {
+  db: any
+  organizationId: string
+  actorMemberId: string
+  previousTask: any
+  updatedTask: any
+}) {
+  if (!updatedTask?.id) return
+
+  const previousState = taskWorkflowState(previousTask)
+  const nextState = taskWorkflowState(updatedTask)
+
+  if (isDoneTaskState(previousState) || !isDoneTaskState(nextState)) return
+
+  const existingAutomaticEntry = await db
+    .prepare(
+      `SELECT id
+       FROM time_entries
+       WHERE organization_id = ?
+         AND task_id = ?
+         AND note LIKE ?
+       LIMIT 1`,
+    )
+    .bind(organizationId, updatedTask.id, `${AUTO_DONE_NOTE_PREFIX}%`)
+    .first()
+
+  if (existingAutomaticEntry?.id) return
+
+  const entryId = createId("time")
+  const memberId = String(updatedTask.assignee_member_id || actorMemberId)
+  const title = String(updatedTask.title || "Task completata").trim()
+  const minutes = Math.max(1, Math.min(1440, autoDoneMinutes(updatedTask)))
+  const projectId = updatedTask.project_id ? String(updatedTask.project_id) : null
+
+  await db
+    .prepare(
+      `INSERT INTO time_entries
+       (id, organization_id, member_id, task_id, project_id, entry_date, minutes, billable, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+    )
+    .bind(entryId, organizationId, memberId, updatedTask.id, projectId, todayInRome(), minutes, `${AUTO_DONE_NOTE_PREFIX} ${title}`)
+    .run()
 }
 
 function serializeField(key: string, value: unknown) {
@@ -304,6 +384,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const previousComments = parseJsonArray(existingTask.comments_json)
     const currentComments = parseJsonArray(row?.comments_json)
     const commentAdded = "comments" in body && currentComments.length > previousComments.length
+
+    await ensureAutomaticDoneTimeEntry({
+      db,
+      organizationId: principal.organizationId,
+      actorMemberId: principal.memberId,
+      previousTask: existingTask,
+      updatedTask: row,
+    }).catch((timeEntryError) => {
+      console.error("Automatic done time entry error:", timeEntryError)
+    })
 
     if (requestedAssignedUserId && requestedAssignedUserId !== principal.memberId) {
       await createNotification(db, {
