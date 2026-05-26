@@ -23,6 +23,7 @@ function currentPresenceMinutes(checkInAt?: string | null, checkOutAt?: string |
 
 function getPresenceStatus(row: any) {
   if (row.day_status === "absent") return "absent"
+  if (row.day_status === "open" && row.check_in_at) return "present"
   if (row.check_in_at && !row.check_out_at) return "present"
   if (row.check_in_at && row.check_out_at) return "closed"
   return "missing"
@@ -33,9 +34,10 @@ function mapPresenceRow(row: any) {
   const dailyCapacityMinutes = Math.round(weeklyCapacityMinutes / 5)
   const lunchBreakMinutes = 60
   const expectedOfficeMinutes = Math.max(0, dailyCapacityMinutes - lunchBreakMinutes)
-  const presenceMinutes = currentPresenceMinutes(row.check_in_at, row.check_out_at)
   const activityMinutes = Number(row.activity_minutes || 0)
   const status = getPresenceStatus(row)
+  const visibleCheckOutAt = status === "present" ? null : row.check_out_at || null
+  const presenceMinutes = currentPresenceMinutes(row.check_in_at, visibleCheckOutAt)
 
   return {
     id: String(row.id),
@@ -44,7 +46,7 @@ function mapPresenceRow(row: any) {
     role: String(row.role || "junior"),
     status,
     checkInAt: row.check_in_at || null,
-    checkOutAt: row.check_out_at || null,
+    checkOutAt: visibleCheckOutAt,
     absenceReason: row.absence_reason || "",
     notes: row.notes || "",
     presenceMinutes,

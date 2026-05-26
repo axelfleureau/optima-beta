@@ -52,28 +52,73 @@ export async function POST(request: NextRequest) {
       .first()
 
     const id = existing?.id || createId("day")
-    const checkInAt = action === "check-in" ? isoForDateTime(date, body.time) : null
-    const checkOutAt = action === "check-out" ? isoForDateTime(date, body.time) : null
-    const status = action === "absence" ? "absent" : action === "check-out" ? "closed" : "open"
-    const absenceReason = action === "absence" ? String(body.reason || "Assenza").trim() : null
-    const notes = action === "notes" ? String(body.notes || "").trim() : null
 
-    await db
-      .prepare(
-        `INSERT INTO work_days
-         (id, organization_id, member_id, entry_date, check_in_at, check_out_at, status, absence_reason, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(organization_id, member_id, entry_date)
-         DO UPDATE SET
-           check_in_at = COALESCE(excluded.check_in_at, check_in_at),
-           check_out_at = COALESCE(excluded.check_out_at, check_out_at),
-           status = excluded.status,
-           absence_reason = COALESCE(excluded.absence_reason, absence_reason),
-           notes = COALESCE(excluded.notes, notes),
-           updated_at = CURRENT_TIMESTAMP`,
-      )
-      .bind(id, principal.organizationId, memberId, date, checkInAt, checkOutAt, status, absenceReason, notes)
-      .run()
+    if (existing?.id) {
+      if (action === "check-in") {
+        await db
+          .prepare(
+            `UPDATE work_days
+             SET check_in_at = ?,
+                 check_out_at = NULL,
+                 status = 'open',
+                 absence_reason = NULL,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE organization_id = ? AND member_id = ? AND entry_date = ?`,
+          )
+          .bind(isoForDateTime(date, body.time), principal.organizationId, memberId, date)
+          .run()
+      } else if (action === "check-out") {
+        await db
+          .prepare(
+            `UPDATE work_days
+             SET check_out_at = ?,
+                 status = 'closed',
+                 absence_reason = NULL,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE organization_id = ? AND member_id = ? AND entry_date = ?`,
+          )
+          .bind(isoForDateTime(date, body.time), principal.organizationId, memberId, date)
+          .run()
+      } else if (action === "absence") {
+        await db
+          .prepare(
+            `UPDATE work_days
+             SET check_in_at = NULL,
+                 check_out_at = NULL,
+                 status = 'absent',
+                 absence_reason = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE organization_id = ? AND member_id = ? AND entry_date = ?`,
+          )
+          .bind(String(body.reason || "Assenza").trim(), principal.organizationId, memberId, date)
+          .run()
+      } else {
+        await db
+          .prepare(
+            `UPDATE work_days
+             SET notes = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE organization_id = ? AND member_id = ? AND entry_date = ?`,
+          )
+          .bind(String(body.notes || "").trim(), principal.organizationId, memberId, date)
+          .run()
+      }
+    } else {
+      const checkInAt = action === "check-in" ? isoForDateTime(date, body.time) : null
+      const checkOutAt = action === "check-out" ? isoForDateTime(date, body.time) : null
+      const status = action === "absence" ? "absent" : action === "check-out" ? "closed" : "open"
+      const absenceReason = action === "absence" ? String(body.reason || "Assenza").trim() : null
+      const notes = action === "notes" ? String(body.notes || "").trim() : null
+
+      await db
+        .prepare(
+          `INSERT INTO work_days
+           (id, organization_id, member_id, entry_date, check_in_at, check_out_at, status, absence_reason, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(id, principal.organizationId, memberId, date, checkInAt, checkOutAt, status, absenceReason, notes)
+        .run()
+    }
 
     return Response.json({ success: true })
   } catch (error) {
