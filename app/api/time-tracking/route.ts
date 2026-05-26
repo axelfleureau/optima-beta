@@ -30,6 +30,23 @@ function rowToEntry(row: any) {
   }
 }
 
+function parseSubItems(value: unknown) {
+  if (typeof value !== "string" || !value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed)
+      ? parsed.map((item) => ({
+          id: String(item.id || ""),
+          title: String(item.title || ""),
+          completed: Boolean(item.completed),
+          createdAt: item.createdAt || null,
+        })).filter((item) => item.id && item.title)
+      : []
+  } catch {
+    return []
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = await requireClerkUser()
@@ -103,11 +120,20 @@ export async function GET(request: NextRequest) {
 
     const taskOptions = await db
       .prepare(
-        `SELECT id, title, client_name, project_id
-         FROM tasks
-         WHERE organization_id = ?
-           AND (? = 1 OR assignee_member_id = ?)
-         ORDER BY updated_at DESC
+        `SELECT t.id,
+                t.title,
+                t.client_name,
+                t.project_id,
+                t.status,
+                t.column_id,
+                t.due_at,
+                t.sub_items_json,
+                p.name AS project_name
+         FROM tasks t
+         LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+         WHERE t.organization_id = ?
+           AND (? = 1 OR t.assignee_member_id = ?)
+         ORDER BY t.updated_at DESC
          LIMIT 200`,
       )
       .bind(principal.organizationId, isManager ? 1 : 0, selectedMemberId)
@@ -155,10 +181,18 @@ export async function GET(request: NextRequest) {
           id: task.id,
           label: `${task.client_name ? `${task.client_name}: ` : ""}${task.title}`,
           projectId: task.project_id || null,
+          title: task.title || "",
+          clientName: task.client_name || "",
+          projectName: task.project_name || "",
+          status: task.column_id || task.status || "to-do",
+          dueAt: task.due_at || null,
+          subItems: parseSubItems(task.sub_items_json),
         })),
         projects: (projectOptions.results || []).map((project: any) => ({
           id: project.id,
           label: `${project.client_name ? `${project.client_name}: ` : ""}${project.name}`,
+          name: project.name || "",
+          clientName: project.client_name || "",
         })),
       },
     })

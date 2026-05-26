@@ -2,11 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, FileText, LogIn, LogOut, Plus, Trash2, UserCheck, Users } from "lucide-react"
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Clock,
+  FileText,
+  FolderKanban,
+  ListChecks,
+  LogIn,
+  LogOut,
+  Plus,
+  Search,
+  Trash2,
+  UserCheck,
+  Users,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 
 type Member = {
@@ -29,7 +49,24 @@ type Entry = {
 type Option = {
   id: string
   label: string
+  title?: string
+  name?: string
+  clientName?: string
+  projectName?: string
   projectId?: string | null
+  status?: string
+  dueAt?: string | null
+  subItems?: Array<{
+    id: string
+    title: string
+    completed: boolean
+    createdAt?: string | null
+  }>
+}
+
+type TargetOption = Option & {
+  value: string
+  kind: "task" | "project"
 }
 
 type TimeTrackingPayload = {
@@ -62,6 +99,19 @@ const fieldClass =
   "h-11 w-full min-w-0 max-w-full border-white/10 bg-[#222a31] text-slate-100 placeholder:text-slate-400 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
 const selectClass =
   "h-11 w-full min-w-0 max-w-full truncate rounded-md border border-white/10 bg-[#222a31] px-3 text-sm font-semibold text-slate-100 outline-none focus:border-righello-pink/70"
+
+const statusLabel: Record<string, string> = {
+  todo: "To Do",
+  "to-do": "To Do",
+  "in-progress": "In corso",
+  review: "Review",
+  validation: "Validation",
+  done: "Completata",
+  completed: "Completata",
+  urgent: "Urgenze",
+  onhold: "In pausa",
+  "on-hold": "In pausa",
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -108,6 +158,11 @@ function formatTime(value?: string | null) {
   return new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
 }
 
+function formatDueDate(value?: string | null) {
+  if (!value) return ""
+  return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short" }).format(new Date(value))
+}
+
 function TimePickerField({
   label,
   value,
@@ -144,6 +199,8 @@ export default function RapportiniPage() {
   const [checkOutTime, setCheckOutTime] = useState(currentTime())
   const [absenceReason, setAbsenceReason] = useState("Assenza")
   const [selectedTarget, setSelectedTarget] = useState("")
+  const [targetPickerOpen, setTargetPickerOpen] = useState(false)
+  const [targetSearch, setTargetSearch] = useState("")
   const [activity, setActivity] = useState("")
   const [minutes, setMinutes] = useState("60")
   const [notes, setNotes] = useState("")
@@ -183,13 +240,92 @@ export default function RapportiniPage() {
     load()
   }, [load])
 
-  const targetOptions = useMemo(() => {
+  const targetOptions = useMemo<TargetOption[]>(() => {
     if (!payload) return []
     return [
-      ...payload.options.tasks.map((task) => ({ value: `task:${task.id}`, label: task.label, projectId: task.projectId || null })),
-      ...payload.options.projects.map((project) => ({ value: `project:${project.id}`, label: project.label, projectId: project.id })),
+      ...payload.options.tasks.map((task) => ({
+        ...task,
+        value: `task:${task.id}`,
+        kind: "task" as const,
+        projectId: task.projectId || null,
+      })),
+      ...payload.options.projects.map((project) => ({
+        ...project,
+        value: `project:${project.id}`,
+        kind: "project" as const,
+        projectId: project.id,
+      })),
     ]
   }, [payload])
+
+  const selectedOption = useMemo(
+    () => targetOptions.find((option) => option.value === selectedTarget) || null,
+    [selectedTarget, targetOptions],
+  )
+
+  const filteredTargets = useMemo(() => {
+    const query = targetSearch.trim().toLowerCase()
+    if (!query) return targetOptions
+    return targetOptions.filter((option) => {
+      const haystack = [
+        option.label,
+        option.title,
+        option.name,
+        option.clientName,
+        option.projectName,
+        option.status,
+        ...(option.subItems || []).map((item) => item.title),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [targetOptions, targetSearch])
+
+  const groupedTargets = useMemo(() => {
+    const tasks = filteredTargets.filter((option) => option.kind === "task")
+    const projects = filteredTargets.filter((option) => option.kind === "project")
+    const groups = new Map<string, TargetOption[]>()
+
+    for (const task of tasks) {
+      const groupName = task.projectName || task.clientName || "Task senza progetto"
+      groups.set(groupName, [...(groups.get(groupName) || []), task])
+    }
+
+    return { taskGroups: Array.from(groups.entries()), projects }
+  }, [filteredTargets])
+
+  const selectTarget = (option: TargetOption, nextActivity?: string) => {
+    setSelectedTarget(option.value)
+    if (nextActivity && !activity.trim()) setActivity(nextActivity)
+    setTargetPickerOpen(false)
+  }
+
+  const handleToggleSubItem = async (taskOption: TargetOption, subItemId: string) => {
+    const nextSubItems = (taskOption.subItems || []).map((item) =>
+      item.id === subItemId ? { ...item, completed: !item.completed } : item,
+    )
+
+    const response = await fetch(`/api/tasks/${taskOption.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subItems: nextSubItems }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || "Errore aggiornamento checklist")
+
+    setPayload((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        options: {
+          ...current.options,
+          tasks: current.options.tasks.map((task) => (task.id === taskOption.id ? { ...task, subItems: nextSubItems } : task)),
+        },
+      }
+    })
+  }
 
   const mutateDay = async (action: string, body: Record<string, unknown> = {}) => {
     const response = await fetch("/api/time-tracking/check", {
@@ -377,15 +513,180 @@ export default function RapportiniPage() {
 
               <div className="grid gap-2">
                 <label className="text-sm font-semibold text-slate-400">Progetto o task collegato</label>
-                <select className={selectClass} value={selectedTarget} onChange={(event) => setSelectedTarget(event.target.value)}>
-                  <option value="">Attività generale</option>
-                  {targetOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto min-h-12 w-full justify-start gap-3 border-white/10 bg-[#222a31] px-3 py-3 text-left text-slate-100 hover:bg-white/10 hover:text-white"
+                    onClick={() => setTargetPickerOpen(true)}
+                  >
+                    {selectedOption?.kind === "task" ? <ClipboardList className="h-4 w-4 shrink-0 text-righello-pink" /> : <FolderKanban className="h-4 w-4 shrink-0 text-righello-cyan" />}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold">{selectedOption?.label || "Attività generale"}</span>
+                      <span className="mt-0.5 block truncate text-xs text-slate-400">
+                        {selectedOption
+                          ? selectedOption.kind === "task"
+                            ? `${selectedOption.projectName || selectedOption.clientName || "Task"}${selectedOption.subItems?.length ? ` · ${selectedOption.subItems.filter((item) => item.completed).length}/${selectedOption.subItems.length} checklist` : ""}`
+                            : "Progetto"
+                          : "Nessun collegamento obbligatorio"}
+                      </span>
+                    </span>
+                  </Button>
+                  {selectedOption && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 w-fit px-2 text-xs text-slate-400 hover:bg-white/10 hover:text-white"
+                      onClick={() => setSelectedTarget("")}
+                    >
+                      <X className="mr-1 h-3.5 w-3.5" />
+                      Rimuovi collegamento
+                    </Button>
+                  )}
+                </div>
               </div>
+
+              <Dialog open={targetPickerOpen} onOpenChange={setTargetPickerOpen}>
+                <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-3xl overflow-hidden rounded-[8px] border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
+                  <DialogHeader className="border-b border-white/10 px-4 py-4 sm:px-5">
+                    <DialogTitle className="flex items-center gap-2 text-xl font-black text-white">
+                      <ListChecks className="h-5 w-5 text-righello-pink" />
+                      Collega attività
+                    </DialogTitle>
+                    <p className="text-sm text-slate-400">
+                      Cerca task, progetto o checklist. Le task sono raggruppate per progetto/cliente.
+                    </p>
+                  </DialogHeader>
+
+                  <div className="border-b border-white/10 p-4 sm:p-5">
+                    <label className="relative block">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <Input
+                        className="h-12 border-white/10 bg-[#111827] pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
+                        placeholder="Cerca: cliente, progetto, task, sub-attività..."
+                        value={targetSearch}
+                        onChange={(event) => setTargetSearch(event.target.value)}
+                        autoFocus
+                      />
+                    </label>
+                  </div>
+
+                  <div className="max-h-[58dvh] space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-5">
+                    <button
+                      type="button"
+                      className="w-full rounded-[8px] border border-dashed border-white/15 bg-white/[0.03] p-4 text-left transition hover:border-righello-pink/50 hover:bg-righello-pink/10"
+                      onClick={() => {
+                        setSelectedTarget("")
+                        setTargetPickerOpen(false)
+                      }}
+                    >
+                      <div className="font-bold text-white">Attività generale</div>
+                      <div className="mt-1 text-sm text-slate-400">Usala per lavoro non associato a un progetto o task specifica.</div>
+                    </button>
+
+                    {groupedTargets.taskGroups.map(([groupName, tasks]) => (
+                      <div key={groupName} className="space-y-2">
+                        <div className="sticky top-[-1rem] z-10 -mx-4 border-y border-white/10 bg-[#070b14]/95 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 backdrop-blur sm:-mx-5 sm:px-5">
+                          {groupName}
+                        </div>
+                        <div className="grid gap-2">
+                          {tasks.map((option) => {
+                            const completed = option.subItems?.filter((item) => item.completed).length || 0
+                            const total = option.subItems?.length || 0
+                            return (
+                              <div
+                                key={option.value}
+                                className={`rounded-[8px] border p-3 transition ${
+                                  selectedTarget === option.value
+                                    ? "border-righello-pink/70 bg-righello-pink/10"
+                                    : "border-white/10 bg-[#111827] hover:border-white/25"
+                                }`}
+                              >
+                                <button type="button" className="w-full text-left" onClick={() => selectTarget(option)}>
+                                  <div className="flex min-w-0 items-start gap-3">
+                                    <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-righello-pink" />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="break-words text-sm font-bold leading-5 text-white">{option.title || option.label}</div>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                                        <span>{statusLabel[option.status || ""] || option.status || "Task"}</span>
+                                        {option.dueAt ? <span>Scade {formatDueDate(option.dueAt)}</span> : null}
+                                        {total ? <span>{completed}/{total} checklist</span> : null}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+
+                                {option.subItems?.length ? (
+                                  <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                                    {option.subItems.map((item) => (
+                                      <div key={item.id} className="flex items-start gap-2 rounded-md bg-black/20 p-2">
+                                        <Checkbox
+                                          checked={item.completed}
+                                          className="mt-0.5 border-white/30 data-[state=checked]:border-emerald-400 data-[state=checked]:bg-emerald-500"
+                                          onCheckedChange={() =>
+                                            handleToggleSubItem(option, item.id)
+                                              .then(() => toast.success("Checklist aggiornata"))
+                                              .catch((err) => toast.error(err.message))
+                                          }
+                                        />
+                                        <button
+                                          type="button"
+                                          className={`min-w-0 flex-1 text-left text-sm leading-5 ${
+                                            item.completed ? "text-slate-500 line-through" : "text-slate-200 hover:text-white"
+                                          }`}
+                                          onClick={() => selectTarget(option, item.title)}
+                                        >
+                                          {item.title}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+
+                    {groupedTargets.projects.length ? (
+                      <div className="space-y-2">
+                        <div className="sticky top-[-1rem] z-10 -mx-4 border-y border-white/10 bg-[#070b14]/95 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 backdrop-blur sm:-mx-5 sm:px-5">
+                          Progetti
+                        </div>
+                        <div className="grid gap-2">
+                          {groupedTargets.projects.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={`rounded-[8px] border p-3 text-left transition ${
+                                selectedTarget === option.value
+                                  ? "border-righello-cyan/70 bg-righello-cyan/10"
+                                  : "border-white/10 bg-[#111827] hover:border-white/25"
+                              }`}
+                              onClick={() => selectTarget(option)}
+                            >
+                              <div className="flex items-start gap-3">
+                                <FolderKanban className="mt-0.5 h-4 w-4 shrink-0 text-righello-cyan" />
+                                <div className="min-w-0">
+                                  <div className="break-words text-sm font-bold text-white">{option.name || option.label}</div>
+                                  {option.clientName ? <div className="mt-1 text-xs text-slate-400">{option.clientName}</div> : null}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {!filteredTargets.length && (
+                      <div className="rounded-[8px] border border-dashed border-white/15 p-8 text-center text-slate-400">
+                        Nessuna task o progetto trovato.
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <Button
                 className="h-auto min-h-11 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
