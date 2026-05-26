@@ -7,6 +7,7 @@ import {
   Bot,
   Users,
   CalendarDays,
+  CalendarClock,
   Settings,
   User,
   CreditCard,
@@ -119,6 +120,11 @@ export function AppSidebar() {
       icon: CalendarDays,
     },
     {
+      title: "Calendario Team",
+      url: "/calendario-team",
+      icon: CalendarClock,
+    },
+    {
       title: "Gestione Team",
       url: "/team",
       icon: UserCog,
@@ -145,6 +151,11 @@ export function AppSidebar() {
       title: "Presenza",
       url: "/presenze",
       icon: UserCheck,
+    },
+    {
+      title: "Calendario Team",
+      url: "/calendario-team",
+      icon: CalendarClock,
     },
     {
       title: "AI Assistant",
