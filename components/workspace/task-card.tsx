@@ -92,7 +92,7 @@ export function TaskCard({
             {...provided.dragHandleProps}
             style={dropStyle}
             id={`task-${task.id}`}
-            className={`group min-h-[116px] cursor-pointer border-l-4 p-3 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform sm:min-h-[132px] sm:p-4 ${getPriorityColor(task.priority)} ${
+            className={`group min-h-[116px] cursor-pointer border-l-4 p-3 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform [touch-action:pan-x_pan-y] sm:min-h-[132px] sm:p-4 lg:[touch-action:auto] ${getPriorityColor(task.priority)} ${
               snapshot.isDragging
                 ? "z-50 rotate-1 scale-[1.02] shadow-2xl transform-gpu"
                 : isHighlighted

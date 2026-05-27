@@ -62,8 +62,8 @@ export function KanbanBoard({
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="min-h-full w-full min-w-0 overflow-x-auto overflow-y-visible overscroll-x-contain scroll-smooth pb-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y] lg:h-full lg:min-h-0 lg:overflow-y-hidden lg:pb-0">
-        <div className="flex min-h-full w-max min-w-full snap-x snap-mandatory items-stretch gap-3 pb-2 md:gap-5 md:snap-none lg:h-full lg:min-h-0 lg:gap-6">
+      <div className="-mx-3 min-h-full w-[calc(100%+1.5rem)] min-w-0 overflow-x-auto overflow-y-visible overscroll-x-contain scroll-smooth px-3 pb-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y] sm:-mx-4 sm:w-[calc(100%+2rem)] sm:px-4 lg:mx-0 lg:h-full lg:min-h-0 lg:w-full lg:overflow-y-hidden lg:px-0 lg:pb-0">
+        <div className="flex min-h-full w-max min-w-full snap-x snap-proximity items-stretch gap-3 pb-2 md:gap-5 md:snap-none lg:h-full lg:min-h-0 lg:gap-6">
           {columns.map((column) => (
             <KanbanColumn
               key={column.id}
