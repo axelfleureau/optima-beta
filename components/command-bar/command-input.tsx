@@ -73,7 +73,22 @@ export function CommandInput() {
     try {
       actionState.start('Analisi comando...')
       await executeCommand(localInput, context)
+
+      const commandState = useCommandBarStore.getState()
+      if (commandState.error) {
+        actionState.error(commandState.error)
+        feedback.error('Esecuzione comando', commandState.error, 'Riprova o rendi il comando più specifico')
+        return
+      }
+
+      if (commandState.status === 'gathering') {
+        actionState.complete()
+        feedback.info('Mi servono alcuni dettagli per completare il comando')
+        return
+      }
+
       actionState.complete()
+      feedback.success('Comando eseguito')
     } catch (error) {
       actionState.error(error instanceof Error ? error.message : 'Errore sconosciuto')
       feedback.error('Esecuzione comando', error instanceof Error ? error.message : 'Errore sconosciuto', 'Verifica input e riprova')

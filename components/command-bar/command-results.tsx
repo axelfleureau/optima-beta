@@ -157,6 +157,7 @@ export function CommandResults() {
               return (
                 <motion.button
                   key={suggestion.id}
+                  type="button"
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}

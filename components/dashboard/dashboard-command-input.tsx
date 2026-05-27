@@ -343,10 +343,28 @@ export function DashboardCommandInput() {
           }
         }
       } else {
-        toast.info("Comando capito, ma non ancora eseguibile da qui", {
-          description: "Apri la command bar completa con Cmd+K oppure usa una richiesta legata a task o contenuti.",
-          duration: 5000,
-        })
+        if (nlpResponse.missingParams && nlpResponse.missingParams.length > 0) {
+          toast.info("Mi servono altri dettagli", {
+            description: `Mancano: ${nlpResponse.missingParams.join(", ")}. Apri Cmd+K per completarli guidato.`,
+            duration: 6000,
+          })
+          return
+        }
+
+        const { executeIntent } = await import("@/lib/command-bar/handlers")
+        const result = await executeIntent(nlpResponse.intent as any, nlpResponse.entities || {}, context)
+
+        if (result.success) {
+          toast.success(result.message || "Comando eseguito", {
+            description: result.data?.title || result.data?.name || undefined,
+            duration: 5000,
+          })
+        } else {
+          toast.error(result.message || "Comando non eseguito", {
+            description: result.error || "Riprova con una richiesta più specifica.",
+            duration: 6000,
+          })
+        }
       }
 
       setInput("")
