@@ -57,8 +57,11 @@ type PresencePayload = {
   }
 }
 
-const pageClass = "min-h-screen overflow-x-hidden bg-[#050914] text-white"
+const pageClass =
+  "h-[calc(100dvh-73px)] min-h-0 w-full overflow-x-clip overflow-y-auto overscroll-contain bg-[#050914] text-white [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-x-hidden md:overflow-y-visible"
 const panelClass = "rounded-[8px] border border-white/10 bg-[#0a1020]/90 shadow-[0_18px_70px_rgba(0,0,0,0.26)]"
+const nativeDateTimeInputClass =
+  "optima-native-date-time min-w-0 max-w-full shrink border-white/10 bg-black/25 text-center text-white [color-scheme:dark] focus-visible:ring-righello-pink"
 const defaultWorkStartTime = "09:00"
 
 function today() {
@@ -202,9 +205,9 @@ export default function PresenzePage() {
   return (
     <div className={pageClass}>
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(226,55,133,0.18),transparent_34%),radial-gradient(circle_at_82%_6%,rgba(40,206,218,0.16),transparent_28%)]" />
-      <div className="relative mx-auto max-w-7xl space-y-5 px-4 py-5 md:px-8 md:py-8">
-        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
+      <div className="relative mx-auto w-full max-w-7xl space-y-5 overflow-x-clip px-4 py-5 md:px-8 md:py-8">
+        <header className="flex min-w-0 flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
             <Badge className="mb-3 w-fit rounded-[8px] border border-righello-pink/30 bg-righello-pink/15 text-righello-pink">
               <Building2 className="mr-2 h-3.5 w-3.5" />
               Presenza ufficio
@@ -216,16 +219,16 @@ export default function PresenzePage() {
               Vista rapida per verificare chi è in ufficio, chi ha segnato assenze e come sta andando la copertura delle ore nette. La giornata parte di norma alle 09:00, ma l'entrata reale può essere anticipata o posticipata.
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,14rem)_minmax(0,11rem)] md:w-auto">
             <Input
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="h-11 rounded-[8px] border-white/10 bg-black/25 text-white focus-visible:ring-righello-pink"
+              className={cn("h-11 rounded-[8px]", nativeDateTimeInputClass)}
             />
             <Button
               variant="outline"
-              className="h-11 rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="h-11 w-full min-w-0 rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
               onClick={() => load("refresh")}
               disabled={refreshing}
             >
@@ -241,7 +244,7 @@ export default function PresenzePage() {
           </Alert>
         )}
 
-        <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <section className="grid min-w-0 gap-4 lg:grid-cols-[0.95fr_1.05fr]">
           <div className={cn(panelClass, "overflow-hidden")}>
             <div className="border-b border-white/10 p-5">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">{formatDateLabel(date)}</p>
@@ -255,8 +258,8 @@ export default function PresenzePage() {
             </div>
 
             <div className="space-y-5 p-5">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <div className="min-w-0 overflow-hidden rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-sm text-slate-400">Entrata</p>
                   <p className="mt-1 text-3xl font-black text-white">{formatTime(self?.checkInAt)}</p>
                   <p className="mt-1 text-xs text-slate-500">Prevista {self?.workStartTime || defaultWorkStartTime}</p>
@@ -264,10 +267,10 @@ export default function PresenzePage() {
                     type="time"
                     value={checkInTime}
                     onChange={(event) => setCheckInTime(event.target.value)}
-                    className="mt-3 h-10 rounded-[8px] border-white/10 bg-black/20 text-white"
+                    className={cn("mt-3 h-10 rounded-[8px]", nativeDateTimeInputClass)}
                   />
                 </div>
-                <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+                <div className="min-w-0 overflow-hidden rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-sm text-slate-400">Uscita</p>
                   <p className="mt-1 text-3xl font-black text-white">{formatTime(self?.checkOutAt)}</p>
                   <p className="mt-1 text-xs text-slate-500">Indicativa {self?.expectedCheckOutTime || "17:00"}</p>
@@ -275,14 +278,14 @@ export default function PresenzePage() {
                     type="time"
                     value={checkOutTime}
                     onChange={(event) => setCheckOutTime(event.target.value)}
-                    className="mt-3 h-10 rounded-[8px] border-white/10 bg-black/20 text-white"
+                    className={cn("mt-3 h-10 rounded-[8px]", nativeDateTimeInputClass)}
                   />
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-3">
                 <Button
-                  className="min-h-12 rounded-[8px] bg-righello-pink text-white hover:bg-righello-pink-dark"
+                  className="min-h-12 min-w-0 rounded-[8px] bg-righello-pink text-white hover:bg-righello-pink-dark"
                   onClick={() => mutateSelf("check-in", checkInTime).then(() => toast.success("Check-in registrato")).catch((err) => toast.error(err.message))}
                 >
                   <LogIn className="mr-2 h-4 w-4" />
@@ -290,7 +293,7 @@ export default function PresenzePage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-h-12 rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  className="min-h-12 min-w-0 rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
                   onClick={() => mutateSelf("check-out", checkOutTime).then(() => toast.success("Check-out registrato")).catch((err) => toast.error(err.message))}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
@@ -298,7 +301,7 @@ export default function PresenzePage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-h-12 rounded-[8px] border-red-400/30 bg-red-950/25 text-red-100 hover:bg-red-500/15"
+                  className="min-h-12 min-w-0 rounded-[8px] border-red-400/30 bg-red-950/25 text-red-100 hover:bg-red-500/15"
                   onClick={() => mutateSelf("absence").then(() => toast.success("Assenza registrata")).catch((err) => toast.error(err.message))}
                 >
                   Assenza

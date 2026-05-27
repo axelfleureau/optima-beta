@@ -142,6 +142,30 @@ body:not([data-scroll-locked]) {
   touch-action: pan-x pan-y;
 }
 
+.optima-native-date-time {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  appearance: none;
+}
+
+.optima-native-date-time::-webkit-date-and-time-value {
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+}
+
+.optima-native-date-time::-webkit-calendar-picker-indicator {
+  margin-left: 0;
+}
+
+@media (max-width: 640px) {
+  .optima-native-date-time {
+    font-size: 16px;
+  }
+}
+
 ::selection {
   background: var(--righello-pink);
   color: white;

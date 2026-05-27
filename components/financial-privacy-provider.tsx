@@ -138,7 +138,7 @@ export function FinancialPrivacyProvider({ children }: { children: React.ReactNo
     <>
       {children}
       <div
-        className="fixed bottom-4 right-4 z-[90] flex max-w-[calc(100vw-2rem)] items-center gap-2"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-[90] flex max-w-[calc(100vw-1.5rem)] items-center gap-2 sm:right-4 sm:max-w-[calc(100vw-2rem)]"
         data-financial-privacy-control
       >
         <div className="hidden rounded-md border border-white/10 bg-black/75 px-3 py-2 text-xs leading-tight text-slate-200 shadow-2xl backdrop-blur-xl sm:block">
@@ -152,15 +152,16 @@ export function FinancialPrivacyProvider({ children }: { children: React.ReactNo
           type="button"
           onClick={isVisible ? hide : reveal}
           className={cn(
-            "h-11 rounded-md border border-white/10 px-4 shadow-2xl backdrop-blur-xl",
+            "h-11 min-w-11 rounded-md border border-white/10 px-0 shadow-2xl backdrop-blur-xl sm:px-4",
             isVisible
               ? "bg-slate-950 text-white hover:bg-slate-900"
               : "bg-righello-pink text-white hover:bg-righello-pink/90"
           )}
           aria-live="polite"
+          title={label}
         >
           {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          {label}
+          <span className="hidden sm:inline">{label}</span>
         </Button>
       </div>
     </>
