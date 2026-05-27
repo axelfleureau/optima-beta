@@ -53,7 +53,7 @@ const roleConfig = {
     icon: Settings,
   },
   junior: {
-    label: "Junior",
+    label: "Dipendente",
     color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     icon: User,
   },
@@ -70,8 +70,8 @@ const statusConfig = {
     color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   },
   inactive: {
-    label: "Inattivo",
-    color: "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300",
+    label: "Da invitare",
+    color: "bg-cyan-100 text-cyan-900 dark:bg-cyan-900/30 dark:text-cyan-200",
   },
   invited: {
     label: "Invitato",
@@ -107,8 +107,8 @@ export function UserViewDialog({ user, open, onOpenChange }: UserViewDialogProps
     )
   }
 
-  const getStatusBadge = (isSuspended?: boolean) => {
-    const effectiveStatus = isSuspended ? "suspended" : "active"
+  const getStatusBadge = (status?: string, isSuspended?: boolean) => {
+    const effectiveStatus = isSuspended ? "suspended" : status || "active"
     const config = statusConfig[effectiveStatus as keyof typeof statusConfig]
     if (!config) return null
 
@@ -154,7 +154,7 @@ export function UserViewDialog({ user, open, onOpenChange }: UserViewDialogProps
                 </div>
                 <div className="flex flex-col gap-2 items-end">
                   {getRoleBadge(user.role || "user")}
-                  {getStatusBadge(user.isSuspended)}
+                  {getStatusBadge(user.status, user.isSuspended)}
                 </div>
               </div>
               {user.email && (

@@ -31,9 +31,9 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useAuth } from "@/lib/auth-context"
-import { Mail, Loader2, UserPlus, Shield, User, Users, Crown, Settings } from "lucide-react"
+import { Mail, Loader2, UserPlus, Shield, User, Users, Crown, Settings, UserCheck } from "lucide-react"
 import { toast } from "sonner"
-import { getManageableRoles, getRoleDisplayName } from "@/lib/role-hierarchy"
+import { getManageableRoles } from "@/lib/role-hierarchy"
 
 const inviteUserSchema = z.object({
   email: z.string().email("Inserisci un indirizzo email valido"),
@@ -44,6 +44,7 @@ const inviteUserSchema = z.object({
   }),
   companyName: z.string().optional(),
   message: z.string().optional(),
+  sendInvite: z.boolean().default(true),
 })
 
 type InviteUserForm = z.infer<typeof inviteUserSchema>
@@ -75,8 +76,8 @@ const roleOptions = [
   },
   {
     value: "junior" as const,
-    label: "Junior",
-    description: "Gestione esclusiva delle task assegnate",
+    label: "Dipendente",
+    description: "Operatività su task, presenze e rapportini assegnati",
     icon: User,
   },
   {
@@ -108,8 +109,11 @@ export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDi
       role: "junior",
       companyName: "",
       message: "",
+      sendInvite: true,
     },
   })
+
+  const sendInvite = form.watch("sendInvite")
 
   const onSubmit = async (data: InviteUserForm) => {
     if (!userData) {
@@ -120,7 +124,8 @@ export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDi
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/team/invite", {
+      const endpoint = data.sendInvite ? "/api/team/invite" : "/api/team/users"
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -150,7 +155,12 @@ export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDi
           ? await response.json()
           : null
       
-      toast.success(result?.message || `Invito inviato con successo a ${data.email}`)
+      toast.success(
+        result?.message ||
+          (data.sendInvite
+            ? `Invito inviato con successo a ${data.email}`
+            : `Membro aggiunto senza invito`),
+      )
       await onInvited?.()
       
       // Reset form and close dialog
@@ -171,21 +181,66 @@ export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className="p-2 bg-gradient-to-r from-violet-500 to-purple-600 rounded-lg">
               <UserPlus className="h-5 w-5 text-white" />
             </div>
-            Invita Nuovo Utente
+            Aggiungi membro team
           </DialogTitle>
           <DialogDescription>
-            Invia un invito per far entrare un nuovo membro nel tuo team
+            Crea l'anagrafica del dipendente subito e decidi se invitarlo ora o più avanti.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="sendInvite"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Accesso piattaforma</FormLabel>
+                  <FormControl>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => field.onChange(true)}
+                        className={`rounded-lg border p-3 text-left transition ${
+                          field.value
+                            ? "border-righello-pink bg-righello-pink/10 text-slate-950 dark:text-white"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 text-sm font-semibold">
+                          <Mail className="h-4 w-4" />
+                          Invita ora
+                        </span>
+                        <span className="mt-1 block text-xs opacity-75">Crea membro e invia email di accesso.</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => field.onChange(false)}
+                        className={`rounded-lg border p-3 text-left transition ${
+                          !field.value
+                            ? "border-cyan-400 bg-cyan-400/10 text-slate-950 dark:text-white"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 text-sm font-semibold">
+                          <UserCheck className="h-4 w-4" />
+                          Solo anagrafica
+                        </span>
+                        <span className="mt-1 block text-xs opacity-75">Aggiungi il dipendente e invitalo dopo.</span>
+                      </button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Email */}
             <FormField
               control={form.control}
@@ -294,24 +349,25 @@ export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDi
               )}
             />
 
-            {/* Messaggio personalizzato (opzionale) */}
-            <FormField
-              control={form.control}
-              name="message"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Messaggio personalizzato (opzionale)</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Aggiungi un messaggio di benvenuto personalizzato..."
-                      rows={3}
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {sendInvite && (
+              <FormField
+                control={form.control}
+                name="message"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Messaggio personalizzato (opzionale)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Aggiungi un messaggio di benvenuto personalizzato..."
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <DialogFooter>
               <Button
@@ -326,12 +382,17 @@ export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDi
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Invio in corso...
+                    Salvataggio...
                   </>
-                ) : (
+                ) : sendInvite ? (
                   <>
                     <Mail className="mr-2 h-4 w-4" />
                     Invia Invito
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    Aggiungi Dipendente
                   </>
                 )}
               </Button>

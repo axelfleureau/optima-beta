@@ -3,6 +3,7 @@ import type { Timestamp } from "firebase/firestore"
 // Existing types (keeping what was already there)
 export interface User {
   id: string
+  clerkUserId?: string
   email: string
   firstName: string
   lastName: string

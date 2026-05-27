@@ -49,7 +49,7 @@ const roleConfig = {
     icon: Settings,
   },
   junior: {
-    label: "Junior",
+    label: "Dipendente",
     color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     icon: User,
   },
@@ -66,8 +66,8 @@ const statusConfig = {
     color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   },
   inactive: {
-    label: "Inattivo",
-    color: "bg-slate-100 text-slate-800 dark:bg-slate-700/60 dark:text-slate-200",
+    label: "Da invitare",
+    color: "bg-cyan-100 text-cyan-900 dark:bg-cyan-900/30 dark:text-cyan-200",
   },
   invited: {
     label: "Invitato",
@@ -141,8 +141,8 @@ export default function TeamPage() {
   const stats = {
     total: users.length,
     active: users.filter((u) => u.status === "active").length,
+    pending: users.filter((u) => u.status === "inactive" || u.status === "invited").length,
     admins: users.filter((u) => u.role === "admin" || u.role === "super-admin").length,
-    clients: users.filter((u) => u.role === "client").length,
   }
 
   if (loading) {
@@ -200,7 +200,7 @@ export default function TeamPage() {
               onClick={() => setInviteDialogOpen(true)}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Invita Utente
+              Aggiungi Membro
             </Button>
           </div>
 
@@ -223,12 +223,25 @@ export default function TeamPage() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-slate-200">
                   <Sparkles className="h-5 w-5 text-slate-400" />
-                  Utenti Attivi
+                  Attivi
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-slate-100">{stats.active}</div>
-                <p className="text-xs text-slate-400 mt-1">attualmente online</p>
+                <p className="text-xs text-slate-400 mt-1">con accesso operativo</p>
+              </CardContent>
+            </Card>
+
+            <Card className={surfaceClass}>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium flex items-center gap-3 text-slate-200">
+                  <Mail className="h-5 w-5 text-slate-400" />
+                  Da completare
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-100">{stats.pending}</div>
+                <p className="text-xs text-slate-400 mt-1">da invitare o invitati</p>
               </CardContent>
             </Card>
 
@@ -242,19 +255,6 @@ export default function TeamPage() {
               <CardContent>
                 <div className="text-3xl font-bold text-slate-100">{stats.admins}</div>
                 <p className="text-xs text-slate-400 mt-1">con privilegi admin</p>
-              </CardContent>
-            </Card>
-
-            <Card className={surfaceClass}>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-medium flex items-center gap-3 text-slate-200">
-                  <User className="h-5 w-5 text-slate-400" />
-                  Clienti
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-slate-100">{stats.clients}</div>
-                <p className="text-xs text-slate-400 mt-1">accesso clienti</p>
               </CardContent>
             </Card>
           </div>
@@ -288,7 +288,7 @@ export default function TeamPage() {
                   onClick={() => setInviteDialogOpen(true)}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Invita il primo utente
+                  Aggiungi il primo membro
                 </Button>
               </CardContent>
             </Card>
@@ -321,7 +321,7 @@ export default function TeamPage() {
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-2 self-end sm:self-start">
                         {user.status && getStatusBadge(user.status)}
-                        <UserActionsMenu user={user} />
+                        <UserActionsMenu user={user} onUserUpdated={refreshUsers} />
                       </div>
                     </div>
                   </CardHeader>

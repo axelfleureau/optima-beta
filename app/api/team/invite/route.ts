@@ -14,6 +14,10 @@ function normalizeEmail(value: unknown) {
   return String(value || "").trim().toLowerCase()
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 function appUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://optima-beta-staging.axel-15d.workers.dev"
 }
@@ -36,13 +40,43 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const email = normalizeEmail(body.email)
-    const firstName = String(body.firstName || "").trim()
-    const lastName = String(body.lastName || "").trim()
-    const role = String(body.role || "").trim()
+    const memberId = String(body.memberId || "").trim()
+    let email = normalizeEmail(body.email)
+    let firstName = String(body.firstName || "").trim()
+    let lastName = String(body.lastName || "").trim()
+    let role = String(body.role || "").trim()
+
+    if (memberId) {
+      const existingMember: any = await db
+        .prepare(
+          `SELECT id, email, first_name, last_name, role, status
+           FROM members
+           WHERE organization_id = ? AND id = ?
+           LIMIT 1`,
+        )
+        .bind(principal.organizationId, memberId)
+        .first()
+
+      if (!existingMember) {
+        return Response.json({ error: "Membro non trovato" }, { status: 404 })
+      }
+
+      if (existingMember.status === "active") {
+        return Response.json({ error: "Questo membro ha già accesso alla piattaforma" }, { status: 409 })
+      }
+
+      email = normalizeEmail(existingMember.email)
+      firstName = String(existingMember.first_name || firstName).trim()
+      lastName = String(existingMember.last_name || lastName).trim()
+      role = String(existingMember.role || role).trim()
+    }
 
     if (!email || !firstName || !lastName || !role) {
       return Response.json({ error: "Campi obbligatori mancanti" }, { status: 400 })
+    }
+
+    if (!isValidEmail(email)) {
+      return Response.json({ error: "Inserisci un indirizzo email valido" }, { status: 400 })
     }
 
     if (!INVITABLE_ROLES.has(role)) {
@@ -53,25 +87,27 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Non puoi invitare utenti con questo ruolo" }, { status: 403 })
     }
 
-    const existingMember = await db
-      .prepare(
-        `SELECT id
-         FROM members
-         WHERE organization_id = ? AND lower(email) = lower(?)
-         LIMIT 1`,
-      )
-      .bind(principal.organizationId, email)
-      .first()
-
-    if (existingMember) {
-      return Response.json({ error: "Un utente con questa email esiste già nel team" }, { status: 409 })
-    }
-
     const inviteUrl = `${appUrl()}/register?email=${encodeURIComponent(email)}`
     const inviterName = `${user.firstName} ${user.lastName}`.trim() || user.email
-    const memberId = crypto.randomUUID().replace(/-/g, "")
-    const invitedMemberId = `mem_${memberId}`
+    const newMemberSuffix = crypto.randomUUID().replace(/-/g, "")
+    const invitedMemberId = memberId || `mem_${newMemberSuffix}`
     const invitedClerkUserId = `invite:${email}`
+
+    if (!memberId) {
+      const existingMember = await db
+        .prepare(
+          `SELECT id
+           FROM members
+           WHERE organization_id = ? AND lower(email) = lower(?)
+           LIMIT 1`,
+        )
+        .bind(principal.organizationId, email)
+        .first()
+
+      if (existingMember) {
+        return Response.json({ error: "Un utente con questa email esiste già nel team" }, { status: 409 })
+      }
+    }
 
     await sendInviteEmail({
       to: email,
@@ -84,18 +120,29 @@ export async function POST(request: NextRequest) {
       customMessage: body.message,
     })
 
-    await db
-      .prepare(
-        `INSERT INTO members
-         (id, organization_id, clerk_user_id, email, first_name, last_name, role, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'invited')`,
-      )
-      .bind(invitedMemberId, principal.organizationId, invitedClerkUserId, email, firstName, lastName, role)
-      .run()
+    if (memberId) {
+      await db
+        .prepare(
+          `UPDATE members
+           SET clerk_user_id = ?, status = 'invited', updated_at = CURRENT_TIMESTAMP
+           WHERE organization_id = ? AND id = ?`,
+        )
+        .bind(invitedClerkUserId, principal.organizationId, memberId)
+        .run()
+    } else {
+      await db
+        .prepare(
+          `INSERT INTO members
+           (id, organization_id, clerk_user_id, email, first_name, last_name, role, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'invited')`,
+        )
+        .bind(invitedMemberId, principal.organizationId, invitedClerkUserId, email, firstName, lastName, role)
+        .run()
+    }
 
     return Response.json({
       success: true,
-      message: "Invito inviato e membro aggiunto al team",
+      message: memberId ? "Invito inviato al membro del team" : "Invito inviato e membro aggiunto al team",
       recipient: email,
       user: {
         id: invitedMemberId,

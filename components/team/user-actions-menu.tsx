@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Eye, Edit, Mail, Trash2, Loader2 } from "lucide-react"
+import { MoreHorizontal, Eye, Edit, Mail, Trash2, Loader2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import type { User } from "@/lib/types"
 import { UserEditDialog } from "./user-edit-dialog"
@@ -35,6 +35,11 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isInviting, setIsInviting] = useState(false)
+  const canSendInvite =
+    user.status === "inactive" ||
+    user.status === "invited" ||
+    (typeof user.clerkUserId === "string" && user.clerkUserId.startsWith("placeholder:"))
 
   const handleDelete = async () => {
     setIsDeleting(true)
@@ -85,6 +90,30 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
     }
   }
 
+  const handleSendInvite = async () => {
+    setIsInviting(true)
+    try {
+      const response = await fetch("/api/team/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: user.id }),
+      })
+
+      const result = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(result?.error || "Errore nell'invio dell'invito")
+      }
+
+      toast.success(result?.message || `Invito inviato a ${user.email}`)
+      onUserUpdated?.()
+    } catch (error) {
+      console.error("Error sending invite:", error)
+      toast.error(error instanceof Error ? error.message : "Errore nell'invio dell'invito")
+    } finally {
+      setIsInviting(false)
+    }
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -106,6 +135,16 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
             <Edit className="mr-2 h-4 w-4" />
             Modifica
           </DropdownMenuItem>
+          {canSendInvite && (
+            <DropdownMenuItem onClick={handleSendInvite} disabled={isInviting}>
+              {isInviting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="mr-2 h-4 w-4" />
+              )}
+              {user.status === "invited" ? "Reinvia invito" : "Invita ora"}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={handleSendEmail}>
             <Mail className="mr-2 h-4 w-4" />
             Invia Email
