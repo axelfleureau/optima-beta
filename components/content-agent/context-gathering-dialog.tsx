@@ -29,6 +29,11 @@ import { normalizeFutureCommandDate } from "@/lib/utils/date-parser"
 
 type Step = "client" | "date" | "platform" | "confirm"
 
+function firstPlatform(value: unknown): Platform | null {
+  if (Array.isArray(value)) return (value[0] as Platform) || null
+  return (value as Platform) || null
+}
+
 interface ContextGatheringDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -99,7 +104,7 @@ export function ContextGatheringDialog({
       setSelectedClientId(entities?.clientId || null)
       setSelectedClientName(entities?.clientName || null)
       setPublishDate(normalizedPublishDate ? new Date(`${normalizedPublishDate}T00:00:00`) : undefined)
-      setPlatform((entities?.platform as Platform) || null)
+      setPlatform(firstPlatform(entities?.platform))
     }
   }, [open, entities])
 

@@ -1,4 +1,3 @@
-import { auth } from '@/lib/firebase'
 import { useOrchestrationStore } from '@/lib/stores/orchestration-store'
 import { ORCHESTRATION_MESSAGES, ORCHESTRATION_PROGRESS } from '@/lib/utils/orchestration-messages'
 import { gatherExtendedContext } from '@/lib/services/context-gatherer'
@@ -29,9 +28,48 @@ export interface TokenCost {
 
 export interface OrchestrationResult {
   task: any
-  calendarEntry: any
+  calendarEntry: {
+    id: string | null
+    date: string
+    status: string
+    platform: string
+    type: string
+  }
   tokenCost: TokenCost
   canGenerate: boolean
+}
+
+const REQUEST_TIMEOUT_MS = 20000
+
+async function fetchJson(input: RequestInfo | URL, init?: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(input, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        ...(init?.headers || {}),
+      },
+    })
+    const payload = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      throw new Error(payload.error || payload.message || 'Operazione non riuscita')
+    }
+
+    return payload
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error("L'operazione sta impiegando troppo. Riprova tra qualche secondo.")
+    }
+
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 export class ContentAgentOrchestrator {
@@ -42,19 +80,12 @@ export class ContentAgentOrchestrator {
     
     try {
       store.setStep('analyzing', ORCHESTRATION_MESSAGES.analyzing, ORCHESTRATION_PROGRESS.analyzing)
-      
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) {
-        throw new Error('User not authenticated')
-      }
 
       store.setStep('creating_task', ORCHESTRATION_MESSAGES.creating_task, ORCHESTRATION_PROGRESS.creating_task)
-      const task = await this.createTask(req, token)
+      const task = await this.createTask(req)
       console.log('✅ Task created:', task.id)
       
-      store.setStep('creating_calendar', ORCHESTRATION_MESSAGES.creating_calendar, ORCHESTRATION_PROGRESS.creating_calendar)
-      const calendarEntry = await this.insertCalendarEntry(req, task.task.id, token)
-      console.log('✅ Calendar entry created:', calendarEntry.id)
+      const calendarEntry = this.createCalendarPlaceholder(req)
       
       const tokenCost = this.calculateTokenCost(req.contentType)
       console.log('💰 Token cost:', tokenCost)
@@ -63,8 +94,8 @@ export class ContentAgentOrchestrator {
       store.setStep('completed', `Completato! (${tokenCost.total} token)`, 100)
       
       return {
-        task: task.task,
-        calendarEntry: calendarEntry.entry,
+        task,
+        calendarEntry,
         tokenCost,
         canGenerate: true
       }
@@ -75,62 +106,42 @@ export class ContentAgentOrchestrator {
     }
   }
   
-  private static async createTask(req: ContentCreationRequest, token: string) {
-    const response = await fetch('/api/tasks/create-auto', {
+  private static async createTask(req: ContentCreationRequest) {
+    const payload = await fetchJson('/api/tasks', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: `${req.contentType} ${req.platform} - ${req.topic}`,
-        description: `Creazione ${req.contentType} per ${req.clientName}`,
+        title: `${this.labelContentType(req.contentType)} ${req.platform} - ${req.topic || req.clientName}`,
+        description: `Creazione ${req.contentType} per ${req.clientName}${req.topic ? `\n\nTema: ${req.topic}` : ''}`,
         clientId: req.clientId,
-        tenantId: req.tenantId,
+        clientName: req.clientName,
+        columnId: 'to-do',
         status: 'to-do',
+        priority: 'medium',
         dueDate: req.publishDate.toISOString(),
-        metadata: {
-          contentType: req.contentType,
-          platform: req.platform,
-          topic: req.topic
-        }
+        type: 'content',
+        tags: [req.contentType, req.platform, 'command-bar'].filter(Boolean),
+        attachments: [],
       })
     })
-    
-    if (!response.ok) {
-      throw new Error('Failed to create task')
-    }
-    
-    return response.json()
+
+    return payload.task
   }
-  
-  private static async insertCalendarEntry(req: ContentCreationRequest, taskId: string, token: string) {
-    const response = await fetch('/api/calendar/create-auto', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        date: req.publishDate.toISOString(),
-        platform: req.platform,
-        type: req.contentType,
-        clientId: req.clientId,
-        linkedTaskId: taskId,
-        status: 'draft',
-        content: {
-          topic: req.topic,
-          caption: '',
-          mediaUrl: null
-        }
-      })
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to create calendar entry')
+
+  private static createCalendarPlaceholder(req: ContentCreationRequest) {
+    return {
+      id: null,
+      date: req.publishDate.toISOString(),
+      status: 'draft',
+      platform: req.platform,
+      type: req.contentType,
     }
-    
-    return response.json()
+  }
+
+  private static labelContentType(contentType: string) {
+    if (contentType === 'reel') return 'Reel'
+    if (contentType === 'video') return 'Video'
+    return 'Post'
   }
   
   private static calculateTokenCost(contentType: string): TokenCost {
@@ -142,31 +153,26 @@ export class ContentAgentOrchestrator {
     return costs[contentType] || costs.post
   }
   
-  static async executeGeneration(req: ContentCreationRequest, calendarEntryId: string, taskId: string) {
+  static async executeGeneration(req: ContentCreationRequest, calendarEntryId: string | null, taskId: string) {
     console.log('🎨 Starting content generation...', { contentType: req.contentType })
     
     const store = useOrchestrationStore.getState()
     
     try {
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) {
-        throw new Error('User not authenticated')
-      }
-
       store.setStep('generating_copy', ORCHESTRATION_MESSAGES.generating_copy, ORCHESTRATION_PROGRESS.generating_copy)
-      const copy = await this.generateCopy(req, token)
+      const copy = await this.generateCopy(req)
       
       let mediaUrl: string | null = null
       if (req.contentType === 'post') {
         store.setStep('generating_image', ORCHESTRATION_MESSAGES.generating_image, ORCHESTRATION_PROGRESS.generating_image)
-        mediaUrl = await this.generateImage(req, token)
+        mediaUrl = await this.generateImage(req)
       } else {
         store.setStep('generating_video', ORCHESTRATION_MESSAGES.generating_video, ORCHESTRATION_PROGRESS.generating_video)
-        mediaUrl = await this.generateVideo(req, token)
+        mediaUrl = await this.generateVideo(req)
       }
       
       store.setStep('updating_content', ORCHESTRATION_MESSAGES.updating_content, ORCHESTRATION_PROGRESS.updating_content)
-      await this.updateCalendarWithMedia(calendarEntryId, taskId, copy, mediaUrl, token)
+      await this.updateCalendarWithMedia(calendarEntryId, taskId, copy, mediaUrl)
       
       store.setStep('completed', ORCHESTRATION_MESSAGES.completed, ORCHESTRATION_PROGRESS.completed)
       
@@ -178,7 +184,7 @@ export class ContentAgentOrchestrator {
     }
   }
   
-  private static async generateCopy(req: ContentCreationRequest, token: string): Promise<string> {
+  private static async generateCopy(req: ContentCreationRequest): Promise<string> {
     console.log('✍️ Generating copy with GPT-4...')
     
     // 1. GATHER EXTENDED CONTEXT
@@ -221,12 +227,9 @@ CLIENTE: ${req.clientName}
 `
     
     // 5. CALL AI with enriched prompt
-    const response = await fetch('/api/ai/caption', {
+    const data = await fetchJson('/api/ai/caption', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: systemPrompt,
         userId: req.userId,
@@ -234,25 +237,16 @@ CLIENTE: ${req.clientName}
         temperature: 0.8
       })
     })
-    
-    if (!response.ok) {
-      console.error('Failed to generate copy')
-      return `Caption per ${req.topic} su ${req.platform}`
-    }
-    
-    const data = await response.json()
+
     return data.text || `Caption per ${req.topic}`
   }
   
-  private static async generateImage(req: ContentCreationRequest, token: string): Promise<string> {
+  private static async generateImage(req: ContentCreationRequest): Promise<string> {
     console.log('🎨 Generating image with DALL-E 3...')
     
-    const response = await fetch('/api/ai/generate-image', {
+    const data = await fetchJson('/api/ai/generate-image', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: `Crea un'immagine per ${req.topic} per ${req.clientName}`,
         platform: req.platform,
@@ -260,66 +254,51 @@ CLIENTE: ${req.clientName}
         quality: 'standard'
       })
     })
-    
-    if (!response.ok) {
-      throw new Error('Failed to generate image')
-    }
-    
-    const data = await response.json()
+
     return data.imageUrl
   }
   
-  private static async generateVideo(req: ContentCreationRequest, token: string): Promise<string> {
+  private static async generateVideo(req: ContentCreationRequest): Promise<string> {
     console.log('🎥 Generating video with Sora 2...')
     
     return `https://placeholder-video.com/${req.contentType}-${Date.now()}.mp4`
   }
   
   private static async updateCalendarWithMedia(
-    calendarEntryId: string, 
+    calendarEntryId: string | null,
     taskId: string,
     copy: string, 
     mediaUrl: string | null,
-    token: string
   ) {
     console.log('💾 Updating calendar entry and task with generated content...')
     
-    const updateCalendarResponse = await fetch(`/api/calendar/${calendarEntryId}`, {
-      method: 'PATCH',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        content: {
-          caption: copy,
-          mediaUrl: mediaUrl
-        },
-        status: 'scheduled'
+    if (calendarEntryId) {
+      await fetch(`/api/calendar/${calendarEntryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: {
+            caption: copy,
+            mediaUrl: mediaUrl
+          },
+          status: 'scheduled'
+        })
+      }).catch(() => {
+        console.error('Failed to update calendar entry')
       })
-    })
-    
-    if (!updateCalendarResponse.ok) {
-      console.error('Failed to update calendar entry')
     }
     
-    const updateTaskResponse = await fetch(`/api/tasks/${taskId}`, {
+    const payload = await fetchJson(`/api/tasks/${taskId}`, {
       method: 'PATCH',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        metadata: {
-          mediaUrl: mediaUrl,
-          caption: copy,
-          generatedAt: new Date().toISOString()
-        }
+        richDescription: [copy, mediaUrl ? `\n\nMedia generato: ${mediaUrl}` : ""].join(""),
+        attachments: mediaUrl
+          ? [{ id: `generated-${Date.now()}`, name: "Media generato", url: mediaUrl, type: "generated", createdAt: new Date().toISOString() }]
+          : [],
       })
     })
-    
-    if (!updateTaskResponse.ok) {
-      console.error('Failed to update task')
-    }
+
+    return payload
   }
 }

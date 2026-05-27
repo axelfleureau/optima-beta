@@ -6,6 +6,17 @@ import type { CommandContext } from "@/lib/types"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requireClerkUser } from "@/lib/server-clerk"
 
+const COMMAND_TIMEOUT_MS = 18000
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs = COMMAND_TIMEOUT_MS): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error("Timeout interpretazione comando")), timeoutMs)
+    }),
+  ])
+}
+
 export async function POST(request: Request) {
   const rateLimitResult = await rateLimit(request, "AI")
   if (!rateLimitResult.success) {
@@ -35,7 +46,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const nlpResponse = await recognizeIntent(message, context)
+    const nlpResponse = await withTimeout(recognizeIntent(message, context))
 
     return NextResponse.json(nlpResponse)
   } catch (error: any) {

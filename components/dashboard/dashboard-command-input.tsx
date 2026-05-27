@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useDebouncedCallback } from "use-debounce"
 import { GlassCard } from "@/components/ui/glass-card"
@@ -17,7 +17,6 @@ import { ContextGatheringDialog } from "@/components/content-agent/context-gathe
 import { TokenConsentDialog } from "@/components/content-agent/token-consent-dialog"
 import { OrchestrationFeedback } from "@/components/command-bar/orchestration-feedback"
 import { ContentAgentOrchestrator, type OrchestrationResult } from "@/lib/services/content-agent-orchestrator"
-import { auth } from "@/lib/firebase"
 import type { CommandContext, NLPResponse } from "@/lib/types"
 import { parseDateExpression, formatDateForCommand, normalizeFutureCommandDate } from "@/lib/utils/date-parser"
 import { format } from "date-fns"
@@ -30,6 +29,30 @@ const placeholders = [
   "Pianifica contenuti per...",
 ]
 
+const COMMAND_TIMEOUT_MS = 20000
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, timeoutMs = COMMAND_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Il comando sta impiegando troppo. Ho fermato l'operazione: riprova con una richiesta più breve.")
+    }
+
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
+function firstPlatform(value: unknown) {
+  if (Array.isArray(value)) return String(value[0] || "instagram")
+  return String(value || "instagram")
+}
+
 export function DashboardCommandInput() {
   const [input, setInput] = useState("")
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
@@ -41,6 +64,7 @@ export function DashboardCommandInput() {
   const [tokenConsentOpen, setTokenConsentOpen] = useState(false)
   const [dateSuggestion, setDateSuggestion] = useState<Date | null>(null)
   const [clientMatches, setClientMatches] = useState<string[]>([])
+  const formRef = useRef<HTMLFormElement>(null)
 
   const { userData } = useAuth()
   const { clients } = useClients()
@@ -177,7 +201,7 @@ export function DashboardCommandInput() {
     console.log("📍 Context:", context)
 
     try {
-      const response = await fetch("/api/ai/command", {
+      const response = await fetchWithTimeout("/api/ai/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: input, context }),
@@ -263,13 +287,6 @@ export function DashboardCommandInput() {
             description: "Compila i dettagli nel dialog",
           })
         } else {
-          const user = auth.currentUser
-          if (!user) {
-            toast.error("Utente non autenticato")
-            setIsProcessing(false)
-            return
-          }
-
           const clientName = nlpResponse.entities.clientName
           
           let availableClients = useCommandContextStore.getState().clients
@@ -301,12 +318,12 @@ export function DashboardCommandInput() {
             const result = await ContentAgentOrchestrator.orchestrateContentCreation({
               intent: nlpResponse.intent,
               contentType: nlpResponse.entities.contentType as "post" | "reel" | "video",
-              platform: nlpResponse.entities.platform,
+              platform: firstPlatform(nlpResponse.entities.platform),
               clientId: client.id,
               clientName: client.name,
               topic: nlpResponse.entities.topic || "",
               publishDate: new Date(nlpResponse.entities.publishDate),
-              userId: user.uid,
+              userId: userData.id,
               tenantId: userData.tenantId
             })
             
@@ -314,7 +331,7 @@ export function DashboardCommandInput() {
             const dateStr = format(new Date(nlpResponse.entities.publishDate), "dd MMMM yyyy", { locale: it })
             
             toast.success("✅ Task creata!", {
-              description: `${nlpResponse.entities.contentType || 'Contenuto'} per ${client.name} schedulato il ${dateStr}. Vai al calendario per generare copy e media.`,
+              description: `${nlpResponse.entities.contentType || 'Contenuto'} per ${client.name} schedulato il ${dateStr}. La trovi nel workspace.`,
               duration: 5000,
             })
             
@@ -326,8 +343,8 @@ export function DashboardCommandInput() {
           }
         }
       } else {
-        toast.success(`Intent: ${nlpResponse.intent}`, {
-          description: `Confidence: ${(nlpResponse.confidence * 100).toFixed(0)}% | Entities: ${JSON.stringify(nlpResponse.entities)}`,
+        toast.info("Comando capito, ma non ancora eseguibile da qui", {
+          description: "Apri la command bar completa con Cmd+K oppure usa una richiesta legata a task o contenuti.",
           duration: 5000,
         })
       }
@@ -413,7 +430,7 @@ export function DashboardCommandInput() {
         padding="none"
         className="w-full mx-auto relative"
       >
-        <form onSubmit={handleSubmit} className="relative">
+        <form ref={formRef} onSubmit={handleSubmit} className="relative">
           {isProcessing && (
             <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-xl flex items-center justify-center z-50">
               <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
@@ -519,8 +536,7 @@ export function DashboardCommandInput() {
               setInput(suggestion.value)
               clearAutocomplete()
               setTimeout(() => {
-                const form = document.querySelector('form') as HTMLFormElement
-                form?.requestSubmit()
+                formRef.current?.requestSubmit()
               }, 100)
             }}
             className="text-xs bg-white/50 dark:bg-black/30 hover:bg-white/70 dark:hover:bg-black/50 border border-purple-200/50 dark:border-purple-700/50 transition-all"
@@ -566,9 +582,8 @@ export function DashboardCommandInput() {
         contentType={currentIntent?.entities?.contentType || "post"}
         onConfirm={async () => {
           if (!orchestrationResult || !currentIntent) return
-          
-          const user = auth.currentUser
-          if (!user || !userData) {
+
+          if (!userData) {
             toast.error("Utente non autenticato")
             return
           }
@@ -578,12 +593,12 @@ export function DashboardCommandInput() {
               {
                 intent: currentIntent.intent,
                 contentType: currentIntent.entities.contentType as "post" | "reel" | "video",
-                platform: currentIntent.entities.platform,
+                platform: firstPlatform(currentIntent.entities.platform),
                 clientId: orchestrationResult.task.clientId,
                 clientName: orchestrationResult.task.clientName,
                 topic: currentIntent.entities.topic || "",
                 publishDate: new Date(orchestrationResult.calendarEntry.date),
-                userId: user.uid,
+                userId: userData.id,
                 tenantId: userData.tenantId
               },
               orchestrationResult.calendarEntry.id,

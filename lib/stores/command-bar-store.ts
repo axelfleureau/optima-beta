@@ -111,6 +111,25 @@ const defaultSuggestions: CommandSuggestion[] = [
   },
 ]
 
+const COMMAND_TIMEOUT_MS = 20000
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, timeoutMs = COMMAND_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Il comando sta impiegando troppo. Riprova con una richiesta più breve.")
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export const useCommandBarStore = create<CommandBarState>((set, get) => ({
   isOpen: false,
   inputValue: "",
@@ -191,7 +210,7 @@ export const useCommandBarStore = create<CommandBarState>((set, get) => ({
       useOrchestrationStore.getState().setStage('analyzing')
       useOrchestrationStore.getState().setStreamingReasoning("Sto leggendo il comando e recuperando il contesto operativo.")
 
-      const response = await fetch("/api/ai/command", {
+      const response = await fetchWithTimeout("/api/ai/command", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -106,6 +106,15 @@ export async function executeIntent(
         return await handleNavigate(entities, context)
       case "SHOW_ANALYTICS":
         return await handleShowAnalytics(context)
+      case "GENERATE_IMAGE":
+        return await handleGenerateImage(entities, context)
+      case "PLAN_CAMPAIGN":
+        return await handleCreateCampaignProject(entities, context)
+      case "CREATE_CONTENT_POST":
+      case "CREATE_CONTENT_REEL":
+      case "CREATE_CONTENT_VIDEO":
+      case "CREATE_CONTENT_BATCH":
+        return await handleCreateContentTask(intent, entities, context)
       case "SEARCH_GLOBAL":
         return await handleSearchGlobal(entities, context)
       case "TASK_REFINEMENT":
@@ -137,6 +146,11 @@ export async function executeIntent(
       error: error.message,
     }
   }
+}
+
+function firstPlatform(value: unknown) {
+  if (Array.isArray(value)) return String(value[0] || "instagram")
+  return String(value || "instagram")
 }
 
 async function handleCreateTask(
@@ -185,6 +199,85 @@ async function handleCreateTask(
       message: "Errore nella creazione della task",
       error: error.message,
     }
+  }
+}
+
+async function handleCreateContentTask(
+  intent: CommandIntent,
+  entities: Record<string, any>,
+  context: CommandContext
+): Promise<CommandExecutionResult> {
+  try {
+    const clientId = findClientId(entities, context)
+
+    if (!clientId) {
+      return {
+        success: false,
+        message: "Cliente non specificato o non trovato",
+        error: "Specifica un cliente valido per creare il contenuto",
+      }
+    }
+
+    const client = context.availableClients?.find((item) => item.id === clientId)
+    const contentType =
+      entities.contentType ||
+      (intent === "CREATE_CONTENT_REEL" ? "reel" : intent === "CREATE_CONTENT_VIDEO" ? "video" : "post")
+    const platform = firstPlatform(entities.platform)
+    const topic = entities.topic || entities.title || "contenuto"
+
+    const taskData = {
+      title: `${String(contentType).charAt(0).toUpperCase() + String(contentType).slice(1)} ${platform} - ${topic}`,
+      description: `Creazione ${contentType} per ${client?.name || entities.clientName || "cliente"}${topic ? `\n\nTema: ${topic}` : ""}`,
+      status: "to-do",
+      columnId: "to-do",
+      priority: entities.priority || "medium",
+      clientId,
+      clientName: client?.name || entities.clientName || "",
+      dueDate: entities.publishDate || entities.dueDate || null,
+      type: "content",
+      tags: ["command-bar", contentType, platform].filter(Boolean),
+      attachments: [],
+    }
+
+    const createdTask = await createWorkspaceTask(taskData)
+
+    return {
+      success: true,
+      message: `Task contenuto "${taskData.title}" creata nel workspace.`,
+      data: createdTask,
+    }
+  } catch (error: any) {
+    console.error("Create content task error:", error)
+    return {
+      success: false,
+      message: "Errore nella creazione della task contenuto",
+      error: error.message,
+    }
+  }
+}
+
+async function handleGenerateImage(
+  entities: Record<string, any>,
+  _context: CommandContext
+): Promise<CommandExecutionResult> {
+  const prompt = entities.prompt || entities.topic || entities.description
+
+  if (!prompt) {
+    return {
+      success: false,
+      message: "Prompt immagine mancante",
+      error: "Scrivi cosa vuoi generare, ad esempio: genera immagine per post Instagram su ...",
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    window.location.href = `/dashboard/ai-assistant?mode=image&prompt=${encodeURIComponent(String(prompt))}`
+  }
+
+  return {
+    success: true,
+    message: "Apro lo studio AI per generare l'immagine.",
+    data: { prompt },
   }
 }
 
