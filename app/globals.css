@@ -112,7 +112,7 @@ html {
 body {
   min-height: 100dvh;
   overflow-x: hidden;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
   background-color: hsl(var(--background));
@@ -126,6 +126,23 @@ body {
 
 body:not([data-scroll-locked]) {
   overflow-y: auto;
+}
+
+.optima-app-surface {
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 767px) {
+  html,
+  body,
+  .optima-app-surface {
+    min-height: 100svh;
+  }
+
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
 }
 
 @supports (-webkit-touch-callout: none) {

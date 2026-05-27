@@ -705,8 +705,8 @@ export function WorkspaceShell() {
   const activeColumns = showTenantWorkspace ? tenantColumns : defaultColumns
 
   return (
-    <div className="min-h-[calc(100dvh-73px)] overflow-x-hidden overflow-y-auto bg-slate-100 text-slate-950 [-webkit-overflow-scrolling:touch] dark:bg-slate-950 dark:text-slate-50 lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden">
-      <div className="flex min-h-[calc(100dvh-73px)] lg:h-full lg:min-h-0">
+    <div className="h-[calc(100svh-73px)] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-100 text-slate-950 [-webkit-overflow-scrolling:touch] dark:bg-slate-950 dark:text-slate-50 lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden">
+      <div className="flex min-h-full lg:h-full lg:min-h-0">
         {/* Desktop Sidebar - Hidden on mobile */}
         <div className="hidden lg:block">
           <ClientSidebar
@@ -727,7 +727,7 @@ export function WorkspaceShell() {
 
         {/* Mobile Sidebar - Sheet/Drawer (client-side only to prevent hydration mismatch) */}
         <MobileSheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
-          <SheetContent side="left" className="h-[100dvh] max-h-[100dvh] w-80 overflow-hidden bg-white/80 p-0 backdrop-blur-xl dark:bg-slate-800/80 lg:hidden">
+          <SheetContent side="left" className="h-[100svh] max-h-[100svh] w-80 overflow-hidden bg-white/80 p-0 backdrop-blur-xl dark:bg-slate-800/80 lg:hidden">
             <ClientSidebar
               clients={clients}
               allTasks={allTasks}
@@ -887,7 +887,7 @@ export function WorkspaceShell() {
             </div>
           </div>
 
-          <div className="min-h-[calc(100dvh-230px)] min-w-0 bg-slate-100 p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y] dark:bg-slate-950 sm:p-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:p-6">
+          <div className="min-h-[calc(100svh-230px)] min-w-0 bg-slate-100 p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y] dark:bg-slate-950 sm:p-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:p-6">
             {tasksLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
@@ -1039,7 +1039,7 @@ export function WorkspaceShell() {
             if (!nextOpen) resetTaskForm()
           }}
         >
-          <DialogContent className="left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none border-0 bg-white/95 p-4 pt-12 backdrop-blur-xl dark:bg-slate-900/95 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[600px] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:border-slate-200/50 sm:p-6 dark:sm:border-slate-700/50">
+          <DialogContent className="left-0 top-0 h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none border-0 bg-white/95 p-4 pt-12 backdrop-blur-xl dark:bg-slate-900/95 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[600px] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:border-slate-200/50 sm:p-6 dark:sm:border-slate-700/50">
             <DialogHeader className="text-left">
               <DialogTitle className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                 {showTenantWorkspace

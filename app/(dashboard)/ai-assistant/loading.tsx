@@ -32,7 +32,7 @@ export default function AIAssistantLoading() {
 
       {/* Main Chat Interface */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="flex h-[calc(100dvh-9rem)] min-h-[560px] md:h-[700px]">
+        <div className="flex h-[calc(100svh-9rem)] min-h-[560px] md:h-[700px]">
           {/* Sidebar */}
           <div className="hidden w-80 border-r border-gray-200 bg-gray-50 p-4 space-y-4 dark:border-gray-700 dark:bg-gray-800 lg:block">
             <div className="animate-pulse bg-gray-300/20 dark:bg-gray-700/20 h-6 w-32 rounded-md" />

@@ -385,7 +385,7 @@ export function TaskDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={cn("left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none border-0 p-4 pt-12 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-4xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:p-6", dialogSurfaceClass)}>
+        <DialogContent className={cn("left-0 top-0 h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none border-0 p-4 pt-12 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-4xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:p-6", dialogSurfaceClass)}>
         <DialogHeader className="space-y-4 pr-8 text-left sm:pr-0">
           {/* Title - Inline Editable */}
           <div className="flex items-start gap-2">
@@ -1272,7 +1272,7 @@ export function TaskDetailDialog({
       </Dialog>
 
       <Dialog open={!!previewAttachment} onOpenChange={(isOpen) => !isOpen && setPreviewAttachment(null)}>
-        <DialogContent className={cn("left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[92vh] sm:max-w-[96vw] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border md:max-w-5xl", dialogSurfaceClass)}>
+        <DialogContent className={cn("left-0 top-0 h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[92vh] sm:max-w-[96vw] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border md:max-w-5xl", dialogSurfaceClass)}>
           {previewAttachment && (
             <>
               <DialogHeader className="border-b border-slate-200 px-4 py-3 dark:border-slate-800 md:px-5">
@@ -1282,7 +1282,7 @@ export function TaskDetailDialog({
                 </DialogTitle>
               </DialogHeader>
 
-              <div className="h-[calc(100dvh-62px)] overflow-auto bg-slate-50 p-3 dark:bg-black sm:h-auto sm:max-h-[78vh] md:p-5">
+              <div className="h-[calc(100svh-62px)] overflow-auto bg-slate-50 p-3 dark:bg-black sm:h-auto sm:max-h-[78vh] md:p-5">
                 {getAttachmentPreviewKind(previewAttachment) === "image" && (
                   <div className="flex min-h-[45vh] items-center justify-center">
                     <img

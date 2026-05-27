@@ -96,7 +96,7 @@ export default function EditorialCalendarClient() {
   // Don't render anything until mounted
   if (!mounted) {
     return (
-      <div className="flex h-[calc(100dvh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
+      <div className="flex h-[calc(100svh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Inizializzazione...</p>
@@ -108,7 +108,7 @@ export default function EditorialCalendarClient() {
   // Show loading if user data is not available
   if (!userData) {
     return (
-      <div className="flex h-[calc(100dvh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
+      <div className="flex h-[calc(100svh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Autenticazione...</p>
@@ -238,7 +238,7 @@ export default function EditorialCalendarClient() {
 
   if (postsLoading || clientsLoading) {
     return (
-      <div className="flex h-[calc(100dvh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
+      <div className="flex h-[calc(100svh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento calendario editoriale...</p>
@@ -253,7 +253,7 @@ export default function EditorialCalendarClient() {
   }))
 
   return (
-    <div className="h-[calc(100dvh-73px)] overflow-y-auto overflow-x-hidden overscroll-contain bg-slate-50 text-slate-950 touch-pan-y dark:bg-[#0b1323] dark:text-slate-100 md:h-auto md:min-h-screen md:overflow-visible">
+    <div className="h-[calc(100svh-73px)] overflow-y-auto overflow-x-hidden overscroll-contain bg-slate-50 text-slate-950 touch-pan-y dark:bg-[#0b1323] dark:text-slate-100 md:h-auto md:min-h-screen md:overflow-visible">
       <div className="sticky top-0 z-30 min-w-0 border-b border-slate-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-[#111827]/95">
         <CalendarHeader
           searchTerm={searchTerm}

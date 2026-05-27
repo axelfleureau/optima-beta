@@ -51,7 +51,7 @@ const DashboardCommandInput = dynamic(
 )
 
 const dashboardPageClass =
-  "h-[calc(100dvh-73px)] w-full overflow-y-auto overflow-x-hidden overscroll-contain bg-transparent [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-visible"
+  "h-[calc(100svh-73px)] w-full overflow-y-auto overflow-x-hidden overscroll-contain bg-transparent [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-visible"
 
 export function DashboardClient() {
   const { userData } = useAuth()

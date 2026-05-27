@@ -309,7 +309,7 @@ export default function AIAssistantClient() {
 
           {/* Main Chat Interface */}
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
-            <div className="flex h-[calc(100dvh-9rem)] min-h-[560px] md:h-[700px]">
+            <div className="flex h-[calc(100svh-9rem)] min-h-[560px] md:h-[700px]">
               {/* Sidebar */}
               {showSidebar && (
                 <div className="hidden lg:block">

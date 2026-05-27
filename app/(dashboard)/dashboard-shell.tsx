@@ -48,7 +48,7 @@ export function DashboardShell({
           <ProtectedRoute>
             <SidebarProvider>
               <FinancialPrivacyProvider>
-                <div className="optima-app-surface flex min-h-[100dvh] w-full overflow-x-hidden [overflow-anchor:none]">
+                <div className="optima-app-surface flex min-h-[100svh] w-full overflow-x-hidden [overflow-anchor:none]">
                   <AppSidebar />
                   <main className="min-w-0 flex-1 overflow-x-hidden [-webkit-overflow-scrolling:touch]">
                     <MobileHeader />

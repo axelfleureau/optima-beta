@@ -248,7 +248,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
         onOpenChange(isOpen)
       }}
     >
-      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 bg-white/90 dark:bg-black/75 backdrop-blur-xl border border-white/30 dark:border-white/10 sm:h-auto sm:max-h-[90dvh]">
+      <DialogContent className="flex h-[calc(100svh-1rem)] max-h-[calc(100svh-1rem)] w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 bg-white/90 dark:bg-black/75 backdrop-blur-xl border border-white/30 dark:border-white/10 sm:h-auto sm:max-h-[90dvh]">
         <DialogHeader className="flex-shrink-0 px-4 pb-3 pt-5 sm:px-6 sm:pb-4 sm:pt-6">
           <DialogTitle className="pr-8 text-xl text-gray-900 dark:text-white sm:text-2xl">
             Raccolta Informazioni Preventivo

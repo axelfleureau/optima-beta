@@ -80,7 +80,7 @@ const statusConfig = {
 }
 
 const pageClass =
-  "h-[calc(100dvh-73px)] overflow-y-auto overscroll-contain bg-[#0b1323] text-slate-100 md:h-auto md:min-h-screen md:overflow-visible"
+  "h-[calc(100svh-73px)] overflow-y-auto overscroll-contain bg-[#0b1323] text-slate-100 md:h-auto md:min-h-screen md:overflow-visible"
 const surfaceClass =
   "border border-white/10 bg-[#172235] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]"
 const mutedSurfaceClass = "border border-white/10 bg-[#111b2d] text-slate-100"

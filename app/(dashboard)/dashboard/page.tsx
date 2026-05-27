@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic"
 
 const dashboardPageClass =
-  "optima-app-surface h-[calc(100dvh-73px)] w-full overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-visible"
+  "optima-app-surface h-[calc(100svh-73px)] w-full overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-visible"
 
 const DashboardClient = dynamic(
   () => import("./dashboard-client").then((mod) => ({ default: mod.DashboardClient })),
