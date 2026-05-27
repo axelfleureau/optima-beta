@@ -35,17 +35,38 @@ import { Mail, Loader2, UserPlus, Shield, User, Users, Crown, Settings, UserChec
 import { toast } from "sonner"
 import { getManageableRoles } from "@/lib/role-hierarchy"
 
-const inviteUserSchema = z.object({
-  email: z.string().email("Inserisci un indirizzo email valido"),
-  firstName: z.string().min(1, "Nome è obbligatorio"),
-  lastName: z.string().min(1, "Cognome è obbligatorio"),
-  role: z.enum(["admin", "direzione", "capo-reparto", "junior", "client"], {
-    required_error: "Seleziona un ruolo",
-  }),
-  companyName: z.string().optional(),
-  message: z.string().optional(),
-  sendInvite: z.boolean().default(true),
-})
+const inviteUserSchema = z
+  .object({
+    email: z.string().trim().optional(),
+    firstName: z.string().min(1, "Nome è obbligatorio"),
+    lastName: z.string().min(1, "Cognome è obbligatorio"),
+    role: z.enum(["admin", "direzione", "capo-reparto", "junior", "client"], {
+      required_error: "Seleziona un ruolo",
+    }),
+    companyName: z.string().optional(),
+    message: z.string().optional(),
+    sendInvite: z.boolean().default(true),
+  })
+  .superRefine((data, ctx) => {
+    const email = data.email?.trim() || ""
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+    if (data.sendInvite && !email) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["email"],
+        message: "L'email è obbligatoria per inviare un invito",
+      })
+    }
+
+    if (email && !validEmail) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["email"],
+        message: "Inserisci un indirizzo email valido",
+      })
+    }
+  })
 
 type InviteUserForm = z.infer<typeof inviteUserSchema>
 
@@ -247,12 +268,12 @@ export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDi
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Email{sendInvite ? "" : " (opzionale)"}</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input 
-                        placeholder="utente@example.com" 
+                        placeholder={sendInvite ? "utente@example.com" : "Aggiungila ora o più avanti"}
                         className="pl-10"
                         {...field} 
                       />

@@ -17,6 +17,10 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
+function isInternalPlaceholderEmail(email: unknown) {
+  return String(email || "").endsWith("@no-email.optima.local")
+}
+
 export async function GET() {
   try {
     const user = await requireClerkUser()
@@ -48,7 +52,8 @@ export async function GET() {
       users: (result.results || []).map((member: any) => ({
         id: member.id,
         clerkUserId: member.clerk_user_id,
-        email: member.email,
+        email: isInternalPlaceholderEmail(member.email) ? "" : member.email,
+        emailMissing: isInternalPlaceholderEmail(member.email),
         firstName: member.first_name || member.email?.split("@")[0] || "Utente",
         lastName: member.last_name || "",
         role: member.role || "junior",
@@ -82,16 +87,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const email = normalizeEmail(body.email)
+    let email = normalizeEmail(body.email)
     const firstName = String(body.firstName || "").trim()
     const lastName = String(body.lastName || "").trim()
     const role = String(body.role || "junior").trim()
 
-    if (!email || !firstName || !lastName || !role) {
+    if (!firstName || !lastName || !role) {
       return Response.json({ error: "Campi obbligatori mancanti" }, { status: 400 })
     }
 
-    if (!isValidEmail(email)) {
+    if (email && !isValidEmail(email)) {
       return Response.json({ error: "Inserisci un indirizzo email valido" }, { status: 400 })
     }
 
@@ -103,22 +108,26 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Non puoi aggiungere utenti con questo ruolo" }, { status: 403 })
     }
 
-    const existingMember = await db
-      .prepare(
-        `SELECT id
-         FROM members
-         WHERE organization_id = ? AND lower(email) = lower(?)
-         LIMIT 1`,
-      )
-      .bind(principal.organizationId, email)
-      .first()
+    const existingMember = email
+      ? await db
+          .prepare(
+            `SELECT id
+             FROM members
+             WHERE organization_id = ? AND lower(email) = lower(?)
+             LIMIT 1`,
+          )
+          .bind(principal.organizationId, email)
+          .first()
+      : null
 
     if (existingMember) {
       return Response.json({ error: "Un membro con questa email esiste già nel team" }, { status: 409 })
     }
 
     const memberId = `mem_${crypto.randomUUID().replace(/-/g, "")}`
-    const placeholderClerkUserId = `placeholder:${email}`
+    const emailMissing = !email
+    email = email || `${memberId}@no-email.optima.local`
+    const placeholderClerkUserId = emailMissing ? `placeholder:${memberId}` : `placeholder:${email}`
     const now = new Date().toISOString()
 
     await db
@@ -136,7 +145,8 @@ export async function POST(request: NextRequest) {
       user: {
         id: memberId,
         clerkUserId: placeholderClerkUserId,
-        email,
+        email: emailMissing ? "" : email,
+        emailMissing,
         firstName,
         lastName,
         role,

@@ -5,6 +5,7 @@ export interface User {
   id: string
   clerkUserId?: string
   email: string
+  emailMissing?: boolean
   firstName: string
   lastName: string
   role: "super-admin" | "admin" | "direzione" | "capo-reparto" | "junior" | "client"

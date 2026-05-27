@@ -1,165 +1,186 @@
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
-import { NextRequest, NextResponse } from "next/server"
-import { verifyFirebaseToken, getUserData, adminAuth, adminDb } from "@/lib/firebase-admin"
-import { canManageUser, hasPermission, type UserRole } from "@/lib/role-hierarchy"
+import type { NextRequest } from "next/server"
+import { getCloudflareDb } from "@/lib/cloudflare-db"
+import { canManageUser, type UserRole } from "@/lib/role-hierarchy"
+import { requireClerkUser } from "@/lib/server-clerk"
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
-// PATCH - Aggiorna utente
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const EDITABLE_ROLES = new Set(["admin", "direzione", "capo-reparto", "junior", "client"])
+const MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
+
+function normalizeEmail(value: unknown) {
+  return String(value || "").trim().toLowerCase()
+}
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function isInternalPlaceholderEmail(email: unknown) {
+  return String(email || "").endsWith("@no-email.optima.local")
+}
+
+function deriveClerkUserId(currentClerkUserId: string, status: string, email: string, fallbackMemberId: string) {
+  if (currentClerkUserId.startsWith("invite:")) return `invite:${email}`
+  if (currentClerkUserId.startsWith("placeholder:")) {
+    return email ? `placeholder:${email}` : `placeholder:${fallbackMemberId}`
+  }
+  if (status === "invited") return `invite:${email}`
+  return currentClerkUserId
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Verifica autenticazione
-    const token = request.cookies.get("firebase-auth-token")?.value
-    if (!token) {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 401 })
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Non autorizzato" }, { status: 401 })
     }
 
-    const decodedToken = await verifyFirebaseToken(token)
-    const editorData = await getUserData(decodedToken.uid)
-
-    if (!editorData || !hasPermission(editorData.role as UserRole, "canModifyUserRoles")) {
-      return NextResponse.json({ error: "Non hai i permessi per modificare utenti" }, { status: 403 })
+    const db = await getCloudflareDb()
+    if (!db) {
+      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
     }
 
-    const { id: userId } = await params
+    const principal = await ensureWorkspacePrincipal(db, user)
+    if (!MANAGER_ROLES.has(principal.role)) {
+      return Response.json({ error: "Non hai i permessi per modificare utenti" }, { status: 403 })
+    }
+
+    const { id: memberId } = await params
+    const currentMember: any = await db
+      .prepare(
+        `SELECT id, clerk_user_id, email, first_name, last_name, role, status
+         FROM members
+         WHERE organization_id = ? AND id = ?
+         LIMIT 1`,
+      )
+      .bind(principal.organizationId, memberId)
+      .first()
+
+    if (!currentMember) {
+      return Response.json({ error: "Utente non trovato" }, { status: 404 })
+    }
+
+    if (!canManageUser(principal.role as UserRole, currentMember.role as UserRole)) {
+      return Response.json({ error: "Non hai i permessi per modificare questo utente" }, { status: 403 })
+    }
+
     const body = await request.json()
-    const { firstName, lastName, email, role, companyName, isSuspended } = body
+    const firstName = String(body.firstName || "").trim()
+    const lastName = String(body.lastName || "").trim()
+    const role = String(body.role || "").trim()
+    const requestedEmail = normalizeEmail(body.email)
+    const status = body.isSuspended ? "suspended" : currentMember.status === "suspended" ? "active" : currentMember.status
 
-    // Validazione dati
-    if (!firstName || !lastName || !email || !role) {
-      return NextResponse.json({ error: "Campi obbligatori mancanti" }, { status: 400 })
+    if (!firstName || !lastName || !role) {
+      return Response.json({ error: "Campi obbligatori mancanti" }, { status: 400 })
     }
 
-    if (!["super-admin", "admin", "direzione", "capo-reparto", "junior", "client"].includes(role)) {
-      return NextResponse.json({ error: "Ruolo non valido" }, { status: 400 })
+    if (!EDITABLE_ROLES.has(role)) {
+      return Response.json({ error: "Ruolo non valido" }, { status: 400 })
     }
 
-    // Verifica che l'utente esista
-    const userDoc = await adminDb?.collection("users").doc(userId).get()
-    if (!userDoc?.exists) {
-      return NextResponse.json({ error: "Utente non trovato" }, { status: 404 })
+    if (!canManageUser(principal.role as UserRole, role as UserRole)) {
+      return Response.json({ error: "Non puoi assegnare questo ruolo" }, { status: 403 })
     }
 
-    const currentUserData = userDoc.data()
-    if (!currentUserData) {
-      return NextResponse.json({ error: "Dati utente non trovati" }, { status: 404 })
+    if (requestedEmail && !isValidEmail(requestedEmail)) {
+      return Response.json({ error: "Inserisci un indirizzo email valido" }, { status: 400 })
     }
 
-    // Verifica permessi usando la gerarchia dei ruoli
-    if (!canManageUser(editorData.role as UserRole, currentUserData.role as UserRole)) {
-      return NextResponse.json({ 
-        error: "Non hai i permessi per modificare questo utente" 
-      }, { status: 403 })
-    }
+    const email =
+      requestedEmail ||
+      (isInternalPlaceholderEmail(currentMember.email) ? String(currentMember.email) : normalizeEmail(currentMember.email))
 
-    // Se l'email è cambiata, verifica che non sia già in uso
-    if (email !== currentUserData.email) {
-      const existingUser = await adminDb?.collection("users").where("email", "==", email).get()
-      if (existingUser?.size && existingUser.size > 0) {
-        const existingDocs = existingUser.docs.filter((doc: any) => doc.id !== userId)
-        if (existingDocs.length > 0) {
-          return NextResponse.json({ error: "Email già in uso da un altro utente" }, { status: 409 })
-        }
+    if (requestedEmail && requestedEmail !== normalizeEmail(currentMember.email)) {
+      const existingMember = await db
+        .prepare(
+          `SELECT id
+           FROM members
+           WHERE organization_id = ? AND lower(email) = lower(?) AND id <> ?
+           LIMIT 1`,
+        )
+        .bind(principal.organizationId, requestedEmail, memberId)
+        .first()
+
+      if (existingMember) {
+        return Response.json({ error: "Email già in uso da un altro membro" }, { status: 409 })
       }
     }
 
-    // Aggiorna Firebase Auth se email è cambiata
-    if (email !== currentUserData.email) {
-      await adminAuth?.updateUser(userId, { email })
-    }
+    const clerkUserId = deriveClerkUserId(String(currentMember.clerk_user_id), status, email, memberId)
 
-    // Aggiorna display name in Firebase Auth
-    await adminAuth?.updateUser(userId, {
-      displayName: `${firstName} ${lastName}`,
-      disabled: isSuspended || false,
-    })
+    await db
+      .prepare(
+        `UPDATE members
+         SET email = ?, first_name = ?, last_name = ?, role = ?, status = ?, clerk_user_id = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE organization_id = ? AND id = ?`,
+      )
+      .bind(email, firstName, lastName, role, status, clerkUserId, principal.organizationId, memberId)
+      .run()
 
-    // Aggiorna documento Firestore
-    const updatedData = {
-      firstName,
-      lastName,
-      email,
-      role,
-      companyName: companyName || null,
-      isSuspended: isSuspended || false,
-      updatedAt: new Date(),
-      updatedBy: decodedToken.uid,
-    }
-
-    await adminDb?.collection("users").doc(userId).update(updatedData)
-
-    return NextResponse.json({
+    return Response.json({
       success: true,
       message: "Utente aggiornato con successo",
     })
-
   } catch (error) {
-    console.error("Error updating user:", error)
-    return NextResponse.json({ error: "Errore interno del server" }, { status: 500 })
+    console.error("Team user PATCH error:", error)
+    return Response.json({ error: "Errore interno del server" }, { status: 500 })
   }
 }
 
-// DELETE - Rimuovi utente
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Verifica autenticazione
-    const token = request.cookies.get("firebase-auth-token")?.value
-    if (!token) {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 401 })
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Non autorizzato" }, { status: 401 })
     }
 
-    const decodedToken = await verifyFirebaseToken(token)
-    const editorData = await getUserData(decodedToken.uid)
-
-    if (!editorData || !hasPermission(editorData.role as UserRole, "canDeleteUsers")) {
-      return NextResponse.json({ error: "Non hai i permessi per rimuovere utenti" }, { status: 403 })
+    const db = await getCloudflareDb()
+    if (!db) {
+      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
     }
 
-    const { id: userId } = await params
-
-    // Non permettere l'auto-eliminazione
-    if (userId === decodedToken.uid) {
-      return NextResponse.json({ error: "Non puoi eliminare il tuo account" }, { status: 400 })
+    const principal = await ensureWorkspacePrincipal(db, user)
+    if (!["super-admin", "admin"].includes(principal.role)) {
+      return Response.json({ error: "Non hai i permessi per rimuovere utenti" }, { status: 403 })
     }
 
-    // Verifica che l'utente esista
-    const userDoc = await adminDb?.collection("users").doc(userId).get()
-    if (!userDoc?.exists) {
-      return NextResponse.json({ error: "Utente non trovato" }, { status: 404 })
+    const { id: memberId } = await params
+    if (memberId === principal.memberId) {
+      return Response.json({ error: "Non puoi eliminare il tuo account" }, { status: 400 })
     }
 
-    const userData = userDoc.data()
-    if (!userData) {
-      return NextResponse.json({ error: "Dati utente non trovati" }, { status: 404 })
+    const currentMember: any = await db
+      .prepare(
+        `SELECT id, role
+         FROM members
+         WHERE organization_id = ? AND id = ?
+         LIMIT 1`,
+      )
+      .bind(principal.organizationId, memberId)
+      .first()
+
+    if (!currentMember) {
+      return Response.json({ error: "Utente non trovato" }, { status: 404 })
     }
 
-    // Verifica permessi usando la gerarchia dei ruoli
-    if (!canManageUser(editorData.role as UserRole, userData.role as UserRole)) {
-      return NextResponse.json({ 
-        error: "Non hai i permessi per eliminare questo utente" 
-      }, { status: 403 })
+    if (!canManageUser(principal.role as UserRole, currentMember.role as UserRole)) {
+      return Response.json({ error: "Non hai i permessi per eliminare questo utente" }, { status: 403 })
     }
 
-    // Elimina da Firebase Auth
-    await adminAuth?.deleteUser(userId)
+    await db
+      .prepare(`DELETE FROM members WHERE organization_id = ? AND id = ?`)
+      .bind(principal.organizationId, memberId)
+      .run()
 
-    // Elimina documento Firestore
-    await adminDb?.collection("users").doc(userId).delete()
-
-    // TODO: Eliminare anche dati correlati (tasks, progetti, etc.)
-    
-    return NextResponse.json({
+    return Response.json({
       success: true,
       message: "Utente eliminato con successo",
     })
-
   } catch (error) {
-    console.error("Error deleting user:", error)
-    return NextResponse.json({ error: "Errore interno del server" }, { status: 500 })
+    console.error("Team user DELETE error:", error)
+    return Response.json({ error: "Errore interno del server" }, { status: 500 })
   }
 }

@@ -37,9 +37,13 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isInviting, setIsInviting] = useState(false)
   const canSendInvite =
-    user.status === "inactive" ||
-    user.status === "invited" ||
-    (typeof user.clerkUserId === "string" && user.clerkUserId.startsWith("placeholder:"))
+    !user.emailMissing &&
+    Boolean(user.email) &&
+    (user.status === "inactive" ||
+      user.status === "invited" ||
+      (typeof user.clerkUserId === "string" && user.clerkUserId.startsWith("placeholder:")))
+  const needsEmailBeforeInvite =
+    user.emailMissing && (user.status === "inactive" || user.status === "invited")
 
   const handleDelete = async () => {
     setIsDeleting(true)
@@ -143,6 +147,12 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
                 <UserPlus className="mr-2 h-4 w-4" />
               )}
               {user.status === "invited" ? "Reinvia invito" : "Invita ora"}
+            </DropdownMenuItem>
+          )}
+          {needsEmailBeforeInvite && (
+            <DropdownMenuItem disabled>
+              <Mail className="mr-2 h-4 w-4" />
+              Completa email per invitare
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={handleSendEmail}>

@@ -334,6 +334,12 @@ export default function TeamPage() {
                           <span className="truncate">{user.email}</span>
                         </div>
                       )}
+                      {user.emailMissing && (
+                        <div className="flex items-center gap-2 text-sm text-cyan-200">
+                          <Mail className="h-4 w-4" />
+                          <span className="truncate">Email da completare</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Role and Plan */}

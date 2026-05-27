@@ -18,6 +18,10 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
+function isInternalPlaceholderEmail(email: unknown) {
+  return String(email || "").endsWith("@no-email.optima.local")
+}
+
 function appUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://optima-beta-staging.axel-15d.workers.dev"
 }
@@ -69,6 +73,10 @@ export async function POST(request: NextRequest) {
       firstName = String(existingMember.first_name || firstName).trim()
       lastName = String(existingMember.last_name || lastName).trim()
       role = String(existingMember.role || role).trim()
+
+      if (isInternalPlaceholderEmail(email)) {
+        return Response.json({ error: "Completa l'email del membro prima di invitarlo" }, { status: 400 })
+      }
     }
 
     if (!email || !firstName || !lastName || !role) {
