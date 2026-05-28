@@ -39,6 +39,7 @@ type ManagementData = {
     health: "green" | "yellow" | "red"
     budget: number
     laborCost: number
+    averageHourlyCost: number
     budgetUsage: number
     dueAt: string | null
     daysUntilDue: number | null
@@ -398,7 +399,9 @@ export default function ManagementPage() {
               <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-white">Progetti e finestre temporali</h2>
-                  <p className="mt-1 text-sm text-slate-400">Priorita operative secondo ritardo, urgenza e avanzamento reale.</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Priorita operative secondo ritardo, urgenza e avanzamento reale. I costi sono stime interne: ore tracciate per costo orario del team.
+                  </p>
                 </div>
                 <Button asChild className="w-fit bg-righello-pink text-white hover:bg-righello-pink-dark">
                   <Link href="/workspace">Apri kanban</Link>
@@ -412,7 +415,7 @@ export default function ManagementPage() {
                       <th className="px-3 py-2">Finestra</th>
                       <th className="px-3 py-2">Avanzamento</th>
                       <th className="px-3 py-2">Ore</th>
-                      <th className="px-3 py-2">Budget</th>
+                      <th className="px-3 py-2">Costo lavoro</th>
                       <th className="px-3 py-2">Rischi</th>
                     </tr>
                   </thead>
@@ -446,7 +449,12 @@ export default function ManagementPage() {
                           <td className="border-y border-white/10 px-3 py-4 font-semibold text-slate-100">{formatHours(project.trackedHours)}</td>
                           <td className="border-y border-white/10 px-3 py-4">
                             <p className="font-semibold text-slate-100">{formatCurrency(project.laborCost)}</p>
-                            <p className="mt-1 text-xs text-slate-400">su {formatCurrency(project.budget)}</p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {project.averageHourlyCost > 0 ? `${formatCurrency(project.averageHourlyCost)}/h medio` : "tariffe non censite"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {project.budget > 0 ? `budget ${formatCurrency(project.budget)}` : "budget progetto non censito"}
+                            </p>
                           </td>
                           <td className="rounded-r-lg border-y border-r border-white/10 px-3 py-4">
                             <p className="text-xs text-slate-300">{project.overdueTasks} ritardi</p>

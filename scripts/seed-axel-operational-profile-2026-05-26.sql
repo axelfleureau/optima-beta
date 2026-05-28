@@ -16,8 +16,8 @@ INSERT INTO members (
   id, organization_id, clerk_user_id, email, first_name, last_name, role,
   hourly_rate_cents, weekly_capacity_minutes, status, created_at, updated_at
 ) VALUES
-('mem_axel_fleureau', 'org_demo_righello', 'invite:fleureau.axel@gmail.com', 'fleureau.axel@gmail.com', 'Axel', 'Fleureau', 'admin', 9000, 2100, 'invited', '2026-05-22T07:00:00.000Z', CURRENT_TIMESTAMP),
-('mem_axel_wearerighello', 'org_demo_righello', 'invite:axel@wearerighello.com', 'axel@wearerighello.com', 'Axel', 'Fleureau', 'admin', 9000, 2100, 'invited', '2026-05-22T07:00:00.000Z', CURRENT_TIMESTAMP)
+('mem_axel_fleureau', 'org_demo_righello', 'invite:fleureau.axel@gmail.com', 'fleureau.axel@gmail.com', 'Axel', 'Fleureau', 'admin', 4500, 2100, 'invited', '2026-05-22T07:00:00.000Z', CURRENT_TIMESTAMP),
+('mem_axel_wearerighello', 'org_demo_righello', 'invite:axel@wearerighello.com', 'axel@wearerighello.com', 'Axel', 'Fleureau', 'admin', 4500, 2100, 'invited', '2026-05-22T07:00:00.000Z', CURRENT_TIMESTAMP)
 ON CONFLICT(id) DO UPDATE SET
   organization_id = excluded.organization_id,
   email = excluded.email,

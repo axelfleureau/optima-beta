@@ -9,6 +9,9 @@ const DONE_STATUSES = new Set(["done", "completed", "validation"])
 const OPERATIVE_ROLES = new Set(["member", "junior", "dipendente", "employee"])
 const CLOSED_STATUS_SQL =
   "'done', 'completed', 'validation', 'suspended', 'sospeso', 'recurring', 'ricorrente', 'archived', 'archiviato'"
+const DEFAULT_RATE_ADMIN_CENTS = 4500
+const DEFAULT_RATE_LEAD_CENTS = 3200
+const DEFAULT_RATE_OPERATIVE_CENTS = 2200
 
 function openStatusSql(alias = "") {
   const prefix = alias ? `${alias}.` : ""
@@ -40,6 +43,15 @@ function estimatedTaskMinutesSql(alias = "t") {
     WHEN ${alias}.priority = 'high' THEN 180
     WHEN ${alias}.priority = 'low' THEN 45
     ELSE 90
+  END`
+}
+
+function internalCostRateSql(alias = "m") {
+  return `CASE
+    WHEN COALESCE(${alias}.hourly_rate_cents, 0) > 0 THEN ${alias}.hourly_rate_cents
+    WHEN ${alias}.role IN ('super-admin', 'admin', 'direzione') THEN ${DEFAULT_RATE_ADMIN_CENTS}
+    WHEN ${alias}.role IN ('capo-reparto', 'lead', 'manager') THEN ${DEFAULT_RATE_LEAD_CENTS}
+    ELSE ${DEFAULT_RATE_OPERATIVE_CENTS}
   END`
 }
 
@@ -111,10 +123,14 @@ export async function GET() {
              (SELECT COUNT(*) FROM tasks t WHERE t.organization_id = p.organization_id AND t.project_id = p.id AND ${openStatusSql("t")} AND t.due_at IS NOT NULL AND date(t.due_at) < date('now')) AS overdue_tasks,
              (SELECT COUNT(*) FROM tasks t WHERE t.organization_id = p.organization_id AND t.project_id = p.id AND ${openStatusSql("t")} AND t.due_at IS NOT NULL AND date(t.due_at) BETWEEN date('now') AND date('now', '+7 days')) AS urgent_tasks,
              (SELECT COALESCE(SUM(te.minutes), 0) FROM time_entries te WHERE te.organization_id = p.organization_id AND te.project_id = p.id) AS tracked_minutes,
-             (SELECT COALESCE(SUM(te.minutes * COALESCE(m.hourly_rate_cents, 0) / 60), 0)
+             (SELECT COALESCE(SUM(te.minutes * ${internalCostRateSql("m")} / 60), 0)
                 FROM time_entries te
                 LEFT JOIN members m ON m.id = te.member_id AND m.organization_id = te.organization_id
                WHERE te.organization_id = p.organization_id AND te.project_id = p.id) AS labor_cost_cents,
+             (SELECT COALESCE(ROUND(AVG(${internalCostRateSql("m")})), 0)
+                FROM time_entries te
+                LEFT JOIN members m ON m.id = te.member_id AND m.organization_id = te.organization_id
+               WHERE te.organization_id = p.organization_id AND te.project_id = p.id) AS average_hourly_cost_cents,
              (SELECT MAX(t.updated_at) FROM tasks t WHERE t.organization_id = p.organization_id AND t.project_id = p.id) AS last_task_update
            FROM projects p
            LEFT JOIN clients c ON c.id = p.client_id AND c.organization_id = p.organization_id
@@ -265,6 +281,7 @@ export async function GET() {
         health: projectHealth(row),
         budget: budgetCents / 100,
         laborCost: laborCostCents / 100,
+        averageHourlyCost: toNumber(row.average_hourly_cost_cents) / 100,
         budgetUsage: budgetCents > 0 ? Math.round((laborCostCents / budgetCents) * 100) : 0,
         dueAt: row.due_at || null,
         daysUntilDue: daysUntil(row.due_at),
