@@ -44,6 +44,10 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
       (typeof user.clerkUserId === "string" && user.clerkUserId.startsWith("placeholder:")))
   const needsEmailBeforeInvite =
     user.emailMissing && (user.status === "inactive" || user.status === "invited")
+  const actionItemClass =
+    "cursor-pointer text-slate-100 focus:bg-white/10 focus:text-white [&_svg]:text-slate-300"
+  const disabledItemClass =
+    "text-slate-500 opacity-100 data-[disabled]:opacity-100 [&_svg]:text-slate-600"
 
   const handleDelete = async () => {
     setIsDeleting(true)
@@ -130,17 +134,20 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-sm border-gray-200/50">
-          <DropdownMenuItem onClick={() => setShowViewDialog(true)}>
+        <DropdownMenuContent
+          align="end"
+          className="w-56 rounded-[8px] border-white/10 bg-[#0d1320] p-1 text-slate-100 shadow-2xl shadow-black/30"
+        >
+          <DropdownMenuItem className={actionItemClass} onClick={() => setShowViewDialog(true)}>
             <Eye className="mr-2 h-4 w-4" />
             Visualizza
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+          <DropdownMenuItem className={actionItemClass} onClick={() => setShowEditDialog(true)}>
             <Edit className="mr-2 h-4 w-4" />
             Modifica
           </DropdownMenuItem>
           {canSendInvite && (
-            <DropdownMenuItem onClick={handleSendInvite} disabled={isInviting}>
+            <DropdownMenuItem className={actionItemClass} onClick={handleSendInvite} disabled={isInviting}>
               {isInviting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -150,18 +157,18 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
             </DropdownMenuItem>
           )}
           {needsEmailBeforeInvite && (
-            <DropdownMenuItem disabled>
+            <DropdownMenuItem className={disabledItemClass} disabled>
               <Mail className="mr-2 h-4 w-4" />
               Completa email per invitare
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={handleSendEmail}>
+          <DropdownMenuItem className={actionItemClass} onClick={handleSendEmail}>
             <Mail className="mr-2 h-4 w-4" />
             Invia Email
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
+          <DropdownMenuSeparator className="bg-white/10" />
           <DropdownMenuItem 
-            className="text-red-600"
+            className="cursor-pointer text-red-300 focus:bg-red-500/10 focus:text-red-200 [&_svg]:text-red-300"
             onClick={() => setShowDeleteAlert(true)}
           >
             <Trash2 className="mr-2 h-4 w-4" />
