@@ -95,11 +95,16 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Non puoi invitare utenti con questo ruolo" }, { status: 403 })
     }
 
-    const inviteUrl = `${appUrl()}/register?email=${encodeURIComponent(email)}`
+    const loginUrl = `${appUrl()}/login?email=${encodeURIComponent(email)}`
     const inviterName = `${user.firstName} ${user.lastName}`.trim() || user.email
     const newMemberSuffix = crypto.randomUUID().replace(/-/g, "")
     const invitedMemberId = memberId || `mem_${newMemberSuffix}`
     const invitedClerkUserId = `invite:${email}`
+    const inviteAcceptUrl = `${appUrl()}/register?email=${encodeURIComponent(email)}&invite=${encodeURIComponent(invitedMemberId)}`
+    const organization = await db
+      .prepare(`SELECT name FROM organizations WHERE id = ? LIMIT 1`)
+      .bind(principal.organizationId)
+      .first()
 
     if (!memberId) {
       const existingMember = await db
@@ -124,7 +129,9 @@ export async function POST(request: NextRequest) {
       inviterName,
       inviterEmail: user.email,
       role,
-      resetLink: inviteUrl,
+      resetLink: inviteAcceptUrl,
+      loginLink: loginUrl,
+      organizationName: String(organization?.name || "Righello"),
       customMessage: body.message,
     })
 

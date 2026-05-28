@@ -67,14 +67,26 @@ function markFinancialValues(root: ParentNode = document.body) {
   })
 }
 
-export function FinancialPrivacyProvider({ children }: { children: React.ReactNode }) {
+export function FinancialPrivacyProvider({
+  children,
+  canRevealFinancials = false,
+}: {
+  children: React.ReactNode
+  canRevealFinancials?: boolean
+}) {
   const [now, setNow] = useState(() => Date.now())
   const [revealUntil, setRevealUntil] = useState(0)
 
-  const isVisible = revealUntil > now
+  const isVisible = canRevealFinancials && revealUntil > now
   const remainingMs = Math.max(0, revealUntil - now)
 
   useEffect(() => {
+    if (!canRevealFinancials) {
+      window.localStorage.removeItem(STORAGE_KEY)
+      setRevealUntil(0)
+      return
+    }
+
     const storedValue = window.localStorage.getItem(STORAGE_KEY)
     const storedRevealUntil = storedValue ? Number(storedValue) : 0
 
@@ -83,15 +95,15 @@ export function FinancialPrivacyProvider({ children }: { children: React.ReactNo
     } else {
       window.localStorage.removeItem(STORAGE_KEY)
     }
-  }, [])
+  }, [canRevealFinancials])
 
   useEffect(() => {
     document.documentElement.dataset.financialVisible = isVisible ? "true" : "false"
 
-    if (!isVisible && revealUntil > 0) {
+    if ((!isVisible || !canRevealFinancials) && revealUntil > 0) {
       window.localStorage.removeItem(STORAGE_KEY)
     }
-  }, [isVisible, revealUntil])
+  }, [canRevealFinancials, isVisible, revealUntil])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000)
@@ -118,11 +130,13 @@ export function FinancialPrivacyProvider({ children }: { children: React.ReactNo
   }, [])
 
   const reveal = useCallback(() => {
+    if (!canRevealFinancials) return
+
     const nextRevealUntil = Date.now() + REVEAL_DURATION_MS
     setNow(Date.now())
     setRevealUntil(nextRevealUntil)
     window.localStorage.setItem(STORAGE_KEY, String(nextRevealUntil))
-  }, [])
+  }, [canRevealFinancials])
 
   const hide = useCallback(() => {
     setRevealUntil(0)
@@ -137,33 +151,35 @@ export function FinancialPrivacyProvider({ children }: { children: React.ReactNo
   return (
     <>
       {children}
-      <div
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-[90] flex max-w-[calc(100vw-1.5rem)] items-center gap-2 sm:right-4 sm:max-w-[calc(100vw-2rem)]"
-        data-financial-privacy-control
-      >
-        <div className="hidden rounded-md border border-white/10 bg-black/75 px-3 py-2 text-xs leading-tight text-slate-200 shadow-2xl backdrop-blur-xl sm:block">
-          <div className="flex items-center gap-2 font-semibold text-white">
-            <ShieldCheck className="h-3.5 w-3.5 text-righello-cyan" />
-            Vista interna protetta
-          </div>
-          <div className="text-slate-400">{isVisible ? "Auto-censura tra 5 minuti." : "Prezzi e costi censurati."}</div>
-        </div>
-        <Button
-          type="button"
-          onClick={isVisible ? hide : reveal}
-          className={cn(
-            "h-11 min-w-11 rounded-md border border-white/10 px-0 shadow-2xl backdrop-blur-xl sm:px-4",
-            isVisible
-              ? "bg-slate-950 text-white hover:bg-slate-900"
-              : "bg-righello-pink text-white hover:bg-righello-pink/90"
-          )}
-          aria-live="polite"
-          title={label}
+      {canRevealFinancials ? (
+        <div
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-[90] flex max-w-[calc(100vw-1.5rem)] items-center gap-2 sm:right-4 sm:max-w-[calc(100vw-2rem)]"
+          data-financial-privacy-control
         >
-          {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          <span className="hidden sm:inline">{label}</span>
-        </Button>
-      </div>
+          <div className="hidden rounded-md border border-white/10 bg-black/75 px-3 py-2 text-xs leading-tight text-slate-200 shadow-2xl backdrop-blur-xl sm:block">
+            <div className="flex items-center gap-2 font-semibold text-white">
+              <ShieldCheck className="h-3.5 w-3.5 text-righello-cyan" />
+              Vista interna protetta
+            </div>
+            <div className="text-slate-400">{isVisible ? "Auto-censura tra 5 minuti." : "Prezzi e costi censurati."}</div>
+          </div>
+          <Button
+            type="button"
+            onClick={isVisible ? hide : reveal}
+            className={cn(
+              "h-11 min-w-11 rounded-md border border-white/10 px-0 shadow-2xl backdrop-blur-xl sm:px-4",
+              isVisible
+                ? "bg-slate-950 text-white hover:bg-slate-900"
+                : "bg-righello-pink text-white hover:bg-righello-pink/90"
+            )}
+            aria-live="polite"
+            title={label}
+          >
+            {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            <span className="hidden sm:inline">{label}</span>
+          </Button>
+        </div>
+      ) : null}
     </>
   )
 }

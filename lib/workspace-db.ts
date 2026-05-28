@@ -27,6 +27,9 @@ function parseJson<T>(value: unknown, fallback: T): T {
 }
 
 export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser): Promise<WorkspacePrincipal> {
+  const personalOrganizationId = user.organizationId || `org_${user.id}`
+  const email = String(user.email || "").trim()
+
   const existingMember = await db
     .prepare(
       `SELECT m.id, m.organization_id, m.role
@@ -38,28 +41,56 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
     .bind(user.id)
     .first()
 
-  if (existingMember?.id && existingMember?.organization_id) {
+  const teamMemberByEmail = email
+    ? await db
+    .prepare(
+      `SELECT id, organization_id, role, status, clerk_user_id
+       FROM members
+       WHERE lower(email) = lower(?)
+         AND COALESCE(status, 'active') IN ('active', 'invited', 'inactive')
+         AND (
+           status IN ('invited', 'inactive')
+           OR clerk_user_id LIKE 'invite:%'
+           OR clerk_user_id LIKE 'placeholder:%'
+         )
+       ORDER BY
+         CASE WHEN organization_id = ? THEN 1 ELSE 0 END,
+         CASE status WHEN 'invited' THEN 0 WHEN 'inactive' THEN 1 WHEN 'active' THEN 2 ELSE 3 END,
+         created_at ASC
+       LIMIT 1`,
+    )
+    .bind(email, personalOrganizationId)
+    .first()
+    : null
+
+  const existingIsPersonalFallback =
+    existingMember?.id &&
+    String(existingMember.organization_id) === personalOrganizationId &&
+    teamMemberByEmail?.id &&
+    String(teamMemberByEmail.id) !== String(existingMember.id)
+
+  if (existingMember?.id && existingMember?.organization_id && !existingIsPersonalFallback) {
     return {
       organizationId: String(existingMember.organization_id),
       memberId: String(existingMember.id),
       role: String(existingMember.role || user.role),
-      email: user.email,
+      email,
     }
   }
 
-  const invitedMember = await db
-    .prepare(
-      `SELECT id, organization_id, role
-       FROM members
-       WHERE lower(email) = lower(?)
-         AND (status = 'invited' OR clerk_user_id LIKE 'invite:%')
-       ORDER BY created_at ASC
-       LIMIT 1`,
-    )
-    .bind(user.email)
-    .first()
+  if (teamMemberByEmail?.id && teamMemberByEmail?.organization_id) {
+    await db
+      .prepare(
+        `UPDATE members
+         SET clerk_user_id = 'detached:' || id || ':' || ?,
+             status = CASE WHEN status = 'active' THEN 'inactive' ELSE status END,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE clerk_user_id = ?
+           AND id <> ?`,
+      )
+      .bind(user.id, user.id, teamMemberByEmail.id)
+      .run()
 
-  if (invitedMember?.id && invitedMember?.organization_id) {
     await db
       .prepare(
         `UPDATE members
@@ -70,20 +101,20 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
       )
-      .bind(user.id, user.firstName, user.lastName, invitedMember.id)
+      .bind(user.id, user.firstName, user.lastName, teamMemberByEmail.id)
       .run()
 
     return {
-      organizationId: String(invitedMember.organization_id),
-      memberId: String(invitedMember.id),
-      role: String(invitedMember.role || user.role),
-      email: user.email,
+      organizationId: String(teamMemberByEmail.organization_id),
+      memberId: String(teamMemberByEmail.id),
+      role: String(teamMemberByEmail.role || user.role),
+      email,
     }
   }
 
-  const organizationId = user.organizationId || `org_${user.id}`
+  const organizationId = personalOrganizationId
   const memberId = createId("mem")
-  const organizationName = user.email.endsWith("@wearerighello.com") ? "Righello" : user.email || "Optima"
+  const organizationName = email.endsWith("@wearerighello.com") ? "Righello" : email || "Optima"
 
   await db
     .prepare(
@@ -99,7 +130,7 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
        (id, organization_id, clerk_user_id, email, first_name, last_name, role, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
     )
-    .bind(memberId, organizationId, user.id, user.email, user.firstName, user.lastName, user.role)
+    .bind(memberId, organizationId, user.id, email, user.firstName, user.lastName, user.role)
     .run()
 
   const member = await db
@@ -116,7 +147,7 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
     organizationId,
     memberId: String(member?.id || memberId),
     role: String(member?.role || user.role),
-    email: user.email,
+    email,
   }
 }
 

@@ -8,6 +8,8 @@ interface InviteEmailData {
   inviterEmail: string
   role: string
   resetLink: string
+  loginLink?: string
+  organizationName?: string
   customMessage?: string
 }
 
@@ -34,23 +36,30 @@ function appUrl() {
 
 export async function sendInviteEmail(data: InviteEmailData): Promise<void> {
   const activationUrl = data.resetLink || `${appUrl()}/register?email=${encodeURIComponent(data.to)}`
+  const loginUrl = data.loginLink || `${appUrl()}/login?email=${encodeURIComponent(data.to)}`
   const fullName = `${data.firstName} ${data.lastName}`.trim()
   const customMessage = data.customMessage?.trim()
+  const organizationName = data.organizationName || "Righello"
 
   const html = `
-    <div style="font-family:Inter,Arial,sans-serif;max-width:640px;margin:0 auto;background:#f8fafc;color:#0f172a">
-      <div style="background:#0b1323;color:white;padding:32px;border-radius:16px 16px 0 0">
-        <div style="font-size:14px;color:#f472b6;font-weight:700;letter-spacing:.04em">OPTIMA</div>
-        <h1 style="margin:12px 0 0;font-size:28px;line-height:1.2">Invito al team</h1>
+    <div style="font-family:Inter,Arial,sans-serif;max-width:680px;margin:0 auto;background:#050811;color:#f8fafc;padding:24px">
+      <div style="background:#0b1323;color:white;padding:32px;border:1px solid #263044;border-radius:12px 12px 0 0">
+        <div style="font-size:13px;color:#f472b6;font-weight:800;letter-spacing:.12em;text-transform:uppercase">Optima by Righello</div>
+        <h1 style="margin:14px 0 0;font-size:30px;line-height:1.15">Sei stato invitato in ${escapeHtml(organizationName)}</h1>
       </div>
-      <div style="background:white;padding:32px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 16px 16px">
-        <p>Ciao ${escapeHtml(fullName)},</p>
-        <p>${escapeHtml(data.inviterName)} ti ha invitato a entrare nel team Optima con ruolo <strong>${escapeHtml(data.role)}</strong>.</p>
+      <div style="background:#ffffff;color:#0f172a;padding:32px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px">
+        <p style="font-size:16px;line-height:1.6;margin:0 0 16px">Ciao ${escapeHtml(fullName || data.to)},</p>
+        <p style="font-size:16px;line-height:1.6;margin:0 0 16px">${escapeHtml(data.inviterName)} ti ha invitato a entrare nel workspace Optima di <strong>${escapeHtml(organizationName)}</strong> con ruolo <strong>${escapeHtml(data.role)}</strong>.</p>
         ${customMessage ? `<blockquote style="border-left:4px solid #ec4899;margin:24px 0;padding:12px 16px;background:#fdf2f8;color:#831843">${escapeHtml(customMessage)}</blockquote>` : ""}
-        <p style="margin:28px 0">
-          <a href="${activationUrl}" style="display:inline-block;background:#ec4899;color:white;padding:14px 22px;border-radius:10px;text-decoration:none;font-weight:700">Attiva account</a>
+        <div style="margin:30px 0 18px">
+          <a href="${escapeHtml(activationUrl)}" style="display:inline-block;background:#ec4899;color:white;padding:15px 22px;border-radius:8px;text-decoration:none;font-weight:800;margin:0 12px 12px 0">Accetta invito</a>
+          <a href="${escapeHtml(loginUrl)}" style="display:inline-block;background:#0f172a;color:white;padding:15px 22px;border-radius:8px;text-decoration:none;font-weight:800;margin:0 0 12px">Ho già un account</a>
+        </div>
+        <p style="font-size:14px;line-height:1.6;color:#475569;margin:20px 0 0">
+          Se i pulsanti non si aprono, copia questo link nel browser:<br />
+          <a href="${escapeHtml(activationUrl)}" style="color:#db2777;word-break:break-all">${escapeHtml(activationUrl)}</a>
         </p>
-        <p style="font-size:13px;color:#64748b">Invito inviato da ${escapeHtml(data.inviterEmail)}. Se non ti aspettavi questa email puoi ignorarla.</p>
+        <p style="font-size:13px;color:#64748b;margin:24px 0 0">Invito inviato da ${escapeHtml(data.inviterEmail)}. Se non ti aspettavi questa email puoi ignorarla.</p>
       </div>
     </div>
   `
@@ -59,7 +68,7 @@ export async function sendInviteEmail(data: InviteEmailData): Promise<void> {
     to: { email: data.to, name: fullName },
     subject: `Invito a Optima da ${data.inviterName}`,
     html,
-    text: `Ciao ${fullName}, sei stato invitato a Optima da ${data.inviterName}. Attiva il tuo account: ${activationUrl}`,
+    text: `Ciao ${fullName || data.to}, sei stato invitato in ${organizationName} su Optima da ${data.inviterName}. Accetta invito: ${activationUrl} - Se hai già un account accedi da: ${loginUrl}`,
     replyTo: data.inviterEmail ? { email: data.inviterEmail, name: data.inviterName } : undefined,
     categories: ["team-invite"],
   })

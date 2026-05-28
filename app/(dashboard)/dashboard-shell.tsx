@@ -10,7 +10,7 @@ import { store } from "@/app/store/store"
 import { MobileHeader } from "@/components/mobile-header"
 import { AuthInitializer } from "@/components/auth-initializer"
 import { useImageGeneratorStore } from "@/lib/stores/image-generator-store"
-import { AuthProvider } from "@/lib/auth-context"
+import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { NotificationProvider } from "@/lib/notification-context"
 import { CommandBar } from "@/components/command-bar/command-bar"
 import { ScrollStabilityGuard } from "@/components/scroll-stability-guard"
@@ -45,27 +45,37 @@ export function DashboardShell({
         <Provider store={store}>
           <AuthInitializer />
           <ScrollStabilityGuard />
-          <ProtectedRoute>
-            <SidebarProvider>
-              <FinancialPrivacyProvider>
-                <div className="optima-app-surface flex min-h-[100svh] w-full overflow-x-hidden [overflow-anchor:none]">
-                  <AppSidebar />
-                  <main className="min-w-0 flex-1 overflow-x-hidden [-webkit-overflow-scrolling:touch]">
-                    <MobileHeader />
-                    <RouteError />
-                    <div className="min-h-full">
-                      {children}
-                    </div>
-                  </main>
-                </div>
-              </FinancialPrivacyProvider>
-            </SidebarProvider>
-          </ProtectedRoute>
+          <DashboardChrome>{children}</DashboardChrome>
 
           <ImageGenerator open={isOpen} onOpenChange={(open) => open ? null : close()} />
           <CommandBar />
         </Provider>
       </NotificationProvider>
     </AuthProvider>
+  )
+}
+
+function DashboardChrome({ children }: { children: React.ReactNode }) {
+  const { userData } = useAuth()
+  const canRevealFinancials =
+    userData?.role === "super-admin" || userData?.role === "admin" || userData?.role === "direzione"
+
+  return (
+    <ProtectedRoute>
+      <SidebarProvider>
+        <FinancialPrivacyProvider canRevealFinancials={canRevealFinancials}>
+          <div className="optima-app-surface flex min-h-[100svh] w-full overflow-x-hidden [overflow-anchor:none]">
+            <AppSidebar />
+            <main className="min-w-0 flex-1 overflow-x-hidden [-webkit-overflow-scrolling:touch]">
+              <MobileHeader />
+              <RouteError />
+              <div className="min-h-full">
+                {children}
+              </div>
+            </main>
+          </div>
+        </FinancialPrivacyProvider>
+      </SidebarProvider>
+    </ProtectedRoute>
   )
 }
