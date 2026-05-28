@@ -21,6 +21,7 @@ interface KanbanColumnProps {
   dragEnabled: boolean
   showAllClients: boolean
   onTaskClick: (task: Task) => void
+  onDeleteTask: (task: Task) => void
   onAddTaskToColumn: (columnId: string) => void
   getPriorityColor: (priority: string) => string
   getScoreColor: (score: number) => string
@@ -32,6 +33,7 @@ export function KanbanColumn({
   dragEnabled,
   showAllClients,
   onTaskClick,
+  onDeleteTask,
   onAddTaskToColumn,
   getPriorityColor,
   getScoreColor,
@@ -69,6 +71,7 @@ export function KanbanColumn({
                 dragEnabled={dragEnabled}
                 showAllClients={showAllClients}
                 onTaskClick={onTaskClick}
+                onDeleteTask={onDeleteTask}
                 getPriorityColor={getPriorityColor}
                 getScoreColor={getScoreColor}
               />

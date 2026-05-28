@@ -31,6 +31,7 @@ const FIELD_MAP: Record<string, string> = {
 
 const DONE_TASK_STATES = new Set(["done", "completed"])
 const AUTO_DONE_NOTE_PREFIX = "Completata da workspace:"
+const TASK_MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
 
 function taskWorkflowState(row: any, fallback?: unknown) {
   return String(row?.column_id || row?.status || fallback || "").trim().toLowerCase()
@@ -142,6 +143,11 @@ function parseJsonArray(value: unknown) {
 
 function actorDisplayName(user: { firstName?: string; lastName?: string; email?: string }) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email || "Un membro del team"
+}
+
+function canDeleteTask(principal: { memberId: string; role: string }, task: any) {
+  if (TASK_MANAGER_ROLES.has(principal.role)) return true
+  return task?.created_by_member_id === principal.memberId || task?.assignee_member_id === principal.memberId
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -449,5 +455,68 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   } catch (error) {
     console.error("Task PATCH error:", error)
     return Response.json({ error: "Errore durante l'aggiornamento della task" }, { status: 500 })
+  }
+}
+
+export async function DELETE(_request: NextRequest, context: RouteContext) {
+  try {
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const db = await getCloudflareDb()
+    if (!db) {
+      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+    }
+
+    const principal = await ensureWorkspacePrincipal(db, user)
+    const { id } = await context.params
+    const existingTask = await db
+      .prepare(
+        `SELECT *
+         FROM tasks
+         WHERE id = ? AND organization_id = ?
+         LIMIT 1`,
+      )
+      .bind(id, principal.organizationId)
+      .first()
+
+    if (!existingTask?.id) {
+      return Response.json({ error: "Task non trovata" }, { status: 404 })
+    }
+
+    if (!canDeleteTask(principal, existingTask)) {
+      return Response.json({ error: "Non hai i permessi per eliminare questa task" }, { status: 403 })
+    }
+
+    await db
+      .prepare(
+        `UPDATE time_entries
+         SET task_id = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE organization_id = ? AND task_id = ?`,
+      )
+      .bind(principal.organizationId, id)
+      .run()
+
+    await db
+      .prepare(`DELETE FROM notifications WHERE organization_id = ? AND task_id = ?`)
+      .bind(principal.organizationId, id)
+      .run()
+
+    const result = await db
+      .prepare(`DELETE FROM tasks WHERE id = ? AND organization_id = ?`)
+      .bind(id, principal.organizationId)
+      .run()
+
+    if (!result.meta?.changes) {
+      return Response.json({ error: "Task non trovata" }, { status: 404 })
+    }
+
+    return Response.json({ ok: true, deletedTaskId: id })
+  } catch (error) {
+    console.error("Task DELETE error:", error)
+    return Response.json({ error: "Errore durante l'eliminazione della task" }, { status: 500 })
   }
 }

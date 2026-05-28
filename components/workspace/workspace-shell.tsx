@@ -269,6 +269,7 @@ export function WorkspaceShell() {
     createTask,
     moveTask,
     updateTask,
+    deleteTask,
     uploadTaskAttachments,
     deleteTaskAttachment,
     addComment,
@@ -701,6 +702,29 @@ export function WorkspaceShell() {
     setShowTaskDetailDialog(true)
   }
 
+  const handleDeleteTask = async (task: Task) => {
+    const confirmed = window.confirm(`Eliminare la task "${task.title}"?`)
+    if (!confirmed) return
+
+    try {
+      await deleteTask(task.id)
+      if (selectedTask?.id === task.id) {
+        setSelectedTask(null)
+        setShowTaskDetailDialog(false)
+      }
+      toast({
+        title: "Task eliminata",
+        description: "La card è stata rimossa dal workspace.",
+      })
+    } catch (error) {
+      toast({
+        title: "Eliminazione non riuscita",
+        description: error instanceof Error ? error.message : "Non è stato possibile eliminare la task.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const selectedClient = clients.find((c) => c.id === selectedClientId)
   const activeColumns = showTenantWorkspace ? tenantColumns : defaultColumns
 
@@ -903,6 +927,7 @@ export function WorkspaceShell() {
                 showAllClients={showAllClients}
                 onDragEnd={handleDragEnd}
                 onTaskClick={handleTaskClick}
+                onDeleteTask={handleDeleteTask}
                 onAddTaskToColumn={handleAddTaskToColumn}
                 getPriorityColor={getPriorityColor}
                 getScoreColor={getScoreColor}

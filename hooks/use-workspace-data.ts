@@ -243,6 +243,26 @@ export function useWorkspaceData() {
     }
   }
 
+  const deleteTask = async (taskId: string) => {
+    const previousTasks = tasks
+    setTasks((current) => current.filter((task) => task.id !== taskId))
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      })
+
+      await parseTaskResponse(response)
+    } catch (err) {
+      console.error("Error deleting task:", err)
+      setTasks(previousTasks)
+      setError(err instanceof Error ? err.message : "Errore durante l'eliminazione della task")
+      throw err
+    }
+  }
+
   const moveTask = async (taskId: string, newColumnId: string, options: MoveTaskOptions = {}) => {
     let previousTasks: Task[] = []
 
@@ -314,6 +334,7 @@ export function useWorkspaceData() {
     createTask,
     moveTask,
     updateTask,
+    deleteTask,
     uploadTaskAttachments,
     deleteTaskAttachment,
     addComment,

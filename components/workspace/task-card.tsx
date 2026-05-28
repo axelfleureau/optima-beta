@@ -5,6 +5,13 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   MoreHorizontal,
   Calendar,
   Clock,
@@ -16,6 +23,8 @@ import {
   ImageIcon,
   Briefcase,
   XCircle,
+  Eye,
+  Trash2,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useAutoGenStore } from "@/lib/stores/auto-gen-store"
@@ -28,6 +37,7 @@ interface TaskCardProps {
   dragEnabled: boolean
   showAllClients: boolean
   onTaskClick: (task: Task) => void
+  onDeleteTask: (task: Task) => void
   getPriorityColor: (priority: string) => string
   getScoreColor: (score: number) => string
 }
@@ -67,6 +77,7 @@ export function TaskCard({
   dragEnabled,
   showAllClients,
   onTaskClick,
+  onDeleteTask,
   getPriorityColor,
   getScoreColor,
 }: TaskCardProps) {
@@ -113,15 +124,51 @@ export function TaskCard({
                       <span className="text-xs font-bold">{task.score}</span>
                     </div>
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-9 w-9 flex-shrink-0 p-0 text-slate-500 hover:bg-slate-900/10 hover:text-slate-900 sm:h-7 sm:w-7"
-                    aria-label="Azioni task"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-9 w-9 flex-shrink-0 p-0 text-slate-500 hover:bg-slate-900/10 hover:text-slate-900 sm:h-7 sm:w-7"
+                        aria-label="Azioni task"
+                        onClick={(event) => event.stopPropagation()}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      sideOffset={8}
+                      className="z-[100] w-48 rounded-lg border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
+                      onClick={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
+                    >
+                      <DropdownMenuItem
+                        className="cursor-pointer focus:bg-slate-100 dark:focus:bg-slate-900"
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          onTaskClick(task)
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Apri dettagli
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-slate-200 dark:bg-slate-800" />
+                      <DropdownMenuItem
+                        className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-300 dark:focus:bg-red-950/40 dark:focus:text-red-200"
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          onDeleteTask(task)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Elimina task
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
