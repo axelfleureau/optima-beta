@@ -275,18 +275,13 @@ export default function ManagementPage() {
               Monitoraggio operativo per progetti, persone, carico di lavoro e finestre temporali critiche.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center text-sm text-slate-500">
             {lastUpdatedAt && (
-              <Badge className="border border-cyan-400/25 bg-cyan-500/15 px-3 py-1 text-cyan-100">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 {refreshing ? "Aggiornamento..." : `Live · ${lastUpdatedAt.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`}
-              </Badge>
+              </span>
             )}
-            <Badge className="border border-emerald-400/25 bg-emerald-500/15 px-3 py-1 text-emerald-100">
-              Project operating system
-            </Badge>
-            <Badge className="border border-righello-pink/25 bg-righello-pink/15 px-3 py-1 text-righello-pink">
-              People operations
-            </Badge>
           </div>
         </header>
 
