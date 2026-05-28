@@ -28,7 +28,104 @@ function getPresenceStatus(row: any) {
   return "missing"
 }
 
-function mapPresenceRow(row: any) {
+const CLOSED_TASK_STATES = new Set(["done", "completed", "validation", "archived", "archiviato", "suspended", "sospeso"])
+
+function estimatedTaskMinutes(row: any) {
+  const explicit = Number(row.estimated_minutes || 0)
+  if (Number.isFinite(explicit) && explicit > 0) return Math.round(explicit)
+
+  switch (String(row.priority || "medium").toLowerCase()) {
+    case "urgent":
+      return 240
+    case "high":
+      return 180
+    case "low":
+      return 45
+    default:
+      return 90
+  }
+}
+
+function sortOperationalTasks(a: any, b: any) {
+  const priorityWeight: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
+  const aDue = a.due_at ? new Date(a.due_at).getTime() : Number.POSITIVE_INFINITY
+  const bDue = b.due_at ? new Date(b.due_at).getTime() : Number.POSITIVE_INFINITY
+  if (aDue !== bDue) return aDue - bDue
+  return (priorityWeight[String(a.priority || "medium").toLowerCase()] ?? 2) - (priorityWeight[String(b.priority || "medium").toLowerCase()] ?? 2)
+}
+
+function operationalAvailability({
+  status,
+  plannedSoonMinutes,
+  urgentCount,
+  dailyCapacityMinutes,
+}: {
+  status: string
+  plannedSoonMinutes: number
+  urgentCount: number
+  dailyCapacityMinutes: number
+}) {
+  if (status === "absent") {
+    return {
+      status: "not-available",
+      label: "Non disponibile oggi",
+      detail: "Assenza segnata",
+    }
+  }
+
+  if (status === "missing") {
+    return {
+      status: "unknown",
+      label: "Da verificare",
+      detail: "Presenza non ancora segnata",
+    }
+  }
+
+  if (urgentCount > 0) {
+    return {
+      status: "protected",
+      label: "Presidia urgenze",
+      detail: "Carico critico a breve",
+    }
+  }
+
+  if (plannedSoonMinutes <= 120) {
+    return {
+      status: "asap",
+      label: "Inseribile al più presto",
+      detail: "Finestra libera nelle prossime ore",
+    }
+  }
+
+  if (plannedSoonMinutes <= Math.max(120, dailyCapacityMinutes * 0.65)) {
+    return {
+      status: "today",
+      label: "Inseribile oggi",
+      detail: "Carico sostenibile",
+    }
+  }
+
+  return {
+    status: "later",
+    label: "Meglio al più tardi",
+    detail: "Giornata già carica",
+  }
+}
+
+function mapOperationalTask(row: any) {
+  return {
+    id: String(row.id),
+    title: String(row.title || "Task senza titolo"),
+    clientName: String(row.client_name || ""),
+    projectName: String(row.project_name || ""),
+    status: String(row.column_id || row.status || "todo"),
+    priority: String(row.priority || "medium"),
+    dueAt: row.due_at || null,
+    estimatedMinutes: estimatedTaskMinutes(row),
+  }
+}
+
+function mapPresenceRow(row: any, upcomingRows: any[] = []) {
   const weeklyCapacityMinutes = Number(row.weekly_capacity_minutes || 2400)
   const schedule = workScheduleForMember(weeklyCapacityMinutes)
   const activityMinutes = Number(row.activity_minutes || 0)
@@ -45,6 +142,14 @@ function mapPresenceRow(row: any) {
   const minutesEarly =
     status === "closed" && checkOutMinute !== null ? Math.max(0, expectedEndMinute - checkOutMinute - PRESENCE_GRACE_MINUTES) : 0
   const presenceSignal = minutesLate > 0 ? "late" : minutesEarly > 0 ? "early-exit" : null
+  const sortedUpcomingRows = upcomingRows.sort(sortOperationalTasks).slice(0, 3)
+  const upcomingTasks = sortedUpcomingRows.map(mapOperationalTask)
+  const plannedSoonMinutes = sortedUpcomingRows.reduce((sum, task) => sum + estimatedTaskMinutes(task), 0)
+  const urgentCount = sortedUpcomingRows.filter((task) => {
+    const priority = String(task.priority || "").toLowerCase()
+    const workflowState = String(task.column_id || task.status || "").toLowerCase()
+    return priority === "urgent" || workflowState === "urgent"
+  }).length
 
   return {
     id: String(row.id),
@@ -69,6 +174,16 @@ function mapPresenceRow(row: any) {
     presenceSignal,
     coverageRatio: schedule.expectedOfficeMinutes > 0 ? Math.min(1, presenceMinutes / schedule.expectedOfficeMinutes) : 0,
     activityRatio: presenceMinutes > 0 ? Math.min(1, activityMinutes / presenceMinutes) : 0,
+    upcomingTasks,
+    nextTask: upcomingTasks[0] || null,
+    plannedSoonMinutes,
+    urgentSoonCount: urgentCount,
+    availability: operationalAvailability({
+      status,
+      plannedSoonMinutes,
+      urgentCount,
+      dailyCapacityMinutes: schedule.expectedOfficeMinutes,
+    }),
   }
 }
 
@@ -131,7 +246,48 @@ export async function GET(request: NextRequest) {
       .bind(date, principal.organizationId, date, date, principal.organizationId, isManager ? 1 : 0, principal.memberId)
       .all()
 
-    const people: ReturnType<typeof mapPresenceRow>[] = ((rows.results || []) as any[]).map(mapPresenceRow)
+    const memberRows = (rows.results || []) as any[]
+    const upcomingTasks = await db
+      .prepare(
+        `SELECT t.id,
+                t.assignee_member_id,
+                t.title,
+                t.client_name,
+                t.status,
+                t.column_id,
+                t.priority,
+                t.estimated_minutes,
+                t.due_at,
+                p.name AS project_name
+         FROM tasks t
+         LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+         WHERE t.organization_id = ?
+           AND t.assignee_member_id IS NOT NULL
+           AND COALESCE(t.assignment_status, 'accepted') = 'accepted'
+           AND COALESCE(t.column_id, t.status) NOT IN ('done', 'completed', 'validation', 'archived', 'archiviato', 'suspended', 'sospeso')
+           AND (? = 1 OR t.assignee_member_id = ?)
+         ORDER BY
+           CASE WHEN t.due_at IS NULL THEN 1 ELSE 0 END,
+           date(t.due_at) ASC,
+           CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+           t.updated_at DESC
+         LIMIT 500`,
+      )
+      .bind(principal.organizationId, isManager ? 1 : 0, principal.memberId)
+      .all()
+
+    const tasksByMember = new Map<string, any[]>()
+    for (const task of (upcomingTasks.results || []) as any[]) {
+      const workflowState = String(task.column_id || task.status || "").toLowerCase()
+      if (CLOSED_TASK_STATES.has(workflowState)) continue
+
+      const memberId = String(task.assignee_member_id || "")
+      if (!memberId) continue
+
+      tasksByMember.set(memberId, [...(tasksByMember.get(memberId) || []), task])
+    }
+
+    const people: ReturnType<typeof mapPresenceRow>[] = memberRows.map((row) => mapPresenceRow(row, tasksByMember.get(String(row.id)) || []))
     const self = people.find((person) => person.id === principal.memberId) || null
 
     const summary = people.reduce(

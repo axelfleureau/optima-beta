@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -55,6 +56,7 @@ type Option = {
   projectName?: string
   projectId?: string | null
   status?: string
+  priority?: string
   dueAt?: string | null
   subItems?: Array<{
     id: string
@@ -192,6 +194,33 @@ function TimePickerField({
   )
 }
 
+function DailyMetricCard({
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  label: string
+  value: string
+  detail: string
+  tone: "green" | "cyan" | "amber" | "pink"
+}) {
+  const tones = {
+    green: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
+    cyan: "border-cyan-400/20 bg-cyan-400/10 text-cyan-100",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-100",
+    pink: "border-righello-pink/30 bg-righello-pink/12 text-righello-pink",
+  }
+
+  return (
+    <div className={`rounded-[8px] border p-4 ${tones[tone]}`}>
+      <p className="text-xs font-black uppercase tracking-[0.12em] opacity-80">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-white">{value}</p>
+      <p className="mt-1 text-xs leading-5 opacity-80">{detail}</p>
+    </div>
+  )
+}
+
 export default function RapportiniPage() {
   const [date, setDate] = useState(today())
   const [selectedMemberId, setSelectedMemberId] = useState("")
@@ -298,6 +327,29 @@ export default function RapportiniPage() {
 
     return { taskGroups: Array.from(groups.entries()), projects }
   }, [filteredTargets])
+
+  const suggestedTargets = useMemo(
+    () =>
+      targetOptions
+        .filter((option) => option.kind === "task")
+        .filter((option) => !["done", "completed", "validation"].includes(String(option.status || "").toLowerCase()))
+        .sort((a, b) => {
+          const aDue = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY
+          const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY
+          if (aDue !== bDue) return aDue - bDue
+          const priority: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
+          return (priority[String(a.priority || "medium").toLowerCase()] ?? 2) - (priority[String(b.priority || "medium").toLowerCase()] ?? 2)
+        })
+        .slice(0, 5),
+    [targetOptions],
+  )
+
+  const reportDeltaMinutes = (payload?.totals.presenceMinutes || 0) - (payload?.totals.activityMinutes || 0)
+  const hasPresence = Boolean(payload?.day?.checkInAt || payload?.day?.status === "closed")
+  const completionRatio =
+    payload?.totals.presenceMinutes && payload.totals.presenceMinutes > 0
+      ? Math.min(100, Math.round((payload.totals.activityMinutes / payload.totals.presenceMinutes) * 100))
+      : 0
 
   const selectTarget = (option: TargetOption, nextActivity?: string) => {
     setSelectedTarget(option.value)
@@ -408,6 +460,33 @@ export default function RapportiniPage() {
           </Alert>
         )}
 
+        <section className="grid gap-3 md:grid-cols-4">
+          <DailyMetricCard
+            label="Stato giornata"
+            value={payload?.day?.status === "closed" ? "Chiusa" : payload?.day?.status === "absent" ? "Assenza" : hasPresence ? "Aperta" : "Da aprire"}
+            detail={hasPresence ? `${formatTime(payload?.day?.checkInAt)} - ${formatTime(payload?.day?.checkOutAt)}` : "Segna prima entrata/assenza"}
+            tone={hasPresence ? "green" : "amber"}
+          />
+          <DailyMetricCard
+            label="Presenza netta"
+            value={formatMinutes(payload?.totals.presenceMinutes || 0)}
+            detail={`Pausa stimata ${formatMinutes(payload?.totals.lunchBreakMinutes || 60)}`}
+            tone="cyan"
+          />
+          <DailyMetricCard
+            label="Attività registrate"
+            value={formatMinutes(payload?.totals.activityMinutes || 0)}
+            detail={`${completionRatio}% della presenza coperta`}
+            tone={completionRatio >= 80 ? "green" : "amber"}
+          />
+          <DailyMetricCard
+            label="Da spiegare"
+            value={reportDeltaMinutes > 0 ? formatMinutes(reportDeltaMinutes) : "0m"}
+            detail={reportDeltaMinutes > 30 ? "Aggiungi attività o nota blocco" : "Rapportino coerente"}
+            tone={reportDeltaMinutes > 30 ? "pink" : "green"}
+          />
+        </section>
+
         <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]">
           <section className={panelClass}>
             <div className="mb-5">
@@ -511,6 +590,31 @@ export default function RapportiniPage() {
                 <div className="grid gap-2">
                   <label className="text-sm font-semibold text-slate-400">Minuti</label>
                   <Input className={fieldClass} type="number" min={1} max={1440} value={minutes} onChange={(event) => setMinutes(event.target.value)} />
+                </div>
+              </div>
+
+              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-white">Compilazione rapida HR</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      Presenza, attività collegate e note di blocco devono restare separati: così il dato è leggibile anche a fine mese.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[15, 30, 45, 60, 90, 120].map((value) => (
+                      <Button
+                        key={value}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-[8px] border-white/10 bg-white/[0.04] px-2.5 text-xs text-slate-100 hover:bg-white/10"
+                        onClick={() => setMinutes(String(value))}
+                      >
+                        {formatMinutes(value)}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -727,6 +831,50 @@ export default function RapportiniPage() {
             </div>
 
             <div className="w-full min-w-0 max-w-full space-y-3">
+              <div className="rounded-[8px] border border-white/10 bg-[#0d1524] p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-righello-pink" />
+                  <div>
+                    <p className="font-bold text-white">Suggerimenti da workspace</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      Parti dalle task assegnate: riduce scrittura manuale, errori di consuntivo e attività non collegata.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  {suggestedTargets.length ? (
+                    suggestedTargets.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className="w-full rounded-[8px] border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-righello-pink/40 hover:bg-righello-pink/10"
+                        onClick={() => {
+                          setSelectedTarget(option.value)
+                          setActivity(option.title || option.label)
+                          setMinutes("60")
+                        }}
+                      >
+                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="break-words text-sm font-bold text-white">{option.title || option.label}</p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {option.projectName || option.clientName || "Task"}{option.dueAt ? ` · scade ${formatDueDate(option.dueAt)}` : ""}
+                            </p>
+                          </div>
+                          <Badge className="w-fit rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
+                            Usa nel rapportino
+                          </Badge>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-500">
+                      Nessuna task aperta assegnata per questa giornata.
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {payload?.entries.length ? (
                 payload.entries.map((entry) => (
                   <div key={entry.id} className="min-w-0 rounded-[8px] border border-white/10 bg-[#222a31] p-4">

@@ -127,6 +127,7 @@ export async function GET(request: NextRequest) {
                 t.project_id,
                 t.status,
                 t.column_id,
+                t.priority,
                 t.due_at,
                 t.sub_items_json,
                 p.name AS project_name
@@ -191,6 +192,7 @@ export async function GET(request: NextRequest) {
           clientName: task.client_name || "",
           projectName: task.project_name || "",
           status: task.column_id || task.status || "to-do",
+          priority: task.priority || "medium",
           dueAt: task.due_at || null,
           subItems: parseSubItems(task.sub_items_json),
         })),

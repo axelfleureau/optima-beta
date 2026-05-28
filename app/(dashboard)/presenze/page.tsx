@@ -37,6 +37,33 @@ type PersonPresence = {
   presenceSignal: "late" | "early-exit" | null
   coverageRatio: number
   activityRatio: number
+  upcomingTasks: Array<{
+    id: string
+    title: string
+    clientName: string
+    projectName: string
+    status: string
+    priority: string
+    dueAt: string | null
+    estimatedMinutes: number
+  }>
+  nextTask: {
+    id: string
+    title: string
+    clientName: string
+    projectName: string
+    status: string
+    priority: string
+    dueAt: string | null
+    estimatedMinutes: number
+  } | null
+  plannedSoonMinutes: number
+  urgentSoonCount: number
+  availability: {
+    status: "asap" | "today" | "later" | "protected" | "not-available" | "unknown"
+    label: string
+    detail: string
+  }
 }
 
 type PresencePayload = {
@@ -94,6 +121,14 @@ function formatDateLabel(value: string) {
   }).format(new Date(`${value}T00:00:00`))
 }
 
+function formatDueDate(value?: string | null) {
+  if (!value) return "senza scadenza"
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(value))
+}
+
 function statusMeta(status: PresenceStatus) {
   switch (status) {
     case "present":
@@ -124,6 +159,23 @@ function statusMeta(status: PresenceStatus) {
         className: "border-amber-300/25 bg-amber-300/12 text-amber-200",
         dot: "bg-amber-300",
       }
+  }
+}
+
+function availabilityClass(status?: PersonPresence["availability"]["status"]) {
+  switch (status) {
+    case "asap":
+      return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+    case "today":
+      return "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+    case "later":
+      return "border-violet-300/25 bg-violet-300/10 text-violet-100"
+    case "protected":
+      return "border-righello-pink/35 bg-righello-pink/12 text-righello-pink"
+    case "not-available":
+      return "border-red-300/25 bg-red-300/10 text-red-100"
+    default:
+      return "border-amber-300/25 bg-amber-300/10 text-amber-100"
   }
 }
 
@@ -173,6 +225,14 @@ export default function PresenzePage() {
   const presentPeople = useMemo(() => payload?.people.filter((person) => person.status === "present") || [], [payload])
   const pendingPeople = useMemo(
     () => payload?.people.filter((person) => person.status === "missing" || person.status === "absent" || person.presenceSignal) || [],
+    [payload],
+  )
+  const availabilityPeople = useMemo(
+    () =>
+      [...(payload?.people || [])].sort((a, b) => {
+        const order: Record<string, number> = { asap: 0, today: 1, later: 2, protected: 3, unknown: 4, "not-available": 5 }
+        return (order[a.availability?.status] ?? 9) - (order[b.availability?.status] ?? 9)
+      }),
     [payload],
   )
 
@@ -380,6 +440,19 @@ export default function PresenzePage() {
             </div>
 
             <div className="border-t border-white/10">
+              <div className="grid gap-3 border-b border-white/10 p-5">
+                <div>
+                  <h3 className="text-lg font-black text-white">Prossime finestre operative</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    Lettura rapida per capire chi può prendere qualcosa al più presto e chi va lasciato sul carico già pianificato.
+                  </p>
+                </div>
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {availabilityPeople.map((person) => (
+                    <OperationalOutlookCard key={person.id} person={person} />
+                  ))}
+                </div>
+              </div>
               {payload.people.map((person) => (
                 <PersonRow key={person.id} person={person} />
               ))}
@@ -460,13 +533,63 @@ function PresenceMiniCard({ person }: { person: PersonPresence }) {
           {presenceSignalLabel(person)}
         </Badge>
       )}
+      <div className={cn("mt-3 rounded-[8px] border px-3 py-2 text-xs font-semibold", availabilityClass(person.availability?.status))}>
+        {person.availability?.label}
+      </div>
+    </div>
+  )
+}
+
+function OperationalOutlookCard({ person }: { person: PersonPresence }) {
+  return (
+    <div className="min-w-0 rounded-[8px] border border-white/10 bg-[#070d1a] p-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="truncate text-base font-black text-white">{person.name}</p>
+          <p className="mt-1 truncate text-xs text-slate-500">{person.email}</p>
+        </div>
+        <Badge className={cn("w-fit rounded-[8px] border px-3 py-1", availabilityClass(person.availability?.status))}>
+          {person.availability?.label}
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Sta facendo a breve</p>
+          {person.nextTask ? (
+            <div className="mt-2">
+              <p className="break-words text-sm font-bold leading-5 text-white">{person.nextTask.title}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">
+                {person.nextTask.projectName || person.nextTask.clientName || "Task operativa"} · {formatDueDate(person.nextTask.dueAt)}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-slate-400">Nessuna task imminente collegata.</p>
+          )}
+        </div>
+        <div className="rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-2 text-left sm:text-right">
+          <p className="text-xs text-slate-500">Carico breve</p>
+          <p className="text-lg font-black text-white">{formatMinutes(person.plannedSoonMinutes || 0)}</p>
+        </div>
+      </div>
+
+      {person.upcomingTasks?.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {person.upcomingTasks.slice(0, 3).map((task) => (
+            <span key={task.id} className="max-w-full truncate rounded-[8px] border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300">
+              {task.priority === "urgent" ? "Urgente · " : ""}
+              {task.title}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }
 
 function PersonRow({ person }: { person: PersonPresence }) {
   return (
-    <div className="grid gap-3 border-b border-white/10 p-4 last:border-b-0 md:grid-cols-[1.4fr_0.8fr_0.8fr_1fr] md:items-center">
+    <div className="grid gap-3 border-b border-white/10 p-4 last:border-b-0 md:grid-cols-[1.1fr_0.65fr_0.75fr_0.85fr_1.2fr] md:items-center">
       <div className="min-w-0">
         <p className="truncate font-black text-white">{person.name}</p>
         <p className="mt-1 truncate text-sm text-slate-500">{person.email}</p>
@@ -485,6 +608,10 @@ function PersonRow({ person }: { person: PersonPresence }) {
         </div>
         <Progress className="mt-2 h-2 bg-white/10" value={person.coverageRatio * 100} />
         {person.presenceSignal && <p className="mt-1 text-xs text-amber-200">{presenceSignalLabel(person)}</p>}
+      </div>
+      <div className="min-w-0 rounded-[8px] border border-white/10 bg-white/[0.03] p-3">
+        <p className="truncate text-xs font-semibold text-slate-400">{person.availability?.label}</p>
+        <p className="mt-1 truncate text-xs text-slate-500">{person.nextTask?.title || person.availability?.detail}</p>
       </div>
     </div>
   )
