@@ -319,7 +319,7 @@ function InfoCell({
     <div className="min-w-0 rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
       <div className="flex items-center gap-2 text-slate-500">
         <Icon className="h-3.5 w-3.5" />
-        <span className="text-[11px] font-semibold uppercase">{label}</span>
+        <span className="text-xs font-semibold uppercase">{label}</span>
       </div>
       <p className={cn("mt-2 truncate text-sm font-black", accent ? "text-cyan-200" : "text-white")}>{value}</p>
     </div>

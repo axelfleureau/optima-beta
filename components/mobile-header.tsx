@@ -39,7 +39,7 @@ export function MobileHeader() {
           </div>
           <div className="leading-none">
             <span className="block text-lg font-bold">Optima</span>
-            <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">by Righello</span>
+            <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-white/40">by Righello</span>
           </div>
         </div>
       </div>

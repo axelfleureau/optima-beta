@@ -114,17 +114,17 @@ export function CommandBar() {
         <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-[10px]">
+              <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ⌘K
               </kbd>
               <span>per aprire</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-[10px]">
+              <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ↵
               </kbd>
               <span>esegui</span>
-              <kbd className="ml-3 px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-[10px]">
+              <kbd className="ml-3 px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ESC
               </kbd>
               <span>per chiudere</span>

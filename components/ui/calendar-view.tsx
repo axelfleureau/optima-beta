@@ -49,7 +49,7 @@ function PostSummaryCard({ post, onEditPost }: { post: EditorialPost; onEditPost
         <h4 className="min-w-0 flex-1 text-sm font-semibold leading-5 text-slate-950 dark:text-slate-100">
           {postTitle}
         </h4>
-        <Badge className={`${statusInfo.lightColor} dark:${statusInfo.darkColor} shrink-0 border text-[11px] font-medium`}>
+        <Badge className={`${statusInfo.lightColor} dark:${statusInfo.darkColor} shrink-0 border text-xs font-medium`}>
           <StatusIcon className="mr-1 h-3 w-3" />
           {statusInfo.label}
         </Badge>
@@ -169,11 +169,11 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                           : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300"
                     }`}
                   >
-                    <span className="block text-[10px] font-semibold uppercase leading-none">
+                    <span className="block text-xs font-semibold uppercase leading-none">
                       {format(day, "EEEEE", { locale: it })}
                     </span>
                     <span className="mt-1 block text-base font-black leading-none">{format(day, "d")}</span>
-                    <span className="mt-1 block h-3 text-[10px] font-bold leading-3">
+                    <span className="mt-1 block min-h-4 text-xs font-bold leading-4">
                       {dayPosts.length > 0 ? dayPosts.length : ""}
                     </span>
                   </button>

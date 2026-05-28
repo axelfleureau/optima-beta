@@ -449,7 +449,7 @@ export default function TeamCalendarClient() {
                       <div className="mb-2 flex items-center justify-between">
                         <span className="text-sm font-bold">{cell.date.getDate()}</span>
                         {dayEvents.length > 0 && (
-                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/60">{dayEvents.length}</span>
+                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">{dayEvents.length}</span>
                         )}
                       </div>
                       <div className="space-y-1.5">
@@ -685,10 +685,10 @@ function EventRow({ event, onClick, compact = false }: { event: TeamCalendarEven
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <p className="line-clamp-2 font-bold text-white">{event.title}</p>
-            <span className="flex-shrink-0 rounded-full bg-white/8 px-2 py-1 text-[11px] text-white/56">{formatTimeRange(event)}</span>
+            <span className="flex-shrink-0 rounded-full bg-white/8 px-2 py-1 text-xs text-white/56">{formatTimeRange(event)}</span>
           </div>
           {!compact && <p className="mt-1 text-xs capitalize text-white/38">{formatDay(event.startsAt)}</p>}
-          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-white/50">
+          <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-white/50">
             {event.ownerName && <span className="rounded-full bg-white/7 px-2 py-0.5">{event.ownerName}</span>}
             {event.clientName && <span className="rounded-full bg-white/7 px-2 py-0.5">{event.clientName}</span>}
             {event.projectName && <span className="rounded-full bg-white/7 px-2 py-0.5">{event.projectName}</span>}

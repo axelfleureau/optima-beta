@@ -230,7 +230,7 @@ function ProductCockpit() {
               ].map(([value, label]) => (
                 <div key={label} className="rounded-[8px] border border-white/10 bg-black/24 px-3 py-2 text-center">
                   <p className="text-lg font-black text-white">{value}</p>
-                  <p className="text-[11px] font-bold uppercase text-white/38">{label}</p>
+                  <p className="text-xs font-bold uppercase text-white/38">{label}</p>
                 </div>
               ))}
             </div>
@@ -482,7 +482,7 @@ export default function HomePage() {
             </span>
             <span className="min-w-0 leading-none">
               <span className="block text-xl font-black">Optima</span>
-              <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-white/42">by Righello</span>
+              <span className="block text-xs font-bold uppercase tracking-[0.18em] text-white/42">by Righello</span>
             </span>
           </Link>
 

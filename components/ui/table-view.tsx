@@ -89,14 +89,14 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Badge className={`${statusInfo.lightColor} dark:${statusInfo.darkColor} border text-[11px] font-medium`}>
+                  <Badge className={`${statusInfo.lightColor} dark:${statusInfo.darkColor} border text-xs font-medium`}>
                     <StatusIcon className="mr-1 h-3 w-3" />
                     {statusInfo.label}
                   </Badge>
-                  <Badge variant="outline" className="text-[11px]">
+                  <Badge variant="outline" className="text-xs">
                     {post.platform}
                   </Badge>
-                  <Badge variant="outline" className="text-[11px]">
+                  <Badge variant="outline" className="text-xs">
                     {post.format}
                   </Badge>
                 </div>

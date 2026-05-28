@@ -298,7 +298,7 @@ export function AppSidebar() {
                 {!isCollapsed && (
                   <div className="min-w-0 leading-none">
                     <p className="truncate text-lg font-black tracking-[-0.02em] text-white">Optima</p>
-                    <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+                    <p className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
                       by Righello
                     </p>
                   </div>
@@ -316,7 +316,7 @@ export function AppSidebar() {
         {/* Main menu section */}
         <div className="mb-4">
           {!isCollapsed && (
-            <div className="mb-2 px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/35">{menuLabel}</div>
+            <div className="mb-2 px-2 text-xs font-bold uppercase tracking-[0.18em] text-white/35">{menuLabel}</div>
           )}
           <SidebarMenu className={isCollapsed ? "items-center" : ""}>
             {menuItems.map((item) => (
@@ -345,7 +345,7 @@ export function AppSidebar() {
           <div>
             <div className="my-3 border-t border-white/10" />
             {!isCollapsed && (
-              <div className="mb-2 px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/35">AMMINISTRAZIONE</div>
+              <div className="mb-2 px-2 text-xs font-bold uppercase tracking-[0.18em] text-white/35">AMMINISTRAZIONE</div>
             )}
             <SidebarMenu className={isCollapsed ? "items-center" : ""}>
               {adminItems.map((item) => (

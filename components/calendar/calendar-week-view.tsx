@@ -199,7 +199,7 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
                             >
                               <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
                                 <PlatformIcon className={`h-3.5 w-3.5 shrink-0 ${platformInfo.iconColor}`} />
-                                <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                <span className="ml-auto shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400">
                                   {postDate ? format(postDate, "HH:mm") : post.scheduledTime}
                                 </span>
                               </div>
@@ -208,7 +208,7 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
                               </p>
                               <div className="mt-2 flex items-center gap-1.5">
                                 <span className={`h-2 w-2 rounded-full ${statusInfo.color}`} />
-                                <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                <span className="truncate text-xs text-slate-500 dark:text-slate-400">
                                   {statusInfo.label}
                                 </span>
                               </div>

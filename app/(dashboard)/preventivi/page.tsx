@@ -454,15 +454,15 @@ export default function PreventiviPage() {
                         </div>
                         <div className="mt-4 grid grid-cols-3 gap-2">
                           <div className="rounded-[8px] bg-white/[0.04] p-3">
-                            <p className="text-[11px] text-slate-500">Voci</p>
+                            <p className="text-xs text-slate-500">Voci</p>
                             <p className="text-lg font-black text-white">{getQuoteLineCount(quote)}</p>
                           </div>
                           <div className="rounded-[8px] bg-white/[0.04] p-3">
-                            <p className="text-[11px] text-slate-500">Stato</p>
+                            <p className="text-xs text-slate-500">Stato</p>
                             <p className="truncate text-sm font-bold text-white">{getEffectiveStatus(quote)}</p>
                           </div>
                           <div className="rounded-[8px] bg-white/[0.04] p-3">
-                            <p className="text-[11px] text-slate-500">Link</p>
+                            <p className="text-xs text-slate-500">Link</p>
                             <p className="text-sm font-bold text-white">{quote.shareToken ? "attivo" : "draft"}</p>
                           </div>
                         </div>
