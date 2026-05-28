@@ -40,7 +40,7 @@ export async function GET() {
 
     const result = await db
       .prepare(
-        `SELECT id, clerk_user_id, email, first_name, last_name, role, status, created_at, updated_at
+        `SELECT id, clerk_user_id, email, first_name, last_name, role, status, last_login_at, created_at, updated_at
          FROM members
          WHERE organization_id = ? AND status IN ('active', 'invited', 'inactive', 'suspended')
          ORDER BY created_at ASC`,
@@ -59,6 +59,7 @@ export async function GET() {
         role: member.role || "junior",
         tenantId: principal.organizationId,
         status: member.status || "active",
+        lastLoginAt: member.last_login_at ? new Date(member.last_login_at) : null,
         createdAt: member.created_at ? new Date(member.created_at) : new Date(),
         updatedAt: member.updated_at ? new Date(member.updated_at) : new Date(),
       })),
@@ -152,6 +153,7 @@ export async function POST(request: NextRequest) {
         role,
         tenantId: principal.organizationId,
         status: "inactive",
+        lastLoginAt: null,
         createdAt: now,
         updatedAt: now,
       },

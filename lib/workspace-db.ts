@@ -70,6 +70,16 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
     String(teamMemberByEmail.id) !== String(existingMember.id)
 
   if (existingMember?.id && existingMember?.organization_id && !existingIsPersonalFallback) {
+    await db
+      .prepare(
+        `UPDATE members
+         SET last_login_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      )
+      .bind(existingMember.id)
+      .run()
+
     return {
       organizationId: String(existingMember.organization_id),
       memberId: String(existingMember.id),
@@ -98,6 +108,7 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
              first_name = COALESCE(NULLIF(?, ''), first_name),
              last_name = COALESCE(NULLIF(?, ''), last_name),
              status = 'active',
+             last_login_at = CURRENT_TIMESTAMP,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
       )
@@ -127,8 +138,8 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
   await db
     .prepare(
       `INSERT OR IGNORE INTO members
-       (id, organization_id, clerk_user_id, email, first_name, last_name, role, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+       (id, organization_id, clerk_user_id, email, first_name, last_name, role, status, last_login_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)`,
     )
     .bind(memberId, organizationId, user.id, email, user.firstName, user.lastName, user.role)
     .run()
