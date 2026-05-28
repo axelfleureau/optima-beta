@@ -142,7 +142,10 @@ export async function POST(request: NextRequest) {
 
     return Response.json({
       success: true,
-      message: "Dipendente aggiunto al team. Potrai invitarlo quando vuoi.",
+      message:
+        role === "junior"
+          ? "Junior aggiunto al team. Potrai invitarlo quando vuoi."
+          : "Membro aggiunto al team. Potrai invitarlo quando vuoi.",
       user: {
         id: memberId,
         clerkUserId: placeholderClerkUserId,

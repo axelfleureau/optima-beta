@@ -29,11 +29,6 @@ SELECT id, 'mem_axel_wearerighello', organization_id, 'owner'
 FROM projects
 WHERE organization_id = 'org_demo_righello';
 
-INSERT OR IGNORE INTO project_members (project_id, member_id, organization_id, role)
-SELECT id, 'mem_axel_fleureau', organization_id, 'owner'
-FROM projects
-WHERE organization_id = 'org_demo_righello';
-
 WITH new_tasks (
   id, organization_id, project_id, assignee_member_id, title, description, status, priority,
   estimated_minutes, actual_minutes, due_at, created_at, updated_at, column_id, client_id,

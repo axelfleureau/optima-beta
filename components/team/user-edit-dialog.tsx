@@ -82,7 +82,7 @@ const roleOptions = [
   },
   {
     value: "junior" as const,
-    label: "Dipendente",
+    label: "Junior",
     description: "Accesso ai progetti, task e rapportini assegnati",
     icon: User,
   },

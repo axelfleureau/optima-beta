@@ -49,7 +49,7 @@ const roleConfig = {
     icon: Settings,
   },
   junior: {
-    label: "Dipendente",
+    label: "Junior",
     color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     icon: User,
   },

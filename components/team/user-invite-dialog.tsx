@@ -97,7 +97,7 @@ const roleOptions = [
   },
   {
     value: "junior" as const,
-    label: "Dipendente",
+    label: "Junior",
     description: "Operatività su task, presenze e rapportini assegnati",
     icon: User,
   },
@@ -413,7 +413,7 @@ export function UserInviteDialog({ open, onOpenChange, onInvited }: UserInviteDi
                 ) : (
                   <>
                     <UserCheck className="mr-2 h-4 w-4" />
-                    Aggiungi Dipendente
+                    Aggiungi Junior
                   </>
                 )}
               </Button>

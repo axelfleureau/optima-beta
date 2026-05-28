@@ -129,7 +129,7 @@ export function getRoleDisplayName(role: UserRole): string {
     "admin": "Amministratore",
     "direzione": "Direzione",
     "capo-reparto": "Capo Reparto", 
-    "junior": "Dipendente",
+    "junior": "Junior",
     "client": "Cliente"
   }
   
