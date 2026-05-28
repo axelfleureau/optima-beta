@@ -30,6 +30,12 @@ function memberName(row: any) {
   return `${row.first_name || ""} ${row.last_name || ""}`.trim() || String(row.email || "Utente")
 }
 
+function displayMemberEmail(value: unknown) {
+  const email = toText(value)
+  if (email.endsWith("@no-email.optima.local")) return ""
+  return email
+}
+
 function daysUntil(value: unknown) {
   if (typeof value !== "string" || !value) return null
   const due = new Date(`${value.slice(0, 10)}T23:59:59.999Z`).getTime()
@@ -201,25 +207,29 @@ export async function GET() {
                  AND te.member_id = m.id) AS last_entry_at
            FROM members m
            WHERE m.organization_id = ?
-             AND (
-               m.status = 'active'
-               OR EXISTS (
+             AND COALESCE(m.status, 'active') IN ('active', 'invited', 'inactive')
+             AND NOT (
+               COALESCE(m.status, 'active') != 'active'
+               AND EXISTS (
                  SELECT 1
-                   FROM time_entries te
-                  WHERE te.organization_id = m.organization_id
-                    AND te.member_id = m.id
-                    AND date(te.entry_date) >= date('now', '-6 days')
-               )
-               OR EXISTS (
-                 SELECT 1
-                   FROM tasks t
-                  WHERE t.organization_id = m.organization_id
-                    AND t.assignee_member_id = m.id
-                    AND ${openStatusSql("t")}
+                   FROM members active_member
+                  WHERE active_member.organization_id = m.organization_id
+                    AND active_member.status = 'active'
+                    AND lower(COALESCE(active_member.first_name, '')) = lower(COALESCE(m.first_name, ''))
+                    AND lower(COALESCE(active_member.last_name, '')) = lower(COALESCE(m.last_name, ''))
+                    AND active_member.id != m.id
                )
              )
              AND m.role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior', 'member', 'dipendente', 'employee')
-           ORDER BY tracked_week_minutes DESC, open_tasks DESC, m.first_name ASC
+           ORDER BY
+             CASE COALESCE(m.status, 'active')
+               WHEN 'active' THEN 0
+               WHEN 'invited' THEN 1
+               ELSE 2
+             END,
+             tracked_week_minutes DESC,
+             open_tasks DESC,
+             m.first_name ASC
            LIMIT 24`,
         )
         .bind(organizationId)
@@ -310,7 +320,7 @@ export async function GET() {
       return {
         id: String(row.id),
         name: memberName(row),
-        email: toText(row.email),
+        email: displayMemberEmail(row.email),
         role,
         weeklyCapacityHours: Math.round((capacity / 60) * 10) / 10,
         netCapacityHours: Math.round((netCapacity / 60) * 10) / 10,
