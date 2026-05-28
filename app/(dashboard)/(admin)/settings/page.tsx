@@ -26,6 +26,19 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
+const panelClass =
+  "overflow-hidden rounded-lg border border-white/10 bg-[#101927]/90 shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+const panelHeaderClass =
+  "border-b border-white/10 bg-gradient-to-r from-white/[0.045] via-cyan-400/[0.035] to-pink-500/[0.045]"
+const fieldClass =
+  "border-white/[0.12] bg-[#070d18] text-white placeholder:text-slate-600 shadow-inner shadow-black/20 focus-visible:border-cyan-300/70 focus-visible:ring-2 focus-visible:ring-cyan-400/20"
+const tabClass =
+  "gap-2 rounded-md px-3 py-2 text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-white data-[state=active]:bg-[#e14483] data-[state=active]:text-white data-[state=active]:shadow-[0_10px_30px_rgba(225,68,131,0.24)]"
+const integrationCardClass =
+  "flex items-center justify-between rounded-lg border border-white/10 bg-[#0b1321]/80 p-4 transition-colors hover:border-cyan-300/35 hover:bg-[#101c2d]"
+const outlineActionClass =
+  "border-white/15 bg-white/[0.03] text-slate-100 hover:border-cyan-300/40 hover:bg-cyan-300/10 hover:text-white"
+
 export default function SettingsPage() {
   const { userData } = useAuth()
   const [loading, setLoading] = useState(false)
@@ -41,24 +54,24 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-[#08111f] bg-[radial-gradient(circle_at_top_left,rgba(225,68,131,0.14),transparent_34%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.1),transparent_30%)]">
       <div className="container mx-auto px-6 py-8 max-w-7xl">
         <div className="space-y-8">
           {/* Header */}
           <div className="flex justify-between items-center">
             <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-r from-gray-500 to-slate-600 rounded-2xl shadow-lg">
+              <h1 className="text-4xl font-bold text-white flex items-center gap-4">
+                <div className="p-3 bg-gradient-to-br from-[#e14483] via-[#8d4dff] to-[#22d3ee] rounded-lg shadow-[0_18px_50px_rgba(225,68,131,0.28)]">
                   <Settings className="h-8 w-8 text-white" />
                 </div>
                 Impostazioni
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">Configura la tua piattaforma</p>
+              <p className="text-slate-400 text-lg">Configura la tua piattaforma</p>
             </div>
             <Button
               onClick={handleSave}
               disabled={loading}
-              className="bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white shadow-lg"
+              className="rounded-lg bg-[#e14483] text-white shadow-[0_14px_42px_rgba(225,68,131,0.28)] hover:bg-[#f05296] disabled:border disabled:border-white/10 disabled:bg-[#101927] disabled:text-slate-500"
             >
               {loading ? (
                 <>
@@ -76,9 +89,9 @@ export default function SettingsPage() {
 
           {/* Success Alert */}
           {saved && (
-            <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800 dark:text-green-300">
+            <Alert className="border-emerald-400/25 bg-emerald-400/[0.12]">
+              <CheckCircle className="h-4 w-4 text-emerald-300" />
+              <AlertDescription className="text-emerald-100">
                 Impostazioni salvate con successo!
               </AlertDescription>
             </Alert>
@@ -86,24 +99,24 @@ export default function SettingsPage() {
 
           {/* Settings Tabs */}
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="bg-white/80 backdrop-blur-sm border-gray-200/50 p-1">
-              <TabsTrigger value="profile" className="flex items-center gap-2">
+            <TabsList className="h-auto w-fit flex-wrap gap-1 rounded-lg border border-white/10 bg-[#070d18]/90 p-1 backdrop-blur-xl">
+              <TabsTrigger value="profile" className={tabClass}>
                 <User className="h-4 w-4" />
                 Profilo
               </TabsTrigger>
-              <TabsTrigger value="notifications" className="flex items-center gap-2">
+              <TabsTrigger value="notifications" className={tabClass}>
                 <Bell className="h-4 w-4" />
                 Notifiche
               </TabsTrigger>
-              <TabsTrigger value="security" className="flex items-center gap-2">
+              <TabsTrigger value="security" className={tabClass}>
                 <Shield className="h-4 w-4" />
                 Sicurezza
               </TabsTrigger>
-              <TabsTrigger value="appearance" className="flex items-center gap-2">
+              <TabsTrigger value="appearance" className={tabClass}>
                 <Palette className="h-4 w-4" />
                 Aspetto
               </TabsTrigger>
-              <TabsTrigger value="integrations" className="flex items-center gap-2">
+              <TabsTrigger value="integrations" className={tabClass}>
                 <Globe className="h-4 w-4" />
                 Integrazioni
               </TabsTrigger>
@@ -111,79 +124,79 @@ export default function SettingsPage() {
 
             {/* Profile Settings */}
             <TabsContent value="profile" className="space-y-6">
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <User className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              <Card className={panelClass}>
+                <CardHeader className={panelHeaderClass}>
+                  <CardTitle className="flex items-center gap-3 text-white">
+                    <User className="h-5 w-5 text-cyan-200" />
                     Informazioni Personali
                   </CardTitle>
-                  <CardDescription>Aggiorna le tue informazioni personali e di contatto</CardDescription>
+                  <CardDescription className="text-slate-400">Aggiorna le tue informazioni personali e di contatto</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName">Nome</Label>
+                      <Label htmlFor="firstName" className="text-slate-200">Nome</Label>
                       <Input
                         id="firstName"
                         defaultValue={userData?.firstName || ""}
-                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                        className={fieldClass}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName">Cognome</Label>
+                      <Label htmlFor="lastName" className="text-slate-200">Cognome</Label>
                       <Input
                         id="lastName"
                         defaultValue={userData?.lastName || ""}
-                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                        className={fieldClass}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="text-slate-200">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       defaultValue={userData?.email || ""}
-                      className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                      className={fieldClass}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="company">Azienda</Label>
+                    <Label htmlFor="company" className="text-slate-200">Azienda</Label>
                     <Input
                       id="company"
                       defaultValue={userData?.companyName || ""}
-                      className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                      className={fieldClass}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bio">Bio</Label>
+                    <Label htmlFor="bio" className="text-slate-200">Bio</Label>
                     <Textarea
                       id="bio"
                       placeholder="Raccontaci qualcosa di te..."
-                      className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                      className={fieldClass}
                     />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <Sparkles className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              <Card className={panelClass}>
+                <CardHeader className={panelHeaderClass}>
+                  <CardTitle className="flex items-center gap-3 text-white">
+                    <Sparkles className="h-5 w-5 text-pink-300" />
                     Piano e Utilizzo
                   </CardTitle>
-                  <CardDescription>Informazioni sul tuo piano attuale</CardDescription>
+                  <CardDescription className="text-slate-400">Informazioni sul tuo piano attuale</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Piano Attuale</span>
-                    <Badge className="bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-0">
+                    <span className="text-sm font-medium text-slate-300">Piano Attuale</span>
+                    <Badge className="border border-white/10 bg-white/[0.06] text-slate-100">
                       {userData?.plan || "Base"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Stato Account</span>
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-0">
+                    <span className="text-sm font-medium text-slate-300">Stato Account</span>
+                    <Badge className="border border-emerald-400/20 bg-emerald-400/[0.12] text-emerald-200">
                       Attivo
                     </Badge>
                   </div>
@@ -193,43 +206,43 @@ export default function SettingsPage() {
 
             {/* Notifications Settings */}
             <TabsContent value="notifications" className="space-y-6">
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <div className="p-2 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-xl shadow-sm">
+              <Card className={panelClass}>
+                <CardHeader className={panelHeaderClass}>
+                  <CardTitle className="flex items-center gap-3 text-white">
+                    <div className="p-2 bg-gradient-to-br from-[#f6c85f] to-[#e14483] rounded-lg shadow-sm">
                       <Bell className="h-5 w-5 text-white" />
                     </div>
                     Preferenze Notifiche
                   </CardTitle>
-                  <CardDescription>Configura come e quando ricevere le notifiche</CardDescription>
+                  <CardDescription className="text-slate-400">Configura come e quando ricevere le notifiche</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-sm font-medium">Notifiche Email</Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Ricevi aggiornamenti via email</p>
+                        <Label className="text-sm font-medium text-slate-200">Notifiche Email</Label>
+                        <p className="text-xs text-slate-500">Ricevi aggiornamenti via email</p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-sm font-medium">Notifiche Push</Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Notifiche push nel browser</p>
+                        <Label className="text-sm font-medium text-slate-200">Notifiche Push</Label>
+                        <p className="text-xs text-slate-500">Notifiche push nel browser</p>
                       </div>
                       <Switch />
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-sm font-medium">Aggiornamenti Campagne</Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Notifiche per le tue campagne</p>
+                        <Label className="text-sm font-medium text-slate-200">Aggiornamenti Campagne</Label>
+                        <p className="text-xs text-slate-500">Notifiche per le tue campagne</p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-sm font-medium">Nuovi Clienti</Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Notifiche per nuovi clienti</p>
+                        <Label className="text-sm font-medium text-slate-200">Nuovi Clienti</Label>
+                        <p className="text-xs text-slate-500">Notifiche per nuovi clienti</p>
                       </div>
                       <Switch defaultChecked />
                     </div>
@@ -240,49 +253,49 @@ export default function SettingsPage() {
 
             {/* Security Settings */}
             <TabsContent value="security" className="space-y-6">
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <div className="p-2 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl shadow-sm">
+              <Card className={panelClass}>
+                <CardHeader className={panelHeaderClass}>
+                  <CardTitle className="flex items-center gap-3 text-white">
+                    <div className="p-2 bg-gradient-to-br from-[#e14483] to-[#8d4dff] rounded-lg shadow-sm">
                       <Shield className="h-5 w-5 text-white" />
                     </div>
                     Sicurezza Account
                   </CardTitle>
-                  <CardDescription>Gestisci la sicurezza del tuo account</CardDescription>
+                  <CardDescription className="text-slate-400">Gestisci la sicurezza del tuo account</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="currentPassword">Password Attuale</Label>
+                      <Label htmlFor="currentPassword" className="text-slate-200">Password Attuale</Label>
                       <Input
                         id="currentPassword"
                         type="password"
-                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                        className={fieldClass}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="newPassword">Nuova Password</Label>
+                      <Label htmlFor="newPassword" className="text-slate-200">Nuova Password</Label>
                       <Input
                         id="newPassword"
                         type="password"
-                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                        className={fieldClass}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">Conferma Password</Label>
+                      <Label htmlFor="confirmPassword" className="text-slate-200">Conferma Password</Label>
                       <Input
                         id="confirmPassword"
                         type="password"
-                        className="bg-white/50 backdrop-blur-sm border-gray-200/50"
+                        className={fieldClass}
                       />
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
+                  <div className="pt-4 border-t border-white/10">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-sm font-medium">Autenticazione a Due Fattori</Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <Label className="text-sm font-medium text-slate-200">Autenticazione a Due Fattori</Label>
+                        <p className="text-xs text-slate-500">
                           Aggiungi un livello extra di sicurezza
                         </p>
                       </div>
@@ -295,34 +308,34 @@ export default function SettingsPage() {
 
             {/* Appearance Settings */}
             <TabsContent value="appearance" className="space-y-6">
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <Palette className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              <Card className={panelClass}>
+                <CardHeader className={panelHeaderClass}>
+                  <CardTitle className="flex items-center gap-3 text-white">
+                    <Palette className="h-5 w-5 text-cyan-200" />
                     Personalizzazione
                   </CardTitle>
-                  <CardDescription>Personalizza l'aspetto della piattaforma</CardDescription>
+                  <CardDescription className="text-slate-400">Personalizza l'aspetto della piattaforma</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-sm font-medium">Tema Scuro</Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Attiva il tema scuro</p>
+                        <Label className="text-sm font-medium text-slate-200">Tema Scuro</Label>
+                        <p className="text-xs text-slate-500">Attiva il tema scuro</p>
                       </div>
                       <Switch />
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-sm font-medium">Animazioni</Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Abilita animazioni nell'interfaccia</p>
+                        <Label className="text-sm font-medium text-slate-200">Animazioni</Label>
+                        <p className="text-xs text-slate-500">Abilita animazioni nell'interfaccia</p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <Label className="text-sm font-medium">Sidebar Compatta</Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Riduci la dimensione della sidebar</p>
+                        <Label className="text-sm font-medium text-slate-200">Sidebar Compatta</Label>
+                        <p className="text-xs text-slate-500">Riduci la dimensione della sidebar</p>
                       </div>
                       <Switch />
                     </div>
@@ -333,59 +346,59 @@ export default function SettingsPage() {
 
             {/* Integrations Settings */}
             <TabsContent value="integrations" className="space-y-6">
-              <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                  <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
-                    <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-sm">
+              <Card className={panelClass}>
+                <CardHeader className={panelHeaderClass}>
+                  <CardTitle className="flex items-center gap-3 text-white">
+                    <div className="p-2 bg-gradient-to-br from-emerald-400 to-cyan-400 rounded-lg shadow-sm">
                       <Globe className="h-5 w-5 text-white" />
                     </div>
                     Integrazioni
                   </CardTitle>
-                  <CardDescription>Connetti servizi esterni alla piattaforma</CardDescription>
+                  <CardDescription className="text-slate-400">Connetti servizi esterni alla piattaforma</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="grid gap-4">
-                    <div className="flex items-center justify-between p-4 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                    <div className={integrationCardClass}>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-500 rounded-lg">
                           <Mail className="h-4 w-4 text-white" />
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-900 dark:text-white">Email Marketing</h4>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Connetti il tuo servizio email</p>
+                          <h4 className="font-medium text-white">Email Marketing</h4>
+                          <p className="text-sm text-slate-500">Connetti il tuo servizio email</p>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className={outlineActionClass}>
                         Configura
                       </Button>
                     </div>
 
-                    <div className="flex items-center justify-between p-4 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                    <div className={integrationCardClass}>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-purple-500 rounded-lg">
                           <Database className="h-4 w-4 text-white" />
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-900 dark:text-white">CRM</h4>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Sincronizza con il tuo CRM</p>
+                          <h4 className="font-medium text-white">CRM</h4>
+                          <p className="text-sm text-slate-500">Sincronizza con il tuo CRM</p>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className={outlineActionClass}>
                         Configura
                       </Button>
                     </div>
 
-                    <div className="flex items-center justify-between p-4 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                    <div className={integrationCardClass}>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-green-500 rounded-lg">
                           <Key className="h-4 w-4 text-white" />
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-900 dark:text-white">API Keys</h4>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Gestisci le tue chiavi API</p>
+                          <h4 className="font-medium text-white">API Keys</h4>
+                          <p className="text-sm text-slate-500">Gestisci le tue chiavi API</p>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className={outlineActionClass}>
                         Gestisci
                       </Button>
                     </div>
