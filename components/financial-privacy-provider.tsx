@@ -44,7 +44,7 @@ function shouldMarkTextNode(node: Text) {
 }
 
 function markFinancialValues(root: ParentNode = document.body) {
-  if (typeof document === "undefined") return
+  if (typeof document === "undefined") return 0
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -65,6 +65,8 @@ function markFinancialValues(root: ParentNode = document.body) {
     target.classList.add("financial-sensitive")
     target.setAttribute("data-financial-sensitive", "true")
   })
+
+  return document.querySelectorAll("[data-financial-sensitive='true']").length
 }
 
 export function FinancialPrivacyProvider({
@@ -76,9 +78,11 @@ export function FinancialPrivacyProvider({
 }) {
   const [now, setNow] = useState(() => Date.now())
   const [revealUntil, setRevealUntil] = useState(0)
+  const [hasFinancialValues, setHasFinancialValues] = useState(false)
 
   const isVisible = canRevealFinancials && revealUntil > now
   const remainingMs = Math.max(0, revealUntil - now)
+  const shouldShowControl = canRevealFinancials && hasFinancialValues
 
   useEffect(() => {
     if (!canRevealFinancials) {
@@ -111,7 +115,11 @@ export function FinancialPrivacyProvider({
   }, [])
 
   useEffect(() => {
-    const scheduleMarking = () => window.requestAnimationFrame(() => markFinancialValues())
+    const scheduleMarking = () =>
+      window.requestAnimationFrame(() => {
+        const sensitiveValueCount = markFinancialValues()
+        setHasFinancialValues(sensitiveValueCount > 0)
+      })
 
     scheduleMarking()
 
@@ -151,7 +159,7 @@ export function FinancialPrivacyProvider({
   return (
     <>
       {children}
-      {canRevealFinancials ? (
+      {shouldShowControl ? (
         <div
           className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-[90] flex max-w-[calc(100vw-1.5rem)] items-center gap-2 sm:right-4 sm:max-w-[calc(100vw-2rem)]"
           data-financial-privacy-control
