@@ -2,7 +2,12 @@ export const dynamic = "force-dynamic"
 
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
-import { DEFAULT_LUNCH_BREAK_MINUTES, DEFAULT_WORK_DAYS_PER_WEEK, weeklyNetCapacityMinutes } from "@/lib/time-tracking"
+import {
+  DEFAULT_LUNCH_BREAK_MINUTES,
+  DEFAULT_WORK_DAYS_PER_WEEK,
+  hasAutomaticPresence,
+  weeklyNetCapacityMinutes,
+} from "@/lib/time-tracking"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 const DONE_STATUSES = new Set(["done", "completed", "validation"])
@@ -176,6 +181,12 @@ export async function GET() {
                WHERE wd.organization_id = m.organization_id
                  AND wd.member_id = m.id
                  AND date(wd.entry_date) >= date('now', '-6 days')) AS presence_week_minutes,
+             (SELECT COUNT(*)
+                FROM work_days wd
+               WHERE wd.organization_id = m.organization_id
+                 AND wd.member_id = m.id
+                 AND wd.status = 'absent'
+                 AND date(wd.entry_date) >= date('now', '-6 days')) AS absence_week_days,
              (SELECT COALESCE(SUM(${estimatedTaskMinutesSql("t")}), 0)
                 FROM tasks t
                WHERE t.organization_id = m.organization_id
@@ -308,14 +319,19 @@ export async function GET() {
     const people = (memberRows.results || []).map((row: any) => {
       const capacity = toNumber(row.weekly_capacity_minutes) || 2400
       const netCapacity = weeklyNetCapacityMinutes(capacity)
+      const role = toText(row.role, "member")
+      const dailyNetCapacity = netCapacity / DEFAULT_WORK_DAYS_PER_WEEK
       const tracked = toNumber(row.tracked_week_minutes)
-      const presence = toNumber(row.presence_week_minutes)
+      const rawPresence = toNumber(row.presence_week_minutes)
+      const assumedPresence = hasAutomaticPresence(role)
+        ? Math.max(0, Math.round(netCapacity - Math.min(DEFAULT_WORK_DAYS_PER_WEEK, toNumber(row.absence_week_days)) * dailyNetCapacity))
+        : 0
+      const presence = hasAutomaticPresence(role) ? Math.max(rawPresence, assumedPresence) : rawPresence
       const planned = toNumber(row.planned_week_minutes)
       const committed = Math.max(tracked, planned)
       const utilization = netCapacity > 0 ? Math.round((committed / netCapacity) * 100) : 0
       const presenceCoverage = netCapacity > 0 ? Math.round((presence / netCapacity) * 100) : 0
       const overdue = toNumber(row.overdue_tasks)
-      const role = toText(row.role, "member")
       const hasOperationalData = tracked > 0 || planned > 0 || presence > 0
       return {
         id: String(row.id),

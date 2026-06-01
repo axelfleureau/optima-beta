@@ -8,6 +8,7 @@ import {
   PRESENCE_GRACE_MINUTES,
   canManageTime,
   currentPresenceMinutes,
+  hasAutomaticPresence,
   minutesSinceMidnightFromDate,
   netPresenceMinutes,
   normalizeDate,
@@ -22,6 +23,7 @@ function formatName(row: any) {
 
 function getPresenceStatus(row: any) {
   if (row.day_status === "absent") return "absent"
+  if (shouldAssumePresence(row, row.entry_date)) return "present"
   if (row.day_status === "open" && row.check_in_at) return "present"
   if (row.check_in_at && !row.check_out_at) return "present"
   if (row.check_in_at && row.check_out_at) return "closed"
@@ -29,6 +31,26 @@ function getPresenceStatus(row: any) {
 }
 
 const CLOSED_TASK_STATES = new Set(["done", "completed", "validation", "archived", "archiviato", "suspended", "sospeso"])
+
+function isPastOrToday(date: string) {
+  return date <= new Date().toISOString().slice(0, 10)
+}
+
+function localDateTime(date: string, time: string) {
+  return `${date}T${time}:00`
+}
+
+function shouldAssumePresence(row: any, date?: string | null) {
+  const entryDate = typeof date === "string" && date ? date.slice(0, 10) : ""
+  return Boolean(
+    entryDate &&
+      isPastOrToday(entryDate) &&
+      hasAutomaticPresence(row.role) &&
+      !row.day_status &&
+      !row.check_in_at &&
+      !row.check_out_at,
+  )
+}
 
 function estimatedTaskMinutes(row: any) {
   const explicit = Number(row.estimated_minutes || 0)
@@ -93,13 +115,24 @@ function mapCalendarDay({
   tasks?: any
 }) {
   const schedule = workScheduleForMember(Number(member.weekly_capacity_minutes || 2400))
-  const status = mapCalendarStatus(workDay)
+  const assumedPresence = shouldAssumePresence(
+    {
+      ...member,
+      day_status: workDay?.status,
+      check_in_at: workDay?.check_in_at,
+      check_out_at: workDay?.check_out_at,
+    },
+    date,
+  )
+  const status = assumedPresence ? "present" : mapCalendarStatus(workDay)
   const activityMinutes = Number(activity?.activity_minutes || 0)
   const entryCount = Number(activity?.entry_count || 0)
   const taskMinutes = Number(tasks?.task_minutes || 0)
   const taskCount = Number(tasks?.task_count || 0)
   const loadMinutes = Math.max(activityMinutes, taskMinutes)
-  const checkInMinute = minutesSinceMidnightFromDate(workDay?.check_in_at)
+  const assumedCheckInAt = assumedPresence ? localDateTime(date, schedule.workStartTime) : null
+  const checkInAt = workDay?.check_in_at || assumedCheckInAt
+  const checkInMinute = minutesSinceMidnightFromDate(checkInAt)
   const checkOutMinute = minutesSinceMidnightFromDate(workDay?.check_out_at)
   const expectedStartMinute = timeToMinutes(schedule.workStartTime)
   const expectedEndMinute = timeToMinutes(schedule.expectedCheckOutTime)
@@ -108,7 +141,7 @@ function mapCalendarDay({
   const minutesEarly =
     status === "closed" && checkOutMinute !== null ? Math.max(0, expectedEndMinute - checkOutMinute - PRESENCE_GRACE_MINUTES) : 0
   const loadRatio = schedule.expectedOfficeMinutes > 0 ? loadMinutes / schedule.expectedOfficeMinutes : 0
-  const hasWorkSignal = status === "present" || status === "closed" || activityMinutes > 0 || taskCount > 0
+  const hasWorkSignal = assumedPresence || status === "present" || status === "closed" || activityMinutes > 0 || taskCount > 0
   const intensity =
     status === "absent"
       ? 0
@@ -119,7 +152,7 @@ function mapCalendarDay({
   return {
     date,
     status,
-    checkInAt: workDay?.check_in_at || null,
+    checkInAt,
     checkOutAt: workDay?.check_out_at || null,
     absenceReason: workDay?.absence_reason || "",
     activityMinutes,
@@ -209,11 +242,14 @@ function mapPresenceRow(row: any, upcomingRows: any[] = []) {
   const weeklyCapacityMinutes = Number(row.weekly_capacity_minutes || 2400)
   const schedule = workScheduleForMember(weeklyCapacityMinutes)
   const activityMinutes = Number(row.activity_minutes || 0)
+  const assumedPresence = shouldAssumePresence(row, row.entry_date)
   const status = getPresenceStatus(row)
+  const assumedCheckInAt = assumedPresence ? localDateTime(String(row.entry_date), schedule.workStartTime) : null
+  const checkInAt = row.check_in_at || assumedCheckInAt
   const visibleCheckOutAt = status === "present" ? null : row.check_out_at || null
-  const grossPresenceMinutes = currentPresenceMinutes(row.check_in_at, visibleCheckOutAt)
-  const presenceMinutes = netPresenceMinutes(grossPresenceMinutes, schedule.lunchBreakMinutes)
-  const checkInMinute = minutesSinceMidnightFromDate(row.check_in_at)
+  const grossPresenceMinutes = assumedPresence ? schedule.dailyCapacityMinutes : currentPresenceMinutes(checkInAt, visibleCheckOutAt)
+  const presenceMinutes = assumedPresence ? schedule.expectedOfficeMinutes : netPresenceMinutes(grossPresenceMinutes, schedule.lunchBreakMinutes)
+  const checkInMinute = minutesSinceMidnightFromDate(checkInAt)
   const checkOutMinute = minutesSinceMidnightFromDate(visibleCheckOutAt)
   const expectedStartMinute = timeToMinutes(schedule.workStartTime)
   const expectedEndMinute = timeToMinutes(schedule.expectedCheckOutTime)
@@ -237,10 +273,11 @@ function mapPresenceRow(row: any, upcomingRows: any[] = []) {
     email: String(row.email || ""),
     role: String(row.role || "junior"),
     status,
-    checkInAt: row.check_in_at || null,
+    checkInAt,
     checkOutAt: visibleCheckOutAt,
     absenceReason: row.absence_reason || "",
     notes: row.notes || "",
+    assumedPresence,
     grossPresenceMinutes,
     presenceMinutes,
     activityMinutes,
@@ -368,7 +405,9 @@ export async function GET(request: NextRequest) {
       tasksByMember.set(memberId, [...(tasksByMember.get(memberId) || []), task])
     }
 
-    const people: ReturnType<typeof mapPresenceRow>[] = memberRows.map((row) => mapPresenceRow(row, tasksByMember.get(String(row.id)) || []))
+    const people: ReturnType<typeof mapPresenceRow>[] = memberRows.map((row) =>
+      mapPresenceRow({ ...row, entry_date: date }, tasksByMember.get(String(row.id)) || []),
+    )
     const self = people.find((person) => person.id === principal.memberId) || null
 
     const [workDaysResult, activityDaysResult, taskDaysResult] = await Promise.all([

@@ -1,6 +1,7 @@
 import type { WorkspacePrincipal } from "@/lib/workspace-db"
 
 export const TIME_MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
+export const AUTO_PRESENT_ROLES = new Set(["super-admin", "admin", "direzione"])
 export const DEFAULT_WORK_START_TIME = "09:00"
 export const DEFAULT_LUNCH_BREAK_MINUTES = 60
 export const DEFAULT_WORK_DAYS_PER_WEEK = 5
@@ -8,6 +9,10 @@ export const PRESENCE_GRACE_MINUTES = 15
 
 export function canManageTime(principal: WorkspacePrincipal) {
   return TIME_MANAGER_ROLES.has(principal.role)
+}
+
+export function hasAutomaticPresence(role: unknown) {
+  return AUTO_PRESENT_ROLES.has(String(role || "").toLowerCase())
 }
 
 export function normalizeDate(value: unknown) {

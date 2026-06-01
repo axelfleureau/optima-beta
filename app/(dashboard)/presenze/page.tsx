@@ -24,6 +24,7 @@ type PersonPresence = {
   checkOutAt: string | null
   absenceReason: string
   notes: string
+  assumedPresence?: boolean
   grossPresenceMinutes: number
   presenceMinutes: number
   activityMinutes: number
@@ -474,6 +475,11 @@ export default function PresenzePage() {
                   Calcolo ufficio: {formatMinutes(self?.dailyCapacityMinutes || 480)} lorde, meno{" "}
                   {formatMinutes(self?.lunchBreakMinutes || 60)} di pausa pranzo. Le entrate prima/dopo le 09:00 vengono tracciate senza forzare il dato.
                 </p>
+                {self?.assumedPresence && (
+                  <div className="mt-3 rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100">
+                    Presenza direzione assunta: nessuna timbratura richiesta finche non viene segnata un'assenza.
+                  </div>
+                )}
                 {self?.presenceSignal && (
                   <div className="mt-3 rounded-[8px] border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
                     {self.presenceSignal === "late"
@@ -807,6 +813,7 @@ function PresenceMiniCard({ person }: { person: PersonPresence }) {
         <span>Entrata {formatTime(person.checkInAt)}</span>
         <span>Uscita {formatTime(person.checkOutAt)}</span>
       </div>
+      {person.assumedPresence && <p className="mt-2 text-xs text-cyan-100">Presenza direzione assunta</p>}
       {person.presenceSignal && (
         <Badge className="mt-3 rounded-[8px] border border-amber-300/25 bg-amber-300/10 text-amber-100">
           {presenceSignalLabel(person)}
@@ -877,7 +884,7 @@ function PersonRow({ person }: { person: PersonPresence }) {
       <div className="text-sm text-slate-300">
         <p>{formatTime(person.checkInAt)} - {formatTime(person.checkOutAt)}</p>
         <p className="mt-1 text-xs text-slate-500">
-          Rif. {person.workStartTime} - {person.expectedCheckOutTime}
+          {person.assumedPresence ? "Direzione reperibile" : "Rif."} {person.workStartTime} - {person.expectedCheckOutTime}
         </p>
       </div>
       <div>
