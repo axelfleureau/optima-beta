@@ -36,18 +36,11 @@ import {
   useSidebar
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
+import { RighelloIcon } from "@/components/brand/righello-icon"
 import { cn } from "@/lib/utils"
 
 const OptimaMark = ({ className }: { className?: string }) => (
-  <div
-    aria-hidden="true"
-    className={cn(
-      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-righello-pink text-base font-black text-white shadow-[0_12px_30px_rgba(214,72,126,0.28)]",
-      className
-    )}
-  >
-    o
-  </div>
+  <RighelloIcon className={className} />
 )
 
 export function AppSidebar() {

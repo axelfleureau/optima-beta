@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { RighelloIcon } from "@/components/brand/righello-icon"
 
 type Module = {
   icon: LucideIcon
@@ -187,7 +188,7 @@ function ProductCockpit() {
       <div className="grid min-h-[500px] gap-0 lg:grid-cols-[260px_1fr]">
         <aside className="hidden border-r border-white/10 bg-white/[0.025] p-4 lg:block">
           <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-[8px] bg-[#d6487e] text-xl font-black">O</span>
+            <RighelloIcon className="h-11 w-11" imageClassName="h-6 w-6" />
             <div>
               <p className="text-lg font-black text-white">Optima</p>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/38">by Righello</p>
@@ -454,7 +455,7 @@ export default function HomePage() {
           )}
         </div>
         <div className="mx-auto grid h-44 w-44 place-items-center rounded-full border border-white/14">
-          <div className="grid h-24 w-24 place-items-center rounded-[8px] bg-[#d6487e] text-5xl font-black">O</div>
+          <RighelloIcon className="h-24 w-24" imageClassName="h-14 w-14" />
         </div>
         <div>
           <div className="h-1 overflow-hidden rounded-full bg-white/12">
@@ -477,9 +478,7 @@ export default function HomePage() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#05070b]/82 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="Optima home">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] bg-[#d6487e] text-lg font-black text-white">
-              O
-            </span>
+            <RighelloIcon className="h-10 w-10" imageClassName="h-5 w-5" priority />
             <span className="min-w-0 leading-none">
               <span className="block text-xl font-black">Optima</span>
               <span className="block text-xs font-bold uppercase tracking-[0.18em] text-white/42">by Righello</span>

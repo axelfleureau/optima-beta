@@ -6,6 +6,7 @@ import { useSidebar } from "@/components/ui/sidebar"
 import { useAuth } from "@/lib/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationPanel } from "@/components/ui/notification-panel"
+import { RighelloIcon } from "@/components/brand/righello-icon"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,9 +35,7 @@ export function MobileHeader() {
         </Button>
         
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-righello-pink text-sm font-black text-white shadow-lg shadow-righello-pink/20">
-            O
-          </div>
+          <RighelloIcon className="h-9 w-9 rounded-xl" imageClassName="h-[18px] w-[18px]" priority />
           <div className="leading-none">
             <span className="block text-lg font-bold">Optima</span>
             <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-white/40">by Righello</span>

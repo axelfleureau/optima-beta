@@ -2,6 +2,7 @@
 
 import type React from "react"
 import Image from "next/image"
+import { RighelloIcon } from "@/components/brand/righello-icon"
 
 export const optimaClerkAppearance = {
   variables: {
@@ -54,7 +55,7 @@ export function ClerkAuthShell({ children, title }: { children: React.ReactNode;
 
         <section className="mx-auto w-full max-w-md">
           <div className="mb-7 flex items-center justify-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-righello-pink font-black">O</div>
+            <RighelloIcon className="h-10 w-10 rounded-xl" priority />
             <div>
               <div className="text-xl font-black leading-none">Optima</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">by Righello</div>
