@@ -310,7 +310,7 @@ export async function GET(request: NextRequest) {
           AND te.member_id = m.id
           AND te.entry_date = ?
          WHERE m.organization_id = ?
-           AND m.status = 'active'
+           AND COALESCE(m.status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')
            AND m.role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior', 'member', 'dipendente', 'employee')
            AND (? = 1 OR m.id = ?)
          ORDER BY

@@ -66,7 +66,9 @@ function rowToEvent(row: any) {
 }
 
 async function getOptions(db: any, organizationId: string, memberId: string, isManager: boolean) {
-  const memberWhere = isManager ? "organization_id = ? AND status = 'active'" : "organization_id = ? AND id = ?"
+  const memberWhere = isManager
+    ? "organization_id = ? AND COALESCE(status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')"
+    : "organization_id = ? AND id = ?"
   const memberBindings = isManager ? [organizationId] : [organizationId, memberId]
   const [membersResult, clientsResult, projectsResult] = await Promise.all([
     db

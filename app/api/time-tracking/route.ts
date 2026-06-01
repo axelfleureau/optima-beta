@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
             `SELECT id, email, first_name, last_name, role
              FROM members
              WHERE organization_id = ?
-               AND status = 'active'
+               AND COALESCE(status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')
                AND role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior', 'member', 'dipendente', 'employee')
              ORDER BY first_name, last_name, email`,
           )

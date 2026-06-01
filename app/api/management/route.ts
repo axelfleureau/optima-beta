@@ -207,7 +207,7 @@ export async function GET() {
                  AND te.member_id = m.id) AS last_entry_at
            FROM members m
            WHERE m.organization_id = ?
-             AND COALESCE(m.status, 'active') IN ('active', 'invited', 'inactive')
+             AND COALESCE(m.status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')
              AND NOT (
                COALESCE(m.status, 'active') != 'active'
                AND EXISTS (

@@ -408,7 +408,7 @@ async function buildOperationalContext(db: any, principal: WorkspacePrincipal) {
         `SELECT m.first_name, m.last_name, m.email, m.role, wd.check_in_at, wd.check_out_at, wd.status
          FROM members m
          LEFT JOIN work_days wd ON wd.member_id = m.id AND wd.organization_id = m.organization_id AND wd.entry_date = ?
-         WHERE m.organization_id = ? AND m.status = 'active'
+         WHERE m.organization_id = ? AND COALESCE(m.status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')
          ORDER BY m.role ASC, m.first_name ASC, m.email ASC
          LIMIT 16`,
         [today, principal.organizationId],
