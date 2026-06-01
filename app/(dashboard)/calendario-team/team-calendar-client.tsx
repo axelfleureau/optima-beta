@@ -151,12 +151,14 @@ export default function TeamCalendarClient() {
   const [clients, setClients] = useState<CalendarOption[]>([])
   const [projects, setProjects] = useState<CalendarOption[]>([])
   const [memberId, setMemberId] = useState("")
+  const [canSeeTeam, setCanSeeTeam] = useState(false)
   const [scope, setScope] = useState<"team" | "mine">("team")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isFeedOpen, setIsFeedOpen] = useState(false)
   const [feedUrl, setFeedUrl] = useState("")
+  const [googleFeedUrl, setGoogleFeedUrl] = useState("")
   const [form, setForm] = useState<CalendarForm>(() => defaultForm())
 
   const loadCalendar = useCallback(async () => {
@@ -173,6 +175,8 @@ export default function TeamCalendarClient() {
       setClients(data.options?.clients || [])
       setProjects(data.options?.projects || [])
       setMemberId(data.memberId || "")
+      setCanSeeTeam(Boolean(data.canSeeTeam))
+      if (data.scope === "mine" && scope !== "mine") setScope("mine")
     } catch (error) {
       toast({
         title: "Calendario non disponibile",
@@ -329,6 +333,7 @@ export default function TeamCalendarClient() {
       if (!response.ok) throw new Error("Feed iCloud non disponibile")
       const data = await response.json()
       setFeedUrl(data.url || "")
+      setGoogleFeedUrl(data.googleCalendarUrl || "")
       setIsFeedOpen(true)
     } catch (error) {
       toast({
@@ -358,17 +363,22 @@ export default function TeamCalendarClient() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/62">
               Pianifica shooting, call, appuntamenti, delivery e impegni del team. Il feed iCalendar lo puoi collegare a
               iCloud per averlo sul telefono.
+              {canSeeTeam
+                ? " Direzione e admin possono lavorare su tutto il team."
+                : " Il tuo profilo vede solo il tuo calendario personale."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setScope((current) => (current === "team" ? "mine" : "team"))}
-              className="border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
-            >
-              {scope === "team" ? "Vista team" : "Solo miei"}
-            </Button>
+            {canSeeTeam && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setScope((current) => (current === "team" ? "mine" : "team"))}
+                className="border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
+              >
+                {scope === "team" ? "Vista team" : "Solo miei"}
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -376,7 +386,7 @@ export default function TeamCalendarClient() {
               className="border-righello-cyan/25 bg-righello-cyan/10 text-righello-cyan hover:bg-righello-cyan/15"
             >
               <Cloud className="h-4 w-4" />
-              iCloud
+              Sync calendario
             </Button>
             <Button
               type="button"
@@ -506,9 +516,10 @@ export default function TeamCalendarClient() {
               </div>
             </div>
             <div className="rounded-lg border border-righello-cyan/20 bg-righello-cyan/10 p-4">
-              <p className="font-bold text-righello-cyan">Sync iCloud</p>
+              <p className="font-bold text-righello-cyan">Sync calendario</p>
               <p className="mt-2 text-sm leading-6 text-white/62">
-                Il primo step è un calendario in abbonamento: lo vedi su iPhone e Mac, mentre le modifiche restano governate da Optima.
+                Il primo step è un calendario in abbonamento: lo vedi su iPhone, Mac e Google Calendar, mentre le modifiche restano governate da Optima.
+                {canSeeTeam ? " Il feed direzione include tutto il team." : " Il feed dipendente include solo i tuoi eventi."}
               </p>
             </div>
           </aside>
@@ -647,21 +658,36 @@ export default function TeamCalendarClient() {
       <Dialog open={isFeedOpen} onOpenChange={setIsFeedOpen}>
         <DialogContent className="border-white/10 bg-[#050914] text-white sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Collega a iCloud</DialogTitle>
+            <DialogTitle>Collega calendario</DialogTitle>
             <DialogDescription className="text-white/55">
-              Usa questo URL come calendario in abbonamento su iPhone, Mac o Google Calendar.
+              Usa questo URL come calendario in abbonamento su iPhone, Mac o Google Calendar. Il feed rispetta i permessi del profilo.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-white/70 break-all">{feedUrl}</div>
           <ol className="space-y-2 text-sm leading-6 text-white/62">
             <li>1. iPhone: Impostazioni &gt; Calendario &gt; Account &gt; Aggiungi account &gt; Altro.</li>
             <li>2. Scegli “Aggiungi calendario con iscrizione”.</li>
-            <li>3. Incolla il link e salva. Gli eventi si aggiornano da Optima.</li>
+            <li>3. Google Calendar: Altri calendari &gt; Da URL, oppure apri il link Google sotto.</li>
+            <li>4. Gli eventi si aggiornano da Optima in sola lettura.</li>
           </ol>
-          <Button type="button" onClick={copyFeed} className="bg-righello-cyan text-slate-950 hover:bg-righello-cyan/90">
-            <Copy className="h-4 w-4" />
-            Copia link
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" onClick={copyFeed} className="bg-righello-cyan text-slate-950 hover:bg-righello-cyan/90">
+              <Copy className="h-4 w-4" />
+              Copia link
+            </Button>
+            {googleFeedUrl && (
+              <Button
+                type="button"
+                variant="outline"
+                asChild
+                className="border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
+              >
+                <a href={googleFeedUrl} target="_blank" rel="noreferrer">
+                  Apri in Google Calendar
+                </a>
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

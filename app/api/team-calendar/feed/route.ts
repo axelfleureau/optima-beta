@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic"
 
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
+import { canManageTime } from "@/lib/time-tracking"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 export async function GET(request: Request) {
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
     if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 })
 
     const principal = await ensureWorkspacePrincipal(db, user)
+    const isManager = canManageTime(principal)
     const existing = await db
       .prepare(
         `SELECT token
@@ -39,11 +41,18 @@ export async function GET(request: Request) {
 
     const origin = new URL(request.url).origin
 
+    const url = `${origin}/api/team-calendar/ics/${encodeURIComponent(token)}`
+
     return Response.json({
-      url: `${origin}/api/team-calendar/ics/${encodeURIComponent(token)}`,
+      url,
+      googleCalendarUrl: `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`,
+      scope: isManager ? "team" : "personal",
       instructions: [
-        "iPhone: Impostazioni > Calendario > Account > Aggiungi account > Altro.",
-        "Scegli Aggiungi calendario con iscrizione e incolla questo URL.",
+        isManager
+          ? "Questo feed include il calendario team visibile a direzione/admin."
+          : "Questo feed include solo il tuo calendario personale.",
+        "iPhone: Impostazioni > Calendario > Account > Aggiungi account > Altro > Aggiungi calendario con iscrizione.",
+        "Google Calendar: Altri calendari > Da URL, poi incolla questo link.",
         "Il calendario resta in sola lettura: Optima rimane la fonte degli eventi.",
       ],
     })

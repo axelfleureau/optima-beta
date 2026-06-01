@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic"
 import type { NextRequest } from "next/server"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
+import { canManageTime } from "@/lib/time-tracking"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 const EVENT_TYPES = new Set(["meeting", "call", "shooting", "delivery", "internal", "travel", "other"])
@@ -64,6 +65,14 @@ function rowToEvent(row: any) {
   }
 }
 
+function canAccessEvent(principal: { memberId: string }, isManager: boolean, event: any) {
+  if (isManager) return true
+  const attendees = parseAttendees(event.attendees_json)
+  return event.owner_member_id === principal.memberId
+    || event.created_by_member_id === principal.memberId
+    || attendees.includes(principal.memberId)
+}
+
 async function loadEvent(db: any, organizationId: string, id: string) {
   return db
     .prepare(
@@ -91,9 +100,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 })
 
     const principal = await ensureWorkspacePrincipal(db, user)
+    const isManager = canManageTime(principal)
     const { id } = await params
     const existing = await loadEvent(db, principal.organizationId, id)
     if (!existing) return Response.json({ error: "Evento non trovato" }, { status: 404 })
+    if (!canAccessEvent(principal, isManager, existing)) {
+      return Response.json({ error: "Evento non disponibile per questo profilo" }, { status: 403 })
+    }
 
     const body = await request.json()
     const startsAt = normalizeDate(body.startsAt)
@@ -125,8 +138,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if ("allDay" in body) setValue("all_day", body.allDay ? 1 : 0)
     if ("clientId" in body) setValue("client_id", normalizeNullableId(body.clientId))
     if ("projectId" in body) setValue("project_id", normalizeNullableId(body.projectId))
-    if ("ownerMemberId" in body) setValue("owner_member_id", normalizeNullableId(body.ownerMemberId) || principal.memberId)
-    if ("attendees" in body) setValue("attendees_json", JSON.stringify(normalizeStringArray(body.attendees)))
+    if ("ownerMemberId" in body) {
+      setValue("owner_member_id", isManager ? normalizeNullableId(body.ownerMemberId) || principal.memberId : principal.memberId)
+    }
+    if ("attendees" in body) {
+      setValue("attendees_json", JSON.stringify(isManager ? normalizeStringArray(body.attendees) : [principal.memberId]))
+    }
 
     if (assignments.length === 0) {
       return Response.json({ event: rowToEvent(existing) })
@@ -157,7 +174,13 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 })
 
     const principal = await ensureWorkspacePrincipal(db, user)
+    const isManager = canManageTime(principal)
     const { id } = await params
+    const existing = await loadEvent(db, principal.organizationId, id)
+    if (!existing) return Response.json({ error: "Evento non trovato" }, { status: 404 })
+    if (!canAccessEvent(principal, isManager, existing)) {
+      return Response.json({ error: "Evento non disponibile per questo profilo" }, { status: 403 })
+    }
 
     await db
       .prepare(`DELETE FROM team_calendar_events WHERE id = ? AND organization_id = ?`)

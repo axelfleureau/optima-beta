@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic"
 import type { NextRequest } from "next/server"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
+import { canManageTime } from "@/lib/time-tracking"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 const EVENT_TYPES = new Set(["meeting", "call", "shooting", "delivery", "internal", "travel", "other"])
@@ -64,16 +65,18 @@ function rowToEvent(row: any) {
   }
 }
 
-async function getOptions(db: any, organizationId: string) {
+async function getOptions(db: any, organizationId: string, memberId: string, isManager: boolean) {
+  const memberWhere = isManager ? "organization_id = ? AND status = 'active'" : "organization_id = ? AND id = ?"
+  const memberBindings = isManager ? [organizationId] : [organizationId, memberId]
   const [membersResult, clientsResult, projectsResult] = await Promise.all([
     db
       .prepare(
         `SELECT id, email, first_name, last_name, role
          FROM members
-         WHERE organization_id = ? AND status = 'active'
+         WHERE ${memberWhere}
          ORDER BY first_name, last_name, email`,
       )
-      .bind(organizationId)
+      .bind(...memberBindings)
       .all(),
     db
       .prepare(
@@ -126,13 +129,15 @@ export async function GET(request: NextRequest) {
     if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 })
 
     const principal = await ensureWorkspacePrincipal(db, user)
+    const isManager = canManageTime(principal)
     const { searchParams } = new URL(request.url)
     const now = new Date()
     const defaultFrom = new Date(now.getFullYear(), now.getMonth(), 1)
     const defaultTo = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59)
     const from = normalizeDate(searchParams.get("from"), defaultFrom).toISOString()
     const to = normalizeDate(searchParams.get("to"), defaultTo).toISOString()
-    const scope = searchParams.get("scope") === "mine" ? "mine" : "team"
+    const requestedScope = searchParams.get("scope") === "mine" ? "mine" : "team"
+    const scope = isManager ? requestedScope : "mine"
 
     const memberFilter = scope === "mine"
       ? "AND (e.owner_member_id = ? OR e.created_by_member_id = ? OR e.attendees_json LIKE ?)"
@@ -160,9 +165,11 @@ export async function GET(request: NextRequest) {
 
     return Response.json({
       events: (result.results || []).map(rowToEvent),
-      options: await getOptions(db, principal.organizationId),
+      options: await getOptions(db, principal.organizationId, principal.memberId, isManager),
       memberId: principal.memberId,
       role: principal.role,
+      canSeeTeam: isManager,
+      scope,
     })
   } catch (error) {
     console.error("Team calendar GET error:", error)
@@ -179,6 +186,7 @@ export async function POST(request: NextRequest) {
     if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 })
 
     const principal = await ensureWorkspacePrincipal(db, user)
+    const isManager = canManageTime(principal)
     const body = await request.json()
     const title = typeof body.title === "string" ? body.title.trim() : ""
     if (!title) return Response.json({ error: "Titolo evento obbligatorio" }, { status: 400 })
@@ -195,8 +203,10 @@ export async function POST(request: NextRequest) {
     const requestedStatus = typeof body.status === "string" ? body.status : ""
     const eventType = EVENT_TYPES.has(requestedEventType) ? requestedEventType : "meeting"
     const status = STATUSES.has(requestedStatus) ? requestedStatus : "confirmed"
-    const ownerMemberId = normalizeNullableId(body.ownerMemberId) || principal.memberId
-    const attendees = normalizeStringArray(body.attendees)
+    const ownerMemberId = isManager ? normalizeNullableId(body.ownerMemberId) || principal.memberId : principal.memberId
+    const attendees = isManager
+      ? normalizeStringArray(body.attendees)
+      : [principal.memberId]
 
     await db
       .prepare(

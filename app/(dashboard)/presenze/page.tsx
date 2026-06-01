@@ -122,6 +122,20 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function monthInputValue(value: string) {
+  return value.slice(0, 7)
+}
+
+function dateFromMonthInput(value: string) {
+  return /^\d{4}-\d{2}$/.test(value) ? `${value}-01` : today()
+}
+
+function shiftMonth(value: string, delta: number) {
+  const [year = "0", month = "1"] = value.slice(0, 7).split("-")
+  const next = new Date(Number(year), Number(month) - 1 + delta, 1)
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`
+}
+
 function currentTime() {
   return new Date().toTimeString().slice(0, 5)
 }
@@ -499,7 +513,12 @@ export default function PresenzePage() {
         </section>
 
         {payload?.calendar && (
-          <PresenceCalendarHeatmap calendar={payload.calendar} isManager={payload.isManager} />
+          <PresenceCalendarHeatmap
+            calendar={payload.calendar}
+            isManager={payload.isManager}
+            selectedDate={date}
+            onDateChange={setDate}
+          />
         )}
 
         {payload?.isManager ? (
@@ -555,12 +574,29 @@ export default function PresenzePage() {
 function PresenceCalendarHeatmap({
   calendar,
   isManager,
+  selectedDate,
+  onDateChange,
 }: {
   calendar: PresencePayload["calendar"]
   isManager: boolean
+  selectedDate: string
+  onDateChange: (date: string) => void
 }) {
+  const [personFilter, setPersonFilter] = useState("all")
+
+  useEffect(() => {
+    if (personFilter !== "all" && !calendar.people.some((person) => person.id === personFilter)) {
+      setPersonFilter("all")
+    }
+  }, [calendar.people, personFilter])
+
+  const visiblePeople = useMemo(() => {
+    if (!isManager || personFilter === "all") return calendar.people
+    return calendar.people.filter((person) => person.id === personFilter)
+  }, [calendar.people, isManager, personFilter])
+
   const monthStats = useMemo(() => {
-    return calendar.people.reduce(
+    return visiblePeople.reduce(
       (acc, person) => {
         for (const day of person.days) {
           if (day.status === "present" || day.status === "closed") acc.presenceDays += 1
@@ -572,12 +608,12 @@ function PresenceCalendarHeatmap({
       },
       { presenceDays: 0, absenceDays: 0, taskCount: 0, activityMinutes: 0 },
     )
-  }, [calendar.people])
+  }, [visiblePeople])
 
   return (
     <section className={cn(panelClass, "overflow-hidden")}>
       <div className="flex flex-col gap-4 border-b border-white/10 p-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <Badge className="mb-3 w-fit rounded-[8px] border border-cyan-300/25 bg-cyan-300/10 text-cyan-100">
             <CalendarDays className="mr-2 h-3.5 w-3.5" />
             Calendario presenze
@@ -586,13 +622,66 @@ function PresenceCalendarHeatmap({
             {isManager ? "Mese operativo del team" : "Il tuo mese operativo"}
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            Ogni riga e una persona. Le celle piu accese indicano piu lavoro registrato o task in scadenza; il rosso indica assenza.
+            {isManager
+              ? "Direzione e admin vedono tutto il team. Junior e dipendenti vedono solo il proprio calendario."
+              : "Vista personale: direzione e admin possono consultarla nel calendario team."}
+            {" "}Le celle piu accese indicano piu lavoro registrato o task in scadenza; il rosso indica assenza.
           </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[auto_minmax(0,12rem)_auto_auto]">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onDateChange(shiftMonth(calendar.monthStart, -1))}
+              className="h-10 rounded-[8px] border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
+            >
+              Mese prima
+            </Button>
+            <Input
+              type="month"
+              value={monthInputValue(selectedDate)}
+              onChange={(event) => onDateChange(dateFromMonthInput(event.target.value))}
+              className={cn("h-10 rounded-[8px]", nativeDateTimeInputClass)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onDateChange(shiftMonth(calendar.monthStart, 1))}
+              className="h-10 rounded-[8px] border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
+            >
+              Mese dopo
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onDateChange(today())}
+              className="h-10 rounded-[8px] border-righello-cyan/25 bg-righello-cyan/10 text-righello-cyan hover:bg-righello-cyan/15"
+            >
+              Oggi
+            </Button>
+          </div>
+          {isManager && calendar.people.length > 1 && (
+            <select
+              value={personFilter}
+              onChange={(event) => setPersonFilter(event.target.value)}
+              className="mt-3 h-10 w-full max-w-sm rounded-[8px] border border-white/10 bg-black/30 px-3 text-sm text-white outline-none transition focus:border-righello-cyan"
+            >
+              <option value="all">Tutte le persone</option>
+              {calendar.people.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="grid gap-2 text-sm text-slate-300 sm:grid-cols-4 lg:min-w-[30rem]">
           <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
             <p className="text-xs text-slate-500">Periodo</p>
             <p className="mt-1 font-black capitalize text-white">{formatMonthLabel(calendar.monthStart)}</p>
+          </div>
+          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <p className="text-xs text-slate-500">Persone</p>
+            <p className="mt-1 font-black text-white">{visiblePeople.length}</p>
           </div>
           <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
             <p className="text-xs text-slate-500">Presenze</p>
@@ -601,10 +690,6 @@ function PresenceCalendarHeatmap({
           <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
             <p className="text-xs text-slate-500">Assenze</p>
             <p className="mt-1 font-black text-red-100">{monthStats.absenceDays}</p>
-          </div>
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
-            <p className="text-xs text-slate-500">Task</p>
-            <p className="mt-1 font-black text-cyan-100">{monthStats.taskCount}</p>
           </div>
         </div>
       </div>
@@ -623,7 +708,7 @@ function PresenceCalendarHeatmap({
               </div>
             ))}
 
-            {calendar.people.map((person) => (
+            {visiblePeople.map((person) => (
               <div key={person.id} className="contents">
                 <div className="sticky left-0 z-10 min-w-0 rounded-[8px] border border-white/10 bg-[#0a1020] px-3 py-2">
                   <p className="truncate text-sm font-black text-white">{person.name}</p>
