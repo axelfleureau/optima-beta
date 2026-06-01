@@ -247,15 +247,15 @@ function presenceSignalLabel(person: PersonPresence) {
 }
 
 function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
-  if (day.status === "absent") return "border-red-300/30 bg-red-400/35 text-red-50"
-  if (day.status === "missing" && day.intensity === 0) return "border-white/8 bg-white/[0.035] text-slate-600"
+  if (day.status === "absent") return "border-red-300/70 bg-red-500/70 text-white shadow-[0_0_18px_rgba(248,113,113,0.18)]"
+  if (day.status === "missing" && day.intensity === 0) return "border-white/10 bg-white/[0.075] text-slate-500"
 
   const intensityClasses = [
-    "border-white/8 bg-white/[0.055] text-slate-400",
-    "border-emerald-300/20 bg-emerald-400/16 text-emerald-100",
-    "border-emerald-300/25 bg-emerald-400/28 text-emerald-50",
-    "border-cyan-300/30 bg-cyan-400/34 text-cyan-50",
-    "border-righello-pink/38 bg-righello-pink/42 text-white",
+    "border-white/12 bg-white/[0.09] text-slate-400",
+    "border-emerald-300/35 bg-emerald-400/30 text-emerald-50",
+    "border-teal-300/45 bg-teal-400/45 text-white shadow-[0_0_14px_rgba(45,212,191,0.12)]",
+    "border-cyan-300/60 bg-cyan-400/62 text-[#03131d] shadow-[0_0_18px_rgba(34,211,238,0.18)]",
+    "border-righello-pink/75 bg-righello-pink/78 text-white shadow-[0_0_22px_rgba(224,64,133,0.25)]",
   ]
 
   return intensityClasses[Math.max(0, Math.min(4, day.intensity || 0))]
@@ -711,22 +711,28 @@ function PresenceCalendarHeatmap({
       </div>
 
       <div className="overflow-x-auto overscroll-x-contain p-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-x]">
-        <div className="min-w-[980px]">
+        <div className="min-w-[1180px]">
           <div
             className="grid items-end gap-1"
-            style={{ gridTemplateColumns: `minmax(190px, 1.5fr) repeat(${calendar.days.length}, minmax(24px, 1fr))` }}
+            style={{ gridTemplateColumns: `minmax(220px, 1.45fr) repeat(${calendar.days.length}, minmax(34px, 1fr))` }}
           >
             <div className="px-2 pb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">Persona</div>
             {calendar.days.map((day) => (
-              <div key={day} className="pb-2 text-center">
-                <p className="text-[11px] font-black leading-none text-slate-300">{formatDayNumber(day)}</p>
-                <p className="mt-1 text-[10px] uppercase leading-none text-slate-600">{formatWeekdayShort(day)}</p>
+              <div
+                key={day}
+                className={cn(
+                  "rounded-[7px] px-1 pb-2 pt-1 text-center",
+                  day === selectedDate && "bg-righello-pink/15 ring-1 ring-righello-pink/35",
+                )}
+              >
+                <p className="text-[13px] font-black leading-none text-slate-100">{formatDayNumber(day)}</p>
+                <p className="mt-1 text-[10px] font-bold uppercase leading-none text-slate-500">{formatWeekdayShort(day)}</p>
               </div>
             ))}
 
             {visiblePeople.map((person) => (
               <div key={person.id} className="contents">
-                <div className="sticky left-0 z-10 min-w-0 rounded-[8px] border border-white/10 bg-[#0a1020] px-3 py-2">
+                <div className="sticky left-0 z-10 min-w-0 rounded-[8px] border border-white/10 bg-[#0a1020] px-3 py-3 shadow-[12px_0_24px_rgba(5,9,20,0.85)]">
                   <p className="truncate text-sm font-black text-white">{person.name}</p>
                   <p className="mt-0.5 truncate text-xs text-slate-500">{person.role}</p>
                 </div>
@@ -737,13 +743,14 @@ function PresenceCalendarHeatmap({
                     title={calendarDayTitle(person, day)}
                     aria-label={calendarDayTitle(person, day)}
                     className={cn(
-                      "relative h-9 rounded-[7px] border text-[10px] font-black transition hover:scale-[1.08] hover:border-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                      "relative h-11 rounded-[7px] border text-[11px] font-black transition hover:z-20 hover:scale-[1.08] hover:border-white/55 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                       calendarCellClass(day),
+                      day.date === selectedDate && "outline outline-2 outline-offset-1 outline-righello-pink/70",
                     )}
                   >
                     {day.status === "absent" ? "A" : day.taskCount > 0 ? day.taskCount : day.intensity > 0 ? "" : "-"}
                     {day.signal && (
-                      <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-200" />
+                      <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-200 shadow-[0_0_8px_rgba(253,230,138,0.8)]" />
                     )}
                   </button>
                 ))}
@@ -753,14 +760,21 @@ function PresenceCalendarHeatmap({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-white/10 px-5 py-4 text-xs text-slate-400">
-        <span className="font-semibold text-slate-300">Legenda</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-white/[0.055]" /> vuoto</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-emerald-400/16" /> leggero</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-cyan-400/34" /> intenso</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-righello-pink/42" /> saturo</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-red-400/35" /> assenza</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-200" /> segnale orario</span>
+      <div className="flex flex-wrap items-center gap-4 border-t border-white/10 px-5 py-4 text-xs text-slate-300">
+        <span className="font-black uppercase tracking-[0.14em] text-slate-400">Legenda</span>
+        <span className="inline-flex items-center gap-2">
+          <span className="flex items-center gap-1">
+            <span className="h-4 w-4 rounded-[5px] border border-white/10 bg-white/[0.09]" />
+            <span className="h-4 w-4 rounded-[5px] border border-emerald-300/35 bg-emerald-400/30" />
+            <span className="h-4 w-4 rounded-[5px] border border-teal-300/45 bg-teal-400/45" />
+            <span className="h-4 w-4 rounded-[5px] border border-cyan-300/60 bg-cyan-400/62" />
+            <span className="h-4 w-4 rounded-[5px] border border-righello-pink/75 bg-righello-pink/78" />
+          </span>
+          <span>carico crescente</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-red-300/70 bg-red-500/70" /> assenza</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-amber-200 shadow-[0_0_8px_rgba(253,230,138,0.8)]" /> entrata/uscita anomala</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] outline outline-2 outline-righello-pink/70" /> giorno selezionato</span>
       </div>
     </section>
   )
