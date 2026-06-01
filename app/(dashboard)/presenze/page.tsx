@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, Clock, LogIn, LogOut, RefreshCw, UserCheck, Users, XCircle } from "lucide-react"
+import { AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, LogIn, LogOut, RefreshCw, UserCheck, Users, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -633,38 +633,6 @@ function PresenceCalendarHeatmap({
               : "Vista personale: direzione e admin possono consultarla nel calendario team."}
             {" "}Le celle piu accese indicano piu lavoro registrato o task in scadenza; il rosso indica assenza.
           </p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-[auto_minmax(0,12rem)_auto_auto]">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onDateChange(shiftMonth(calendar.monthStart, -1))}
-              className="h-10 rounded-[8px] border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
-            >
-              Mese prima
-            </Button>
-            <Input
-              type="month"
-              value={monthInputValue(selectedDate)}
-              onChange={(event) => onDateChange(dateFromMonthInput(event.target.value))}
-              className={cn("h-10 rounded-[8px]", nativeDateTimeInputClass)}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onDateChange(shiftMonth(calendar.monthStart, 1))}
-              className="h-10 rounded-[8px] border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
-            >
-              Mese dopo
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onDateChange(today())}
-              className="h-10 rounded-[8px] border-righello-cyan/25 bg-righello-cyan/10 text-righello-cyan hover:bg-righello-cyan/15"
-            >
-              Oggi
-            </Button>
-          </div>
           {isManager && calendar.people.length > 1 && (
             <select
               value={personFilter}
@@ -680,22 +648,64 @@ function PresenceCalendarHeatmap({
             </select>
           )}
         </div>
-        <div className="grid gap-2 text-sm text-slate-300 sm:grid-cols-4 lg:min-w-[30rem]">
+        <div className="w-full space-y-2 text-sm text-slate-300 lg:min-w-[34rem] lg:max-w-[38rem]">
           <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
-            <p className="text-xs text-slate-500">Periodo</p>
-            <p className="mt-1 font-black capitalize text-white">{formatMonthLabel(calendar.monthStart)}</p>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Seleziona mese</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onDateChange(today())}
+                className="h-8 rounded-[8px] border-righello-cyan/25 bg-righello-cyan/10 px-3 text-xs text-righello-cyan hover:bg-righello-cyan/15"
+              >
+                Oggi
+              </Button>
+            </div>
+            <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                aria-label="Mese precedente"
+                onClick={() => onDateChange(shiftMonth(calendar.monthStart, -1))}
+                className="h-10 rounded-[8px] border-white/10 bg-black/20 p-0 text-white hover:bg-white/10"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Input
+                type="month"
+                value={monthInputValue(selectedDate)}
+                onChange={(event) => onDateChange(dateFromMonthInput(event.target.value))}
+                className={cn("h-10 rounded-[8px] text-left", nativeDateTimeInputClass)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                aria-label="Mese successivo"
+                onClick={() => onDateChange(shiftMonth(calendar.monthStart, 1))}
+                className="h-10 rounded-[8px] border-white/10 bg-black/20 p-0 text-white hover:bg-white/10"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
-            <p className="text-xs text-slate-500">Persone</p>
-            <p className="mt-1 font-black text-white">{visiblePeople.length}</p>
-          </div>
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
-            <p className="text-xs text-slate-500">Presenze</p>
-            <p className="mt-1 font-black text-emerald-100">{monthStats.presenceDays}</p>
-          </div>
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
-            <p className="text-xs text-slate-500">Assenze</p>
-            <p className="mt-1 font-black text-red-100">{monthStats.absenceDays}</p>
+          <div className="grid gap-2 sm:grid-cols-4">
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Periodo</p>
+              <p className="mt-1 font-black capitalize text-white">{formatMonthLabel(calendar.monthStart)}</p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Persone</p>
+              <p className="mt-1 font-black text-white">{visiblePeople.length}</p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Presenze</p>
+              <p className="mt-1 font-black text-emerald-100">{monthStats.presenceDays}</p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Assenze</p>
+              <p className="mt-1 font-black text-red-100">{monthStats.absenceDays}</p>
+            </div>
           </div>
         </div>
       </div>
