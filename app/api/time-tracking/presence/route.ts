@@ -54,6 +54,86 @@ function sortOperationalTasks(a: any, b: any) {
   return (priorityWeight[String(a.priority || "medium").toLowerCase()] ?? 2) - (priorityWeight[String(b.priority || "medium").toLowerCase()] ?? 2)
 }
 
+function monthBounds(date: string) {
+  const [yearRaw, monthRaw] = date.split("-").map(Number)
+  const year = Number.isInteger(yearRaw) ? yearRaw : new Date().getUTCFullYear()
+  const month = Number.isInteger(monthRaw) ? monthRaw : new Date().getUTCMonth() + 1
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return {
+    monthStart: `${year}-${String(month).padStart(2, "0")}-01`,
+    monthEnd: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+    days: Array.from({ length: lastDay }, (_, index) => `${year}-${String(month).padStart(2, "0")}-${String(index + 1).padStart(2, "0")}`),
+  }
+}
+
+function calendarKey(memberId: string, date: string) {
+  return `${memberId}:${date}`
+}
+
+function mapCalendarStatus(day?: any) {
+  if (!day) return "missing"
+  return getPresenceStatus({
+    day_status: day.status,
+    check_in_at: day.check_in_at,
+    check_out_at: day.check_out_at,
+  })
+}
+
+function mapCalendarDay({
+  date,
+  member,
+  workDay,
+  activity,
+  tasks,
+}: {
+  date: string
+  member: any
+  workDay?: any
+  activity?: any
+  tasks?: any
+}) {
+  const schedule = workScheduleForMember(Number(member.weekly_capacity_minutes || 2400))
+  const status = mapCalendarStatus(workDay)
+  const activityMinutes = Number(activity?.activity_minutes || 0)
+  const entryCount = Number(activity?.entry_count || 0)
+  const taskMinutes = Number(tasks?.task_minutes || 0)
+  const taskCount = Number(tasks?.task_count || 0)
+  const loadMinutes = Math.max(activityMinutes, taskMinutes)
+  const checkInMinute = minutesSinceMidnightFromDate(workDay?.check_in_at)
+  const checkOutMinute = minutesSinceMidnightFromDate(workDay?.check_out_at)
+  const expectedStartMinute = timeToMinutes(schedule.workStartTime)
+  const expectedEndMinute = timeToMinutes(schedule.expectedCheckOutTime)
+  const minutesLate =
+    status !== "absent" && checkInMinute !== null ? Math.max(0, checkInMinute - expectedStartMinute - PRESENCE_GRACE_MINUTES) : 0
+  const minutesEarly =
+    status === "closed" && checkOutMinute !== null ? Math.max(0, expectedEndMinute - checkOutMinute - PRESENCE_GRACE_MINUTES) : 0
+  const loadRatio = schedule.expectedOfficeMinutes > 0 ? loadMinutes / schedule.expectedOfficeMinutes : 0
+  const hasWorkSignal = status === "present" || status === "closed" || activityMinutes > 0 || taskCount > 0
+  const intensity =
+    status === "absent"
+      ? 0
+      : hasWorkSignal
+        ? Math.max(1, Math.min(4, Math.ceil(loadRatio * 4)))
+        : 0
+
+  return {
+    date,
+    status,
+    checkInAt: workDay?.check_in_at || null,
+    checkOutAt: workDay?.check_out_at || null,
+    absenceReason: workDay?.absence_reason || "",
+    activityMinutes,
+    entryCount,
+    taskMinutes,
+    taskCount,
+    loadMinutes,
+    intensity,
+    minutesLate,
+    minutesEarly,
+    signal: minutesLate > 0 ? "late" : minutesEarly > 0 ? "early-exit" : null,
+  }
+}
+
 function operationalAvailability({
   status,
   plannedSoonMinutes,
@@ -199,6 +279,7 @@ export async function GET(request: NextRequest) {
     const isManager = canManageTime(principal)
     const { searchParams } = new URL(request.url)
     const date = normalizeDate(searchParams.get("date"))
+    const month = monthBounds(date)
 
     const rows = await db
       .prepare(
@@ -290,6 +371,97 @@ export async function GET(request: NextRequest) {
     const people: ReturnType<typeof mapPresenceRow>[] = memberRows.map((row) => mapPresenceRow(row, tasksByMember.get(String(row.id)) || []))
     const self = people.find((person) => person.id === principal.memberId) || null
 
+    const [workDaysResult, activityDaysResult, taskDaysResult] = await Promise.all([
+      db
+        .prepare(
+          `SELECT member_id,
+                  entry_date,
+                  status,
+                  check_in_at,
+                  check_out_at,
+                  absence_reason,
+                  notes
+           FROM work_days
+           WHERE organization_id = ?
+             AND entry_date >= ?
+             AND entry_date <= ?
+             AND (? = 1 OR member_id = ?)`,
+        )
+        .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
+        .all(),
+      db
+        .prepare(
+          `SELECT member_id,
+                  entry_date,
+                  SUM(minutes) AS activity_minutes,
+                  COUNT(*) AS entry_count
+           FROM time_entries
+           WHERE organization_id = ?
+             AND entry_date >= ?
+             AND entry_date <= ?
+             AND (? = 1 OR member_id = ?)
+           GROUP BY member_id, entry_date`,
+        )
+        .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
+        .all(),
+      db
+        .prepare(
+          `SELECT assignee_member_id AS member_id,
+                  substr(due_at, 1, 10) AS entry_date,
+                  COUNT(*) AS task_count,
+                  SUM(CASE
+                    WHEN estimated_minutes IS NOT NULL AND estimated_minutes > 0 THEN estimated_minutes
+                    WHEN priority = 'urgent' THEN 240
+                    WHEN priority = 'high' THEN 180
+                    WHEN priority = 'low' THEN 45
+                    ELSE 90
+                  END) AS task_minutes
+           FROM tasks
+           WHERE organization_id = ?
+             AND assignee_member_id IS NOT NULL
+             AND due_at IS NOT NULL
+             AND date(due_at) >= date(?)
+             AND date(due_at) <= date(?)
+             AND COALESCE(assignment_status, 'accepted') = 'accepted'
+             AND COALESCE(column_id, status) NOT IN ('done', 'completed', 'validation', 'archived', 'archiviato', 'suspended', 'sospeso')
+             AND (? = 1 OR assignee_member_id = ?)
+           GROUP BY assignee_member_id, substr(due_at, 1, 10)`,
+        )
+        .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
+        .all(),
+    ])
+
+    const workDaysByMemberDate = new Map<string, any>()
+    for (const day of (workDaysResult.results || []) as any[]) {
+      workDaysByMemberDate.set(calendarKey(String(day.member_id), String(day.entry_date)), day)
+    }
+
+    const activityByMemberDate = new Map<string, any>()
+    for (const day of (activityDaysResult.results || []) as any[]) {
+      activityByMemberDate.set(calendarKey(String(day.member_id), String(day.entry_date)), day)
+    }
+
+    const tasksByMemberDate = new Map<string, any>()
+    for (const day of (taskDaysResult.results || []) as any[]) {
+      tasksByMemberDate.set(calendarKey(String(day.member_id), String(day.entry_date)), day)
+    }
+
+    const calendarPeople = memberRows.map((member) => ({
+      id: String(member.id),
+      name: formatName(member),
+      email: String(member.email || ""),
+      role: String(member.role || "junior"),
+      days: month.days.map((day) =>
+        mapCalendarDay({
+          date: day,
+          member,
+          workDay: workDaysByMemberDate.get(calendarKey(String(member.id), day)),
+          activity: activityByMemberDate.get(calendarKey(String(member.id), day)),
+          tasks: tasksByMemberDate.get(calendarKey(String(member.id), day)),
+        }),
+      ),
+    }))
+
     const summary = people.reduce(
       (acc, person) => {
         acc.total += 1
@@ -316,6 +488,12 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
       self,
       people,
+      calendar: {
+        monthStart: month.monthStart,
+        monthEnd: month.monthEnd,
+        days: month.days,
+        people: calendarPeople,
+      },
       summary,
     })
   } catch (error) {

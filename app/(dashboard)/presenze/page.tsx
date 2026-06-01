@@ -73,6 +73,33 @@ type PresencePayload = {
   generatedAt: string
   self: PersonPresence | null
   people: PersonPresence[]
+  calendar: {
+    monthStart: string
+    monthEnd: string
+    days: string[]
+    people: Array<{
+      id: string
+      name: string
+      email: string
+      role: string
+      days: Array<{
+        date: string
+        status: PresenceStatus
+        checkInAt: string | null
+        checkOutAt: string | null
+        absenceReason: string
+        activityMinutes: number
+        entryCount: number
+        taskMinutes: number
+        taskCount: number
+        loadMinutes: number
+        intensity: number
+        minutesLate: number
+        minutesEarly: number
+        signal: "late" | "early-exit" | null
+      }>
+    }>
+  }
   summary: {
     total: number
     present: number
@@ -118,6 +145,25 @@ function formatDateLabel(value: string) {
     day: "2-digit",
     month: "long",
     year: "numeric",
+  }).format(new Date(`${value}T00:00:00`))
+}
+
+function formatMonthLabel(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${value}T00:00:00`))
+}
+
+function formatDayNumber(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+  }).format(new Date(`${value}T00:00:00`))
+}
+
+function formatWeekdayShort(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    weekday: "short",
   }).format(new Date(`${value}T00:00:00`))
 }
 
@@ -183,6 +229,37 @@ function presenceSignalLabel(person: PersonPresence) {
   if (person.presenceSignal === "late") return `Entrata +${formatMinutes(person.minutesLate)}`
   if (person.presenceSignal === "early-exit") return `Uscita -${formatMinutes(person.minutesEarly)}`
   return ""
+}
+
+function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
+  if (day.status === "absent") return "border-red-300/30 bg-red-400/35 text-red-50"
+  if (day.status === "missing" && day.intensity === 0) return "border-white/8 bg-white/[0.035] text-slate-600"
+
+  const intensityClasses = [
+    "border-white/8 bg-white/[0.055] text-slate-400",
+    "border-emerald-300/20 bg-emerald-400/16 text-emerald-100",
+    "border-emerald-300/25 bg-emerald-400/28 text-emerald-50",
+    "border-cyan-300/30 bg-cyan-400/34 text-cyan-50",
+    "border-righello-pink/38 bg-righello-pink/42 text-white",
+  ]
+
+  return intensityClasses[Math.max(0, Math.min(4, day.intensity || 0))]
+}
+
+function calendarDayTitle(person: PresencePayload["calendar"]["people"][number], day: PresencePayload["calendar"]["people"][number]["days"][number]) {
+  const parts = [
+    person.name,
+    formatDateLabel(day.date),
+    `Stato: ${statusMeta(day.status).label}`,
+    `Attivita: ${formatMinutes(day.activityMinutes)}`,
+    `Task in scadenza: ${day.taskCount}`,
+  ]
+  if (day.checkInAt) parts.push(`Entrata: ${formatTime(day.checkInAt)}`)
+  if (day.checkOutAt) parts.push(`Uscita: ${formatTime(day.checkOutAt)}`)
+  if (day.signal === "late") parts.push(`Ritardo: ${formatMinutes(day.minutesLate)}`)
+  if (day.signal === "early-exit") parts.push(`Uscita anticipata: ${formatMinutes(day.minutesEarly)}`)
+  if (day.absenceReason) parts.push(`Motivo: ${day.absenceReason}`)
+  return parts.join("\n")
 }
 
 export default function PresenzePage() {
@@ -421,6 +498,10 @@ export default function PresenzePage() {
           </div>
         </section>
 
+        {payload?.calendar && (
+          <PresenceCalendarHeatmap calendar={payload.calendar} isManager={payload.isManager} />
+        )}
+
         {payload?.isManager ? (
           <section className={cn(panelClass, "overflow-hidden")}>
             <div className="flex flex-col gap-3 border-b border-white/10 p-5 md:flex-row md:items-center md:justify-between">
@@ -468,6 +549,119 @@ export default function PresenzePage() {
         )}
       </div>
     </div>
+  )
+}
+
+function PresenceCalendarHeatmap({
+  calendar,
+  isManager,
+}: {
+  calendar: PresencePayload["calendar"]
+  isManager: boolean
+}) {
+  const monthStats = useMemo(() => {
+    return calendar.people.reduce(
+      (acc, person) => {
+        for (const day of person.days) {
+          if (day.status === "present" || day.status === "closed") acc.presenceDays += 1
+          if (day.status === "absent") acc.absenceDays += 1
+          acc.taskCount += day.taskCount
+          acc.activityMinutes += day.activityMinutes
+        }
+        return acc
+      },
+      { presenceDays: 0, absenceDays: 0, taskCount: 0, activityMinutes: 0 },
+    )
+  }, [calendar.people])
+
+  return (
+    <section className={cn(panelClass, "overflow-hidden")}>
+      <div className="flex flex-col gap-4 border-b border-white/10 p-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <Badge className="mb-3 w-fit rounded-[8px] border border-cyan-300/25 bg-cyan-300/10 text-cyan-100">
+            <CalendarDays className="mr-2 h-3.5 w-3.5" />
+            Calendario presenze
+          </Badge>
+          <h2 className="text-2xl font-black text-white">
+            {isManager ? "Mese operativo del team" : "Il tuo mese operativo"}
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+            Ogni riga e una persona. Le celle piu accese indicano piu lavoro registrato o task in scadenza; il rosso indica assenza.
+          </p>
+        </div>
+        <div className="grid gap-2 text-sm text-slate-300 sm:grid-cols-4 lg:min-w-[30rem]">
+          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <p className="text-xs text-slate-500">Periodo</p>
+            <p className="mt-1 font-black capitalize text-white">{formatMonthLabel(calendar.monthStart)}</p>
+          </div>
+          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <p className="text-xs text-slate-500">Presenze</p>
+            <p className="mt-1 font-black text-emerald-100">{monthStats.presenceDays}</p>
+          </div>
+          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <p className="text-xs text-slate-500">Assenze</p>
+            <p className="mt-1 font-black text-red-100">{monthStats.absenceDays}</p>
+          </div>
+          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <p className="text-xs text-slate-500">Task</p>
+            <p className="mt-1 font-black text-cyan-100">{monthStats.taskCount}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto overscroll-x-contain p-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-x]">
+        <div className="min-w-[980px]">
+          <div
+            className="grid items-end gap-1"
+            style={{ gridTemplateColumns: `minmax(190px, 1.5fr) repeat(${calendar.days.length}, minmax(24px, 1fr))` }}
+          >
+            <div className="px-2 pb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">Persona</div>
+            {calendar.days.map((day) => (
+              <div key={day} className="pb-2 text-center">
+                <p className="text-[11px] font-black leading-none text-slate-300">{formatDayNumber(day)}</p>
+                <p className="mt-1 text-[10px] uppercase leading-none text-slate-600">{formatWeekdayShort(day)}</p>
+              </div>
+            ))}
+
+            {calendar.people.map((person) => (
+              <div key={person.id} className="contents">
+                <div className="sticky left-0 z-10 min-w-0 rounded-[8px] border border-white/10 bg-[#0a1020] px-3 py-2">
+                  <p className="truncate text-sm font-black text-white">{person.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{person.role}</p>
+                </div>
+                {person.days.map((day) => (
+                  <button
+                    key={`${person.id}-${day.date}`}
+                    type="button"
+                    title={calendarDayTitle(person, day)}
+                    aria-label={calendarDayTitle(person, day)}
+                    className={cn(
+                      "relative h-9 rounded-[7px] border text-[10px] font-black transition hover:scale-[1.08] hover:border-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                      calendarCellClass(day),
+                    )}
+                  >
+                    {day.status === "absent" ? "A" : day.taskCount > 0 ? day.taskCount : day.intensity > 0 ? "" : "-"}
+                    {day.signal && (
+                      <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-200" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 border-t border-white/10 px-5 py-4 text-xs text-slate-400">
+        <span className="font-semibold text-slate-300">Legenda</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-white/[0.055]" /> vuoto</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-emerald-400/16" /> leggero</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-cyan-400/34" /> intenso</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-righello-pink/42" /> saturo</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-red-400/35" /> assenza</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-200" /> segnale orario</span>
+      </div>
+    </section>
   )
 }
 
