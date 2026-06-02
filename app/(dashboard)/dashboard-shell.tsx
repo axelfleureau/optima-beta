@@ -15,6 +15,7 @@ import { NotificationProvider } from "@/lib/notification-context"
 import { CommandBar } from "@/components/command-bar/command-bar"
 import { ScrollStabilityGuard } from "@/components/scroll-stability-guard"
 import { FinancialPrivacyProvider } from "@/components/financial-privacy-provider"
+import { AiPageGuide } from "@/components/ai-page-guide"
 
 // Lazy load Image Generator Dialog - reduces initial bundle size
 const ImageGenerator = dynamic(
@@ -48,6 +49,7 @@ export function DashboardShell({
           <DashboardChrome>{children}</DashboardChrome>
 
           <ImageGenerator open={isOpen} onOpenChange={(open) => open ? null : close()} />
+          <AiPageGuide />
           <CommandBar />
         </Provider>
       </NotificationProvider>
