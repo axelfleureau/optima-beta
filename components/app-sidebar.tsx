@@ -19,6 +19,7 @@ import {
   PanelLeft,
   ClipboardList,
   Gauge,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
@@ -46,7 +47,7 @@ const OptimaMark = ({ className }: { className?: string }) => (
 export function AppSidebar() {
   const { userData, isSuperAdmin, isAdmin, isDirezione, isCapoReparto, isJunior, isClient, signOut } = useAuth()
   const pathname = usePathname()
-  const { state, toggleSidebar, isMobile } = useSidebar()
+  const { state, toggleSidebar, isMobile, setOpenMobile } = useSidebar()
 
   const superAdminMenuItems = [
     {
@@ -219,11 +220,15 @@ export function AppSidebar() {
     }
   }
 
-  const isCollapsed = state === "collapsed"
+  const isCollapsed = !isMobile && state === "collapsed"
+  const closeMobileSidebar = () => {
+    if (isMobile) setOpenMobile(false)
+  }
   const getNavItemClass = (active: boolean) =>
     cn(
       "relative flex items-center transition-all duration-200",
       isCollapsed ? "justify-center rounded-xl" : "gap-3 rounded-lg",
+      isMobile && "min-h-12 rounded-md px-3 py-3",
       active
         ? isCollapsed
           ? "bg-righello-pink/16 text-white ring-1 ring-righello-pink/35 shadow-[0_10px_24px_rgba(214,72,126,0.12)]"
@@ -233,7 +238,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className={cn("border-b border-white/10 transition-[padding] duration-200", isCollapsed ? "px-1.5 py-3" : "px-3 py-4")}>
+      <SidebarHeader className={cn("border-b border-white/10 transition-[padding] duration-200", isCollapsed ? "px-1.5 py-3" : "px-4 py-4")}>
         <div className={cn("flex items-center", isCollapsed ? "justify-center" : "justify-between gap-2")}>
           <div className={cn("flex items-center", isCollapsed ? "w-full justify-center" : "min-w-0 flex-1")}>
             {!isMobile && isCollapsed ? (
@@ -286,7 +291,7 @@ export function AppSidebar() {
                 </Tooltip>
               </TooltipProvider>
             ) : (
-              <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
+              <Link href="/dashboard" onClick={closeMobileSidebar} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
                 <OptimaMark className="h-9 w-9" />
                 {!isCollapsed && (
                   <div className="min-w-0 leading-none">
@@ -299,13 +304,22 @@ export function AppSidebar() {
               </Link>
             )}
           </div>
-          {!isCollapsed && (
+          {isMobile ? (
+            <button
+              type="button"
+              onClick={() => setOpenMobile(false)}
+              className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-white/70 transition hover:bg-white/10 hover:text-white"
+              aria-label="Chiudi menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          ) : !isCollapsed && (
             <SidebarTrigger className="h-9 w-9 flex-shrink-0 rounded-lg border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white" />
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className={isCollapsed ? "p-2" : "p-4"}>
+      <SidebarContent className={cn(isCollapsed ? "p-2" : "p-4", isMobile && "gap-4 overflow-y-auto pb-6 [-webkit-overflow-scrolling:touch]")}>
         {/* Main menu section */}
         <div className="mb-4">
           {!isCollapsed && (
@@ -322,10 +336,11 @@ export function AppSidebar() {
                 >
                   <Link 
                     href={item.url} 
+                    onClick={closeMobileSidebar}
                     className={getNavItemClass(isActive(item.url))}
                   >
                     <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
+                    {!isCollapsed && <span className={cn("font-medium", isMobile ? "text-[15px]" : "text-sm")}>{item.title}</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -351,10 +366,11 @@ export function AppSidebar() {
                 >
                   <Link
                     href={item.url}
+                    onClick={closeMobileSidebar}
                     className={getNavItemClass(isActive(item.url))}
                   >
                     <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && <span className="text-sm font-medium">{item.title}</span>}
+                    {!isCollapsed && <span className={cn("font-medium", isMobile ? "text-[15px]" : "text-sm")}>{item.title}</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -364,7 +380,7 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className={`border-t border-white/10 ${isCollapsed ? "p-2" : "p-4"}`}>
+      <SidebarFooter className={cn("border-t border-white/10", isCollapsed ? "p-2" : "p-4", isMobile && "pb-[calc(env(safe-area-inset-bottom)+1rem)]")}>
         <SidebarMenu className={isCollapsed ? "items-center" : ""}>
           <SidebarMenuItem>
             <div
