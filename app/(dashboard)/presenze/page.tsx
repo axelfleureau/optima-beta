@@ -277,6 +277,19 @@ function calendarDayTitle(person: PresencePayload["calendar"]["people"][number],
   return parts.join("\n")
 }
 
+function personMonthStats(person: PresencePayload["calendar"]["people"][number]) {
+  return person.days.reduce(
+    (acc, day) => {
+      if (day.status === "present" || day.status === "closed") acc.presenceDays += 1
+      if (day.status === "absent") acc.absenceDays += 1
+      acc.taskCount += day.taskCount
+      acc.activityMinutes += day.activityMinutes
+      return acc
+    },
+    { presenceDays: 0, absenceDays: 0, taskCount: 0, activityMinutes: 0 },
+  )
+}
+
 export default function PresenzePage() {
   const [date, setDate] = useState(today())
   const [checkInTime, setCheckInTime] = useState(defaultWorkStartTime)
@@ -710,7 +723,72 @@ function PresenceCalendarHeatmap({
         </div>
       </div>
 
-      <div className="overflow-x-auto overscroll-x-contain p-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-x]">
+      <div className="space-y-4 p-4 md:hidden">
+        {visiblePeople.map((person) => {
+          const stats = personMonthStats(person)
+
+          return (
+            <article key={person.id} className="overflow-hidden rounded-[8px] border border-white/10 bg-black/20">
+              <div className="border-b border-white/10 p-4">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-lg font-black text-white">{person.name}</h3>
+                    <p className="mt-1 truncate text-sm text-slate-400">{person.role}</p>
+                  </div>
+                  <div className="shrink-0 rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Ore</p>
+                    <p className="mt-1 text-sm font-black text-cyan-100">{formatMinutes(stats.activityMinutes)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-[8px] border border-emerald-300/15 bg-emerald-300/10 px-2 py-2">
+                    <p className="text-slate-400">Presenze</p>
+                    <p className="mt-1 text-base font-black text-emerald-100">{stats.presenceDays}</p>
+                  </div>
+                  <div className="rounded-[8px] border border-red-300/15 bg-red-300/10 px-2 py-2">
+                    <p className="text-slate-400">Assenze</p>
+                    <p className="mt-1 text-base font-black text-red-100">{stats.absenceDays}</p>
+                  </div>
+                  <div className="rounded-[8px] border border-cyan-300/15 bg-cyan-300/10 px-2 py-2">
+                    <p className="text-slate-400">Task</p>
+                    <p className="mt-1 text-base font-black text-cyan-100">{stats.taskCount}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto overscroll-x-contain p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-x]">
+                <div className="grid auto-cols-[58px] grid-flow-col gap-2">
+                  {person.days.map((day) => (
+                    <button
+                      key={`${person.id}-mobile-${day.date}`}
+                      type="button"
+                      title={calendarDayTitle(person, day)}
+                      aria-label={calendarDayTitle(person, day)}
+                      onClick={() => onDateChange(day.date)}
+                      className={cn(
+                        "relative flex h-[68px] flex-col items-center justify-center rounded-[8px] border text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                        calendarCellClass(day),
+                        day.date === selectedDate && "outline outline-2 outline-offset-2 outline-righello-pink",
+                      )}
+                    >
+                      <span className="text-[13px] font-black leading-none">{formatDayNumber(day.date)}</span>
+                      <span className="mt-1 text-[10px] font-bold uppercase leading-none opacity-80">{formatWeekdayShort(day.date)}</span>
+                      <span className="mt-1 text-[11px] font-black leading-none">
+                        {day.status === "absent" ? "A" : day.taskCount > 0 ? day.taskCount : day.intensity > 0 ? "" : "-"}
+                      </span>
+                      {day.signal && (
+                        <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-amber-200 shadow-[0_0_8px_rgba(253,230,138,0.8)]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </article>
+          )
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto overscroll-x-contain p-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-x] md:block">
         <div className="min-w-[1180px]">
           <div
             className="grid items-end gap-1"
@@ -742,6 +820,7 @@ function PresenceCalendarHeatmap({
                     type="button"
                     title={calendarDayTitle(person, day)}
                     aria-label={calendarDayTitle(person, day)}
+                    onClick={() => onDateChange(day.date)}
                     className={cn(
                       "relative h-11 rounded-[7px] border text-[11px] font-black transition hover:z-20 hover:scale-[1.08] hover:border-white/55 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                       calendarCellClass(day),
