@@ -402,7 +402,67 @@ export default function ManagementPage() {
                   <Link href="/workspace">Apri kanban</Link>
                 </Button>
               </div>
-              <div className="overflow-x-auto">
+              <div className="space-y-3 md:hidden">
+                {data.projects.map((project) => {
+                  const pressure = pressureLabel(project.daysUntilDue)
+                  return (
+                    <Link
+                      key={project.id}
+                      href={`/workspace?projectId=${project.id}`}
+                      className={cn(insetPanelClass, "block p-4 transition active:border-righello-pink/40 active:bg-righello-pink/10")}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", healthClass(project.health))} />
+                            <p className="truncate font-black text-white">{project.name}</p>
+                          </div>
+                          <p className="mt-1 truncate text-sm text-slate-400">{project.clientName || "Progetto interno"}</p>
+                        </div>
+                        <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400" />
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Finestra</p>
+                          <Badge className={cn("mt-2 max-w-full border", pressure.className)}>{pressure.label}</Badge>
+                          <p className="mt-2 text-xs text-slate-400">{formatDate(project.dueAt)}</p>
+                        </div>
+                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Rischi</p>
+                          <p className="mt-2 text-sm font-bold text-white">{project.overdueTasks} ritardi</p>
+                          <p className="mt-1 text-xs text-slate-400">{project.urgentTasks} entro 7 giorni</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
+                          <span>{project.completedTasks}/{project.tasksCount} task completate</span>
+                          <span className="font-bold text-white">{project.progress}%</span>
+                        </div>
+                        <div className="mt-2">
+                          <ProgressBar value={project.progress} tone={project.health === "red" ? "amber" : "green"} />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Ore</p>
+                          <p className="mt-2 font-black text-white">{formatHours(project.trackedHours)}</p>
+                        </div>
+                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Costo lavoro</p>
+                          <p className="mt-2 font-black text-white">{formatCurrency(project.laborCost)}</p>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {project.averageHourlyCost > 0 ? `${formatCurrency(project.averageHourlyCost)}/h medio` : "tariffe non censite"}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[860px] border-separate border-spacing-y-2 text-left text-sm">
                   <thead className="text-xs uppercase tracking-wide text-slate-500">
                     <tr>
