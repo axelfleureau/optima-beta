@@ -52,27 +52,27 @@ export function minutesToTime(minutes: number) {
 }
 
 export function dailyGrossCapacityMinutes(weeklyCapacityMinutes: unknown, workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK) {
+  return dailyNetCapacityMinutes(weeklyCapacityMinutes, DEFAULT_LUNCH_BREAK_MINUTES, workDaysPerWeek) + DEFAULT_LUNCH_BREAK_MINUTES
+}
+
+export function dailyNetCapacityMinutes(
+  weeklyCapacityMinutes: unknown,
+  _lunchBreakMinutes = DEFAULT_LUNCH_BREAK_MINUTES,
+  workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK,
+) {
   const weekly = Number(weeklyCapacityMinutes || 2400)
   const days = Number.isFinite(workDaysPerWeek) && workDaysPerWeek > 0 ? workDaysPerWeek : DEFAULT_WORK_DAYS_PER_WEEK
   return Math.max(0, Math.round(weekly / days))
 }
 
-export function dailyNetCapacityMinutes(
-  weeklyCapacityMinutes: unknown,
-  lunchBreakMinutes = DEFAULT_LUNCH_BREAK_MINUTES,
-  workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK,
-) {
-  return Math.max(0, dailyGrossCapacityMinutes(weeklyCapacityMinutes, workDaysPerWeek) - lunchBreakMinutes)
-}
-
 export function weeklyNetCapacityMinutes(
   weeklyCapacityMinutes: unknown,
-  lunchBreakMinutes = DEFAULT_LUNCH_BREAK_MINUTES,
-  workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK,
+  _lunchBreakMinutes = DEFAULT_LUNCH_BREAK_MINUTES,
+  _workDaysPerWeek = DEFAULT_WORK_DAYS_PER_WEEK,
 ) {
   const weekly = Number(weeklyCapacityMinutes || 2400)
   if (!Number.isFinite(weekly)) return 0
-  return Math.max(0, Math.round(weekly - lunchBreakMinutes * workDaysPerWeek))
+  return Math.max(0, Math.round(weekly))
 }
 
 export function expectedCheckoutTime(

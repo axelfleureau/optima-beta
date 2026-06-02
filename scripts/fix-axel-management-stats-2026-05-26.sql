@@ -5,7 +5,7 @@
 UPDATE members
 SET first_name = 'Axel',
     last_name = 'Fleureau',
-    weekly_capacity_minutes = 2100,
+    weekly_capacity_minutes = 2400,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = 'mem_axel_wearerighello'
   AND organization_id = 'org_demo_righello';

@@ -381,7 +381,7 @@ export default function PresenzePage() {
               Chi è operativo adesso.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 md:text-base">
-              Vista rapida per verificare chi è in ufficio, chi ha segnato assenze e come sta andando la copertura delle ore nette. La giornata parte di norma alle 09:00, ma l'entrata reale può essere anticipata o posticipata.
+              Vista rapida per verificare chi è in ufficio, chi ha segnato assenze e come sta andando la copertura delle ore nette. La giornata parte di norma alle 09:00 e termina alle 18:00, con entrata reale anticipabile o posticipabile.
             </p>
           </div>
           <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,14rem)_minmax(0,11rem)] md:w-auto">
