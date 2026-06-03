@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
              assignment_requested_by_member_id, assignment_requested_at, assignment_responded_at,
              assignment_rejection_reason
            )
-           VALUES (?, ?, ?, ?, ?, ?, 'done', ?, 0, 0, ?, ?, CURRENT_TIMESTAMP, 'done', ?, ?, ?, ?, ?, 'Axel Fleureau', ?, '[]', '[]', '[]', ?, 'accepted', ?, ?, ?, NULL)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, 'Axel Fleureau', ?, '[]', '[]', '[]', ?, 'accepted', ?, ?, ?, NULL)`,
         )
         .bind(
           taskId,
@@ -176,9 +176,11 @@ export async function POST(request: NextRequest) {
           assigneeMemberId,
           item.title,
           item.description,
+          item.workflowStatus,
           item.priority,
           item.dueAt,
           item.createdAt,
+          item.workflowStatus,
           item.clientId,
           item.clientName,
           item.type,
