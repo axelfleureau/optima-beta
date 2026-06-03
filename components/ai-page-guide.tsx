@@ -461,14 +461,14 @@ export function AiPageGuide() {
 
   return (
     <>
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-3 z-[80] md:bottom-4 md:left-4">
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-3 z-[80] md:bottom-[5rem] md:right-4">
         <AnimatePresence>
           {hintOpen && !panelOpen ? (
             <motion.div
               key="sidekick-hint"
-              initial={reduceMotion ? false : { opacity: 0, x: -8, y: 8, scale: 0.96 }}
+              initial={reduceMotion ? false : { opacity: 0, x: 8, y: 8, scale: 0.96 }}
               animate={reduceMotion ? undefined : { opacity: 1, x: 0, y: 0, scale: 1 }}
-              exit={reduceMotion ? undefined : { opacity: 0, x: -8, y: 8, scale: 0.96 }}
+              exit={reduceMotion ? undefined : { opacity: 0, x: 8, y: 8, scale: 0.96 }}
               className="mb-3 max-w-[280px] rounded-md border border-righello-pink/25 bg-[#080b12]/95 p-3 text-white shadow-2xl backdrop-blur-xl"
             >
               <button
@@ -522,7 +522,7 @@ export function AiPageGuide() {
               animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
               exit={reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="absolute bottom-[4.25rem] left-0 w-[min(340px,calc(100vw-1.5rem))] overflow-hidden rounded-[8px] border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl"
+              className="absolute bottom-[4.25rem] right-0 w-[min(340px,calc(100vw-1.5rem))] overflow-hidden rounded-[8px] border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl"
             >
               <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(214,72,126,0.22),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.96))] p-4">
                 <div className="flex items-start justify-between gap-3">
