@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, LogIn, LogOut, RefreshCw, UserCheck, Users, XCircle } from "lucide-react"
+import { Activity, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, RefreshCw, UserCheck, Users, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -247,25 +247,42 @@ function presenceSignalLabel(person: PersonPresence) {
 }
 
 function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
-  if (day.status === "absent") return "border-red-300/70 bg-red-500/70 text-white shadow-[0_0_18px_rgba(248,113,113,0.18)]"
+  if (day.status === "absent") return "border-red-300/75 bg-red-500/75 text-white shadow-[0_0_20px_rgba(248,113,113,0.22)]"
+  if (day.signal) return "border-amber-200/80 bg-amber-300/72 text-[#1b1203] shadow-[0_0_20px_rgba(253,230,138,0.24)]"
   if (day.status === "missing" && day.intensity === 0) return "border-white/10 bg-white/[0.075] text-slate-500"
 
   const intensityClasses = [
     "border-white/12 bg-white/[0.09] text-slate-400",
-    "border-emerald-300/35 bg-emerald-400/30 text-emerald-50",
-    "border-teal-300/45 bg-teal-400/45 text-white shadow-[0_0_14px_rgba(45,212,191,0.12)]",
-    "border-cyan-300/60 bg-cyan-400/62 text-[#03131d] shadow-[0_0_18px_rgba(34,211,238,0.18)]",
-    "border-righello-pink/75 bg-righello-pink/78 text-white shadow-[0_0_22px_rgba(224,64,133,0.25)]",
+    "border-emerald-300/40 bg-emerald-400/34 text-emerald-50",
+    "border-teal-300/55 bg-teal-400/52 text-white shadow-[0_0_15px_rgba(45,212,191,0.16)]",
+    "border-cyan-300/70 bg-cyan-400/72 text-[#03131d] shadow-[0_0_20px_rgba(34,211,238,0.22)]",
+    "border-righello-pink/80 bg-righello-pink/85 text-white shadow-[0_0_24px_rgba(224,64,133,0.32)]",
   ]
 
   return intensityClasses[Math.max(0, Math.min(4, day.intensity || 0))]
 }
 
+function calendarCellSignal(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
+  if (day.status === "absent") {
+    return { label: "Assenza", short: "OFF", Icon: XCircle }
+  }
+  if (day.signal) {
+    return { label: day.signal === "late" ? "Entrata tarda" : "Uscita anticipata", short: "!", Icon: AlertCircle }
+  }
+  if (day.intensity >= 4) return { label: "Sprint", short: day.taskCount > 0 ? String(day.taskCount) : "MAX", Icon: Flame }
+  if (day.intensity >= 3) return { label: "Focus", short: day.taskCount > 0 ? String(day.taskCount) : "F", Icon: Activity }
+  if (day.intensity >= 2) return { label: "Operativo", short: day.taskCount > 0 ? String(day.taskCount) : "ON", Icon: Activity }
+  if (day.intensity >= 1) return { label: "Leggero", short: day.taskCount > 0 ? String(day.taskCount) : "", Icon: UserCheck }
+  return { label: "Vuoto", short: "-", Icon: Minus }
+}
+
 function calendarDayTitle(person: PresencePayload["calendar"]["people"][number], day: PresencePayload["calendar"]["people"][number]["days"][number]) {
+  const signal = calendarCellSignal(day)
   const parts = [
     person.name,
     formatDateLabel(day.date),
     `Stato: ${statusMeta(day.status).label}`,
+    `Segnale: ${signal.label}`,
     `Attivita: ${formatMinutes(day.activityMinutes)}`,
     `Task in scadenza: ${day.taskCount}`,
   ]
@@ -667,7 +684,7 @@ function PresenceCalendarHeatmap({
             {isManager
               ? "Direzione e admin vedono tutto il team. Junior e dipendenti vedono solo il proprio calendario."
               : "Vista personale: direzione e admin possono consultarla nel calendario team."}
-            {" "}Le celle piu accese indicano piu lavoro registrato o task in scadenza; il rosso indica assenza.
+            {" "}Ogni giorno mostra un segnale: leggero, operativo, focus, sprint, anomalia o assenza.
           </p>
           {isManager && calendar.people.length > 1 && (
             <select
@@ -782,27 +799,14 @@ function PresenceCalendarHeatmap({
               <div className="overflow-x-auto overscroll-x-contain p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-x]">
                 <div className="grid auto-cols-[58px] grid-flow-col gap-2">
                   {person.days.map((day) => (
-                    <button
+                    <CalendarHeatmapCell
                       key={`${person.id}-mobile-${day.date}`}
-                      type="button"
-                      title={calendarDayTitle(person, day)}
-                      aria-label={calendarDayTitle(person, day)}
-                      onClick={() => onDateChange(day.date)}
-                      className={cn(
-                        "relative flex h-[68px] flex-col items-center justify-center rounded-[8px] border text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
-                        calendarCellClass(day),
-                        day.date === selectedDate && "outline outline-2 outline-offset-2 outline-righello-pink",
-                      )}
-                    >
-                      <span className="text-[13px] font-black leading-none">{formatDayNumber(day.date)}</span>
-                      <span className="mt-1 text-[10px] font-bold uppercase leading-none opacity-80">{formatWeekdayShort(day.date)}</span>
-                      <span className="mt-1 text-[11px] font-black leading-none">
-                        {day.status === "absent" ? "A" : day.taskCount > 0 ? day.taskCount : day.intensity > 0 ? "" : "-"}
-                      </span>
-                      {day.signal && (
-                        <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-amber-200 shadow-[0_0_8px_rgba(253,230,138,0.8)]" />
-                      )}
-                    </button>
+                      day={day}
+                      person={person}
+                      selected={day.date === selectedDate}
+                      compact={false}
+                      onDateChange={onDateChange}
+                    />
                   ))}
                 </div>
               </div>
@@ -838,23 +842,14 @@ function PresenceCalendarHeatmap({
                   <p className="mt-0.5 truncate text-xs text-slate-500">{person.role}</p>
                 </div>
                 {person.days.map((day) => (
-                  <button
+                  <CalendarHeatmapCell
                     key={`${person.id}-${day.date}`}
-                    type="button"
-                    title={calendarDayTitle(person, day)}
-                    aria-label={calendarDayTitle(person, day)}
-                    onClick={() => onDateChange(day.date)}
-                    className={cn(
-                      "relative h-11 rounded-[7px] border text-[11px] font-black transition hover:z-20 hover:scale-[1.08] hover:border-white/55 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
-                      calendarCellClass(day),
-                      day.date === selectedDate && "outline outline-2 outline-offset-1 outline-righello-pink/70",
-                    )}
-                  >
-                    {day.status === "absent" ? "A" : day.taskCount > 0 ? day.taskCount : day.intensity > 0 ? "" : "-"}
-                    {day.signal && (
-                      <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-200 shadow-[0_0_8px_rgba(253,230,138,0.8)]" />
-                    )}
-                  </button>
+                    day={day}
+                    person={person}
+                    selected={day.date === selectedDate}
+                    compact
+                    onDateChange={onDateChange}
+                  />
                 ))}
               </div>
             ))}
@@ -872,13 +867,68 @@ function PresenceCalendarHeatmap({
             <span className="h-4 w-4 rounded-[5px] border border-cyan-300/60 bg-cyan-400/62" />
             <span className="h-4 w-4 rounded-[5px] border border-righello-pink/75 bg-righello-pink/78" />
           </span>
-          <span>carico crescente</span>
+          <span>leggero · operativo · focus · sprint</span>
         </span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-red-300/70 bg-red-500/70" /> assenza</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-amber-200 shadow-[0_0_8px_rgba(253,230,138,0.8)]" /> entrata/uscita anomala</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-amber-200/80 bg-amber-300/72" /> anomalia oraria</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] outline outline-2 outline-righello-pink/70" /> giorno selezionato</span>
       </div>
     </section>
+  )
+}
+
+function CalendarHeatmapCell({
+  day,
+  person,
+  selected,
+  compact,
+  onDateChange,
+}: {
+  day: PresencePayload["calendar"]["people"][number]["days"][number]
+  person: PresencePayload["calendar"]["people"][number]
+  selected: boolean
+  compact?: boolean
+  onDateChange: (date: string) => void
+}) {
+  const signal = calendarCellSignal(day)
+  const Icon = signal.Icon
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        title={calendarDayTitle(person, day)}
+        aria-label={calendarDayTitle(person, day)}
+        onClick={() => onDateChange(day.date)}
+        className={cn(
+          "group relative flex h-12 flex-col items-center justify-center rounded-[7px] border text-[10px] font-black transition hover:z-20 hover:scale-[1.08] hover:border-white/55 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+          calendarCellClass(day),
+          selected && "outline outline-2 outline-offset-1 outline-righello-pink/70",
+        )}
+      >
+        <Icon className="mb-0.5 h-3.5 w-3.5 opacity-90 transition group-hover:scale-110" />
+        <span className="leading-none">{signal.short}</span>
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      title={calendarDayTitle(person, day)}
+      aria-label={calendarDayTitle(person, day)}
+      onClick={() => onDateChange(day.date)}
+      className={cn(
+        "group relative flex h-[82px] flex-col items-center justify-center rounded-[8px] border px-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+        calendarCellClass(day),
+        selected && "outline outline-2 outline-offset-2 outline-righello-pink",
+      )}
+    >
+      <span className="absolute left-1.5 top-1.5 text-[10px] font-black leading-none opacity-70">{formatDayNumber(day.date)}</span>
+      <Icon className="mb-1 h-[18px] w-[18px] transition group-hover:scale-110" />
+      <span className="text-[12px] font-black leading-none">{signal.short}</span>
+      <span className="mt-1 max-w-full truncate text-[9px] font-bold uppercase leading-none opacity-80">{signal.label}</span>
+    </button>
   )
 }
 
