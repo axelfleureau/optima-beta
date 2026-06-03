@@ -144,6 +144,10 @@ function currentTime() {
   return new Date().toTimeString().slice(0, 5)
 }
 
+function firstName(value: string) {
+  return value.trim().split(/\s+/)[0] || value
+}
+
 function formatMinutes(minutes: number) {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
@@ -989,7 +993,7 @@ function PresenceCalendarHeatmap({
                       compactPeopleColumn ? "max-w-[112px] text-xs leading-tight" : "text-sm",
                     )}
                   >
-                    {person.name}
+                    {compactPeopleColumn ? firstName(person.name) : person.name}
                   </p>
                   {!compactPeopleColumn && <p className="mt-0.5 truncate text-xs text-slate-500">{person.role}</p>}
                 </div>
