@@ -26,6 +26,25 @@ interface KanbanBoardProps {
   getScoreColor: (score: number) => string
 }
 
+const COLUMN_ALIASES: Record<string, string[]> = {
+  "to-do": ["to-do", "todo", "backlog", "planning"],
+  "in-corso": ["in-corso", "in-progress", "active"],
+  validation: ["validation", "review"],
+  done: ["done", "completed"],
+  backlog: ["backlog", "to-do", "todo"],
+  planning: ["planning"],
+  "in-progress": ["in-progress", "in-corso", "active"],
+  review: ["review", "validation"],
+  completed: ["completed", "done"],
+  sospensioni: ["sospensioni", "suspended", "on-hold"],
+  recurring: ["recurring", "attivita-ricorrenti"],
+  "attivita-ricorrenti": ["attivita-ricorrenti", "recurring"],
+}
+
+function getTaskColumnId(task: Task) {
+  return task.columnId || task.status
+}
+
 export function KanbanBoard({
   tasks,
   columns,
@@ -51,9 +70,11 @@ export function KanbanBoard({
   }, [])
 
   const getTasksForColumn = (columnId: string) => {
+    const acceptedColumnIds = new Set(COLUMN_ALIASES[columnId] || [columnId])
+
     return tasks.filter(
       (task) =>
-        task.columnId === columnId &&
+        acceptedColumnIds.has(getTaskColumnId(task)) &&
         (searchTerm === "" ||
           task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (task.description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||

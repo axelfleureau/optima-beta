@@ -32,6 +32,31 @@ interface ClientSidebarProps {
   isMobile?: boolean
 }
 
+const COMPLETED_COLUMNS = new Set(["done", "completed"])
+const ACTIVE_COLUMNS = new Set([
+  "to-do",
+  "todo",
+  "urgenze",
+  "in-corso",
+  "in-progress",
+  "active",
+  "validation",
+  "review",
+  "backlog",
+  "planning",
+])
+
+function getTaskColumnId(task: Task) {
+  return task.columnId || task.status
+}
+
+function countTasks(tasks: Task[]) {
+  const completed = tasks.filter((task) => COMPLETED_COLUMNS.has(getTaskColumnId(task))).length
+  const active = tasks.filter((task) => ACTIVE_COLUMNS.has(getTaskColumnId(task))).length
+
+  return { active, completed }
+}
+
 export function ClientSidebar({
   clients,
   allTasks,
@@ -55,38 +80,12 @@ export function ClientSidebar({
 
   const getClientTaskCount = (clientId: string) => {
     const clientTasks = allTasks.filter((task) => task.clientId === clientId)
-
-    const activeTasks = clientTasks.filter(
-      (task) =>
-        task.columnId === "to-do" ||
-        task.columnId === "in-corso" ||
-        task.columnId === "urgenze" ||
-        task.columnId === "validation" ||
-        task.columnId === "backlog" ||
-        task.columnId === "planning" ||
-        task.columnId === "in-progress" ||
-        task.columnId === "review",
-    )
-
-    const completedTasks = clientTasks.filter((task) => task.columnId === "done" || task.columnId === "completed")
-
-    return { active: activeTasks.length, completed: completedTasks.length }
+    return countTasks(clientTasks)
   }
 
   const getAllClientsTaskCount = () => {
     const allClientTasks = allTasks.filter((task) => task.clientId !== "tenant")
-
-    const activeTasks = allClientTasks.filter(
-      (task) =>
-        task.columnId === "to-do" ||
-        task.columnId === "in-corso" ||
-        task.columnId === "urgenze" ||
-        task.columnId === "validation",
-    )
-
-    const completedTasks = allClientTasks.filter((task) => task.columnId === "done")
-
-    return { active: activeTasks.length, completed: completedTasks.length }
+    return countTasks(allClientTasks)
   }
 
   if (collapsed) {
