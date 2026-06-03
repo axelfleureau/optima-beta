@@ -13,19 +13,12 @@ import {
   MessageSquareText,
   RotateCcw,
   Sparkles,
+  X,
 } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import { RighelloIcon } from "@/components/brand/righello-icon"
 import { Button } from "@/components/ui/button"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import { useIsMobile } from "@/components/ui/use-mobile"
 import { useAuth } from "@/lib/auth-context"
 import { useCommandBarStore } from "@/lib/stores/command-bar-store"
 import { cn } from "@/lib/utils"
@@ -54,7 +47,8 @@ type PageGuide = {
   actions: GuideAction[]
 }
 
-const STORAGE_PREFIX = "optima-page-guide:v1"
+const STORAGE_PREFIX = "optima-page-guide:v2"
+const ASSISTANT_HINT_KEY = "optima-ai-sidekick:v1:hint-dismissed"
 
 const PAGE_GUIDES: PageGuide[] = [
   {
@@ -385,21 +379,26 @@ function markGuideSeen(guideId: string) {
   window.localStorage.setItem(storageKey(guideId), "seen")
 }
 
-function resetGuideSeen(guideId: string) {
+function hasDismissedAssistantHint() {
+  if (typeof window === "undefined") return true
+  return window.localStorage.getItem(ASSISTANT_HINT_KEY) === "true"
+}
+
+function dismissAssistantHint() {
   if (typeof window === "undefined") return
-  window.localStorage.removeItem(storageKey(guideId))
+  window.localStorage.setItem(ASSISTANT_HINT_KEY, "true")
 }
 
 export function AiPageGuide() {
   const pathname = usePathname()
   const router = useRouter()
-  const isMobile = useIsMobile()
   const reduceMotion = useReducedMotion()
   const { userData } = useAuth()
   const { open: openCommandBar, setInput } = useCommandBarStore()
 
   const guide = useMemo(() => getPageGuide(pathname), [pathname])
-  const [open, setOpen] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [hintOpen, setHintOpen] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
 
   const canShowGuide = guide ? guideVisibleForRole(guide, userData?.role) : false
@@ -409,9 +408,11 @@ export function AiPageGuide() {
     setCurrentStep(0)
 
     if (!visibleGuide) return
-    if (hasSeenGuide(visibleGuide.id)) return
 
-    const timeout = window.setTimeout(() => setOpen(true), 800)
+    const timeout = window.setTimeout(() => {
+      setHintOpen(!hasDismissedAssistantHint())
+    }, 1200)
+
     return () => window.clearTimeout(timeout)
   }, [visibleGuide?.id])
 
@@ -421,16 +422,18 @@ export function AiPageGuide() {
   const stepCount = activeGuide.steps.length
   const step = activeGuide.steps[currentStep]
   const progress = ((currentStep + 1) / stepCount) * 100
+  const guideSeen = hasSeenGuide(activeGuide.id)
 
   function closeAndRemember() {
     markGuideSeen(activeGuide.id)
-    setOpen(false)
+    setPanelOpen(false)
   }
 
-  function restartTour() {
-    resetGuideSeen(activeGuide.id)
+  function openTour() {
     setCurrentStep(0)
-    setOpen(true)
+    setPanelOpen(true)
+    setHintOpen(false)
+    dismissAssistantHint()
   }
 
   function runAction(action: GuideAction) {
@@ -438,88 +441,135 @@ export function AiPageGuide() {
       markGuideSeen(activeGuide.id)
       openCommandBar()
       setInput(action.prompt)
-      setOpen(false)
+      setPanelOpen(false)
+      setHintOpen(false)
       return
     }
 
     if (action.href) {
       markGuideSeen(activeGuide.id)
-      setOpen(false)
+      setPanelOpen(false)
+      setHintOpen(false)
       router.push(action.href)
     }
   }
 
+  function dismissHint() {
+    dismissAssistantHint()
+    setHintOpen(false)
+  }
+
   return (
     <>
-      <motion.button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn(
-          "fixed left-3 z-[80] flex h-11 items-center gap-2 rounded-md border border-white/10 bg-[#070b12]/90 px-3 text-sm font-bold text-white shadow-2xl backdrop-blur-xl transition hover:border-righello-pink/40 hover:bg-[#111827]",
-          "bottom-[calc(env(safe-area-inset-bottom)+5rem)] md:bottom-4 md:left-4"
-        )}
-        initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-        animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-        whileHover={reduceMotion ? undefined : { y: -1 }}
-        aria-label="Apri guida pagina"
-      >
-        <span className="relative grid h-7 w-7 place-items-center rounded-md bg-righello-pink/15">
-          <Bot className="h-4 w-4 text-righello-pink" />
-          <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-righello-cyan shadow-[0_0_14px_rgba(34,211,238,0.8)]" />
-        </span>
-        <span className="hidden sm:inline">Guida pagina</span>
-      </motion.button>
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-3 z-[80] md:bottom-4 md:left-4">
+        <AnimatePresence>
+          {hintOpen && !panelOpen ? (
+            <motion.div
+              key="sidekick-hint"
+              initial={reduceMotion ? false : { opacity: 0, x: -8, y: 8, scale: 0.96 }}
+              animate={reduceMotion ? undefined : { opacity: 1, x: 0, y: 0, scale: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0, x: -8, y: 8, scale: 0.96 }}
+              className="mb-3 max-w-[280px] rounded-md border border-righello-pink/25 bg-[#080b12]/95 p-3 text-white shadow-2xl backdrop-blur-xl"
+            >
+              <button
+                type="button"
+                onClick={dismissHint}
+                className="absolute right-2 top-2 rounded-md p-1 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                aria-label="Nascondi suggerimento"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <p className="pr-5 text-sm font-black leading-5">Ciao, sono Opi.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-300">
+                Ti spiego questa pagina solo quando mi chiami. Niente tour obbligatori.
+              </p>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
-      <Sheet
-        open={open}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) closeAndRemember()
-          else setOpen(true)
-        }}
-      >
-        <SheetContent
-          side={isMobile ? "bottom" : "right"}
-          className={cn(
-            "border-white/10 bg-[#070b12] p-0 text-white shadow-2xl",
-            "[&>button]:rounded-md [&>button]:text-slate-400 [&>button:hover]:bg-white/10 [&>button:hover]:text-white",
-            isMobile
-              ? "max-h-[86svh] rounded-t-[10px]"
-              : "w-[420px] max-w-[calc(100vw-2rem)] sm:max-w-[420px]"
-          )}
+        <motion.button
+          type="button"
+          onClick={() => {
+            setPanelOpen((value) => !value)
+            setHintOpen(false)
+            dismissAssistantHint()
+          }}
+          className="group relative grid h-14 w-14 place-items-center rounded-[8px] border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl transition hover:border-righello-pink/50"
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+          whileHover={reduceMotion ? undefined : { y: -2 }}
+          aria-label="Apri assistente pagina"
+          aria-expanded={panelOpen}
         >
-          <div className="max-h-[86svh] overflow-y-auto [-webkit-overflow-scrolling:touch]">
-            <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(214,72,126,0.22),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.96))] p-5">
-              <div className="flex items-start justify-between gap-4 pr-8">
-                <div className="flex items-center gap-3">
-                  <motion.div
-                    animate={reduceMotion ? undefined : { rotate: [0, 2, -2, 0] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    className="relative"
-                  >
-                    <RighelloIcon className="h-11 w-11" imageClassName="h-[22px] w-[22px]" />
-                    <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-white/10 bg-righello-pink">
-                      <Sparkles className="h-3 w-3 text-white" />
-                    </span>
-                  </motion.div>
-                  <SheetHeader className="space-y-1 text-left">
-                    <SheetDescription className="text-xs font-black uppercase tracking-[0.24em] text-righello-pink">
-                      {activeGuide.eyebrow}
-                    </SheetDescription>
-                    <SheetTitle className="text-xl font-black leading-tight text-white">Optima Guide</SheetTitle>
-                  </SheetHeader>
-                </div>
-              </div>
-              <p className="mt-4 text-lg font-black leading-tight text-white">{activeGuide.title}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">{activeGuide.summary}</p>
-            </div>
+          <motion.span
+            className="absolute -inset-1 rounded-[10px] bg-righello-pink/20 blur-lg"
+            animate={reduceMotion ? undefined : { opacity: [0.25, 0.55, 0.25] }}
+            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <span className="relative grid h-11 w-11 place-items-center rounded-[8px] border border-white/10 bg-[radial-gradient(circle_at_30%_20%,rgba(214,72,126,0.45),transparent_42%),#0b1220]">
+            <RighelloIcon className="h-8 w-8" imageClassName="h-[18px] w-[18px]" />
+            <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border border-[#070b12] bg-righello-pink">
+              <Bot className="h-3 w-3 text-white" />
+            </span>
+          </span>
+        </motion.button>
 
-            <div className="space-y-5 p-5">
-              <div className="rounded-md border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                    <Compass className="h-4 w-4 text-righello-cyan" />
-                    Tour iniziale
+        <AnimatePresence>
+          {panelOpen ? (
+            <motion.div
+              key="sidekick-panel"
+              initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
+              animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className="absolute bottom-[4.25rem] left-0 w-[min(340px,calc(100vw-1.5rem))] overflow-hidden rounded-[8px] border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl"
+            >
+              <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(214,72,126,0.22),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.96))] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <motion.div
+                      animate={reduceMotion ? undefined : { rotate: [0, 2, -2, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                      className="relative shrink-0"
+                    >
+                      <RighelloIcon className="h-10 w-10" imageClassName="h-[20px] w-[20px]" />
+                      <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-white/10 bg-righello-pink">
+                        <Sparkles className="h-3 w-3 text-white" />
+                      </span>
+                    </motion.div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-black uppercase tracking-[0.22em] text-righello-pink">{activeGuide.eyebrow}</p>
+                      <h2 className="mt-1 text-base font-black leading-tight text-white">Opi, assistente pagina</h2>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={closeAndRemember}
+                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                    aria-label="Chiudi assistente pagina"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="mt-3 text-sm font-black leading-5 text-white">{activeGuide.title}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-300">{activeGuide.summary}</p>
+              </div>
+
+              <div className="max-h-[min(62svh,560px)] space-y-4 overflow-y-auto p-4 [-webkit-overflow-scrolling:touch]">
+                <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                      <Compass className="h-4 w-4 text-righello-cyan" />
+                      Tour manuale
+                    </div>
+                    {guideSeen ? (
+                      <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-200">
+                        visto
+                      </span>
+                    ) : null}
+                  </div>
+
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-bold text-slate-500">
                     {currentStep + 1}/{stepCount}
                   </span>
@@ -549,13 +599,7 @@ export function AiPageGuide() {
                 </AnimatePresence>
 
                 <div className="mt-5 flex items-center justify-between gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={currentStep === 0}
-                    onClick={() => setCurrentStep((value) => Math.max(0, value - 1))}
-                    className="h-10 rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white disabled:opacity-40"
-                  >
+                  <Button type="button" variant="outline" disabled={currentStep === 0} onClick={() => setCurrentStep((value) => Math.max(0, value - 1))} className="h-10 rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white disabled:opacity-40">
                     Indietro
                   </Button>
                   {currentStep < stepCount - 1 ? (
@@ -615,18 +659,18 @@ export function AiPageGuide() {
                   Come usarla bene
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  La guida è il layer di orientamento. Per eseguire davvero un comando, usa le azioni rapide o <span className="font-bold text-white">⌘K</span>.
+                  Opi resta chiuso finche non lo chiami. Per eseguire davvero un comando, usa le azioni rapide o <span className="font-bold text-white">⌘K</span>.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={restartTour}
+                    onClick={openTour}
                     className="rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white"
                   >
                     <RotateCcw className="mr-2 h-3.5 w-3.5" />
-                    Ripeti tour
+                    Riparti
                   </Button>
                   <Button
                     type="button"
@@ -647,12 +691,13 @@ export function AiPageGuide() {
               </div>
 
               <div className="pb-2 text-xs leading-5 text-slate-500">
-                Il tour compare una sola volta per pagina. Puoi riaprirlo dal pulsante Guida pagina.
+                Non parte piu da solo: e una mascotte contestuale, non un onboarding obbligatorio.
               </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
     </>
   )
 }
