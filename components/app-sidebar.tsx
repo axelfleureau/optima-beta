@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Gauge,
   X,
+  Upload,
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
@@ -127,6 +128,11 @@ export function AppSidebar() {
       title: "Rapportini",
       url: "/rapportini",
       icon: ClipboardList,
+    },
+    {
+      title: "Importa Task",
+      url: "/importa-task",
+      icon: Upload,
     },
   ]
 

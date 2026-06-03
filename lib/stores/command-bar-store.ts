@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import type { CommandIntent, CommandSuggestion, NLPResponse, CommandContext } from "@/lib/types"
+import { looksLikeOperationalTaskReport } from "@/lib/task-report-import"
 
 interface CommandBarState {
   isOpen: boolean
@@ -51,6 +52,14 @@ const defaultSuggestions: CommandSuggestion[] = [
     description: "Assegna una task a un membro del team",
     icon: "UserPlus",
     intent: "ASSIGN_TASK" as CommandIntent,
+    category: "task",
+  },
+  {
+    id: "import-task-report",
+    title: "Importa report operativo...",
+    description: "Incolla un report GitHub e crea task per data e progetto",
+    icon: "Upload",
+    intent: "CREATE_TASK" as CommandIntent,
     category: "task",
   },
   {
@@ -195,6 +204,27 @@ export const useCommandBarStore = create<CommandBarState>((set, get) => ({
 
   executeCommand: async (message: string, context: CommandContext) => {
     const cleanMessage = message.trim()
+    const wantsTaskImport = /^importa\s+(task|report)|^carica\s+(task|report)/i.test(cleanMessage)
+
+    if (looksLikeOperationalTaskReport(cleanMessage) || wantsTaskImport) {
+      if (typeof window !== "undefined") {
+        if (looksLikeOperationalTaskReport(cleanMessage)) {
+          window.localStorage.setItem("optima:task-import:draft", cleanMessage)
+        }
+        window.location.href = "/importa-task"
+      }
+
+      set({
+        isOpen: false,
+        inputValue: "",
+        status: "idle",
+        error: null,
+        missingParams: [],
+        nlpResponse: null,
+        searchResults: [],
+      })
+      return
+    }
 
     set({
       status: "processing",
