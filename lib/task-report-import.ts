@@ -189,33 +189,9 @@ function choosePriority(projectName: string, tasks: string[]): ParsedTaskReportI
   return "medium"
 }
 
-function chooseWorkflowStatus(projectName: string, tasks: string[]): ParsedTaskReportItem["workflowStatus"] {
-  const titleText = `${projectName} ${tasks[0] || ""}`.toLowerCase()
-  const allText = `${titleText} ${tasks.join(" ")}`.toLowerCase()
-  const explicitCompletionSignals = [
-    "ufficialmente in production",
-    "ufficialmente in produzione",
-    "messo in production",
-    "messo in produzione",
-    "rilasciato in production",
-    "rilasciata in production",
-    "rilasciato in produzione",
-    "rilasciata in produzione",
-    "deployato in produzione",
-    "deployata in produzione",
-    "pubblicato",
-    "pubblicata",
-    "go-live",
-    "go live",
-    "terminato",
-    "terminata",
-    "chiuso",
-    "chiusa",
-  ]
-
-  if (explicitCompletionSignals.some((signal) => allText.includes(signal))) return "done"
-
-  return "in-progress"
+function chooseWorkflowStatus(): ParsedTaskReportItem["workflowStatus"] {
+  // Operational reports describe work already done. The linked project can stay active separately.
+  return "done"
 }
 
 function createdAtFor(dateIso: string, blockIndex: number, dateLabel: string) {
@@ -262,7 +238,7 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
       clientId: target.clientId,
       clientName: target.clientName,
       type: areas || target.type,
-      workflowStatus: chooseWorkflowStatus(target.projectName, tasks),
+      workflowStatus: chooseWorkflowStatus(),
       priority: choosePriority(target.projectName, tasks),
       score: Math.min(10, Math.max(5, Math.round(5 + tasks.length / 3))),
       tags: [

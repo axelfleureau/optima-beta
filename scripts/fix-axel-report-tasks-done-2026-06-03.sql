@@ -1,7 +1,7 @@
--- Axel operational report cards describe completed work.
--- Keep the linked projects active, but put the report cards themselves in Done.
+-- Axel operational report cards are completed work evidence.
+-- The linked project remains active/non-complete, but each reported task belongs in Done.
 
-WITH axel_macro_tasks AS (
+WITH axel_report_tasks AS (
   SELECT
     t.id,
     t.project_id
@@ -22,9 +22,7 @@ SET
   status = 'done',
   column_id = 'done',
   updated_at = CURRENT_TIMESTAMP
-WHERE id IN (
-  SELECT id FROM axel_macro_tasks
-);
+WHERE id IN (SELECT id FROM axel_report_tasks);
 
 WITH linked_projects AS (
   SELECT DISTINCT t.project_id
