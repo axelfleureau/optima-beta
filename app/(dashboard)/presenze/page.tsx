@@ -112,6 +112,9 @@ type PresencePayload = {
   }
 }
 
+type CalendarPerson = PresencePayload["calendar"]["people"][number]
+type CalendarPersonDay = CalendarPerson["days"][number]
+
 const pageClass =
   "h-[calc(100svh-73px)] min-h-0 w-full overflow-x-clip overflow-y-auto overscroll-contain bg-[#050914] text-white [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-x-hidden md:overflow-y-visible"
 const panelClass = "rounded-[8px] border border-white/10 bg-[#0a1020]/90 shadow-[0_18px_70px_rgba(0,0,0,0.26)]"
@@ -304,6 +307,71 @@ function personMonthStats(person: PresencePayload["calendar"]["people"][number])
       return acc
     },
     { presenceDays: 0, absenceDays: 0, taskCount: 0, activityMinutes: 0 },
+  )
+}
+
+function getMonthCalendarCells(days: string[]) {
+  if (days.length === 0) return []
+
+  const firstDay = new Date(`${days[0]}T00:00:00`)
+  const leadingEmptyCells = (firstDay.getDay() + 6) % 7
+  const cells: Array<string | null> = [
+    ...Array.from({ length: leadingEmptyCells }, () => null),
+    ...days,
+  ]
+
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
+}
+
+function getCalendarDayRecords(people: CalendarPerson[], date: string) {
+  return people
+    .map((person) => {
+      const day = person.days.find((item) => item.date === date) || null
+      return { person, day }
+    })
+    .filter((record): record is { person: CalendarPerson; day: CalendarPersonDay } => Boolean(record.day))
+}
+
+function calendarDayTone(records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) {
+  const hasAbsence = records.some(({ day }) => day.status === "absent")
+  const hasSignal = records.some(({ day }) => day.signal)
+  const hasPresence = records.some(({ day }) => day.status === "present" || day.status === "closed")
+
+  if (hasAbsence) return "border-red-300/35 bg-red-500/[0.08]"
+  if (hasSignal) return "border-amber-300/35 bg-amber-300/[0.08]"
+  if (hasPresence) return "border-emerald-300/25 bg-emerald-300/[0.05]"
+  return "border-white/10 bg-white/[0.035]"
+}
+
+function attendanceEventTone(day: CalendarPersonDay) {
+  if (day.status === "absent") return "border-red-300/30 bg-red-500/15 text-red-100"
+  if (day.signal === "late") return "border-amber-300/35 bg-amber-300/15 text-amber-100"
+  if (day.signal === "early-exit") return "border-cyan-300/30 bg-cyan-300/12 text-cyan-100"
+  if (day.status === "closed") return "border-slate-300/20 bg-slate-300/10 text-slate-200"
+  return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+}
+
+function attendanceEventLabel(day: CalendarPersonDay) {
+  if (day.status === "absent") return day.absenceReason ? `Assente: ${day.absenceReason}` : "Assente"
+  if (day.signal === "late") return `Ritardo +${formatMinutes(day.minutesLate)}`
+  if (day.signal === "early-exit") return `Uscita -${formatMinutes(day.minutesEarly)}`
+  if (day.status === "closed") return "Uscito"
+  if (day.status === "present") return "Presente"
+  return "Non segnato"
+}
+
+function calendarDaySummary(records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) {
+  return records.reduce(
+    (acc, { day }) => {
+      if (day.status === "present" || day.status === "closed") acc.present += 1
+      if (day.status === "absent") acc.absent += 1
+      if (day.status === "missing") acc.missing += 1
+      if (day.signal === "late") acc.late += 1
+      if (day.signal === "early-exit") acc.earlyExit += 1
+      return acc
+    },
+    { present: 0, absent: 0, missing: 0, late: 0, earlyExit: 0 },
   )
 }
 
@@ -642,6 +710,7 @@ function PresenceCalendarHeatmap({
   onDateChange: (date: string) => void
 }) {
   const [personFilter, setPersonFilter] = useState("all")
+  const [viewMode, setViewMode] = useState<"heatmap" | "calendar">("heatmap")
 
   useEffect(() => {
     if (personFilter !== "all" && !calendar.people.some((person) => person.id === personFilter)) {
@@ -684,8 +753,33 @@ function PresenceCalendarHeatmap({
             {isManager
               ? "Direzione e admin vedono tutto il team. Junior e dipendenti vedono solo il proprio calendario."
               : "Vista personale: direzione e admin possono consultarla nel calendario team."}
-            {" "}Ogni giorno mostra un segnale: leggero, operativo, focus, sprint, anomalia o assenza.
+            {" "}
+            {viewMode === "heatmap"
+              ? "Ogni giorno mostra un segnale: leggero, operativo, focus, sprint, anomalia o assenza."
+              : "La vista calendario legge il mese come registro: presenti, assenti, ritardi e uscite anticipate."}
           </p>
+          <div className="mt-4 grid w-full max-w-md grid-cols-2 rounded-[8px] border border-white/10 bg-black/30 p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setViewMode("heatmap")}
+              className={cn(
+                "rounded-[7px] px-3 py-2 font-bold text-slate-400 transition",
+                viewMode === "heatmap" && "bg-righello-pink text-white shadow-[0_10px_28px_rgba(224,64,133,0.24)]",
+              )}
+            >
+              Heatmap
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("calendar")}
+              className={cn(
+                "rounded-[7px] px-3 py-2 font-bold text-slate-400 transition",
+                viewMode === "calendar" && "bg-righello-cyan text-[#041118] shadow-[0_10px_28px_rgba(34,211,238,0.18)]",
+              )}
+            >
+              Calendario
+            </button>
+          </div>
           {isManager && calendar.people.length > 1 && (
             <select
               value={personFilter}
@@ -763,6 +857,15 @@ function PresenceCalendarHeatmap({
         </div>
       </div>
 
+      {viewMode === "calendar" ? (
+        <PresenceMonthCalendar
+          calendar={calendar}
+          people={visiblePeople}
+          selectedDate={selectedDate}
+          onDateChange={onDateChange}
+        />
+      ) : (
+        <>
       <div className="space-y-4 p-4 md:hidden">
         {visiblePeople.map((person) => {
           const stats = personMonthStats(person)
@@ -873,7 +976,153 @@ function PresenceCalendarHeatmap({
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-amber-200/80 bg-amber-300/72" /> anomalia oraria</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] outline outline-2 outline-righello-pink/70" /> giorno selezionato</span>
       </div>
+        </>
+      )}
     </section>
+  )
+}
+
+function PresenceMonthCalendar({
+  calendar,
+  people,
+  selectedDate,
+  onDateChange,
+}: {
+  calendar: PresencePayload["calendar"]
+  people: CalendarPerson[]
+  selectedDate: string
+  onDateChange: (date: string) => void
+}) {
+  const cells = useMemo(() => getMonthCalendarCells(calendar.days), [calendar.days])
+  const weekdayLabels = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+
+  return (
+    <div className="p-4">
+      <div className="mb-4 rounded-[8px] border border-white/10 bg-black/20 p-4">
+        <h3 className="text-lg font-black text-white">Registro mensile presenze</h3>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+          Lettura HR rapida: ogni giorno evidenzia chi è presente, chi è assente e dove ci sono ritardi o uscite anticipate.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+          <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">Presente</span>
+          <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-amber-100">Ritardo / uscita anticipata</span>
+          <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-red-300/30 bg-red-500/10 px-2.5 py-1 text-red-100">Assenza</span>
+        </div>
+      </div>
+
+      <div className="space-y-3 md:hidden">
+        {calendar.days.map((date) => {
+          const records = getCalendarDayRecords(people, date)
+          const summary = calendarDaySummary(records)
+          const importantRecords = records.filter(({ day }) => day.status === "absent" || day.signal)
+          const visibleRecords = importantRecords.length > 0 ? importantRecords : records
+
+          return (
+            <button
+              key={`agenda-${date}`}
+              type="button"
+              onClick={() => onDateChange(date)}
+              className={cn(
+                "w-full rounded-[8px] border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                calendarDayTone(records),
+                date === selectedDate && "border-righello-pink/65 shadow-[0_0_0_1px_rgba(224,64,133,0.35)]",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-righello-pink">{formatWeekdayShort(date)}</p>
+                  <p className="mt-1 text-lg font-black text-white">{formatDateLabel(date)}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-1 text-center text-[11px]">
+                  <span className="rounded-[6px] border border-emerald-300/20 bg-emerald-300/10 px-2 py-1 text-emerald-100">{summary.present} P</span>
+                  <span className="rounded-[6px] border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-amber-100">{summary.late + summary.earlyExit} !</span>
+                  <span className="rounded-[6px] border border-red-300/20 bg-red-500/10 px-2 py-1 text-red-100">{summary.absent} A</span>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {visibleRecords.slice(0, 6).map(({ person, day }) => (
+                  <div
+                    key={`${date}-${person.id}`}
+                    className={cn("rounded-[7px] border px-3 py-2 text-sm", attendanceEventTone(day))}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-black">{person.name}</span>
+                      <span className="shrink-0 text-xs font-bold opacity-80">{attendanceEventLabel(day)}</span>
+                    </div>
+                    <p className="mt-1 text-xs opacity-70">
+                      {day.checkInAt ? formatTime(day.checkInAt) : "--:--"} - {day.checkOutAt ? formatTime(day.checkOutAt) : "--:--"}
+                    </p>
+                  </div>
+                ))}
+                {visibleRecords.length > 6 && <p className="text-xs font-bold text-slate-400">+{visibleRecords.length - 6} altri record</p>}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="hidden md:block">
+        <div className="grid grid-cols-7 gap-2 pb-2">
+          {weekdayLabels.map((label) => (
+            <div key={label} className="px-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-2">
+          {cells.map((date, index) => {
+            if (!date) {
+              return <div key={`empty-${index}`} className="min-h-[148px] rounded-[8px] border border-white/[0.04] bg-white/[0.015]" />
+            }
+
+            const records = getCalendarDayRecords(people, date)
+            const summary = calendarDaySummary(records)
+            const importantRecords = records.filter(({ day }) => day.status === "absent" || day.signal)
+            const visibleRecords = importantRecords.length > 0 ? importantRecords : records
+
+            return (
+              <button
+                key={date}
+                type="button"
+                onClick={() => onDateChange(date)}
+                className={cn(
+                  "min-h-[148px] rounded-[8px] border p-3 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                  calendarDayTone(records),
+                  date === selectedDate && "border-righello-pink/70 shadow-[0_0_0_1px_rgba(224,64,133,0.35)]",
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xl font-black text-white">{Number(formatDayNumber(date))}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{formatWeekdayShort(date)}</p>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-1 text-[10px] font-black">
+                    <span className="rounded-[6px] bg-emerald-300/12 px-1.5 py-1 text-emerald-100">{summary.present}</span>
+                    {(summary.late > 0 || summary.earlyExit > 0) && (
+                      <span className="rounded-[6px] bg-amber-300/14 px-1.5 py-1 text-amber-100">!</span>
+                    )}
+                    {summary.absent > 0 && <span className="rounded-[6px] bg-red-500/16 px-1.5 py-1 text-red-100">{summary.absent}</span>}
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  {visibleRecords.slice(0, 4).map(({ person, day }) => (
+                    <div
+                      key={`${date}-${person.id}`}
+                      className={cn("min-w-0 rounded-[6px] border px-2 py-1.5 text-[11px]", attendanceEventTone(day))}
+                    >
+                      <p className="truncate font-black">{person.name}</p>
+                      <p className="mt-0.5 truncate opacity-75">{attendanceEventLabel(day)}</p>
+                    </div>
+                  ))}
+                  {visibleRecords.length === 0 && <p className="text-xs text-slate-500">Nessun dato</p>}
+                  {visibleRecords.length > 4 && <p className="text-[11px] font-bold text-slate-400">+{visibleRecords.length - 4} altri</p>}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
   )
 }
 
