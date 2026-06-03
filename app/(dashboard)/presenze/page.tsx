@@ -249,9 +249,14 @@ function presenceSignalLabel(person: PersonPresence) {
   return ""
 }
 
+function dayTimeSignalLabel(day: CalendarPersonDay) {
+  if (day.signal === "late") return `Entrata +${formatMinutes(day.minutesLate)}`
+  if (day.signal === "early-exit") return `Uscita -${formatMinutes(day.minutesEarly)}`
+  return ""
+}
+
 function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
   if (day.status === "absent") return "border-red-300/75 bg-red-500/75 text-white shadow-[0_0_20px_rgba(248,113,113,0.22)]"
-  if (day.signal) return "border-amber-200/80 bg-amber-300/72 text-[#1b1203] shadow-[0_0_20px_rgba(253,230,138,0.24)]"
   if (day.status === "missing" && day.intensity === 0) return "border-white/10 bg-white/[0.075] text-slate-500"
 
   const intensityClasses = [
@@ -268,9 +273,6 @@ function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["d
 function calendarCellSignal(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
   if (day.status === "absent") {
     return { label: "Assenza", short: "OFF", Icon: XCircle }
-  }
-  if (day.signal) {
-    return { label: day.signal === "late" ? "Entrata tarda" : "Uscita anticipata", short: "!", Icon: AlertCircle }
   }
   if (day.intensity >= 4) return { label: "Sprint", short: day.taskCount > 0 ? String(day.taskCount) : "MAX", Icon: Flame }
   if (day.intensity >= 3) return { label: "Focus", short: day.taskCount > 0 ? String(day.taskCount) : "F", Icon: Activity }
@@ -289,6 +291,7 @@ function calendarDayTitle(person: PresencePayload["calendar"]["people"][number],
     `Attivita: ${formatMinutes(day.activityMinutes)}`,
     `Task in scadenza: ${day.taskCount}`,
   ]
+  if (day.signal) parts.push(`Indicatore orario: ${dayTimeSignalLabel(day)}`)
   if (day.checkInAt) parts.push(`Entrata: ${formatTime(day.checkInAt)}`)
   if (day.checkOutAt) parts.push(`Uscita: ${formatTime(day.checkOutAt)}`)
   if (day.signal === "late") parts.push(`Ritardo: ${formatMinutes(day.minutesLate)}`)
@@ -302,11 +305,12 @@ function personMonthStats(person: PresencePayload["calendar"]["people"][number])
     (acc, day) => {
       if (day.status === "present" || day.status === "closed") acc.presenceDays += 1
       if (day.status === "absent") acc.absenceDays += 1
+      if (day.signal) acc.anomalyDays += 1
       acc.taskCount += day.taskCount
       acc.activityMinutes += day.activityMinutes
       return acc
     },
-    { presenceDays: 0, absenceDays: 0, taskCount: 0, activityMinutes: 0 },
+    { presenceDays: 0, absenceDays: 0, anomalyDays: 0, taskCount: 0, activityMinutes: 0 },
   )
 }
 
@@ -729,12 +733,13 @@ function PresenceCalendarHeatmap({
         for (const day of person.days) {
           if (day.status === "present" || day.status === "closed") acc.presenceDays += 1
           if (day.status === "absent") acc.absenceDays += 1
+          if (day.signal) acc.anomalyDays += 1
           acc.taskCount += day.taskCount
           acc.activityMinutes += day.activityMinutes
         }
         return acc
       },
-      { presenceDays: 0, absenceDays: 0, taskCount: 0, activityMinutes: 0 },
+      { presenceDays: 0, absenceDays: 0, anomalyDays: 0, taskCount: 0, activityMinutes: 0 },
     )
   }, [visiblePeople])
 
@@ -755,7 +760,7 @@ function PresenceCalendarHeatmap({
               : "Vista personale: direzione e admin possono consultarla nel calendario team."}
             {" "}
             {viewMode === "heatmap"
-              ? "Ogni giorno mostra un segnale: leggero, operativo, focus, sprint, anomalia o assenza."
+              ? "Ogni giorno mostra l'intensità operativa; eventuali anomalie orarie restano indicatori secondari aggregabili."
               : "La vista calendario legge il mese come registro: presenti, assenti, ritardi e uscite anticipate."}
           </p>
           <div className="mt-4 grid w-full max-w-md grid-cols-2 rounded-[8px] border border-white/10 bg-black/30 p-1 text-sm">
@@ -836,7 +841,7 @@ function PresenceCalendarHeatmap({
               </Button>
             </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-5">
             <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Periodo</p>
               <p className="mt-1 font-black capitalize text-white">{formatMonthLabel(calendar.monthStart)}</p>
@@ -852,6 +857,10 @@ function PresenceCalendarHeatmap({
             <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Assenze</p>
               <p className="mt-1 font-black text-red-100">{monthStats.absenceDays}</p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Anomalie</p>
+              <p className="mt-1 font-black text-amber-100">{monthStats.anomalyDays}</p>
             </div>
           </div>
         </div>
@@ -883,7 +892,7 @@ function PresenceCalendarHeatmap({
                     <p className="mt-1 text-sm font-black text-cyan-100">{formatMinutes(stats.activityMinutes)}</p>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                   <div className="rounded-[8px] border border-emerald-300/15 bg-emerald-300/10 px-2 py-2">
                     <p className="text-slate-400">Presenze</p>
                     <p className="mt-1 text-base font-black text-emerald-100">{stats.presenceDays}</p>
@@ -895,6 +904,10 @@ function PresenceCalendarHeatmap({
                   <div className="rounded-[8px] border border-cyan-300/15 bg-cyan-300/10 px-2 py-2">
                     <p className="text-slate-400">Task</p>
                     <p className="mt-1 text-base font-black text-cyan-100">{stats.taskCount}</p>
+                  </div>
+                  <div className="rounded-[8px] border border-amber-300/15 bg-amber-300/10 px-2 py-2">
+                    <p className="text-slate-400">Orari</p>
+                    <p className="mt-1 text-base font-black text-amber-100">{stats.anomalyDays}</p>
                   </div>
                 </div>
               </div>
@@ -973,7 +986,12 @@ function PresenceCalendarHeatmap({
           <span>leggero · operativo · focus · sprint</span>
         </span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-red-300/70 bg-red-500/70" /> assenza</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-amber-200/80 bg-amber-300/72" /> anomalia oraria</span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex h-4 w-4 items-center justify-center rounded-[5px] border border-amber-200/70 bg-[#0a1020] text-amber-200">
+            <Clock className="h-2.5 w-2.5" />
+          </span>
+          indicatore orario aggregato
+        </span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] outline outline-2 outline-righello-pink/70" /> giorno selezionato</span>
       </div>
         </>
@@ -1155,6 +1173,14 @@ function CalendarHeatmapCell({
           selected && "outline outline-2 outline-offset-1 outline-righello-pink/70",
         )}
       >
+        {day.signal && day.status !== "absent" && (
+          <span
+            className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-200/70 bg-[#070d1a] text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
+            aria-hidden="true"
+          >
+            <Clock className="h-2.5 w-2.5" />
+          </span>
+        )}
         <Icon className="mb-0.5 h-3.5 w-3.5 opacity-90 transition group-hover:scale-110" />
         <span className="leading-none">{signal.short}</span>
       </button>
@@ -1174,6 +1200,14 @@ function CalendarHeatmapCell({
       )}
     >
       <span className="absolute left-1.5 top-1.5 text-[10px] font-black leading-none opacity-70">{formatDayNumber(day.date)}</span>
+      {day.signal && day.status !== "absent" && (
+        <span
+          className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-200/70 bg-[#070d1a] text-amber-200 shadow-[0_0_14px_rgba(251,191,36,0.35)]"
+          aria-hidden="true"
+        >
+          <Clock className="h-3 w-3" />
+        </span>
+      )}
       <Icon className="mb-1 h-[18px] w-[18px] transition group-hover:scale-110" />
       <span className="text-[12px] font-black leading-none">{signal.short}</span>
       <span className="mt-1 max-w-full truncate text-[9px] font-bold uppercase leading-none opacity-80">{signal.label}</span>
