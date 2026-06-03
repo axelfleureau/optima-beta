@@ -357,6 +357,18 @@ export default function PresenzePage() {
     await load("refresh")
   }
 
+  const mutateMemberAbsence = async (memberId: string, memberName: string) => {
+    const response = await fetch("/api/time-tracking/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "absence", date, memberId, reason: "Assenza" }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || "Errore aggiornamento presenza")
+    await load("refresh")
+    toast.success(`${memberName} segnata assente`)
+  }
+
   if (loading && !payload) {
     return (
       <div className={pageClass}>
@@ -554,8 +566,19 @@ export default function PresenzePage() {
             </div>
 
             <div className="grid gap-0 md:grid-cols-[1fr_1fr]">
-              <PresenceColumn title="In ufficio adesso" people={presentPeople} empty="Nessuno risulta in ufficio adesso." />
-              <PresenceColumn title="Da presidiare" people={pendingPeople} empty="Nessun segnale da presidiare." muted />
+              <PresenceColumn
+                title="In ufficio adesso"
+                people={presentPeople}
+                empty="Nessuno risulta in ufficio adesso."
+                onMarkAbsent={mutateMemberAbsence}
+              />
+              <PresenceColumn
+                title="Da presidiare"
+                people={pendingPeople}
+                empty="Nessun segnale da presidiare."
+                muted
+                onMarkAbsent={mutateMemberAbsence}
+              />
             </div>
 
             <div className="border-t border-white/10">
@@ -573,7 +596,7 @@ export default function PresenzePage() {
                 </div>
               </div>
               {payload.people.map((person) => (
-                <PersonRow key={person.id} person={person} />
+                <PersonRow key={person.id} person={person} onMarkAbsent={mutateMemberAbsence} />
               ))}
             </div>
           </section>
@@ -887,13 +910,25 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
   )
 }
 
-function PresenceColumn({ title, people, empty, muted = false }: { title: string; people: PersonPresence[]; empty: string; muted?: boolean }) {
+function PresenceColumn({
+  title,
+  people,
+  empty,
+  muted = false,
+  onMarkAbsent,
+}: {
+  title: string
+  people: PersonPresence[]
+  empty: string
+  muted?: boolean
+  onMarkAbsent?: (memberId: string, memberName: string) => Promise<void>
+}) {
   return (
     <div className={cn("min-w-0 p-5", muted && "border-t border-white/10 md:border-l md:border-t-0")}>
       <h3 className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">{title}</h3>
       <div className="mt-4 space-y-3">
         {people.length ? (
-          people.map((person) => <PresenceMiniCard key={person.id} person={person} />)
+          people.map((person) => <PresenceMiniCard key={person.id} person={person} onMarkAbsent={onMarkAbsent} />)
         ) : (
           <div className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-500">{empty}</div>
         )}
@@ -902,7 +937,13 @@ function PresenceColumn({ title, people, empty, muted = false }: { title: string
   )
 }
 
-function PresenceMiniCard({ person }: { person: PersonPresence }) {
+function PresenceMiniCard({
+  person,
+  onMarkAbsent,
+}: {
+  person: PersonPresence
+  onMarkAbsent?: (memberId: string, memberName: string) => Promise<void>
+}) {
   return (
     <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -925,6 +966,18 @@ function PresenceMiniCard({ person }: { person: PersonPresence }) {
       <div className={cn("mt-3 rounded-[8px] border px-3 py-2 text-xs font-semibold", availabilityClass(person.availability?.status))}>
         {person.availability?.label}
       </div>
+      {onMarkAbsent && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={person.status === "absent"}
+          onClick={() => onMarkAbsent(person.id, person.name).catch((err) => toast.error(err.message))}
+          className="mt-3 h-9 w-full rounded-[8px] border-red-400/30 bg-red-950/25 text-red-100 hover:bg-red-500/15 disabled:opacity-45"
+        >
+          {person.status === "absent" ? "Assenza già segnata" : "Segna assenza"}
+        </Button>
+      )}
     </div>
   )
 }
@@ -976,9 +1029,15 @@ function OperationalOutlookCard({ person }: { person: PersonPresence }) {
   )
 }
 
-function PersonRow({ person }: { person: PersonPresence }) {
+function PersonRow({
+  person,
+  onMarkAbsent,
+}: {
+  person: PersonPresence
+  onMarkAbsent?: (memberId: string, memberName: string) => Promise<void>
+}) {
   return (
-    <div className="grid gap-3 border-b border-white/10 p-4 last:border-b-0 md:grid-cols-[1.1fr_0.65fr_0.75fr_0.85fr_1.2fr] md:items-center">
+    <div className="grid gap-3 border-b border-white/10 p-4 last:border-b-0 md:grid-cols-[1.1fr_0.65fr_0.75fr_0.85fr_1.2fr_auto] md:items-center">
       <div className="min-w-0">
         <p className="truncate font-black text-white">{person.name}</p>
         <p className="mt-1 truncate text-sm text-slate-500">{person.email}</p>
@@ -1002,6 +1061,18 @@ function PersonRow({ person }: { person: PersonPresence }) {
         <p className="truncate text-xs font-semibold text-slate-400">{person.availability?.label}</p>
         <p className="mt-1 truncate text-xs text-slate-500">{person.nextTask?.title || person.availability?.detail}</p>
       </div>
+      {onMarkAbsent && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={person.status === "absent"}
+          onClick={() => onMarkAbsent(person.id, person.name).catch((err) => toast.error(err.message))}
+          className="h-9 rounded-[8px] border-red-400/30 bg-red-950/25 px-3 text-red-100 hover:bg-red-500/15 disabled:opacity-45"
+        >
+          Assenza
+        </Button>
+      )}
     </div>
   )
 }
