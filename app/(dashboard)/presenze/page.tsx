@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Activity, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, RefreshCw, UserCheck, Users, XCircle } from "lucide-react"
+import { Activity, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, RefreshCw, UserCheck, Users, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -715,6 +715,7 @@ function PresenceCalendarHeatmap({
 }) {
   const [personFilter, setPersonFilter] = useState("all")
   const [viewMode, setViewMode] = useState<"heatmap" | "calendar">("heatmap")
+  const [compactPeopleColumn, setCompactPeopleColumn] = useState(false)
 
   useEffect(() => {
     if (personFilter !== "all" && !calendar.people.some((person) => person.id === personFilter)) {
@@ -742,6 +743,8 @@ function PresenceCalendarHeatmap({
       { presenceDays: 0, absenceDays: 0, anomalyDays: 0, taskCount: 0, activityMinutes: 0 },
     )
   }, [visiblePeople])
+
+  const peopleColumnTemplate = compactPeopleColumn ? "minmax(132px, 132px)" : "minmax(220px, 1.45fr)"
 
   return (
     <section className={cn(panelClass, "overflow-hidden")}>
@@ -932,12 +935,30 @@ function PresenceCalendarHeatmap({
       </div>
 
       <div className="hidden overflow-x-auto overscroll-x-contain p-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-x] md:block">
-        <div className="min-w-[1180px]">
+        <div className={cn(compactPeopleColumn ? "min-w-[1088px]" : "min-w-[1180px]")}>
           <div
             className="grid items-end gap-1"
-            style={{ gridTemplateColumns: `minmax(220px, 1.45fr) repeat(${calendar.days.length}, minmax(34px, 1fr))` }}
+            style={{ gridTemplateColumns: `${peopleColumnTemplate} repeat(${calendar.days.length}, minmax(34px, 1fr))` }}
           >
-            <div className="px-2 pb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">Persona</div>
+            <div
+              className={cn(
+                "sticky left-0 z-20 flex items-center gap-2 rounded-[7px] bg-[#0a1020] px-2 pb-2 pt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 shadow-[12px_0_24px_rgba(5,9,20,0.85)]",
+                compactPeopleColumn ? "justify-center px-1" : "justify-between",
+              )}
+            >
+              {!compactPeopleColumn && <span>Persona</span>}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={compactPeopleColumn}
+                aria-label={compactPeopleColumn ? "Espandi nominativi" : "Comprimi nominativi"}
+                onClick={() => setCompactPeopleColumn((current) => !current)}
+                className="h-8 w-8 rounded-[8px] border-white/10 bg-white/[0.04] p-0 text-slate-300 hover:border-righello-cyan/35 hover:bg-righello-cyan/10 hover:text-righello-cyan"
+              >
+                {compactPeopleColumn ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </Button>
+            </div>
             {calendar.days.map((day) => (
               <div
                 key={day}
@@ -953,9 +974,24 @@ function PresenceCalendarHeatmap({
 
             {visiblePeople.map((person) => (
               <div key={person.id} className="contents">
-                <div className="sticky left-0 z-10 min-w-0 rounded-[8px] border border-white/10 bg-[#0a1020] px-3 py-3 shadow-[12px_0_24px_rgba(5,9,20,0.85)]">
-                  <p className="truncate text-sm font-black text-white">{person.name}</p>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">{person.role}</p>
+                <div
+                  title={`${person.name} - ${person.role}`}
+                  className={cn(
+                    "sticky left-0 z-10 min-w-0 rounded-[8px] border border-white/10 bg-[#0a1020] shadow-[12px_0_24px_rgba(5,9,20,0.85)]",
+                    compactPeopleColumn
+                      ? "flex min-h-12 items-center justify-center px-2 py-2 text-center"
+                      : "px-3 py-3",
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "truncate font-black text-white",
+                      compactPeopleColumn ? "max-w-[112px] text-xs leading-tight" : "text-sm",
+                    )}
+                  >
+                    {person.name}
+                  </p>
+                  {!compactPeopleColumn && <p className="mt-0.5 truncate text-xs text-slate-500">{person.role}</p>}
                 </div>
                 {person.days.map((day) => (
                   <CalendarHeatmapCell
