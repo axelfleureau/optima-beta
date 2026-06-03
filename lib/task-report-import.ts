@@ -81,10 +81,10 @@ const PROJECT_TARGETS: Record<string, ProjectImportTarget> = {
   },
   "obs padel stream overlay": {
     projectId: "project_internal_obs_padel_stream_overlay",
-    clientId: "client_internal_obs_padel",
-    clientName: "OBS Padel Stream Overlay",
-    projectName: "OBS Padel Stream Overlay",
-    type: "Live Production",
+    clientId: "client_internal_righello_ops",
+    clientName: "Righello",
+    projectName: "Righello Live Studio",
+    type: "Prodotto Righello / Live Production",
   },
   "scale site": {
     projectId: "project_internal_scale_site",
