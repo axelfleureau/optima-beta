@@ -41,6 +41,7 @@ export interface Quote {
   tenantId: string
   createdBy: string
   shareToken?: string
+  brandMateriali?: GeneratedQuoteData["brandMateriali"]
 }
 
 export interface QuoteGenerationData {
@@ -102,6 +103,16 @@ export interface GeneratedQuoteData {
     utilizzoMateriali: string
     variazioneCosti: string
     oggettoContratto: string
+  }
+  brandMateriali?: {
+    brandCoinvolti: string[]
+    brandPrincipale?: string
+    statoLogo?: 'available' | 'to_request' | 'not_defined'
+    noteLogo?: string
+    materialiDisponibili?: string
+    riferimenti?: string
+    materialiDaRichiedere?: string[]
+    domandeAperte?: string[]
   }
   totali: {
     subtotale: number
@@ -295,6 +306,17 @@ export async function generateQuoteFromEnrichedData(
       subtotal: templateResult.totals.subtotale
     })
     
+    const brandContext = [
+      enrichedData.primaryBrandName ? `- Brand principale: ${enrichedData.primaryBrandName}` : '',
+      enrichedData.brandNames?.length ? `- Brand coinvolti: ${enrichedData.brandNames.join(', ')}` : '',
+      enrichedData.logoStatus ? `- Stato logo: ${enrichedData.logoStatus}` : '',
+      enrichedData.logoNotes ? `- Note logo: ${enrichedData.logoNotes}` : '',
+      enrichedData.brandAssets ? `- Materiali disponibili: ${enrichedData.brandAssets}` : '',
+      enrichedData.referenceMaterials ? `- Riferimenti visivi: ${enrichedData.referenceMaterials}` : '',
+      enrichedData.missingMaterials?.length ? `- Materiali da richiedere: ${enrichedData.missingMaterials.join('; ')}` : '',
+      enrichedData.discoveryQuestions?.length ? `- Domande aperte: ${enrichedData.discoveryQuestions.join('; ')}` : '',
+    ].filter(Boolean).join('\n')
+
     // STEP 2: Prepare AI prompt with TEMPLATE DATA pre-filled
     const isWebsite = enrichedData.projectType.includes('website')
     let aiPrompt = `Genera contenuti testuali personalizzati per questo preventivo Righello.
@@ -306,6 +328,9 @@ INFORMAZIONI PROGETTO:
 - Cliente: ${enrichedData.clientName}
 - Complessità: ${enrichedData.complexity}
 - Budget: €${enrichedData.budgetRange.min} - €${enrichedData.budgetRange.max}
+
+MATERIALI BRAND E DISCOVERY:
+${brandContext || '- Materiali da verificare in fase di avvio progetto'}
 
 VOCI DI COSTO GIÀ CALCOLATE (NON MODIFICARE):
 ${JSON.stringify(templateResult.items.slice(0, 5), null, 2)}
@@ -434,6 +459,16 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
         cancellationPenalty: 10
       }, // DA TEMPLATE ✅ DIRETTO
       sezioniStandard: STANDARD_LEGAL_SECTIONS, // Ok per sezioni legali
+      brandMateriali: {
+        brandCoinvolti: enrichedData.brandNames || [],
+        brandPrincipale: enrichedData.primaryBrandName,
+        statoLogo: enrichedData.logoStatus,
+        noteLogo: enrichedData.logoNotes,
+        materialiDisponibili: enrichedData.brandAssets,
+        riferimenti: enrichedData.referenceMaterials,
+        materialiDaRichiedere: enrichedData.missingMaterials || [],
+        domandeAperte: enrichedData.discoveryQuestions || [],
+      },
       totali: templateResult.totals // DA TEMPLATE ✅ NON RICALCOLARE
     }
     
@@ -658,7 +693,8 @@ export function convertToQuoteFormat(
     createdAt: new Date(),
     updatedAt: new Date(),
     tenantId,
-    createdBy
+    createdBy,
+    brandMateriali: quoteData.brandMateriali
   }
 
   // DUAL CLIENT MODE: Set appropriate fields based on client type

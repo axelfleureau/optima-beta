@@ -15,6 +15,17 @@ const quoteItemSchema = z.object({
   total: z.number().positive()
 })
 
+const brandMaterialiSchema = z.object({
+  brandCoinvolti: z.array(z.string()).optional(),
+  brandPrincipale: z.string().optional(),
+  statoLogo: z.enum(['available', 'to_request', 'not_defined']).optional(),
+  noteLogo: z.string().optional(),
+  materialiDisponibili: z.string().optional(),
+  riferimenti: z.string().optional(),
+  materialiDaRichiedere: z.array(z.string()).optional(),
+  domandeAperte: z.array(z.string()).optional()
+}).optional()
+
 // DUAL CLIENT MODE: Support both platform clients (clientId) and external clients (name+email)
 const createQuoteSchema = z.object({
   title: z.string().min(1, 'Titolo richiesto').max(200),
@@ -34,6 +45,7 @@ const createQuoteSchema = z.object({
   currency: z.string().optional(),
   items: z.array(quoteItemSchema).min(1, 'Almeno un item richiesto'),
   total: z.number().positive('Importo deve essere positivo'),
+  brandMateriali: brandMaterialiSchema,
   validUntil: z.string().optional()
 }).refine(
   (data) => {
@@ -111,6 +123,7 @@ export async function POST(request: NextRequest) {
       currency, 
       items, 
       total, 
+      brandMateriali,
       validUntil 
     } = validatedData
 
@@ -137,6 +150,17 @@ export async function POST(request: NextRequest) {
         resolvedClientName = resolvedClientName || "Cliente Piattaforma"
       }
     }
+
+    const normalizedBrandMateriali = brandMateriali ? {
+      brandCoinvolti: brandMateriali.brandCoinvolti || [],
+      brandPrincipale: brandMateriali.brandPrincipale,
+      statoLogo: brandMateriali.statoLogo,
+      noteLogo: brandMateriali.noteLogo,
+      materialiDisponibili: brandMateriali.materialiDisponibili,
+      riferimenti: brandMateriali.riferimenti,
+      materialiDaRichiedere: brandMateriali.materialiDaRichiedere || [],
+      domandeAperte: brandMateriali.domandeAperte || []
+    } : undefined
     
     // Build quote object based on client mode
     const baseQuote = {
@@ -147,7 +171,8 @@ export async function POST(request: NextRequest) {
       currency: currency || "EUR",
       items,
       total,
-      validUntil: validUntil ? new Date(validUntil) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
+      brandMateriali: normalizedBrandMateriali,
+      validUntil: validUntil ? new Date(validUntil) : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days default
       tenantId, // Server-verified only
       createdBy: userId, // Server-verified only
       createdAt: now,

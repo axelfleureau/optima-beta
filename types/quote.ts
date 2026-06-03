@@ -37,6 +37,18 @@ export interface Quote {
   updatedAt: Date
   tenantId: string
   createdBy: string
+
+  // Brand/material discovery context captured before PDF generation
+  brandMateriali?: {
+    brandCoinvolti: string[]
+    brandPrincipale?: string
+    statoLogo?: 'available' | 'to_request' | 'not_defined'
+    noteLogo?: string
+    materialiDisponibili?: string
+    riferimenti?: string
+    materialiDaRichiedere?: string[]
+    domandeAperte?: string[]
+  }
   
   // Public sharing and approval fields
   shareToken?: string

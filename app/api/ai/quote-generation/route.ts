@@ -86,7 +86,15 @@ export async function POST(request: NextRequest) {
         clientName: body.clientName,
         clientEmail: body.clientEmail,
         clientCompany: body.clientCompany,
-        additionalNotes: body.additionalRequirements || body.additionalNotes
+        additionalNotes: body.additionalRequirements || body.additionalNotes,
+        brandNames: Array.isArray(body.brandNames) ? body.brandNames : [],
+        primaryBrandName: body.primaryBrandName,
+        logoStatus: body.logoStatus,
+        logoNotes: body.logoNotes,
+        brandAssets: body.brandAssets,
+        referenceMaterials: body.referenceMaterials,
+        missingMaterials: Array.isArray(body.missingMaterials) ? body.missingMaterials : [],
+        discoveryQuestions: Array.isArray(body.discoveryQuestions) ? body.discoveryQuestions : []
       }
       
       // Generate quote with deterministic template-based pricing

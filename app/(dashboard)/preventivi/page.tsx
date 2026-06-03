@@ -104,7 +104,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
   const validUntil = toDate(quote.validUntil)
   const validityDays = validUntil
     ? Math.max(1, Math.ceil((validUntil.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)))
-    : 30
+    : 60
   const voci =
     quote.voci?.map((voce) => ({
       descrizione: voce.descrizione,
@@ -125,8 +125,8 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
     []
 
   const subtotale = quote.subtotale ?? voci.reduce((sum, voce) => sum + voce.totale, 0)
-  const iva = quote.iva ?? 0
-  const percentualeIva = quote.percentualeIva ?? 0
+  const percentualeIva = quote.percentualeIva ?? 22
+  const iva = quote.iva ?? Math.round(subtotale * (percentualeIva / 100) * 100) / 100
 
   return {
     cliente: {
@@ -251,7 +251,7 @@ export default function PreventiviPage() {
         items: [],
         total: 0,
         currency: "EUR",
-        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }
@@ -318,16 +318,16 @@ export default function PreventiviPage() {
 
     try {
       const { downloadQuotePDF } = await import("@/lib/pdf-generator")
-      downloadQuotePDF(convertQuoteToPDFData(quote), `Preventivo_${quote.id.slice(0, 8)}.pdf`)
+      downloadQuotePDF(convertQuoteToPDFData(quote), `Proposta_${quote.id.slice(0, 8)}.pdf`)
       toast({
         title: "PDF scaricato",
-        description: "Il preventivo e' stato generato correttamente.",
+        description: "La proposta commerciale e' stata generata correttamente.",
       })
     } catch (downloadError) {
       console.error("Error downloading quote PDF:", downloadError)
       toast({
         title: "PDF non riuscito",
-        description: "Non sono riuscito a generare il PDF del preventivo.",
+        description: downloadError instanceof Error ? downloadError.message : "Non sono riuscito a generare il PDF del preventivo.",
         variant: "destructive",
       })
     }

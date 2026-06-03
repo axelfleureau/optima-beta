@@ -104,6 +104,18 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
     isCompletingEnrichmentRef.current = true
 
     try {
+      const materialNotes = [
+        enrichedData.additionalNotes,
+        enrichedData.primaryBrandName ? `Brand principale: ${enrichedData.primaryBrandName}` : '',
+        enrichedData.brandNames?.length ? `Brand coinvolti: ${enrichedData.brandNames.join(', ')}` : '',
+        enrichedData.logoStatus ? `Stato logo: ${enrichedData.logoStatus}` : '',
+        enrichedData.logoNotes ? `Note logo: ${enrichedData.logoNotes}` : '',
+        enrichedData.brandAssets ? `Materiali disponibili: ${enrichedData.brandAssets}` : '',
+        enrichedData.referenceMaterials ? `Reference e direzione visiva: ${enrichedData.referenceMaterials}` : '',
+        enrichedData.missingMaterials?.length ? `Materiali da richiedere: ${enrichedData.missingMaterials.join('; ')}` : '',
+        enrichedData.discoveryQuestions?.length ? `Domande aperte: ${enrichedData.discoveryQuestions.join('; ')}` : '',
+      ].filter(Boolean).join('\n\n')
+
       actionState.start('Raccolta dati preventivo...')
       setIsGenerating(true)
       setStep('generating')
@@ -126,7 +138,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
           budget: `${enrichedData.budgetRange.min}-${enrichedData.budgetRange.max}`,
           budgetRange: enrichedData.budgetRange,
           deadline: enrichedData.timeline,
-          additionalRequirements: enrichedData.additionalNotes || '',
+          additionalRequirements: materialNotes,
           projectType: enrichedData.projectType,
           projectTypeLabel: enrichedData.projectTypeLabel,
           sector: enrichedData.sector,
@@ -134,6 +146,14 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
           complexity: enrichedData.complexity,
           clientMode: enrichedData.clientMode,
           clientId: enrichedData.clientId,
+          brandNames: enrichedData.brandNames || [],
+          primaryBrandName: enrichedData.primaryBrandName,
+          logoStatus: enrichedData.logoStatus,
+          logoNotes: enrichedData.logoNotes,
+          brandAssets: enrichedData.brandAssets,
+          referenceMaterials: enrichedData.referenceMaterials,
+          missingMaterials: enrichedData.missingMaterials || [],
+          discoveryQuestions: enrichedData.discoveryQuestions || [],
         })
       })
 
@@ -221,8 +241,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       console.error('Error generating PDF:', error)
       feedback.error(
         'Generazione PDF',
-        'Non è stato possibile generare il PDF',
-        'Verifica i dati del preventivo'
+        error instanceof Error ? error.message : 'Non è stato possibile generare il PDF',
+        'Verifica le voci e i totali del preventivo'
       )
     }
   }

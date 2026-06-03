@@ -29,7 +29,10 @@ import {
   Euro,
   Users,
   UserPlus,
-  Loader2
+  Loader2,
+  ImageIcon,
+  FileText,
+  HelpCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SECTOR_TEMPLATES } from "@/lib/quote-templates"
@@ -64,6 +67,14 @@ export interface EnrichedPromptData {
   clientCompany?: string
   
   additionalNotes?: string
+  brandNames?: string[]
+  primaryBrandName?: string
+  logoStatus?: 'available' | 'to_request' | 'not_defined'
+  logoNotes?: string
+  brandAssets?: string
+  referenceMaterials?: string
+  missingMaterials?: string[]
+  discoveryQuestions?: string[]
 }
 
 interface PromptEnrichmentDialogProps {
@@ -145,8 +156,17 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
     budgetRange: { min: 3000, max: 10000 },
     complexity: 'standard',
     timeline: '8-12 settimane',
-    clientMode: 'external' // Default to external client mode
+    clientMode: 'external', // Default to external client mode
+    logoStatus: 'to_request',
+    brandNames: [],
+    missingMaterials: [],
+    discoveryQuestions: []
   })
+
+  const splitList = (value: string) => value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 
   useEffect(() => {
     if (open) {
@@ -165,22 +185,27 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
   const isStep4Valid = formData.clientMode === 'platform' 
     ? !!formData.clientId 
     : !!(formData.clientName && formData.clientEmail)
+  const isStep5Valid = !!formData.logoStatus
 
   const resetFormData = () => {
     setFormData({
       budgetRange: { min: 3000, max: 10000 },
       complexity: 'standard',
       timeline: '8-12 settimane',
-      clientMode: 'external'
+      clientMode: 'external',
+      logoStatus: 'to_request',
+      brandNames: [],
+      missingMaterials: [],
+      discoveryQuestions: []
     })
     setCurrentStep(1)
   }
 
   const handleNext = async () => {
-    if (currentStep < 4) {
+    if (currentStep < 5) {
       setCurrentStep(currentStep + 1)
     } else {
-      if (isStep4Valid && formData.projectType && formData.sector && formData.description) {
+      if (isStep5Valid && formData.projectType && formData.sector && formData.description) {
         setIsCompleting(true)
         const enrichedData: EnrichedPromptData = {
           projectType: formData.projectType,
@@ -196,7 +221,15 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
           clientName: formData.clientName || '',
           clientEmail: formData.clientEmail,
           clientCompany: formData.clientCompany,
-          additionalNotes: formData.additionalNotes
+          additionalNotes: formData.additionalNotes,
+          brandNames: formData.brandNames || [],
+          primaryBrandName: formData.primaryBrandName,
+          logoStatus: formData.logoStatus || 'to_request',
+          logoNotes: formData.logoNotes,
+          brandAssets: formData.brandAssets,
+          referenceMaterials: formData.referenceMaterials,
+          missingMaterials: formData.missingMaterials || [],
+          discoveryQuestions: formData.discoveryQuestions || []
         }
         try {
           await Promise.resolve(onComplete(enrichedData))
@@ -219,7 +252,8 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
       case 1: return isStep1Valid
       case 2: return isStep2Valid
       case 3: return isStep3Valid
-      case 4: return isStep4Valid && !isCompleting
+      case 4: return isStep4Valid
+      case 5: return isStep5Valid && !isCompleting
       default: return false
     }
   }
@@ -254,7 +288,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
             Raccolta Informazioni Preventivo
           </DialogTitle>
           <div className="flex items-center gap-2 mt-4">
-            {[1, 2, 3, 4].map((step) => (
+            {[1, 2, 3, 4, 5].map((step) => (
               <div key={step} className="flex items-center flex-1">
                 <div className={cn(
                   "h-2 rounded-full flex-1 transition-all duration-300",
@@ -266,7 +300,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
             ))}
           </div>
           <p className="text-sm text-muted-foreground mt-2">
-            Step {currentStep}/4
+            Step {currentStep}/5
           </p>
         </DialogHeader>
 
@@ -797,6 +831,151 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                   </div>
                 </div>
               )}
+
+              {currentStep === 5 && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="mb-2 flex items-center gap-2 text-lg font-semibold">
+                      <ImageIcon className="h-5 w-5 text-righello-pink" />
+                      Materiali brand
+                    </h3>
+                    <p className="mb-4 text-sm text-muted-foreground">
+                      Raccogli loghi, brand coinvolti, materiali disponibili e domande da chiarire prima di generare il PDF.
+                    </p>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <Label htmlFor="primaryBrandName">Brand principale</Label>
+                        <Input
+                          id="primaryBrandName"
+                          value={formData.primaryBrandName || ''}
+                          onChange={(e) => setFormData({ ...formData, primaryBrandName: e.target.value })}
+                          placeholder={formData.clientCompany || formData.clientName || "Nome brand"}
+                          className="mt-2 bg-white/50 backdrop-blur-sm dark:bg-black/30"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="brandNames">Brand coinvolti</Label>
+                        <Input
+                          id="brandNames"
+                          value={(formData.brandNames || []).join(', ')}
+                          onChange={(e) => setFormData({ ...formData, brandNames: splitList(e.target.value) })}
+                          placeholder="Brand cliente, sub-brand, partner..."
+                          className="mt-2 bg-white/50 backdrop-blur-sm dark:bg-black/30"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="mb-3 block">Logo cliente / brand *</Label>
+                      <RadioGroup
+                        value={formData.logoStatus}
+                        onValueChange={(value: 'available' | 'to_request' | 'not_defined') => setFormData({ ...formData, logoStatus: value })}
+                        className="grid grid-cols-1 gap-3 md:grid-cols-3"
+                      >
+                        {[
+                          { value: 'available', label: 'Logo disponibile', text: 'Abbiamo gia file o link utili.' },
+                          { value: 'to_request', label: 'Da richiedere', text: 'Il PDF deve segnalarlo tra i materiali.' },
+                          { value: 'not_defined', label: 'Da definire', text: 'Brand o asset non sono ancora chiari.' },
+                        ].map((option) => (
+                          <label key={option.value} htmlFor={`logo-${option.value}`}>
+                            <GlassCard
+                              variant="interactive"
+                              padding="md"
+                              className={cn(
+                                "cursor-pointer transition-all duration-300",
+                                formData.logoStatus === option.value && "border-righello-pink/60 shadow-glow-pink"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                <RadioGroupItem value={option.value} id={`logo-${option.value}`} className="mt-1" />
+                                <div>
+                                  <p className="font-semibold">{option.label}</p>
+                                  <p className="mt-1 text-xs text-muted-foreground">{option.text}</p>
+                                </div>
+                              </div>
+                            </GlassCard>
+                          </label>
+                        ))}
+                      </RadioGroup>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <Label htmlFor="brandAssets" className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Link e materiali disponibili
+                        </Label>
+                        <Textarea
+                          id="brandAssets"
+                          value={formData.brandAssets || ''}
+                          onChange={(e) => setFormData({ ...formData, brandAssets: e.target.value })}
+                          placeholder="Drive, sito attuale, brand book, cartella loghi, foto, video, credenziali gia note..."
+                          className="mt-2 min-h-[110px] bg-white/50 backdrop-blur-sm dark:bg-black/30"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="missingMaterials">Materiali da chiedere</Label>
+                        <Textarea
+                          id="missingMaterials"
+                          value={(formData.missingMaterials || []).join('\n')}
+                          onChange={(e) => setFormData({ ...formData, missingMaterials: splitList(e.target.value) })}
+                          placeholder={"Logo vettoriale SVG/PDF\nFoto ufficiali\nBrand guideline\nCredenziali dominio/hosting"}
+                          className="mt-2 min-h-[110px] bg-white/50 backdrop-blur-sm dark:bg-black/30"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="referenceMaterials">Reference e direzione visiva</Label>
+                      <Textarea
+                        id="referenceMaterials"
+                        value={formData.referenceMaterials || ''}
+                        onChange={(e) => setFormData({ ...formData, referenceMaterials: e.target.value })}
+                        placeholder="Siti competitor, tono desiderato, materiali da evitare, benchmark visivi, stile fotografico..."
+                        className="mt-2 min-h-[90px] bg-white/50 backdrop-blur-sm dark:bg-black/30"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="discoveryQuestions" className="flex items-center gap-2">
+                        <HelpCircle className="h-4 w-4" />
+                        Domande aperte per il cliente
+                      </Label>
+                      <Textarea
+                        id="discoveryQuestions"
+                        value={(formData.discoveryQuestions || []).join('\n')}
+                        onChange={(e) => setFormData({ ...formData, discoveryQuestions: splitList(e.target.value) })}
+                        placeholder={"Chi approva il preventivo e i contenuti?\nQuali brand/prodotti devono comparire?\nEsistono vincoli legali o linee guida da rispettare?"}
+                        className="mt-2 min-h-[110px] bg-white/50 backdrop-blur-sm dark:bg-black/30"
+                      />
+                    </div>
+
+                    <GlassCard variant="elevated" padding="md">
+                      <p className="mb-3 text-sm font-semibold">Checklist consigliata</p>
+                      <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
+                        {[
+                          "Logo vettoriale o PNG alta risoluzione",
+                          "Brand guideline e palette ufficiale",
+                          "Foto/video/prodotti da usare nel PDF",
+                          "Referente approvazione e dati fiscali",
+                          "Accessi tecnici necessari",
+                          "Vincoli su privacy, claim o licenze",
+                        ].map((item) => (
+                          <div key={item} className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-green-500" />
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </GlassCard>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -818,7 +997,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
               disabled={!canGoNext()}
             >
               {isCompleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {currentStep === 4 ? (isCompleting ? 'Genero...' : 'Genera Preventivo') : 'Avanti'}
+              {currentStep === 5 ? (isCompleting ? 'Genero...' : 'Genera Preventivo') : 'Avanti'}
               {!isCompleting && <ChevronRight className="w-4 h-4 ml-2" />}
             </GlassButton>
           </div>

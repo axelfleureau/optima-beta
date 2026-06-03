@@ -12,12 +12,22 @@ interface QuoteDocumentsTabProps {
   quote: Quote
 }
 
+function toDate(value: Date | { toDate?: () => Date } | string | number | null | undefined) {
+  if (!value) return new Date()
+  if (value instanceof Date) return value
+  if (typeof value === "object" && typeof value.toDate === "function") return value.toDate()
+  if (typeof value === "string" || typeof value === "number") return new Date(value)
+  return new Date()
+}
+
 // Mapper function: Quote → GeneratedQuoteData
 function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
+  const createdAt = toDate(quote.createdAt)
+  const validUntil = toDate(quote.validUntil)
   // Calculate validity days from validUntil
-  const validityDays = quote.validUntil 
-    ? Math.ceil((new Date(quote.validUntil).getTime() - new Date(quote.createdAt).getTime()) / (1000 * 60 * 60 * 24))
-    : 30
+  const validityDays = quote.validUntil
+    ? Math.max(1, Math.ceil((validUntil.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)))
+    : 60
 
   // Client email - prefer externalClientEmail, fallback to clientEmail
   const clientEmail = quote.externalClientEmail || quote.clientEmail || ''
@@ -41,8 +51,8 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
 
   // Use persisted financial breakdown from quote (fallback to calculating if not available)
   const subtotale = quote.subtotale ?? voci.reduce((sum, voce) => sum + voce.totale, 0)
-  const iva = quote.iva ?? 0
-  const percentualeIva = quote.percentualeIva ?? 0
+  const percentualeIva = quote.percentualeIva ?? 22
+  const iva = quote.iva ?? Math.round(subtotale * (percentualeIva / 100) * 100) / 100
   const totale = quote.total ?? (subtotale + iva)
 
   return {
@@ -58,7 +68,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       titolo: quote.title,
       descrizione: quote.description || '',
       numeroPreventivo: quote.id.slice(0, 8).toUpperCase(),
-      dataCreazione: new Date(quote.createdAt).toISOString().split('T')[0],
+      dataCreazione: createdAt.toISOString().split('T')[0],
       validitaGiorni: validityDays,
       settore: '',
       timeline: ''
@@ -87,17 +97,17 @@ export function QuoteDocumentsTab({ quote }: QuoteDocumentsTabProps) {
   const handleDownloadPDF = () => {
     try {
       const pdfData = convertQuoteToPDFData(quote)
-      downloadQuotePDF(pdfData, `Preventivo_${quote.id}.pdf`)
+      downloadQuotePDF(pdfData, `Proposta_${quote.id}.pdf`)
       
       toast({
         title: "PDF Scaricato",
-        description: "Il preventivo è stato scaricato con successo.",
+        description: "La proposta commerciale e' stata scaricata con successo.",
       })
     } catch (error) {
       console.error("Error downloading PDF:", error)
       toast({
         title: "Errore",
-        description: "Si è verificato un errore durante il download del PDF.",
+        description: error instanceof Error ? error.message : "Si e' verificato un errore durante il download del PDF.",
         variant: "destructive"
       })
     }
@@ -137,7 +147,7 @@ export function QuoteDocumentsTab({ quote }: QuoteDocumentsTabProps) {
       console.error("Error previewing PDF:", error)
       toast({
         title: "Errore",
-        description: "Si è verificato un errore durante l'anteprima del PDF.",
+        description: error instanceof Error ? error.message : "Si e' verificato un errore durante l'anteprima del PDF.",
         variant: "destructive"
       })
     }
@@ -156,7 +166,7 @@ export function QuoteDocumentsTab({ quote }: QuoteDocumentsTabProps) {
             </div>
             <div>
               <p className="font-medium text-gray-900 dark:text-white">
-                Preventivo_{quote.id}.pdf
+                Proposta_{quote.id}.pdf
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">PDF Preventivo</p>
             </div>
