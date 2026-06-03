@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { useClients } from "@/hooks/use-clients"
 import { ClientFormDialog } from "@/components/clients/client-form-dialog"
@@ -304,9 +305,11 @@ export default function ClientiPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="border-white/10 bg-[#111b2d] text-slate-100 shadow-2xl">
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualizza
+                            <DropdownMenuItem asChild>
+                              <Link href={`/clienti/${client.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Portale cliente
+                              </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Edit className="mr-2 h-4 w-4" />
