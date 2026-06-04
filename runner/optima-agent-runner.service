@@ -1,0 +1,17 @@
+[Unit]
+Description=Optima Agent Runner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/optima-agent/optima-beta
+EnvironmentFile=/srv/optima-agent/optima-runner.env
+ExecStart=/usr/bin/env node runner/optima-agent-runner.mjs
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

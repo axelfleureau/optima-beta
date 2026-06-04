@@ -82,7 +82,14 @@ curl -X POST "$OPTIMA_URL/api/agent-jobs/runner/$JOB_ID/complete" \
   }'
 ```
 
-## Runner VPS consigliato
+## Runner VPS pronto
+
+Nel repository ora c'e un runner pronto in `runner/`:
+
+- `runner/optima-agent-runner.mjs`: polling, workspace isolato, Codex CLI, complete callback.
+- `runner/optima-agent-runner.service`: template systemd.
+- `runner/env.example`: variabili richieste.
+- `runner/README.md`: installazione Hostinger.
 
 Processo systemd con loop:
 
@@ -112,12 +119,27 @@ npx wrangler secret put AGENT_RUNNER_API_KEY --env staging
 npx wrangler secret put AGENT_RUNNER_API_KEY --env production
 ```
 
-## Prossimo step
+## Setup rapido Hostinger
 
-Creare il pacchetto runner in un repository dedicato, per esempio:
+Sul VPS:
 
-```text
-axelfleureau/optima-agent-runner
+```bash
+sudo mkdir -p /srv/optima-agent
+sudo chown -R "$USER":"$USER" /srv/optima-agent
+git clone https://github.com/axelfleureau/optima-beta.git /srv/optima-agent/optima-beta
+cp /srv/optima-agent/optima-beta/runner/env.example /srv/optima-agent/optima-runner.env
+chmod 600 /srv/optima-agent/optima-runner.env
 ```
 
-Il runner deve essere piccolo, osservabile e riavviabile. La potenza agentica sta nel protocollo e nel controllo umano, non in un processo opaco che fa tutto da solo.
+Poi inserisci in `/srv/optima-agent/optima-runner.env` lo stesso valore configurato in Cloudflare per `AGENT_RUNNER_API_KEY`.
+
+Avvio:
+
+```bash
+sudo cp /srv/optima-agent/optima-beta/runner/optima-agent-runner.service /etc/systemd/system/optima-agent-runner.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now optima-agent-runner
+journalctl -u optima-agent-runner -f
+```
+
+Il runner deve restare piccolo, osservabile e riavviabile. La potenza agentica sta nel protocollo e nel controllo umano, non in un processo opaco che fa tutto da solo.
