@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { Activity, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, RefreshCw, UserCheck, Users, XCircle } from "lucide-react"
+import { Activity, AlarmClock, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, RefreshCw, Sparkles, TimerOff, UserCheck, Users, X, XCircle } from "lucide-react"
+import { gsap } from "gsap"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -114,6 +115,10 @@ type PresencePayload = {
 
 type CalendarPerson = PresencePayload["calendar"]["people"][number]
 type CalendarPersonDay = CalendarPerson["days"][number]
+type HeatmapSignalSelection = {
+  person: CalendarPerson
+  day: CalendarPersonDay
+}
 
 const pageClass =
   "h-[calc(100svh-73px)] min-h-0 w-full overflow-x-clip overflow-y-auto overscroll-contain bg-[#050914] text-white [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-x-hidden md:overflow-y-visible"
@@ -257,6 +262,34 @@ function dayTimeSignalLabel(day: CalendarPersonDay) {
   if (day.signal === "late") return `Entrata +${formatMinutes(day.minutesLate)}`
   if (day.signal === "early-exit") return `Uscita -${formatMinutes(day.minutesEarly)}`
   return ""
+}
+
+function dayTimeSignalMeta(day: CalendarPersonDay) {
+  if (day.signal === "late") {
+    return {
+      label: "Ritardo",
+      short: `+${formatMinutes(day.minutesLate)}`,
+      description: `Entrata registrata alle ${formatTime(day.checkInAt)} con ${formatMinutes(day.minutesLate)} di ritardo rispetto alla soglia operativa.`,
+      Icon: AlarmClock,
+      tone: "border-amber-200/70 bg-amber-300/16 text-amber-100 shadow-[0_0_22px_rgba(251,191,36,0.24)]",
+      chipTone: "border-amber-200/75 bg-amber-300 text-[#171106]",
+      cellTone: "ring-1 ring-amber-300/70 shadow-[0_0_18px_rgba(251,191,36,0.2)]",
+    }
+  }
+
+  if (day.signal === "early-exit") {
+    return {
+      label: "Uscita anticipata",
+      short: `-${formatMinutes(day.minutesEarly)}`,
+      description: `Uscita registrata alle ${formatTime(day.checkOutAt)} con ${formatMinutes(day.minutesEarly)} di anticipo rispetto alla giornata indicativa.`,
+      Icon: TimerOff,
+      tone: "border-cyan-200/65 bg-cyan-300/14 text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.2)]",
+      chipTone: "border-cyan-200/75 bg-cyan-300 text-[#03131d]",
+      cellTone: "ring-1 ring-cyan-300/65 shadow-[0_0_18px_rgba(34,211,238,0.18)]",
+    }
+  }
+
+  return null
 }
 
 function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
@@ -720,6 +753,7 @@ function PresenceCalendarHeatmap({
   const [personFilter, setPersonFilter] = useState("all")
   const [viewMode, setViewMode] = useState<"heatmap" | "calendar">("heatmap")
   const [compactPeopleColumn, setCompactPeopleColumn] = useState(false)
+  const [activeSignal, setActiveSignal] = useState<HeatmapSignalSelection | null>(null)
 
   useEffect(() => {
     if (personFilter !== "all" && !calendar.people.some((person) => person.id === personFilter)) {
@@ -929,6 +963,7 @@ function PresenceCalendarHeatmap({
                       selected={day.date === selectedDate}
                       compact={false}
                       onDateChange={onDateChange}
+                      onShowSignal={setActiveSignal}
                     />
                   ))}
                 </div>
@@ -1005,6 +1040,7 @@ function PresenceCalendarHeatmap({
                     selected={day.date === selectedDate}
                     compact
                     onDateChange={onDateChange}
+                    onShowSignal={setActiveSignal}
                   />
                 ))}
               </div>
@@ -1027,15 +1063,16 @@ function PresenceCalendarHeatmap({
         </span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-red-300/70 bg-red-500/70" /> assenza</span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex h-4 w-4 items-center justify-center rounded-[5px] border border-amber-200/70 bg-[#0a1020] text-amber-200">
-            <Clock className="h-2.5 w-2.5" />
+          <span className="inline-flex h-4 w-7 items-center justify-center rounded-[5px] border border-amber-200/70 bg-amber-300 text-[9px] font-black text-[#171106]">
+            +20
           </span>
-          indicatore orario aggregato
+          ritardo / orario da leggere insieme alla produzione
         </span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] outline outline-2 outline-righello-pink/70" /> giorno selezionato</span>
       </div>
         </>
       )}
+      <HeatmapSignalDialog selection={activeSignal} onClose={() => setActiveSignal(null)} />
     </section>
   )
 }
@@ -1190,15 +1227,23 @@ function CalendarHeatmapCell({
   selected,
   compact,
   onDateChange,
+  onShowSignal,
 }: {
   day: PresencePayload["calendar"]["people"][number]["days"][number]
   person: PresencePayload["calendar"]["people"][number]
   selected: boolean
   compact?: boolean
   onDateChange: (date: string) => void
+  onShowSignal?: (selection: HeatmapSignalSelection) => void
 }) {
   const signal = calendarCellSignal(day)
   const Icon = signal.Icon
+  const timeSignal = dayTimeSignalMeta(day)
+  const TimeSignalIcon = timeSignal?.Icon
+  const handleSelect = () => {
+    onDateChange(day.date)
+    if (timeSignal && onShowSignal) onShowSignal({ person, day })
+  }
 
   if (compact) {
     return (
@@ -1206,23 +1251,29 @@ function CalendarHeatmapCell({
         type="button"
         title={calendarDayTitle(person, day)}
         aria-label={calendarDayTitle(person, day)}
-        onClick={() => onDateChange(day.date)}
+        onClick={handleSelect}
         className={cn(
-          "group relative flex h-12 flex-col items-center justify-center rounded-[7px] border text-[10px] font-black transition hover:z-20 hover:scale-[1.08] hover:border-white/55 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+          "group relative flex h-12 flex-col items-center justify-center overflow-hidden rounded-[7px] border text-[10px] font-black transition hover:z-20 hover:scale-[1.08] hover:border-white/55 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
           calendarCellClass(day),
+          timeSignal && day.status !== "absent" && timeSignal.cellTone,
           selected && "outline outline-2 outline-offset-1 outline-righello-pink/70",
         )}
       >
-        {day.signal && day.status !== "absent" && (
+        {timeSignal && day.status !== "absent" && TimeSignalIcon && (
           <span
-            className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-200/70 bg-[#070d1a] text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
+            className={cn("absolute right-0.5 top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border", timeSignal.chipTone)}
             aria-hidden="true"
           >
-            <Clock className="h-2.5 w-2.5" />
+            <TimeSignalIcon className="h-2.5 w-2.5" />
           </span>
         )}
         <Icon className="mb-0.5 h-3.5 w-3.5 opacity-90 transition group-hover:scale-110" />
         <span className="leading-none">{signal.short}</span>
+        {timeSignal && day.status !== "absent" && (
+          <span className={cn("absolute bottom-0.5 left-1/2 max-w-[92%] -translate-x-1/2 rounded-[5px] border px-1 text-[8px] font-black leading-3", timeSignal.chipTone)}>
+            {timeSignal.short}
+          </span>
+        )}
       </button>
     )
   }
@@ -1232,26 +1283,140 @@ function CalendarHeatmapCell({
       type="button"
       title={calendarDayTitle(person, day)}
       aria-label={calendarDayTitle(person, day)}
-      onClick={() => onDateChange(day.date)}
+      onClick={handleSelect}
       className={cn(
-        "group relative flex h-[82px] flex-col items-center justify-center rounded-[8px] border px-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+        "group relative flex h-[86px] flex-col items-center justify-center overflow-hidden rounded-[8px] border px-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
         calendarCellClass(day),
+        timeSignal && day.status !== "absent" && timeSignal.cellTone,
         selected && "outline outline-2 outline-offset-2 outline-righello-pink",
       )}
     >
       <span className="absolute left-1.5 top-1.5 text-[10px] font-black leading-none opacity-70">{formatDayNumber(day.date)}</span>
-      {day.signal && day.status !== "absent" && (
+      {timeSignal && day.status !== "absent" && TimeSignalIcon && (
         <span
-          className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-200/70 bg-[#070d1a] text-amber-200 shadow-[0_0_14px_rgba(251,191,36,0.35)]"
+          className={cn("absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full border", timeSignal.chipTone)}
           aria-hidden="true"
         >
-          <Clock className="h-3 w-3" />
+          <TimeSignalIcon className="h-3.5 w-3.5" />
         </span>
       )}
       <Icon className="mb-1 h-[18px] w-[18px] transition group-hover:scale-110" />
       <span className="text-[12px] font-black leading-none">{signal.short}</span>
       <span className="mt-1 max-w-full truncate text-[9px] font-bold uppercase leading-none opacity-80">{signal.label}</span>
+      {timeSignal && day.status !== "absent" && (
+        <span className={cn("absolute bottom-1.5 inline-flex max-w-[90%] items-center gap-1 rounded-[6px] border px-1.5 py-0.5 text-[9px] font-black leading-none", timeSignal.chipTone)}>
+          {timeSignal.label} {timeSignal.short}
+        </span>
+      )}
     </button>
+  )
+}
+
+function HeatmapSignalDialog({
+  selection,
+  onClose,
+}: {
+  selection: HeatmapSignalSelection | null
+  onClose: () => void
+}) {
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  const meta = selection ? dayTimeSignalMeta(selection.day) : null
+  const Icon = meta?.Icon || Clock
+
+  useEffect(() => {
+    if (!selection || !dialogRef.current) return
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (prefersReducedMotion) return
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        dialogRef.current,
+        { autoAlpha: 0, y: 18, scale: 0.94, rotate: -0.8 },
+        { autoAlpha: 1, y: 0, scale: 1, rotate: 0, duration: 0.42, ease: "back.out(1.7)" },
+      )
+      gsap.fromTo(
+        "[data-signal-pop]",
+        { autoAlpha: 0, y: 8, scale: 0.86 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.28, ease: "power2.out", stagger: 0.05, delay: 0.08 },
+      )
+    }, dialogRef)
+
+    return () => ctx.revert()
+  }, [selection])
+
+  if (!selection || !meta) return null
+
+  const day = selection.day
+  const productivityLabel =
+    day.activityMinutes > 0 || day.taskCount > 0
+      ? `${formatMinutes(day.activityMinutes)} registrate · ${day.taskCount} task`
+      : "Nessuna attività collegata nel giorno"
+
+  return (
+    <div className="pointer-events-none fixed inset-x-3 bottom-24 z-[80] md:bottom-auto md:left-auto md:right-8 md:top-28 md:w-[24rem]">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-live="polite"
+        aria-label={`Dettaglio ${meta.label} di ${selection.person.name}`}
+        className={cn(
+          "pointer-events-auto overflow-hidden rounded-[8px] border bg-[#070d1a]/95 text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl",
+          meta.tone,
+        )}
+      >
+        <div className="relative border-b border-white/10 p-4">
+          <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-righello-pink/20 blur-2xl" />
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">Segnale orario</p>
+              <h3 className="mt-1 flex items-center gap-2 text-xl font-black text-white">
+                <span data-signal-pop className={cn("inline-flex h-9 w-9 items-center justify-center rounded-[8px] border", meta.chipTone)}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                {meta.label}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="relative rounded-[8px] border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+              aria-label="Chiudi dettaglio segnale"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="space-y-3 p-4">
+          <div data-signal-pop className="rounded-[8px] border border-white/10 bg-black/24 p-3">
+            <p className="text-sm font-bold text-white">{selection.person.name}</p>
+            <p className="mt-1 text-xs capitalize text-slate-400">{formatDateLabel(day.date)}</p>
+          </div>
+          <p data-signal-pop className="text-sm leading-6 text-slate-200">
+            {meta.description}
+          </p>
+          <div data-signal-pop className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-slate-500">Entrata</p>
+              <p className="mt-1 text-base font-black text-white">{formatTime(day.checkInAt)}</p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-slate-500">Uscita</p>
+              <p className="mt-1 text-base font-black text-white">{formatTime(day.checkOutAt)}</p>
+            </div>
+          </div>
+          <div data-signal-pop className="rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm text-cyan-50">
+            <div className="flex items-start gap-2">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-righello-cyan" />
+              <p>
+                Indicatore secondario: l'orario va letto insieme alla produzione del giorno. Output rilevato:{" "}
+                <span className="font-black">{productivityLabel}</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 

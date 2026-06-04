@@ -3,20 +3,44 @@
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 
-const LOCKED_BODY_STYLES = ["overflow", "paddingRight", "marginRight", "pointerEvents"] as const
-const LOCKED_DOCUMENT_STYLES = ["overflow", "overscrollBehavior"] as const
+const LOCKED_BODY_STYLES = [
+  "overflow",
+  "paddingRight",
+  "marginRight",
+  "pointerEvents",
+  "position",
+  "top",
+  "left",
+  "right",
+  "width",
+] as const
+const LOCKED_DOCUMENT_STYLES = ["overflow", "overscrollBehavior", "overscrollBehaviorY"] as const
+
+function isVisibleBlockingLayer(element: Element) {
+  if (!(element instanceof HTMLElement)) return false
+  if (element.getAttribute("aria-hidden") === "true") return false
+
+  const style = window.getComputedStyle(element)
+  if (style.display === "none" || style.visibility === "hidden" || style.pointerEvents === "none") {
+    return false
+  }
+
+  return element.getClientRects().length > 0
+}
 
 function hasOpenBlockingLayer() {
   if (typeof document === "undefined") return true
 
-  return Boolean(
-    document.querySelector(
+  return Array.from(
+    document.querySelectorAll(
       [
         '[role="dialog"][data-state="open"]',
         '[role="alertdialog"][data-state="open"]',
         '[data-sidebar="sidebar"][data-mobile="true"][data-state="open"]',
       ].join(",")
     )
+  ).some((element) =>
+    isVisibleBlockingLayer(element)
   )
 }
 
@@ -28,6 +52,7 @@ function clearStaleScrollLock() {
   const bodyLooksLocked =
     body.hasAttribute("data-scroll-locked") ||
     body.style.overflow === "hidden" ||
+    body.style.position === "fixed" ||
     documentElement.style.overflow === "hidden" ||
     body.style.pointerEvents === "none"
 
@@ -62,11 +87,17 @@ export function ScrollStabilityGuard() {
       subtree: true,
       attributeFilter: ["style", "data-scroll-locked", "data-scroll-lock", "data-state"],
     })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style", "data-scroll-locked", "data-scroll-lock"],
+    })
 
     window.addEventListener("focus", scheduleCleanup)
     window.addEventListener("pageshow", scheduleCleanup)
     window.addEventListener("resize", scheduleCleanup)
     window.addEventListener("orientationchange", scheduleCleanup)
+    window.addEventListener("wheel", scheduleCleanup, { passive: true })
+    window.addEventListener("pointerdown", scheduleCleanup, { passive: true })
     document.addEventListener("visibilitychange", scheduleCleanup)
 
     return () => {
@@ -75,6 +106,8 @@ export function ScrollStabilityGuard() {
       window.removeEventListener("pageshow", scheduleCleanup)
       window.removeEventListener("resize", scheduleCleanup)
       window.removeEventListener("orientationchange", scheduleCleanup)
+      window.removeEventListener("wheel", scheduleCleanup)
+      window.removeEventListener("pointerdown", scheduleCleanup)
       document.removeEventListener("visibilitychange", scheduleCleanup)
     }
   }, [pathname])

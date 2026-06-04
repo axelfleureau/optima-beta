@@ -48,7 +48,7 @@ export function CommandResults() {
   const showError = error
 
   return (
-    <div className="max-h-[460px] overflow-y-auto">
+    <div className="min-h-0">
       {showError && (
         <motion.div
           initial={liquidFadeIn.initial}

@@ -45,9 +45,7 @@ export const quoteItemTotal = (item: Pick<QuoteVoice, "quantita" | "prezzoUnitar
 }
 
 export const quoteDevelopmentTotal = (data: GeneratedQuoteData) => {
-  const gross = data.voci
-    .filter((item) => item.categoria !== "recurring")
-    .reduce((sum, item) => sum + quoteItemTotal(item), 0)
+  const gross = baseProjectItems(data).reduce((sum, item) => sum + quoteItemTotal(item), 0)
   return Math.max(0, gross - safeNumber(data.totali.sconto))
 }
 
@@ -67,12 +65,15 @@ export const quoteVatIncluded = (amount: number, iva = 22) => {
   return Math.round(amount * (1 + iva / 100) * 100) / 100
 }
 
-const projectItems = (data: GeneratedQuoteData) =>
-  data.voci.filter((item) => item.categoria !== "recurring")
+const baseProjectItems = (data: GeneratedQuoteData) =>
+  data.voci.filter((item) => item.categoria !== "recurring" && item.categoria !== "optional")
+
+const optionalProjectItems = (data: GeneratedQuoteData) =>
+  data.voci.filter((item) => item.categoria === "optional")
 
 export function validateQuotePDFData(data: GeneratedQuoteData): string[] {
   const errors: string[] = []
-  const oneShotItems = projectItems(data)
+  const oneShotItems = baseProjectItems(data)
 
   if (!data.cliente?.nome?.trim()) {
     errors.push("cliente mancante")
@@ -270,6 +271,23 @@ class RighelloPDFGenerator {
     this.y = y + 9
   }
 
+  private timelineRows(data: GeneratedQuoteData): Array<[string, string]> {
+    const timeline = data.preventivo.timeline?.trim()
+    if (!timeline) {
+      return [
+        ["W1-W2", "Discovery, materiali, allineamento tecnico e piano operativo"],
+        ["W3-W5", "Design, sviluppo e iterazioni principali"],
+        ["W6", "QA, staging, rifiniture e go-live"],
+      ]
+    }
+
+    return [
+      ["Fase 1", "Kick-off, raccolta materiali, perimetro e priorita operative"],
+      ["Fase 2", "Design, sviluppo e iterazioni sui deliverable principali"],
+      ["Fase 3", `QA, staging e consegna secondo timeline: ${timeline}`],
+    ]
+  }
+
   private checklist(items: string[], fallback: string) {
     const list = items.filter(Boolean)
     if (list.length === 0) {
@@ -336,7 +354,7 @@ class RighelloPDFGenerator {
     this.y += 36
 
     this.body(
-      `La proposta organizza il progetto "${data.preventivo.titolo}" in voci chiare, condizioni verificabili e servizi ricorrenti separati. Gli importi principali sono al netto di IVA ${iva}%.`
+      `La proposta organizza il progetto "${data.preventivo.titolo}" in voci chiare, condizioni verificabili e servizi ricorrenti separati. Le voci opzionali restano fuori dal totale sviluppo finche non vengono approvate. Gli importi principali sono al netto di IVA ${iva}%.`
     )
 
     this.priceTable(
@@ -370,7 +388,7 @@ class RighelloPDFGenerator {
     this.checklist(data.attivita || [], "Funzionalita e deliverable vengono confermati nel documento operativo di avvio progetto.")
 
     this.h2("Perimetro incluso")
-    const included = projectItems(data).map((item) => item.descrizione)
+    const included = baseProjectItems(data).map((item) => item.descrizione)
     this.checklist(included, "Perimetro da completare prima della consegna commerciale.")
 
     this.h2("Non incluso")
@@ -383,15 +401,15 @@ class RighelloPDFGenerator {
       ""
     )
 
-    const optionalRows = data.voci
-      .filter((item) => item.categoria === "optional")
+    const optionalRows = optionalProjectItems(data)
       .map((item) => [item.descrizione, formatQuoteCurrency(quoteItemTotal(item))] as [string, string])
     if (optionalRows.length > 0) {
       this.priceTable(optionalRows, { title: "Voci opzionali" })
     }
 
-    const grossRows = projectItems(data).map((item) => [item.descrizione, formatQuoteCurrency(quoteItemTotal(item))] as [string, string])
-    const gross = grossRows.reduce((sum, _, index) => sum + quoteItemTotal(projectItems(data)[index]), 0)
+    const baseItems = baseProjectItems(data)
+    const grossRows = baseItems.map((item) => [item.descrizione, formatQuoteCurrency(quoteItemTotal(item))] as [string, string])
+    const gross = baseItems.reduce((sum, item) => sum + quoteItemTotal(item), 0)
     if (safeNumber(data.totali.sconto) > 0) {
       grossRows.push(["Sconto commerciale", `-${formatQuoteCurrency(safeNumber(data.totali.sconto))}`])
     }
@@ -470,14 +488,7 @@ class RighelloPDFGenerator {
     )
 
     this.h2("Timeline")
-    this.priceTable(
-      [
-        ["W1-W2", "Discovery, contenuti, allineamento tecnico e piano operativo"],
-        ["W3-W5", "Design, sviluppo e iterazioni principali"],
-        ["W6", "QA, staging, rifiniture e go-live"],
-      ],
-      {}
-    )
+    this.priceTable(this.timelineRows(data), {})
 
     this.h2("Validita offerta")
     this.body(`${data.preventivo.validitaGiorni || data.condizioni.validityDays || 60} giorni dalla data di consegna del documento.`)

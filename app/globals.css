@@ -112,7 +112,7 @@ html {
 body {
   min-height: 100dvh;
   overflow-x: hidden;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
   background-color: hsl(var(--background));
@@ -129,7 +129,7 @@ body:not([data-scroll-locked]) {
 }
 
 .optima-app-surface {
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
 }
 
 @media (max-width: 767px) {
@@ -141,7 +141,20 @@ body:not([data-scroll-locked]) {
 
   html,
   body {
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: auto;
+  }
+}
+
+[data-app-scroll-root] {
+  min-height: 100svh;
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (pointer: fine) {
+  [data-app-scroll-root],
+  .optima-app-surface {
+    overscroll-behavior: auto;
   }
 }
 

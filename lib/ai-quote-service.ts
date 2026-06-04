@@ -145,6 +145,35 @@ export interface GeneratedQuoteData {
   }
 }
 
+const DEFAULT_QUOTE_MISSING_MATERIALS = [
+  "Logo vettoriale o PNG ad alta risoluzione",
+  "Brand guideline, palette e font ufficiali",
+  "Foto, video, testi e materiali commerciali approvati",
+  "Dati fiscali, referente approvazione e contatti operativi",
+  "Accessi tecnici necessari a dominio, hosting, CMS o integrazioni",
+]
+
+const DEFAULT_QUOTE_DISCOVERY_QUESTIONS = [
+  "Chi approva preventivo, contenuti e messa online?",
+  "Quali brand, prodotti o servizi devono avere priorita nel documento?",
+  "Esistono vincoli legali, privacy, claim o licenze da rispettare?",
+  "Quali materiali sono gia disponibili e quali vanno prodotti da zero?",
+  "Quale risultato commerciale deve essere evidente entro i primi 5 secondi?",
+]
+
+function uniqueNonEmpty(values: Array<string | undefined | null>) {
+  const seen = new Set<string>()
+  return values
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .filter((value) => {
+      const key = value.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
 const QUOTE_SYSTEM_PROMPT = `Sei un commerciale esperto di Righello che crea preventivi basati sui template standardizzati dell'azienda.
 
 Analizza la descrizione del progetto e identifica il settore per utilizzare i prezzi e servizi corretti di Righello.
@@ -246,19 +275,33 @@ FORMATO JSON:
 }`
 
 // NEW SYSTEM PROMPT - AI GENERATES ONLY TEXTUAL CONTENT
-const CONTENT_ONLY_SYSTEM_PROMPT = `Sei un commerciale esperto di Righello. I PREZZI e le VOCI DI COSTO sono già stati calcolati dai template aziendali.
+const CONTENT_ONLY_SYSTEM_PROMPT = `Sei un commerciale senior di Righello. I PREZZI e le VOCI DI COSTO sono gia stati calcolati dai template aziendali.
 
-IL TUO COMPITO È SOLO GENERARE CONTENUTI TESTUALI:
+Il preventivo deve sembrare scritto da uno studio di design: concreto, elegante, leggibile e orientato alla firma. Non deve sembrare un template Word.
+
+IL TUO COMPITO E SOLO GENERARE CONTENUTI TESTUALI:
 1. Personalizzare OBIETTIVI basandoti sulla descrizione del progetto e settore del cliente
-2. Dettagliare ATTIVITÀ SPECIFICHE per il tipo di progetto
+2. Dettagliare ATTIVITA SPECIFICHE per il tipo di progetto
 3. Creare SITEMAP appropriata (solo per progetti website)
-4. Scrivere TITOLO e DESCRIZIONE accattivanti per il preventivo
+4. Scrivere TITOLO e DESCRIZIONE commerciali ma asciutti
+
+REGOLE DI COPY:
+- Italiano professionale, frasi brevi, massimo 22 parole quando possibile
+- Verbi al presente indicativo o infinito operativo
+- Niente marketing-speak: evita "soluzioni innovative", "best-in-class", "sinergie", "all'avanguardia"
+- Descrivi outcome concreti: conversione, chiarezza, controllo, approvazioni, riduzione attrito, qualita percepita
+- Non citare prezzi, sconti, totali o calcoli
+
+STRUTTURA ATTESA DAL PDF:
+- Il riepilogo economico viene mostrato due volte dal sistema
+- Le voci opzionali restano fuori dal totale sviluppo finche non vengono approvate
+- Materiali, loghi, reference e domande aperte vengono riportati come prossimi passi
 
 NON DEVI:
-- Calcolare prezzi (già forniti dai template)
-- Inventare voci di costo (già fornite dai template)
-- Modificare timeline (già fornita dal template)
-- Calcolare totali (già calcolati)
+- Calcolare prezzi (gia forniti dai template)
+- Inventare voci di costo (gia fornite dai template)
+- Modificare timeline (gia fornita dal template)
+- Calcolare totali (gia calcolati)
 
 FORMATO RISPOSTA (SOLO JSON):
 {
@@ -292,10 +335,17 @@ async function callQuoteContentAPI(
   })
 
   if (!response.ok) {
-    throw new Error("Failed to generate quote content")
+    const errorText = await response.text().catch(() => "")
+    throw new Error(errorText || "Failed to generate quote content")
   }
 
-  return await response.json()
+  const text = await response.text()
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error("Quote content API returned a non-JSON response")
+  }
 }
 
 // NEW FUNCTION - DETERMINISTIC TEMPLATE-BASED GENERATION
@@ -327,15 +377,36 @@ export async function generateQuoteFromEnrichedData(
       subtotal: templateResult.totals.subtotale
     })
     
+    const brandNames = uniqueNonEmpty([
+      enrichedData.primaryBrandName,
+      ...(enrichedData.brandNames || []),
+      enrichedData.clientCompany,
+      enrichedData.clientName,
+    ])
+    const primaryBrandName = enrichedData.primaryBrandName?.trim() || brandNames[0] || enrichedData.clientName
+    const logoStatus = enrichedData.logoStatus || "to_request"
+    const defaultMissingMaterials =
+      logoStatus === "available"
+        ? DEFAULT_QUOTE_MISSING_MATERIALS.filter((item) => !item.toLowerCase().startsWith("logo "))
+        : DEFAULT_QUOTE_MISSING_MATERIALS
+    const missingMaterials = uniqueNonEmpty([
+      ...(enrichedData.missingMaterials || []),
+      ...defaultMissingMaterials,
+    ])
+    const discoveryQuestions = uniqueNonEmpty([
+      ...(enrichedData.discoveryQuestions || []),
+      ...DEFAULT_QUOTE_DISCOVERY_QUESTIONS,
+    ])
+
     const brandContext = [
-      enrichedData.primaryBrandName ? `- Brand principale: ${enrichedData.primaryBrandName}` : '',
-      enrichedData.brandNames?.length ? `- Brand coinvolti: ${enrichedData.brandNames.join(', ')}` : '',
+      primaryBrandName ? `- Brand principale: ${primaryBrandName}` : '',
+      brandNames.length ? `- Brand coinvolti: ${brandNames.join(', ')}` : '',
       enrichedData.logoStatus ? `- Stato logo: ${enrichedData.logoStatus}` : '',
       enrichedData.logoNotes ? `- Note logo: ${enrichedData.logoNotes}` : '',
       enrichedData.brandAssets ? `- Materiali disponibili: ${enrichedData.brandAssets}` : '',
       enrichedData.referenceMaterials ? `- Riferimenti visivi: ${enrichedData.referenceMaterials}` : '',
-      enrichedData.missingMaterials?.length ? `- Materiali da richiedere: ${enrichedData.missingMaterials.join('; ')}` : '',
-      enrichedData.discoveryQuestions?.length ? `- Domande aperte: ${enrichedData.discoveryQuestions.join('; ')}` : '',
+      missingMaterials.length ? `- Materiali da richiedere: ${missingMaterials.join('; ')}` : '',
+      discoveryQuestions.length ? `- Domande aperte: ${discoveryQuestions.join('; ')}` : '',
     ].filter(Boolean).join('\n')
 
     // STEP 2: Prepare AI prompt with TEMPLATE DATA pre-filled
@@ -360,8 +431,8 @@ ${JSON.stringify(templateResult.items.slice(0, 5), null, 2)}
 TIMELINE GIÀ DEFINITA: ${templateResult.timeline}
 
 GENERA SOLO:
-1. Titolo accattivante per il preventivo
-2. Descrizione professionale (2-3 frasi)
+1. Titolo commerciale e credibile per il preventivo
+2. Descrizione professionale (2-3 frasi) che spiega contesto, perimetro e risultato atteso
 3. Obiettivi personalizzati (3-5) usando SEMPRE verbi all'infinito (Valorizzare, Promuovere, Posizionare, Fidelizzare, Creare, Sviluppare, Ottimizzare, Realizzare, Strutturare, Implementare, Aumentare, Garantire, Modernizzare) + outcome di business specifico per il settore. Esempi:
    - Hospitality: "Valorizzare l'identità del resort", "Fidelizzare target luxury", "Posizionare brand come luogo esclusivo"
    - Food: "Posizionare il brand come riferimento gastronomico", "Promuovere specialità stagionali"
@@ -408,8 +479,8 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
       } catch (parseError) {
         retryCount++
         if (retryCount > MAX_RETRIES) {
-          console.error(`❌ Failed to get valid JSON after ${MAX_RETRIES} retries`)
-          throw parseError
+          console.error(`❌ Failed to get valid quote content after ${MAX_RETRIES} retries`, parseError)
+          break
         }
         console.warn(`⚠️ Retry ${retryCount}/${MAX_RETRIES} - AI response was not valid JSON`)
         
@@ -425,7 +496,7 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
       
       aiContent = {
         titolo: `${projectTypeLabel} per ${enrichedData.clientName || 'Cliente'}`,
-        descrizione: `Progetto ${projectTypeLabel.toLowerCase()} professionale realizzato secondo le migliori pratiche del ${sectorLabel}.`,
+        descrizione: `La proposta definisce perimetro, priorita operative e condizioni economiche per ${projectTypeLabel.toLowerCase()}. Il documento separa sviluppo, opzioni e gestione ricorrente per rendere la decisione piu semplice.`,
         obiettivi: templateResult.sector?.standardSections.objectives.slice(0, 3) || [
           `Valorizzare l'identità nel settore ${sectorLabel}`,
           "Aumentare la visibilità online",
@@ -481,14 +552,14 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
       }, // DA TEMPLATE ✅ DIRETTO
       sezioniStandard: STANDARD_LEGAL_SECTIONS, // Ok per sezioni legali
       brandMateriali: {
-        brandCoinvolti: enrichedData.brandNames || [],
-        brandPrincipale: enrichedData.primaryBrandName,
-        statoLogo: enrichedData.logoStatus,
+        brandCoinvolti: brandNames,
+        brandPrincipale: primaryBrandName,
+        statoLogo: logoStatus,
         noteLogo: enrichedData.logoNotes,
         materialiDisponibili: enrichedData.brandAssets,
         riferimenti: enrichedData.referenceMaterials,
-        materialiDaRichiedere: enrichedData.missingMaterials || [],
-        domandeAperte: enrichedData.discoveryQuestions || [],
+        materialiDaRichiedere: missingMaterials,
+        domandeAperte: discoveryQuestions,
       },
       totali: templateResult.totals // DA TEMPLATE ✅ NON RICALCOLARE
     }

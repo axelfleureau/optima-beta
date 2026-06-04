@@ -65,11 +65,12 @@ export function CommandBar() {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
       <DialogContent
+        stableViewport
         className={cn(
-          "max-w-3xl p-0 gap-0 overflow-hidden relative",
+          "flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col p-0 gap-0 overflow-hidden relative",
           "bg-white dark:bg-slate-950",
           "shadow-2xl border border-slate-200 dark:border-slate-800",
-          "animate-in fade-in-0 zoom-in-95"
+          "duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
         )}
       >
         
@@ -85,23 +86,27 @@ export function CommandBar() {
             animate={liquidExpand.animate}
             exit={liquidExpand.exit}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="relative"
+            className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
           >
-            <div className="relative">
-              <div className="relative z-10">
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <div className="relative z-10 flex min-h-0 flex-1 flex-col">
                 <CommandInput />
                 
-                <div className="px-5 pb-4">
+                <div className="shrink-0 px-5 pb-4">
                   <OrchestrationFeedback />
                 </div>
 
                 {status === "gathering" && missingParams.length > 0 && (
-                  <div className="p-5 border-t border-slate-200 dark:border-slate-800">
+                  <div className="min-h-0 overflow-y-auto overscroll-contain p-5 border-t border-slate-200 dark:border-slate-800">
                     <ContextForm />
                   </div>
                 )}
 
-                {status !== "gathering" && <CommandResults />}
+                {status !== "gathering" && (
+                  <div className="min-h-0 overflow-y-auto overscroll-contain">
+                    <CommandResults />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -111,7 +116,7 @@ export function CommandBar() {
           </motion.div>
         </AnimatePresence>
 
-        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
+        <div className="shrink-0 px-5 py-3 border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">

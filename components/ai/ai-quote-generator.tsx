@@ -350,12 +350,11 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
         })
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Errore nella rigenerazione')
-      }
+      const result = await readApiJson(response)
 
-      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result?.error || result?.details || 'Errore nella rigenerazione')
+      }
       
       if (section === 'descrizione') {
         setGeneratedQuote({

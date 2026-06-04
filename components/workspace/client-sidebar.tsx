@@ -90,15 +90,23 @@ export function ClientSidebar({
 
   if (collapsed) {
     return (
-      <div className="relative">
+      <div className="flex h-full min-h-0 w-16 shrink-0 flex-col items-center border-r border-slate-200/50 bg-white/80 py-4 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-6 left-4 z-10 h-10 w-10 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg hover:shadow-xl transition-all duration-150"
+          className="h-10 w-10 rounded-full border border-slate-200/50 bg-white/90 shadow-lg backdrop-blur-xl transition-all duration-150 hover:shadow-xl dark:border-slate-700/50 dark:bg-slate-900/80"
           onClick={onToggleCollapse}
+          aria-label="Mostra lista clienti"
+          title="Mostra lista clienti"
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
+        <div className="mt-4 flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200/50 bg-white/60 text-slate-500 dark:border-slate-700/50 dark:bg-slate-900/50 dark:text-slate-400">
+          <Users className="h-5 w-5" />
+        </div>
+        <div className="mt-3 [writing-mode:vertical-rl] rotate-180 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+          Clienti
+        </div>
       </div>
     )
   }
@@ -129,6 +137,8 @@ export function ClientSidebar({
                 size="icon"
                 className="h-8 w-8 hover:bg-slate-200 dark:hover:bg-slate-700"
                 onClick={onToggleCollapse}
+                aria-label="Nascondi lista clienti"
+                title="Nascondi lista clienti"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>

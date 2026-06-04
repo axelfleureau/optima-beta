@@ -68,7 +68,10 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
         <FinancialPrivacyProvider canRevealFinancials={canRevealFinancials}>
           <div className="optima-app-surface flex min-h-[100svh] w-full overflow-x-hidden [overflow-anchor:none]">
             <AppSidebar />
-            <main className="min-w-0 flex-1 overflow-x-hidden [-webkit-overflow-scrolling:touch]">
+            <main
+              data-app-scroll-root
+              className="min-h-[100svh] min-w-0 flex-1 overflow-x-hidden overscroll-y-auto [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y]"
+            >
               <MobileHeader />
               <RouteError />
               <div className="min-h-full">
