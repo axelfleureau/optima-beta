@@ -3,9 +3,11 @@ import { Redis } from "@upstash/redis"
 
 class InMemoryStore {
   private store = new Map<string, { count: number; resetAt: number }>()
+  private operations = 0
 
   async limit(key: string, limit: number, windowMs: number) {
     const now = Date.now()
+    this.cleanupExpired(now)
     const record = this.store.get(key)
 
     if (!record || record.resetAt < now) {
@@ -22,20 +24,19 @@ class InMemoryStore {
     return { success: true, remaining: limit - record.count, reset: record.resetAt }
   }
 
-  startCleanup() {
-    setInterval(() => {
-      const now = Date.now()
-      for (const [key, record] of this.store.entries()) {
-        if (record.resetAt < now) {
-          this.store.delete(key)
-        }
+  private cleanupExpired(now: number) {
+    this.operations += 1
+    if (this.operations % 100 !== 0) return
+
+    for (const [key, record] of this.store.entries()) {
+      if (record.resetAt < now) {
+        this.store.delete(key)
       }
-    }, 5 * 60 * 1000)
+    }
   }
 }
 
 const inMemoryStore = new InMemoryStore()
-inMemoryStore.startCleanup()
 
 let upstashLimiters: Record<string, Ratelimit> | null = null
 

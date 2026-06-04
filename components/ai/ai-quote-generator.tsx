@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,6 +35,21 @@ import {
   Check,
   X
 } from "lucide-react"
+
+async function readApiJson(response: Response) {
+  const text = await response.text()
+  if (!text) return null
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(
+      response.ok
+        ? "Risposta non valida dal server"
+        : "Il server ha risposto con una pagina di errore invece di JSON. Riprova tra qualche istante."
+    )
+  }
+}
 
 interface AIQuoteGeneratorProps {
   open: boolean
@@ -157,12 +172,16 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
         })
       })
 
+      const result = await readApiJson(response)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || 'Errore nella generazione del preventivo')
+        throw new Error(result?.details || result?.error || 'Errore nella generazione del preventivo')
       }
 
-      const result = await response.json()
+      if (!result?.data) {
+        throw new Error('Preventivo non generato: risposta server incompleta')
+      }
+
       setGeneratedQuote(result.data)
       
       actionState.apply('Preparazione anteprima...')
@@ -413,6 +432,9 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
               <Sparkles className="w-5 h-5 text-pink-500" />
               Preventivo Generato con AI
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Anteprima del preventivo generato e azioni per salvarlo, modificarlo o scaricarlo.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 min-h-0 overflow-hidden">

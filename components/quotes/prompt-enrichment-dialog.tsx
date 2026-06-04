@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GlassButton } from "@/components/ui/glass-button"
 import { GlassCard } from "@/components/ui/glass-card"
 import { Input } from "@/components/ui/input"
@@ -287,6 +287,9 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
           <DialogTitle className="pr-8 text-xl text-gray-900 dark:text-white sm:text-2xl">
             Raccolta Informazioni Preventivo
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Procedura guidata per raccogliere progetto, settore, materiali brand, cliente e note prima di generare il preventivo.
+          </DialogDescription>
           <div className="flex items-center gap-2 mt-4">
             {[1, 2, 3, 4, 5].map((step) => (
               <div key={step} className="flex items-center flex-1">
@@ -327,8 +330,8 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                     </p>
                   </div>
                   
-                  <RadioGroup 
-                    value={formData.projectType} 
+                  <RadioGroup
+                    value={formData.projectType || ""}
                     onValueChange={(value) => setFormData({ ...formData, projectType: value })}
                     className="grid grid-cols-1 md:grid-cols-2 gap-4"
                   >
@@ -377,8 +380,8 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                     </p>
                   </div>
 
-                  <RadioGroup 
-                    value={formData.sector} 
+                  <RadioGroup
+                    value={formData.sector || ""}
                     onValueChange={(value) => setFormData({ ...formData, sector: value })}
                     className="grid grid-cols-1 md:grid-cols-2 gap-4"
                   >
@@ -598,8 +601,8 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                     {/* CLIENT MODE SELECTOR */}
                     <div>
                       <Label className="mb-3 block">Tipo Cliente *</Label>
-                      <RadioGroup 
-                        value={formData.clientMode} 
+                      <RadioGroup
+                        value={formData.clientMode || "external"}
                         onValueChange={(value: 'platform' | 'external') => {
                           setFormData({ 
                             ...formData, 
@@ -872,7 +875,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                     <div>
                       <Label className="mb-3 block">Logo cliente / brand *</Label>
                       <RadioGroup
-                        value={formData.logoStatus}
+                        value={formData.logoStatus || "to_request"}
                         onValueChange={(value: 'available' | 'to_request' | 'not_defined') => setFormData({ ...formData, logoStatus: value })}
                         className="grid grid-cols-1 gap-3 md:grid-cols-3"
                       >

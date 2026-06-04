@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic'
 
 import type { NextRequest } from "next/server"
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { createOpenAI } from "@ai-sdk/openai"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod"
-import { getOrganizationAdminId, logTokenUsage, estimateTokens } from "@/lib/token-service"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { OPENAI_FAST_MODEL } from "@/lib/ai/models"
 
@@ -15,6 +15,19 @@ const quoteContentSchema = z.object({
   attivita: z.array(z.string()),
   sitemap: z.array(z.string()).optional()
 })
+
+async function getRuntimeSecret(name: string) {
+  try {
+    const { env } = await getCloudflareContext({ async: true })
+    return (env as Record<string, string | undefined>)[name] || process.env[name] || ""
+  } catch {
+    return process.env[name] || ""
+  }
+}
+
+function estimateTokens(text: string) {
+  return Math.ceil(text.length / 3.5)
+}
 
 export async function POST(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, "AI")
@@ -35,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     console.log("🚀 AI Quote Content request:", { userId, promptLength: prompt.length })
 
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = await getRuntimeSecret("OPENAI_API_KEY")
     if (!apiKey || apiKey.trim() === "") {
       console.error("❌ OPENAI_API_KEY not configured")
       return new Response(
@@ -44,22 +57,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let adminId: string
-    try {
-      const result = await getOrganizationAdminId(userId)
-      adminId = result.adminId
-    } catch (error) {
-      console.error("❌ Error getting admin ID:", error)
-      adminId = userId
-    }
-
-    if (!adminId || adminId === "undefined") {
-      console.error("❌ Invalid adminId:", adminId)
-      return new Response(JSON.stringify({ error: "Invalid user configuration" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
-    }
+    const openai = createOpenAI({ apiKey })
 
     console.log("🤖 Generating quote content with OpenAI structured output...")
 
@@ -105,12 +103,10 @@ export async function POST(request: NextRequest) {
 
         console.log(`✅ Quote content generated successfully on attempt ${attempt + 1}`)
         console.log(`💰 Tokens used: ${totalTokensUsed}`)
-
-        try {
-          await logTokenUsage(adminId, userId, totalTokensUsed, "other")
-        } catch (error) {
-          console.error("❌ Error logging token usage:", error)
-        }
+        console.log("Quote content token tracking skipped in Cloudflare route", {
+          userId,
+          totalTokensUsed,
+        })
 
         return new Response(
           JSON.stringify({

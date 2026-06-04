@@ -1,8 +1,4 @@
-"// AI Quote Service - Server and client compatible"
-
-import { generateAIResponse, logTokenUsage } from "@/lib/ai-service"
 import type { Client } from "@/lib/types"
-import type { EnrichedPromptData } from "@/components/quotes/prompt-enrichment-dialog"
 import { 
   identifySector, 
   SECTOR_TEMPLATES, 
@@ -12,6 +8,31 @@ import {
   generateQuoteNumber
 } from "@/lib/quote-templates"
 import { getBaseUrl } from "@/lib/quote-utils"
+
+export interface EnrichedPromptData {
+  projectType: string
+  projectTypeLabel: string
+  sector: string
+  sectorLabel: string
+  description: string
+  budgetRange: { min: number; max: number }
+  complexity: "basic" | "standard" | "advanced"
+  timeline: string
+  clientMode: "platform" | "external"
+  clientId?: string
+  clientName: string
+  clientEmail?: string
+  clientCompany?: string
+  additionalNotes?: string
+  brandNames?: string[]
+  primaryBrandName?: string
+  logoStatus?: "available" | "to_request" | "not_defined"
+  logoNotes?: string
+  brandAssets?: string
+  referenceMaterials?: string
+  missingMaterials?: string[]
+  discoveryQuestions?: string[]
+}
 
 export interface QuoteItem {
   name: string
@@ -472,8 +493,10 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
       totali: templateResult.totals // DA TEMPLATE ✅ NON RICALCOLARE
     }
     
-    // Log token usage
-    await logTokenUsage(userId, userId, tokenUsage.totalTokens || 0, "quote_generation")
+    console.log("Quote generation token tracking skipped in Cloudflare-safe path", {
+      userId,
+      totalTokens: tokenUsage.totalTokens || 0,
+    })
     
     console.log("✅ Quote generated successfully with deterministic pricing")
     console.log("💰 Final totals:", finalQuote.totali)
@@ -542,6 +565,8 @@ GENERA PREVENTIVO RIGHELLO:
 Restituisci SOLO il JSON completo.`
 
     console.log("🤖 Generating enhanced Righello quote for user:", userId)
+
+    const { generateAIResponse, logTokenUsage } = await import("@/lib/ai-service")
     
     const response = await generateAIResponse(prompt, userId, QUOTE_SYSTEM_PROMPT)
 
