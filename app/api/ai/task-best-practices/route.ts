@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import type { NextRequest } from "next/server"
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 import { getOrganizationAdminId, logTokenUsage, estimateTokens } from "@/lib/token-service"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { OPENAI_REASONING_MODEL } from "@/lib/ai/models"
+import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 
 const BestPracticesSchema = z.object({
   taskType: z.string(),
@@ -127,20 +127,6 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: true, ...cached.data, fromCache: true })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey || apiKey.trim() === "") {
-      console.error("❌ OPENAI_API_KEY not found or empty in environment variables")
-      return new Response(
-        JSON.stringify({
-          error: "Configurazione API mancante. Contatta l'amministratore per configurare OPENAI_API_KEY.",
-        }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        },
-      )
-    }
-
     let adminId: string
     let userRole: string
 
@@ -180,6 +166,7 @@ Fornisci checklist, tips professionali, warnings e resources per questo tipo di 
     console.log(`💰 Estimated input tokens: ${estimatedInputTokens}`)
 
     try {
+      const openai = await createRuntimeOpenAI()
       const result = await generateObject({
         model: openai(OPENAI_REASONING_MODEL),
         schema: BestPracticesSchema,

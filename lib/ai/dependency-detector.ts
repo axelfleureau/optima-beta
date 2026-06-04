@@ -1,3 +1,5 @@
+import { getOpenAIApiKey } from "./openai-runtime"
+
 export interface TaskDependencyResult {
   taskId: string
   isBlocking: boolean
@@ -49,10 +51,10 @@ export async function detectImplicitDependencies(
   if (tasks.length === 0) return []
   
   try {
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = await getOpenAIApiKey()
     
     if (!apiKey || apiKey.trim() === '') {
-      console.error('❌ OPENAI_API_KEY not configured')
+      console.error('❌ OpenAI API key not configured')
       return []
     }
 

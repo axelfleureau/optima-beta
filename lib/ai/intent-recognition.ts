@@ -1,9 +1,9 @@
-import { openai } from "@ai-sdk/openai"
 import { generateObject, streamText } from "ai"
 import { z } from "zod"
 import type { CommandContext, NLPResponse, CommandIntent } from "@/lib/types"
 import { formatDateForCommand, normalizeFutureCommandDate } from "@/lib/utils/date-parser"
 import { OPENAI_REASONING_MODEL } from "@/lib/ai/models"
+import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 
 const IntentSchema = z.object({
   intent: z.enum([
@@ -213,6 +213,7 @@ Altri esempi:
 Rispondi SEMPRE in JSON con lo schema richiesto.`
 
   try {
+    const openai = await createRuntimeOpenAI()
     const { object } = await generateObject({
       model: openai(OPENAI_REASONING_MODEL),
       schema: IntentSchema,
@@ -275,6 +276,7 @@ Spiega brevemente (2-3 frasi):
 Rispondi in italiano in modo naturale e conversazionale.`
 
   try {
+    const openai = await createRuntimeOpenAI()
     // Stream the reasoning
     if (onReasoningChunk) {
       const { textStream } = await streamText({

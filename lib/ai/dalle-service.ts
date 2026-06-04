@@ -1,3 +1,5 @@
+import { getOpenAIApiKey } from "./openai-runtime"
+
 export interface DalleGenerationParams {
   prompt: string
   size: '1024x1024' | '1792x1024' | '1024x1792'
@@ -20,10 +22,10 @@ export async function generateImageWithDalle(
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const apiKey = process.env.OPENAI_API_KEY
+      const apiKey = await getOpenAIApiKey()
       
       if (!apiKey || apiKey.trim() === '') {
-        console.error('❌ OPENAI_API_KEY not found or empty')
+        console.error('❌ OpenAI API key not found or empty')
         return {
           success: false,
           imageUrl: null,

@@ -1,3 +1,5 @@
+import { getOpenAIApiKey } from "./openai-runtime"
+
 export interface RAGQueryPlan {
   collection: 'tasks' | 'clients' | 'editorialPosts' | 'ai_usage'
   filters: Record<string, any>
@@ -23,7 +25,7 @@ export async function generateQueryPlan(
   params: RAGQueryPlannerParams
 ): Promise<RAGQueryPlannerResponse> {
   try {
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = await getOpenAIApiKey()
     
     if (!apiKey || apiKey.trim() === '') {
       return {

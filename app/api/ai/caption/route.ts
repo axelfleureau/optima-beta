@@ -2,11 +2,11 @@ export const dynamic = "force-dynamic"
 
 import type { NextRequest } from "next/server"
 import { generateText } from "ai"
-import { openai } from "@ai-sdk/openai"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { OPENAI_FAST_MODEL } from "@/lib/ai/models"
+import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 
 function estimateTokens(input: string) {
   return Math.ceil(input.length / 4)
@@ -30,14 +30,6 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey?.trim()) {
-      return Response.json(
-        { error: "Configurazione API mancante. Configura OPENAI_API_KEY." },
-        { status: 500 },
-      )
-    }
-
     const messages = [
       {
         role: "system" as const,
@@ -53,6 +45,7 @@ export async function POST(request: NextRequest) {
 
     const fullPrompt = JSON.stringify(messages)
     const estimatedInputTokens = estimateTokens(fullPrompt)
+    const openai = await createRuntimeOpenAI()
     const result = await generateText({
       model: openai(OPENAI_FAST_MODEL),
       messages,

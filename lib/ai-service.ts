@@ -330,7 +330,7 @@ export async function generateAIResponse(prompt: string, userId: string, systemP
     if (error instanceof Error && error.message.includes("API")) {
       console.warn("⚠️ API error, using fallback response")
       return {
-        text: `[Errore API - Controlla la configurazione]\n\nAssicurati che OPENAI_API_KEY sia configurata correttamente nel file .env.local del server.\n\nDettaglio errore: ${error.message}`,
+        text: `[Errore API - Controlla la configurazione]\n\nLa chiave OpenAI runtime non risulta configurata correttamente sul server.\n\nDettaglio errore: ${error.message}`,
         usage: {
           totalTokens: 0,
           promptTokens: 0,

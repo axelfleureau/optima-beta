@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import type { NextRequest } from "next/server"
 import { streamText } from "ai"
-import { createOpenAI } from "@ai-sdk/openai"
+import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 import { estimateTokens } from "@/lib/token-service"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, increment } from "firebase/firestore"
@@ -221,17 +221,8 @@ async function logTokenUsageFromService(adminId: string, userId: string, tokensU
 }
 
 // Function to get OpenAI client with proper API key configuration
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY
-
-  if (!apiKey) {
-    console.error("❌ OPENAI_API_KEY environment variable is missing")
-    throw new Error("OpenAI API key is not configured. Please contact your administrator.")
-  }
-
-  return createOpenAI({
-    apiKey: apiKey,
-  })
+async function getOpenAIClient() {
+  return createRuntimeOpenAI()
 }
 
 export async function POST(request: NextRequest) {
@@ -263,7 +254,7 @@ export async function POST(request: NextRequest) {
     const prompt = generateTemplatePrompt(templateId, formData)
 
     // Get OpenAI client with proper configuration
-    const openaiClient = getOpenAIClient()
+    const openaiClient = await getOpenAIClient()
 
     // Estimate tokens for this request
     const estimatedTokens = estimateTokens(prompt) + 800 // Add estimated output tokens

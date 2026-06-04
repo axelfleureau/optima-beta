@@ -2,9 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import type { NextRequest } from "next/server"
 import { generateObject } from "ai"
-import { createOpenAI } from "@ai-sdk/openai"
-import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod"
+import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { OPENAI_FAST_MODEL } from "@/lib/ai/models"
 
@@ -15,15 +14,6 @@ const quoteContentSchema = z.object({
   attivita: z.array(z.string()),
   sitemap: z.array(z.string()).optional()
 })
-
-async function getRuntimeSecret(name: string) {
-  try {
-    const { env } = await getCloudflareContext({ async: true })
-    return (env as Record<string, string | undefined>)[name] || process.env[name] || ""
-  } catch {
-    return process.env[name] || ""
-  }
-}
 
 function estimateTokens(text: string) {
   return Math.ceil(text.length / 3.5)
@@ -48,16 +38,7 @@ export async function POST(request: NextRequest) {
 
     console.log("🚀 AI Quote Content request:", { userId, promptLength: prompt.length })
 
-    const apiKey = await getRuntimeSecret("OPENAI_API_KEY")
-    if (!apiKey || apiKey.trim() === "") {
-      console.error("❌ OPENAI_API_KEY not configured")
-      return new Response(
-        JSON.stringify({ error: "Configurazione API mancante. Contatta l'amministratore." }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      )
-    }
-
-    const openai = createOpenAI({ apiKey })
+    const openai = await createRuntimeOpenAI()
 
     console.log("🤖 Generating quote content with OpenAI structured output...")
 

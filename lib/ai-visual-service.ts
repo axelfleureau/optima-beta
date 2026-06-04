@@ -1,4 +1,5 @@
 import { generateAIText, getOrganizationAdminId, logTokenUsage, SYSTEM_PROMPTS } from "./ai-service"
+import { getOpenAIApiKey, hasOpenAIApiKey } from "./ai/openai-runtime"
 // Note: fetch is now global in Node.js 18+, no import needed
 
 export interface VisualGenerationOptions {
@@ -94,9 +95,9 @@ Restituisci SOLO il prompt per l'AI, senza spiegazioni.
 
 // Generate visuals using direct OpenAI calls with proper server-side implementation
 async function callOpenAIDallE(prompt: string, format: string): Promise<string | null> {
-  const apiKey = process.env.OPENAI_API_KEY
+  const apiKey = await getOpenAIApiKey()
   if (!apiKey) {
-    console.warn("⚠️ OPENAI_API_KEY non trovata")
+    console.warn("⚠️ OpenAI API key non trovata")
     return null
   }
 
@@ -161,7 +162,7 @@ export async function generateVisuals(options: VisualGenerationOptions, userId: 
     console.log(`🎨 Generazione ${count} visual AI...`)
 
     // Check if we have OpenAI API key
-    const hasAPIKey = !!process.env.OPENAI_API_KEY
+    const hasAPIKey = await hasOpenAIApiKey()
 
     // Generate each visual individually for better error handling
     for (let i = 0; i < count; i++) {

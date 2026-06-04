@@ -2,11 +2,11 @@ export const dynamic = "force-dynamic"
 
 import type { NextRequest } from "next/server"
 import { streamText } from "ai"
-import { openai } from "@ai-sdk/openai"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { OPENAI_CHAT_MODEL } from "@/lib/ai/models"
+import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 import { ensureWorkspacePrincipal, type WorkspacePrincipal } from "@/lib/workspace-db"
 
 type StoredMemory = {
@@ -481,14 +481,6 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey?.trim()) {
-      return Response.json(
-        { error: "Configurazione API mancante. Configura OPENAI_API_KEY." },
-        { status: 500 },
-      )
-    }
-
     const db = await getCloudflareDb()
     if (!db) {
       return Response.json({ error: "Database Cloudflare non disponibile." }, { status: 500 })
@@ -526,6 +518,7 @@ export async function POST(request: NextRequest) {
 
     const fullPrompt = JSON.stringify(messages)
     const estimatedInputTokens = estimateTokens(fullPrompt)
+    const openai = await createRuntimeOpenAI()
     const result = streamText({
       model: openai(OPENAI_CHAT_MODEL),
       messages,

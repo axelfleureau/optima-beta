@@ -1,3 +1,5 @@
+import { getOpenAIApiKey } from "./openai-runtime"
+
 export interface RAGResponseGeneratorParams {
   userMessage: string
   retrievedData: any[]
@@ -19,7 +21,7 @@ export async function generateResponse(
   params: RAGResponseGeneratorParams
 ): Promise<RAGResponseGeneratorResponse> {
   try {
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = await getOpenAIApiKey()
     
     if (!apiKey || apiKey.trim() === '') {
       return {

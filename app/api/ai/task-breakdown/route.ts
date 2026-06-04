@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic'
 
 import type { NextRequest } from "next/server"
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
+import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { OPENAI_REASONING_MODEL } from "@/lib/ai/models"
@@ -110,19 +110,7 @@ export async function POST(request: NextRequest) {
       hasContext: !!context,
     })
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey || apiKey.trim() === "") {
-      console.error("❌ OPENAI_API_KEY not found or empty in environment variables")
-      return new Response(
-        JSON.stringify({
-          error: "Configurazione API mancante. Contatta l'amministratore per configurare OPENAI_API_KEY.",
-        }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        },
-      )
-    }
+    const openai = await createRuntimeOpenAI()
 
     const userPrompt = `Task da analizzare: "${taskDescription}"
 
