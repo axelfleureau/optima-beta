@@ -282,8 +282,11 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
         onOpenChange(isOpen)
       }}
     >
-      <DialogContent className="flex h-[calc(100svh-1rem)] max-h-[calc(100svh-1rem)] w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 bg-white/90 dark:bg-black/75 backdrop-blur-xl border border-white/30 dark:border-white/10 sm:h-auto sm:max-h-[90dvh]">
-        <DialogHeader className="flex-shrink-0 px-4 pb-3 pt-5 sm:px-6 sm:pb-4 sm:pt-6">
+      <DialogContent
+        stableViewport
+        className="!flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden !p-0 bg-white/90 dark:bg-black/75 backdrop-blur-xl border border-white/30 dark:border-white/10 sm:h-[min(900px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)]"
+      >
+        <DialogHeader className="shrink-0 px-4 pb-3 pt-5 sm:px-6 sm:pb-4 sm:pt-6">
           <DialogTitle className="pr-8 text-xl text-gray-900 dark:text-white sm:text-2xl">
             Raccolta Informazioni Preventivo
           </DialogTitle>
@@ -307,7 +310,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
           </p>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 sm:px-6">
+        <div className="relative min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pb-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
           <AnimatePresence mode="wait" custom={currentStep}>
             <motion.div
               key={currentStep}
@@ -317,7 +320,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
               animate="center"
               exit="exit"
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="pb-6"
+              className="min-h-full pb-2"
             >
               {currentStep === 1 && (
                 <div className="space-y-4">
@@ -983,7 +986,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
           </AnimatePresence>
         </div>
 
-        <div className="flex-shrink-0 border-t border-white/20 bg-white/75 px-4 py-3 backdrop-blur-sm dark:border-white/10 dark:bg-black/50 sm:px-6 sm:py-4">
+        <div className="shrink-0 border-t border-white/20 bg-white/75 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm dark:border-white/10 dark:bg-black/50 sm:px-6 sm:pb-4 sm:pt-4">
           <div className="flex items-center justify-between gap-3">
             <GlassButton
               variant="ghost"
