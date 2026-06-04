@@ -24,10 +24,24 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const clerkProxyUrl = process.env.NEXT_PUBLIC_CLERK_PROXY_URL
+  const canonicalRedirectScript = `
+    (function () {
+      var stagingHost = "optima-beta-staging.axel-15d.workers.dev";
+      var canonicalOrigin = "https://appbeta.wearerighello.com";
+      if (window.location.hostname === stagingHost) {
+        window.location.replace(canonicalOrigin + window.location.pathname + window.location.search + window.location.hash);
+      }
+    })();
+  `
 
   return (
     <html lang="it" suppressHydrationWarning>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: canonicalRedirectScript,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: "globalThis.__name=globalThis.__name||function(fn){return fn}",
