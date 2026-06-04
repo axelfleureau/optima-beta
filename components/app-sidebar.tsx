@@ -5,6 +5,7 @@ import {
   FileText,
   Kanban,
   Bot,
+  Workflow,
   Users,
   CalendarDays,
   CalendarClock,
@@ -103,6 +104,11 @@ export function AppSidebar() {
       title: "AI Assistant",
       url: "/ai-assistant",
       icon: Bot,
+    },
+    {
+      title: "AI Ops",
+      url: "/agenti",
+      icon: Workflow,
     },
     {
       title: "Panoramica Clienti",
