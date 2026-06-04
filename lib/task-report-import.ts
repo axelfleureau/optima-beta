@@ -93,6 +93,13 @@ const PROJECT_TARGETS: Record<string, ProjectImportTarget> = {
     projectName: "Scale Site",
     type: "SEO / Design System",
   },
+  "righello site": {
+    projectId: "project_internal_righello_site",
+    clientId: "client_internal_righello_ops",
+    clientName: "Righello",
+    projectName: "Righello Site",
+    type: "SEO locale / Sito Righello",
+  },
   tetha: {
     projectId: "project_internal_tetha",
     clientId: "client_internal_righello_ops",
@@ -166,6 +173,48 @@ function parseDateLabel(heading: string) {
   }
 }
 
+function parseDateFromPeriod(content: string) {
+  const match = content.match(/periodo\s+(?:analizzato|aggiunto):\s*(?:dal\s*)?(\d{1,2})\s+([a-zà]+)\s+(\d{4})/i)
+  if (!match) return null
+  const [, day, monthName, year] = match
+  const month = MONTHS[normalizeKey(monthName)]
+  if (!month) return null
+
+  return {
+    dateIso: `${year}-${month}-${day.padStart(2, "0")}`,
+    dateLabel: `${day} ${monthName} ${year}`,
+  }
+}
+
+function isProjectHeading(heading: string) {
+  const key = normalizeKey(heading)
+  if (!key || parseDateLabel(heading)) return false
+
+  const nonProjectHeadings = [
+    "riepilogo",
+    "riepilogo generale",
+    "dettagli tecnici",
+    "criticita",
+    "criticità",
+    "macro aree",
+    "fonte",
+    "periodo",
+    "obiettivo",
+  ]
+
+  return !nonProjectHeadings.some((value) => key.startsWith(value))
+}
+
+function parseInlineFileHints(value: string) {
+  const backtickMatches = Array.from(value.matchAll(/`([^`]+)`/g)).map((match) => match[1].trim())
+  if (backtickMatches.length > 0) return backtickMatches
+
+  return value
+    .split(",")
+    .map((item) => item.replace(/`/g, "").trim())
+    .filter(Boolean)
+}
+
 function getTarget(projectName: string): ProjectImportTarget {
   const key = normalizeKey(projectName)
   return (
@@ -205,13 +254,13 @@ function createdAtFor(dateIso: string, blockIndex: number, dateLabel: string) {
 export function parseTaskReport(content: string): ParsedTaskReportItem[] {
   const lines = content.replace(/\r\n/g, "\n").split("\n")
   const items: ParsedTaskReportItem[] = []
-  let currentDate: { dateIso: string; dateLabel: string } | null = null
+  let currentDate: { dateIso: string; dateLabel: string } | null = parseDateFromPeriod(content)
   let currentProject = ""
   let repo = ""
   let tasks: string[] = []
   let areas = ""
   let fileHints: string[] = []
-  let mode: "none" | "tasks" | "files" = "none"
+  let mode: "none" | "tasks" | "files" | "details" = "none"
   let blockIndex = 0
 
   const flush = () => {
@@ -261,11 +310,30 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
 
     if (line.startsWith("## ")) {
       flush()
+      const heading = line.replace(/^##\s*/, "").trim()
       const parsedDate = parseDateLabel(line)
       if (parsedDate) {
         currentDate = parsedDate
         blockIndex = 0
+        currentProject = ""
+        repo = ""
+        tasks = []
+        areas = ""
+        fileHints = []
+        mode = "none"
+        continue
       }
+
+      if (isProjectHeading(heading)) {
+        currentProject = heading
+        repo = ""
+        tasks = []
+        areas = ""
+        fileHints = []
+        mode = "tasks"
+        continue
+      }
+
       currentProject = ""
       repo = ""
       tasks = []
@@ -282,7 +350,12 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
       tasks = []
       areas = ""
       fileHints = []
-      mode = "none"
+      mode = "tasks"
+      continue
+    }
+
+    if (/^###\s+dettagli tecnici/i.test(line)) {
+      mode = "details"
       continue
     }
 
@@ -302,8 +375,18 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
       continue
     }
 
+    if (mode === "details" && /^-\s*Aree:/i.test(line)) {
+      areas = line.replace(/^-\s*Aree:\s*/i, "").trim()
+      continue
+    }
+
     if (/^File principali:/i.test(line)) {
       mode = "files"
+      continue
+    }
+
+    if (mode === "details" && /^-\s*File principali:/i.test(line)) {
+      fileHints.push(...parseInlineFileHints(line.replace(/^-\s*File principali:\s*/i, "").trim()))
       continue
     }
 
