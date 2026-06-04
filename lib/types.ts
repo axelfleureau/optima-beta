@@ -66,6 +66,8 @@ export interface Client {
   createdAt: Timestamp | Date
   updatedAt: Timestamp | Date
   projectsCount?: number
+  activeTasksCount?: number
+  completedTasksCount?: number
   totalValue?: number
   lastActivity?: Timestamp | Date
 }

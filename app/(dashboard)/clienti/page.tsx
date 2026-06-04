@@ -112,7 +112,7 @@ export default function ClientiPage() {
     total: clients.length,
     active: clients.filter((c) => c.status === "active").length,
     prospects: clients.filter((c) => c.status === "prospect").length,
-    totalValue: 0,
+    totalValue: clients.reduce((sum, client) => sum + (client.totalValue || 0), 0),
   }
 
   if (loading) {

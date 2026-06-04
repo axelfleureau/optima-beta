@@ -37,6 +37,7 @@ export function useClients() {
         ...client,
         createdAt: client.createdAt ? new Date(client.createdAt as any) : new Date(),
         updatedAt: client.updatedAt ? new Date(client.updatedAt as any) : new Date(),
+        lastActivity: client.lastActivity ? new Date(client.lastActivity as any) : undefined,
       })))
     } catch (err) {
       console.error("Error fetching clients:", err)
