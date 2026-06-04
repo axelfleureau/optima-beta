@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import type { Client, Task } from "@/lib/types"
+import { getInternalWorkspaceClientIds, isInternalWorkspaceClient, isInternalWorkspaceTask } from "./internal-workspace"
 
 interface ClientSidebarProps {
   clients: Client[]
@@ -74,7 +75,9 @@ export function ClientSidebar({
   const { userData } = useAuth()
   const [clientSearchTerm, setClientSearchTerm] = useState("")
 
-  const filteredClients = clients.filter((client) =>
+  const visibleClients = clients.filter((client) => !isInternalWorkspaceClient(client, userData?.companyName))
+  const internalClientIds = getInternalWorkspaceClientIds(clients, userData?.companyName)
+  const filteredClients = visibleClients.filter((client) =>
     client.name.toLowerCase().includes(clientSearchTerm.toLowerCase()),
   )
 
@@ -84,7 +87,9 @@ export function ClientSidebar({
   }
 
   const getAllClientsTaskCount = () => {
-    const allClientTasks = allTasks.filter((task) => task.clientId !== "tenant")
+    const allClientTasks = allTasks.filter(
+      (task) => !isInternalWorkspaceTask(task, internalClientIds, userData?.companyName),
+    )
     return countTasks(allClientTasks)
   }
 
@@ -119,7 +124,7 @@ export function ClientSidebar({
             <Users className="h-6 w-6 text-slate-600 dark:text-slate-400" />
             <div>
               <h2 className="font-bold text-lg text-slate-900 dark:text-slate-100">Clienti</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{clients.length} totali</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{visibleClients.length} totali</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -232,7 +237,7 @@ export function ClientSidebar({
             </div>
           )}
 
-          {clients.length === 0 && (
+          {visibleClients.length === 0 && !clientSearchTerm && (
             <div className="text-center py-12">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center mx-auto mb-4">
                 <Users className="h-8 w-8 text-slate-400" />

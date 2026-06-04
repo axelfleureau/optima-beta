@@ -45,6 +45,7 @@ import { useProjects } from "@/hooks/use-projects"
 import { TaskDetailDialog } from "@/components/task-detail-dialog"
 import { UserAssignmentSelect } from "@/components/ui/user-assignment-select"
 import { ClientSidebar } from "./client-sidebar"
+import { getInternalWorkspaceClientIds, isInternalWorkspaceProject, isInternalWorkspaceTask } from "./internal-workspace"
 import { KanbanBoard } from "./kanban-board"
 import { useWorkspaceLayout } from "@/hooks/use-workspace-layout"
 import { useIsMounted } from "@/hooks/use-is-mounted"
@@ -278,12 +279,13 @@ export function WorkspaceShell() {
     rejectTaskAssignment,
   } = useWorkspaceData()
   const [pendingTaskFiles, setPendingTaskFiles] = useState<Array<{ id: string; file: File }>>([])
+  const internalClientIds = getInternalWorkspaceClientIds(clients, userData?.companyName)
 
   const tasks = allTasks.filter((task) => {
     if (showTenantWorkspace) {
-      return task.clientId === "tenant"
+      return isInternalWorkspaceTask(task, internalClientIds, userData?.companyName)
     } else if (showAllClients) {
-      return task.clientId !== "tenant"
+      return !isInternalWorkspaceTask(task, internalClientIds, userData?.companyName)
     } else {
       return task.clientId === selectedClientId
     }
@@ -291,10 +293,10 @@ export function WorkspaceShell() {
 
   const visibleProjects = projects.filter((project) => {
     if (showTenantWorkspace) {
-      return !project.clientId
+      return isInternalWorkspaceProject(project, internalClientIds, userData?.companyName)
     }
     if (showAllClients) {
-      return Boolean(project.clientId)
+      return !isInternalWorkspaceProject(project, internalClientIds, userData?.companyName)
     }
     return project.clientId === selectedClientId
   })
