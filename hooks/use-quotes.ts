@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore"
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
-import type { Quote, QuoteItem } from "@/types/quote"
+import type { Quote } from "@/types/quote"
 
 // Helper function to safely convert Firestore timestamp to Date
 const safeToDate = (timestamp: any): Date => {
@@ -22,6 +22,38 @@ const safeToDate = (timestamp: any): Date => {
     return new Date(timestamp.seconds * 1000)
   }
   return new Date()
+}
+
+const stripUndefinedDeep = (value: unknown): unknown => {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (value instanceof Date) return value
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined)
+  }
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).reduce((acc, [key, item]) => {
+      const cleaned = stripUndefinedDeep(item)
+      if (cleaned !== undefined) {
+        acc[key] = cleaned
+      }
+      return acc
+    }, {} as Record<string, unknown>)
+  }
+  return value
+}
+
+const readApiResponse = async (response: Response) => {
+  const text = await response.text()
+  if (!text) return {}
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { error: text }
+  }
 }
 
 export function useQuotes() {
@@ -73,6 +105,7 @@ export function useQuotes() {
             currency: data.currency || "EUR",
             items: data.items || [],
             total: data.total || 0,
+            brandMateriali: data.brandMateriali,
             
             // Financial breakdown
             subtotale: data.subtotale,
@@ -131,32 +164,52 @@ export function useQuotes() {
   const createQuote = useCallback(async (quoteData: Omit<Quote, "id" | "createdAt" | "updatedAt">) => {
     try {
       // SECURITY: Use secure API endpoint instead of direct Firestore writes
+      const validUntil = quoteData.validUntil instanceof Date
+        ? quoteData.validUntil
+        : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+
+      const payload = stripUndefinedDeep({
+        title: quoteData.title,
+        description: quoteData.description,
+        clientId: quoteData.clientId,
+        clientName: quoteData.clientName,
+        clientEmail: quoteData.clientEmail,
+        externalClientName: quoteData.externalClientName,
+        externalClientEmail: quoteData.externalClientEmail,
+        status: quoteData.status,
+        currency: quoteData.currency,
+        items: quoteData.items,
+        total: quoteData.total,
+        subtotale: quoteData.subtotale,
+        iva: quoteData.iva,
+        percentualeIva: quoteData.percentualeIva,
+        brandMateriali: quoteData.brandMateriali,
+        obiettivi: quoteData.obiettivi,
+        attivita: quoteData.attivita,
+        voci: quoteData.voci,
+        terminiCondizioni: quoteData.terminiCondizioni,
+        validUntil: validUntil.toISOString()
+        // SECURITY: Do NOT send tenantId or createdBy - server will derive from auth
+      })
+
       const response = await fetch('/api/quotes/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include', // CRITICAL: Send firebase-auth-token cookie
-        body: JSON.stringify({
-          title: quoteData.title,
-          description: quoteData.description,
-          clientId: quoteData.clientId,
-          clientName: quoteData.clientName,
-          status: quoteData.status,
-          currency: quoteData.currency,
-          items: quoteData.items,
-          total: quoteData.total,
-          validUntil: quoteData.validUntil.toISOString()
-          // SECURITY: Do NOT send tenantId or createdBy - server will derive from auth
-        })
+        body: JSON.stringify(payload)
       })
 
+      const result = await readApiResponse(response)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || 'Errore nella creazione del preventivo')
+        const details = Array.isArray(result.details)
+          ? result.details.map((item: any) => item.message || item).join(", ")
+          : result.details
+        throw new Error(details || result.error || result.message || 'Errore nella creazione del preventivo')
       }
 
-      const result = await response.json()
       return result.id
     } catch (err) {
       console.error("Error creating quote:", err)

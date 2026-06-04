@@ -110,9 +110,9 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       descrizione: voce.descrizione,
       quantita: voce.quantita,
       prezzoUnitario: voce.prezzoUnitario,
-      totale: voce.quantita * voce.prezzoUnitario,
-      categoria: "base" as const,
-      tipo: "one_time" as const,
+      totale: voce.totale ?? Math.round(voce.quantita * voce.prezzoUnitario * 100) / 100,
+      categoria: voce.categoria ?? "base" as const,
+      tipo: voce.tipo ?? "one_time" as const,
     })) ||
     quote.items?.map((item) => ({
       descrizione: item.name,
@@ -152,9 +152,10 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
     condizioni: {
       costVariation: 10,
       validityDays,
-      paymentTerms: "50% all'accettazione, 50% a completamento",
+      paymentTerms: quote.terminiCondizioni || "50% all'accettazione, 50% a completamento",
       cancellationPenalty: 30,
     },
+    brandMateriali: quote.brandMateriali,
     totali: {
       subtotale,
       iva,

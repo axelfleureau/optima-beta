@@ -91,6 +91,9 @@ export interface Quote {
     descrizione: string
     quantita: number
     prezzoUnitario: number
+    totale?: number
+    categoria?: 'base' | 'optional' | 'recurring'
+    tipo?: 'one_time' | 'monthly' | 'annual'
   }>
   terminiCondizioni?: string
 }

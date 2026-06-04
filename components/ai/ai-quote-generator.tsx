@@ -51,6 +51,10 @@ async function readApiJson(response: Response) {
   }
 }
 
+function isValidEmail(value?: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((value || "").trim())
+}
+
 interface AIQuoteGeneratorProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -213,12 +217,21 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
     if (!generatedQuote || !userData?.tenantId || !enrichedContext) return
 
     try {
+      if (enrichedContext.clientMode !== 'platform' && !isValidEmail(enrichedContext.clientEmail)) {
+        feedback.error(
+          'Dati cliente incompleti',
+          'Inserisci una email valida per il cliente esterno prima di salvare il preventivo',
+          'Torna allo step cliente e completa i dati'
+        )
+        return
+      }
+
       // Prepare client mode data based on enrichment context
       const clientMode = enrichedContext.clientMode === 'platform' && enrichedContext.clientId
         ? { clientId: enrichedContext.clientId }
         : {
             externalClientName: enrichedContext.clientName,
-            externalClientEmail: enrichedContext.clientEmail || ''
+            externalClientEmail: enrichedContext.clientEmail?.trim() || ''
           }
 
       const quoteToCreate = convertToQuoteFormat(
@@ -242,7 +255,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       console.error('Error saving quote:', error)
       feedback.error(
         'Salvataggio preventivo',
-        'Non è stato possibile salvare il preventivo',
+        error instanceof Error ? error.message : 'Non è stato possibile salvare il preventivo',
         'Riprova o contatta il supporto'
       )
     }

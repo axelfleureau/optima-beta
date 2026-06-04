@@ -56,6 +56,20 @@ export interface Quote {
   currency: string
   items: QuoteItem[]
   total: number
+  subtotale?: number
+  iva?: number
+  percentualeIva?: number
+  obiettivi?: string[]
+  attivita?: string[]
+  voci?: Array<{
+    descrizione: string
+    quantita: number
+    prezzoUnitario: number
+    totale?: number
+    categoria?: 'base' | 'optional' | 'recurring'
+    tipo?: 'one_time' | 'monthly' | 'annual'
+  }>
+  terminiCondizioni?: string
   validUntil: Date
   createdAt: Date
   updatedAt: Date
@@ -769,6 +783,15 @@ export function convertToQuoteFormat(
   }
 ): Omit<Quote, 'id'> {
   // SECURITY: Only use server-provided tenantId and createdBy, never client data
+  const structuredVoci = quoteData.voci.map(voce => ({
+    descrizione: voce.descrizione,
+    quantita: voce.quantita,
+    prezzoUnitario: voce.prezzoUnitario,
+    totale: voce.totale,
+    categoria: voce.categoria,
+    tipo: voce.tipo || 'one_time' as const
+  }))
+
   const quoteItems: QuoteItem[] = quoteData.voci.map(voce => ({
     name: voce.descrizione,
     description: voce.descrizione,
@@ -776,6 +799,8 @@ export function convertToQuoteFormat(
     unitPrice: voce.prezzoUnitario,
     total: voce.totale
   }))
+
+  const validityDays = quoteData.preventivo.validitaGiorni || quoteData.condizioni?.validityDays || 60
 
   const baseQuote = {
     title: quoteData.preventivo.titolo,
@@ -785,7 +810,14 @@ export function convertToQuoteFormat(
     currency: 'EUR',
     items: quoteItems,
     total: quoteData.totali.totale,
-    validUntil: new Date(Date.now() + (quoteData.preventivo.validitaGiorni * 24 * 60 * 60 * 1000)),
+    subtotale: quoteData.totali.subtotale,
+    iva: quoteData.totali.iva,
+    percentualeIva: quoteData.totali.percentualeIva,
+    obiettivi: quoteData.obiettivi,
+    attivita: quoteData.attivita,
+    voci: structuredVoci,
+    terminiCondizioni: quoteData.condizioni.paymentTerms,
+    validUntil: new Date(Date.now() + (validityDays * 24 * 60 * 60 * 1000)),
     createdAt: new Date(),
     updatedAt: new Date(),
     tenantId,

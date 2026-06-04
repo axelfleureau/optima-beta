@@ -35,19 +35,23 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
   // Client name - prefer externalClientName, fallback to clientName
   const clientName = quote.externalClientName || quote.clientName || 'Cliente'
 
-  // Map voci to GeneratedQuoteData format
-  // NOTE: Quote.voci schema doesn't include categoria/tipo fields (only descrizione, quantita, prezzoUnitario)
-  // PDF generator expects categoria ('base' | 'optional' | 'recurring') for section grouping
-  // For custom quotes (non-template-based), we default to 'base' and 'one_time'
-  // TODO: Extend Quote.voci schema to include categoria/tipo for better PDF rendering
-  const voci = (quote.voci || []).map(voce => ({
-    descrizione: voce.descrizione,
-    quantita: voce.quantita,
-    prezzoUnitario: voce.prezzoUnitario,
-    totale: voce.quantita * voce.prezzoUnitario,
-    categoria: 'base' as const, // Default: all items treated as base costs
-    tipo: 'one_time' as const // Default: one-time payments
-  }))
+  const voci = quote.voci?.length
+    ? quote.voci.map(voce => ({
+        descrizione: voce.descrizione,
+        quantita: voce.quantita,
+        prezzoUnitario: voce.prezzoUnitario,
+        totale: voce.totale ?? Math.round(voce.quantita * voce.prezzoUnitario * 100) / 100,
+        categoria: voce.categoria ?? 'base' as const,
+        tipo: voce.tipo ?? 'one_time' as const
+      }))
+    : (quote.items || []).map(item => ({
+        descrizione: item.description || item.name,
+        quantita: item.quantity,
+        prezzoUnitario: item.unitPrice,
+        totale: item.total,
+        categoria: 'base' as const,
+        tipo: 'one_time' as const
+      }))
 
   // Use persisted financial breakdown from quote (fallback to calculating if not available)
   const subtotale = quote.subtotale ?? voci.reduce((sum, voce) => sum + voce.totale, 0)
@@ -79,9 +83,10 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
     condizioni: {
       costVariation: 10,
       validityDays: validityDays,
-      paymentTerms: "50% all'accettazione, 50% a completamento",
+      paymentTerms: quote.terminiCondizioni || "50% all'accettazione, 50% a completamento",
       cancellationPenalty: 30
     },
+    brandMateriali: quote.brandMateriali,
     totali: {
       subtotale: subtotale,
       iva: iva,

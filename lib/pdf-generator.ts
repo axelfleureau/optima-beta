@@ -29,6 +29,16 @@ const safeNumber = (value: unknown) => {
 }
 
 export const formatQuoteCurrency = (amount: number): string => {
+  const value = safeNumber(amount)
+  const formatted = new Intl.NumberFormat("it-IT", {
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+
+  return `€ ${formatted}`
+}
+
+export const formatQuoteCurrencyLegacy = (amount: number): string => {
   return new Intl.NumberFormat("it-IT", {
     style: "currency",
     currency: "EUR",
@@ -194,8 +204,8 @@ class RighelloPDFGenerator {
   }
 
   private h1(text: string) {
-    this.text(text, mm.left, this.y, { size: 26, bold: true, color: BRAND.primary, leading: 9, maxWidth: this.contentWidth })
-    this.y += 14
+    const used = this.text(text, mm.left, this.y, { size: 26, bold: true, color: BRAND.primary, leading: 9, maxWidth: this.contentWidth })
+    this.y += Math.max(14, used + 6)
   }
 
   private h2(text: string) {
@@ -236,39 +246,56 @@ class RighelloPDFGenerator {
   }
 
   private priceTable(rows: Array<[string, string]>, options?: { totalLabel?: string; totalValue?: string; title?: string }) {
-    this.ensure(22 + rows.length * 10)
     if (options?.title) this.h2(options.title)
     const left = mm.left
-    const top = this.y
-    const rowHeight = 10
-    const col1 = this.contentWidth * 0.68
+    const col1 = this.contentWidth * 0.72
     const col2 = this.contentWidth - col1
+    const headerHeight = 10
+    const pageBottom = this.height - mm.bottom - 16
 
-    this.setColor(BRAND.primary, "fill")
-    this.doc.roundedRect(left, top, this.contentWidth, rowHeight, 1.5, 1.5, "F")
-    this.text("Voce", left + 4, top + 6.6, { size: 9.5, bold: true, color: BRAND.white })
-    this.textRight("Importo", left + col1 + col2 - 4, top + 6.6, { size: 9.5, bold: true, color: BRAND.white })
-
-    let y = top + rowHeight
-    rows.forEach((row, index) => {
-      this.setColor(index % 2 === 0 ? BRAND.white : BRAND.soft, "fill")
-      this.doc.rect(left, y, this.contentWidth, rowHeight, "F")
-      this.setColor(BRAND.border, "draw")
-      this.doc.line(left, y + rowHeight, left + this.contentWidth, y + rowHeight)
-      this.text(row[0], left + 4, y + 6.7, { size: 9, maxWidth: col1 - 8 })
-      this.textRight(row[1], left + col1 + col2 - 4, y + 6.7, { size: 9 })
-      y += rowHeight
-    })
-
-    if (options?.totalLabel && options.totalValue) {
-      this.setColor(BRAND.soft, "fill")
-      this.doc.rect(left, y, this.contentWidth, rowHeight + 2, "F")
-      this.text(options.totalLabel, left + 4, y + 7.5, { size: 10.5, bold: true, color: BRAND.primary, maxWidth: col1 - 8 })
-      this.textRight(options.totalValue, left + col1 + col2 - 4, y + 7.5, { size: 10.5, bold: true, color: BRAND.primary })
-      y += rowHeight + 2
+    const drawHeader = () => {
+      this.ensure(headerHeight + 10)
+      this.setColor(BRAND.primary, "fill")
+      this.doc.roundedRect(left, this.y, this.contentWidth, headerHeight, 1.5, 1.5, "F")
+      this.text("Voce", left + 4, this.y + 6.6, { size: 9.5, bold: true, color: BRAND.white })
+      this.textRight("Importo", left + col1 + col2 - 4, this.y + 6.6, { size: 9.5, bold: true, color: BRAND.white })
+      this.y += headerHeight
     }
 
-    this.y = y + 9
+    const drawRow = (row: [string, string], index: number, total = false) => {
+      const labelLines = this.doc.splitTextToSize(row[0] || "-", col1 - 8)
+      const valueLines = this.doc.splitTextToSize(row[1] || "-", col2 - 8)
+      const rowHeight = Math.max(total ? 13 : 12, Math.max(labelLines.length, valueLines.length) * 4.8 + 8)
+
+      if (this.y + rowHeight > pageBottom) {
+        this.doc.addPage()
+        this.y = mm.top
+        this.drawInternalHeader()
+        drawHeader()
+      }
+
+      this.setColor(total ? BRAND.soft : index % 2 === 0 ? BRAND.white : BRAND.soft, "fill")
+      this.doc.rect(left, this.y, this.contentWidth, rowHeight, "F")
+      this.setColor(BRAND.border, "draw")
+      this.doc.setLineWidth(0.18)
+      this.doc.line(left, this.y + rowHeight, left + this.contentWidth, this.y + rowHeight)
+
+      this.setColor(total ? BRAND.primary : BRAND.ink)
+      this.doc.setFont("helvetica", total ? "bold" : "normal")
+      this.doc.setFontSize(total ? 10.5 : 9)
+      this.doc.text(labelLines, left + 4, this.y + 7)
+      this.doc.text(valueLines, left + col1 + col2 - 4, this.y + 7, { align: "right" })
+      this.y += rowHeight
+    }
+
+    drawHeader()
+    rows.forEach((row, index) => drawRow(row, index))
+
+    if (options?.totalLabel && options.totalValue) {
+      drawRow([options.totalLabel, options.totalValue], rows.length, true)
+    }
+
+    this.y += 9
   }
 
   private timelineRows(data: GeneratedQuoteData): Array<[string, string]> {
@@ -308,33 +335,97 @@ class RighelloPDFGenerator {
   }
 
   private drawCover(data: GeneratedQuoteData) {
-    this.setColor(BRAND.primary, "fill")
-    this.doc.rect(0, 0, this.width, this.height, "F")
-    this.setColor([20, 32, 52], "fill")
-    this.doc.rect(0, 8, this.width, this.height - 16, "F")
-
-    this.brandMark(this.width - mm.right - 30, 24, 24)
-    this.text("RIGHELLO", this.width - mm.right - 2, 34, { size: 12, bold: true, color: BRAND.white, maxWidth: 34 })
-
-    this.text("PROPOSTA COMMERCIALE", mm.left, 88, { size: 28, bold: true, color: BRAND.white, maxWidth: 130, leading: 9 })
-    this.text(data.preventivo.titolo || "Preventivo", mm.left, 106, { size: 18, bold: true, color: BRAND.white, maxWidth: 140, leading: 7 })
-    this.text(data.cliente.nome || "Cliente", mm.left, 119, { size: 13, color: [210, 218, 230], maxWidth: 130 })
-
     this.setColor(BRAND.white, "fill")
-    this.setColor([62, 78, 104], "draw")
-    this.doc.roundedRect(mm.left, 143, this.contentWidth, 34, 2, 2, "FD")
-    this.text("Documento commerciale strutturato", mm.left + 7, 154, { size: 12, bold: true, color: BRAND.primary })
-    this.text("Perimetro, costi, ricorrenze, condizioni e prossimi passi in un unico PDF leggibile.", mm.left + 7, 164, {
-      size: 9.5,
-      color: BRAND.ink,
-      maxWidth: this.contentWidth - 14,
+    this.doc.rect(0, 0, this.width, this.height, "F")
+
+    this.setColor(BRAND.primary, "fill")
+    this.doc.rect(0, 0, this.width, 66, "F")
+    this.setColor(BRAND.pink, "fill")
+    this.doc.rect(0, 65.2, this.width, 1.4, "F")
+
+    this.brandMark(mm.left, 22, 15, BRAND.pink)
+    this.text("RIGHELLO", mm.left + 21, 29, { size: 13, bold: true, color: BRAND.white, maxWidth: 44 })
+    this.text("DESIGN, TECNOLOGIA E OPERATIONS", mm.left + 21, 36, {
+      size: 6.7,
+      color: [212, 220, 232],
+      maxWidth: 86,
+    })
+
+    this.text("OPTIMA QUOTES", this.width - mm.right - 46, 28, {
+      size: 8,
+      bold: true,
+      color: [212, 220, 232],
+      maxWidth: 46,
+    })
+    this.text("Documento commerciale", this.width - mm.right - 48, 36, {
+      size: 7,
+      color: [174, 187, 205],
+      maxWidth: 48,
     })
 
     const validity = data.preventivo.validitaGiorni || data.condizioni.validityDays || 60
-    this.text(`Fornitore: Righello`, mm.left, 234, { size: 9, color: [210, 218, 230] })
-    this.text(`Cliente: ${data.cliente.nome}`, mm.left, 241, { size: 9, color: [210, 218, 230] })
-    this.text(`Validita offerta: ${validity} giorni`, mm.left, 248, { size: 9, color: [210, 218, 230] })
-    this.text(`Stack: design, sviluppo, automazioni e gestione operativa`, mm.left, 255, { size: 9, color: [210, 218, 230] })
+    const development = quoteDevelopmentTotal(data)
+    const recurring = quoteRecurringAnnualTotal(data)
+    const yearOne = quoteYearOneTotal(data)
+    const iva = data.totali.percentualeIva || 22
+
+    this.y = 88
+    this.eyebrow("proposta commerciale")
+    const titleUsed = this.text(data.preventivo.titolo || "Proposta commerciale", mm.left, this.y, {
+      size: 27,
+      bold: true,
+      color: BRAND.primary,
+      maxWidth: 128,
+      leading: 9.2,
+    })
+    this.y += titleUsed + 8
+    const introUsed = this.text(
+      data.preventivo.descrizione ||
+        `Proposta strutturata per ${data.cliente.nome}: perimetro, costi, servizi ricorrenti e prossimi passi in un documento leggibile.`,
+      mm.left,
+      this.y,
+      { size: 11, color: BRAND.muted, maxWidth: 137, leading: 5.8 }
+    )
+    this.y += introUsed + 16
+
+    const panelX = this.width - mm.right - 58
+    this.setColor([247, 249, 252], "fill")
+    this.setColor([217, 224, 234], "draw")
+    this.doc.roundedRect(panelX, 88, 58, 82, 2, 2, "FD")
+    this.text("Totale anno 1", panelX + 6, 104, { size: 8.5, bold: true, color: BRAND.muted, maxWidth: 46 })
+    this.text(formatQuoteCurrency(yearOne), panelX + 6, 119, { size: 19, bold: true, color: BRAND.primary, maxWidth: 46 })
+    this.text(`Netto, IVA ${iva}% esclusa`, panelX + 6, 130, { size: 8, color: BRAND.muted, maxWidth: 46 })
+    this.text("Sviluppo", panelX + 6, 146, { size: 8, color: BRAND.muted, maxWidth: 27 })
+    this.text(formatQuoteCurrency(development), panelX + 55, 146, { size: 8.5, bold: true, color: BRAND.ink, maxWidth: 40 })
+    this.text("Ricorrenti", panelX + 6, 158, { size: 8, color: BRAND.muted, maxWidth: 27 })
+    this.text(formatQuoteCurrency(recurring), panelX + 55, 158, { size: 8.5, bold: true, color: BRAND.ink, maxWidth: 40 })
+
+    const metaTop = 182
+    const cardGap = 5
+    const cardW = (this.contentWidth - cardGap * 2) / 3
+    const cards = [
+      ["Cliente", data.cliente.nome || "Da definire"],
+      ["Fornitore", "Righello"],
+      ["Validita offerta", `${validity} giorni`],
+    ]
+    cards.forEach(([label, value], index) => {
+      const x = mm.left + (cardW + cardGap) * index
+      this.setColor([247, 249, 252], "fill")
+      this.setColor([225, 231, 240], "draw")
+      this.doc.roundedRect(x, metaTop, cardW, 31, 2, 2, "FD")
+      this.text(label, x + 5, metaTop + 10, { size: 7.8, bold: true, color: BRAND.muted, maxWidth: cardW - 10 })
+      this.text(value, x + 5, metaTop + 21, { size: 10.5, bold: true, color: BRAND.primary, maxWidth: cardW - 10 })
+    })
+
+    this.setColor(BRAND.primary, "draw")
+    this.doc.setLineWidth(0.35)
+    this.doc.line(mm.left, 230, this.width - mm.right, 230)
+    this.text("Questo documento separa sviluppo, servizi ricorrenti, opzionali e condizioni. I totali sono calcolati dalle voci del preventivo.", mm.left, 240, {
+      size: 9,
+      color: BRAND.muted,
+      maxWidth: this.contentWidth,
+      leading: 4.8,
+    })
   }
 
   private drawExecutiveSummary(data: GeneratedQuoteData) {

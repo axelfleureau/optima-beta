@@ -15,6 +15,15 @@ const quoteItemSchema = z.object({
   total: z.number().positive()
 })
 
+const quoteVoiceSchema = z.object({
+  descrizione: z.string().min(1, 'Descrizione richiesta'),
+  quantita: z.number().positive().default(1),
+  prezzoUnitario: z.number().nonnegative().default(0),
+  totale: z.number().nonnegative().optional(),
+  categoria: z.enum(['base', 'optional', 'recurring']).optional(),
+  tipo: z.enum(['one_time', 'monthly', 'annual']).optional()
+})
+
 const brandMaterialiSchema = z.object({
   brandCoinvolti: z.array(z.string()).optional(),
   brandPrincipale: z.string().optional(),
@@ -44,8 +53,15 @@ const createQuoteSchema = z.object({
   status: z.enum(['draft', 'sent', 'approved', 'rejected']).optional(),
   currency: z.string().optional(),
   items: z.array(quoteItemSchema).min(1, 'Almeno un item richiesto'),
-  total: z.number().positive('Importo deve essere positivo'),
+  total: z.number().positive('Importo deve essere positivo').optional(),
+  subtotale: z.number().nonnegative().optional(),
+  iva: z.number().nonnegative().optional(),
+  percentualeIva: z.number().nonnegative().optional(),
   brandMateriali: brandMaterialiSchema,
+  obiettivi: z.array(z.string()).optional().default([]),
+  attivita: z.array(z.string()).optional().default([]),
+  voci: z.array(quoteVoiceSchema).optional().default([]),
+  terminiCondizioni: z.string().optional(),
   validUntil: z.string().optional()
 }).refine(
   (data) => {
@@ -68,6 +84,30 @@ const createQuoteSchema = z.object({
     message: "Quote cannot have both clientId and external client data. Choose one client mode."
   }
 )
+
+const stripUndefinedDeep = (value: unknown): unknown => {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (value instanceof Date) return value
+  if (typeof value === "object" && value !== null && Object.getPrototypeOf(value) !== Object.prototype && !Array.isArray(value)) {
+    return value
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined)
+  }
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).reduce((acc, [key, item]) => {
+      const cleaned = stripUndefinedDeep(item)
+      if (cleaned !== undefined) {
+        acc[key] = cleaned
+      }
+      return acc
+    }, {} as Record<string, unknown>)
+  }
+  return value
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -123,7 +163,14 @@ export async function POST(request: NextRequest) {
       currency, 
       items, 
       total, 
+      subtotale,
+      iva,
+      percentualeIva,
       brandMateriali,
+      obiettivi,
+      attivita,
+      voci,
+      terminiCondizioni,
       validUntil 
     } = validatedData
 
@@ -161,6 +208,24 @@ export async function POST(request: NextRequest) {
       materialiDaRichiedere: brandMateriali.materialiDaRichiedere || [],
       domandeAperte: brandMateriali.domandeAperte || []
     } : undefined
+
+    const calculatedSubtotal = subtotale ?? items.reduce((sum, item) => sum + item.total, 0)
+    const vatRate = percentualeIva ?? 22
+    const calculatedVat = iva ?? Math.round(calculatedSubtotal * (vatRate / 100) * 100) / 100
+    const calculatedTotal = total ?? Math.round((calculatedSubtotal + calculatedVat) * 100) / 100
+    const normalizedVoci = voci.length > 0
+      ? voci.map((voce) => ({
+          ...voce,
+          totale: voce.totale ?? Math.round(voce.quantita * voce.prezzoUnitario * 100) / 100
+        }))
+      : items.map((item) => ({
+          descrizione: item.description || item.name,
+          quantita: item.quantity,
+          prezzoUnitario: item.unitPrice,
+          totale: item.total,
+          categoria: 'base' as const,
+          tipo: 'one_time' as const
+        }))
     
     // Build quote object based on client mode
     const baseQuote = {
@@ -170,8 +235,15 @@ export async function POST(request: NextRequest) {
       status: status || "draft",
       currency: currency || "EUR",
       items,
-      total,
+      total: calculatedTotal,
+      subtotale: calculatedSubtotal,
+      iva: calculatedVat,
+      percentualeIva: vatRate,
       brandMateriali: normalizedBrandMateriali,
+      obiettivi,
+      attivita,
+      voci: normalizedVoci,
+      terminiCondizioni,
       validUntil: validUntil ? new Date(validUntil) : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days default
       tenantId, // Server-verified only
       createdBy: userId, // Server-verified only
@@ -206,12 +278,12 @@ export async function POST(request: NextRequest) {
                 clientId ? `(Platform Client: ${clientId})` : `(External Client: ${externalClientName})`)
 
     // Convert Date fields to Firestore Timestamp before saving
-    const quoteForFirestore = {
+    const quoteForFirestore = stripUndefinedDeep({
       ...newQuote,
       createdAt: Timestamp.fromDate(newQuote.createdAt),
       updatedAt: Timestamp.fromDate(newQuote.updatedAt),
       validUntil: Timestamp.fromDate(newQuote.validUntil),
-    }
+    }) as Record<string, unknown>
 
     const docRef = await addDoc(collection(db, "quotes"), quoteForFirestore)
 
