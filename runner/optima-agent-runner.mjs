@@ -16,9 +16,11 @@ Usage:
 
 Environment:
   OPTIMA_URL              https://appbeta.wearerighello.com
+  OPTIMA_BASE_URL         alias supported for OPTIMA_URL
   AGENT_RUNNER_API_KEY    required bearer token
   RUNNER_ID               hostinger-codex-01
   WORK_ROOT               /srv/optima-agent/jobs
+  WORKDIR                 alias supported for WORK_ROOT
   POLL_INTERVAL_MS        30000
   MAX_JOB_SECONDS         1800
   RUNNER_MODE             codex | dry-run
@@ -31,10 +33,10 @@ Environment:
 }
 
 const config = {
-  optimaUrl: env("OPTIMA_URL", "https://appbeta.wearerighello.com").replace(/\/+$/, ""),
+  optimaUrl: env("OPTIMA_URL", env("OPTIMA_BASE_URL", "https://appbeta.wearerighello.com")).replace(/\/+$/, ""),
   apiKey: env("AGENT_RUNNER_API_KEY", ""),
   runnerId: env("RUNNER_ID", `hostinger-codex-${os.hostname()}`).slice(0, 80),
-  workRoot: env("WORK_ROOT", "/srv/optima-agent/jobs"),
+  workRoot: env("WORK_ROOT", env("WORKDIR", "/srv/optima-agent/jobs")),
   pollIntervalMs: numberEnv("POLL_INTERVAL_MS", 30_000),
   maxJobSeconds: numberEnv("MAX_JOB_SECONDS", 1_800),
   runnerMode: args.has("--dry-run") ? "dry-run" : env("RUNNER_MODE", "codex"),

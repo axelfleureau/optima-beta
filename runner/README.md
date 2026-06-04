@@ -12,6 +12,35 @@ Il runner non espone porte pubbliche: fa polling HTTPS verso Óptima, prende un 
 - Accesso outbound HTTPS verso `https://appbeta.wearerighello.com`
 - Eventuale SSH key GitHub o token se deve clonare repository privati
 
+## Autenticazione Codex sul VPS
+
+Per un VPS headless usa OAuth/device auth:
+
+```bash
+codex login --device-auth
+codex login status
+codex doctor
+```
+
+Il comando mostra un codice e un URL: apri l'URL dal browser, autorizza Codex e poi lascia che la CLI salvi la sessione sul VPS. In alternativa, se l'ambiente richiede automazione non interattiva, Codex supporta anche:
+
+```bash
+printenv OPENAI_API_KEY | codex login --with-api-key
+printenv CODEX_ACCESS_TOKEN | codex login --with-access-token
+```
+
+Preferisci `--device-auth` quando possibile: evita di copiare API key long-lived sul server e rende piu semplice revocare l'accesso.
+
+## Secret del runner
+
+`AGENT_RUNNER_API_KEY` non e una chiave OpenAI e non e una chiave GitHub. E una secret condivisa server-to-server tra Óptima e il VPS:
+
+- Óptima la conserva come secret Cloudflare.
+- Il VPS la conserva in `/srv/optima-agent/optima-runner.env`.
+- Il runner la invia come `Authorization: Bearer ...` alle API `/api/agent-jobs/runner/*`.
+
+La secret deve essere identica sui due lati. Non va committata e non va stampata nei log.
+
 ## Installazione
 
 ```bash
@@ -26,9 +55,11 @@ Crea `/srv/optima-agent/optima-runner.env`:
 
 ```bash
 OPTIMA_URL=https://appbeta.wearerighello.com
+# Alias supportato: OPTIMA_BASE_URL=https://appbeta.wearerighello.com
 AGENT_RUNNER_API_KEY=incolla_la_chiave_configurata_su_cloudflare
 RUNNER_ID=hostinger-codex-01
 WORK_ROOT=/srv/optima-agent/jobs
+# Alias supportato: WORKDIR=/srv/optima-agent/jobs
 POLL_INTERVAL_MS=30000
 MAX_JOB_SECONDS=1800
 RUNNER_MODE=codex
@@ -80,3 +111,24 @@ journalctl -u optima-agent-runner -f
 - Non esegue deploy/commit/push se il brief del job non lo chiede chiaramente.
 - I risultati vengono marcati `needs_review` e devono essere approvati in Óptima.
 - Se il VPS ospita altri servizi, mantieni un solo runner systemd attivo.
+
+## MCP e fasi agentiche
+
+Fase 1: runner Codex semplice. Il VPS non espone porte e fa solo polling verso Óptima.
+
+Fase 2: MCP Óptima esposto da Cloudflare, non dal VPS. In questo modo Codex puo interrogare Óptima tramite strumenti remoti sicuri, mentre Hostinger resta solo un worker.
+
+Fase 3: browser/Chromium/Playwright sul VPS solo per automazioni visuali, scraping controllato o verifica screenshot. Attivarlo solo quando serve davvero.
+
+## Dati necessari per installazione gestita
+
+Per configurare io il VPS servono:
+
+- host/IP pubblico;
+- porta SSH;
+- utente SSH;
+- conferma del metodo di accesso, password o chiave;
+- accesso GitHub ai repository privati, via deploy key o token dedicato;
+- conferma che posso installare Node.js 20+, Git, Codex CLI e servizio systemd in `/srv/optima-agent`.
+
+Non servono chiavi Revolut o altre API non collegate al runner Óptima.
