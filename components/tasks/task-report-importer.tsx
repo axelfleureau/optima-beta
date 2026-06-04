@@ -120,7 +120,7 @@ export function TaskReportImporter() {
             <div>
               <h2 className="text-xl font-black text-white">Incolla report operativo</h2>
               <p className="mt-1 text-sm leading-6 text-slate-400">
-                Optima legge blocchi markdown con data, progetto, repo e task svolti. Le task vengono create come blocchi operativi reali, gia collegate al progetto corretto.
+                Optima legge report markdown con data, progetto e task in elenco. Funziona anche senza la label "Task svolti": le attivita vengono create come blocchi operativi reali e collegate al progetto corretto.
               </p>
             </div>
           </div>
@@ -180,7 +180,7 @@ export function TaskReportImporter() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-black text-white">Anteprima</h2>
-            <p className="mt-1 text-sm text-slate-400">Controllo duplicati e collegamenti.</p>
+            <p className="mt-1 text-sm text-slate-400">Controllo duplicati, date e collegamenti.</p>
           </div>
           <div className="rounded-lg border border-righello-cyan/25 bg-righello-cyan/10 px-3 py-2 text-right text-sm text-righello-cyan">
             {preview?.summary.total || 0}

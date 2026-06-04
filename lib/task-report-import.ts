@@ -174,7 +174,9 @@ function parseDateLabel(heading: string) {
 }
 
 function parseDateFromPeriod(content: string) {
-  const match = content.match(/periodo\s+(?:analizzato|aggiunto):\s*(?:dal\s*)?(\d{1,2})\s+([a-zà]+)\s+(\d{4})/i)
+  const match = content.match(
+    /periodo(?:\s+(?:analizzato|aggiunto))?:\s*(?:dal\s*)?(\d{1,2})\s+([a-zà]+)\s+(\d{4})/i,
+  )
   if (!match) return null
   const [, day, monthName, year] = match
   const month = MONTHS[normalizeKey(monthName)]
@@ -203,6 +205,24 @@ function isProjectHeading(heading: string) {
   ]
 
   return !nonProjectHeadings.some((value) => key.startsWith(value))
+}
+
+function cleanHeading(value: string) {
+  return value
+    .replace(/^#+\s*/, "")
+    .replace(/^Progetto:\s*/i, "")
+    .trim()
+}
+
+function isDetailsHeading(value: string) {
+  const key = normalizeKey(cleanHeading(value))
+  return key === "dettagli tecnici" || key.startsWith("dettagli tecnici ")
+}
+
+function isMetadataLine(value: string) {
+  return /^(periodo|fonte|obiettivo|repo|commit|file modificati|branch|workflow|criticita|criticità|aree|file principali|task svolti):/i.test(
+    value,
+  )
 }
 
 function parseInlineFileHints(value: string) {
@@ -308,9 +328,15 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
     const line = rawLine.trim()
     if (!line) continue
 
-    if (line.startsWith("## ")) {
+    const headingMatch = line.match(/^(#{2,6})\s+(.+)$/)
+    if (headingMatch) {
+      if (isDetailsHeading(line)) {
+        mode = "details"
+        continue
+      }
+
       flush()
-      const heading = line.replace(/^##\s*/, "").trim()
+      const heading = cleanHeading(line)
       const parsedDate = parseDateLabel(line)
       if (parsedDate) {
         currentDate = parsedDate
@@ -340,22 +366,6 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
       areas = ""
       fileHints = []
       mode = "none"
-      continue
-    }
-
-    if (line.startsWith("### Progetto:")) {
-      flush()
-      currentProject = line.replace(/^### Progetto:\s*/i, "").trim()
-      repo = ""
-      tasks = []
-      areas = ""
-      fileHints = []
-      mode = "tasks"
-      continue
-    }
-
-    if (/^###\s+dettagli tecnici/i.test(line)) {
-      mode = "details"
       continue
     }
 
@@ -395,6 +405,11 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
       continue
     }
 
+    if (mode === "tasks" && tasks.length > 0 && !isMetadataLine(line)) {
+      tasks[tasks.length - 1] = `${tasks[tasks.length - 1]} ${line}`.trim()
+      continue
+    }
+
     if (mode === "files" && line.startsWith("- ")) {
       fileHints.push(line.replace(/^-\s*/, "").replace(/`/g, "").trim())
     }
@@ -412,7 +427,8 @@ export function looksLikeOperationalTaskReport(value: string) {
     lower.includes("attività operative") ||
     lower.includes("task svolti:") ||
     lower.includes("### progetto:") ||
-    lower.includes("periodo analizzato:")
+    lower.includes("periodo analizzato:") ||
+    lower.includes("periodo:")
 
   return strongSignals && (text.length > 300 || lower.includes("inserisci in optima"))
 }
