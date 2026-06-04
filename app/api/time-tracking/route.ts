@@ -21,10 +21,12 @@ function rowToEntry(row: any) {
     memberId: String(row.member_id),
     projectId: row.project_id || null,
     taskId: row.task_id || null,
+    clientId: row.client_id || null,
     date: row.entry_date,
     minutes: Number(row.minutes || 0),
     note: row.note || "",
     taskTitle: row.task_title || "",
+    clientName: row.client_name || "",
     projectName: row.project_name || row.client_name || "Attività non collegata",
     createdAt: row.created_at,
   }
@@ -106,11 +108,14 @@ export async function GET(request: NextRequest) {
       .prepare(
         `SELECT te.*,
                 t.title AS task_title,
-                t.client_name AS client_name,
-                COALESCE(p.name, t.client_name) AS project_name
+                COALESCE(c.name, tc.name, pc.name, t.client_name) AS client_name,
+                COALESCE(p.name, t.client_name, c.name, tc.name, pc.name) AS project_name
          FROM time_entries te
          LEFT JOIN tasks t ON t.id = te.task_id AND t.organization_id = te.organization_id
          LEFT JOIN projects p ON p.id = te.project_id AND p.organization_id = te.organization_id
+         LEFT JOIN clients c ON c.id = te.client_id AND c.organization_id = te.organization_id
+         LEFT JOIN clients tc ON tc.id = t.client_id AND tc.organization_id = te.organization_id
+         LEFT JOIN clients pc ON pc.id = p.client_id AND pc.organization_id = te.organization_id
          WHERE te.organization_id = ?
            AND te.member_id = ?
            AND te.entry_date = ?
@@ -123,7 +128,8 @@ export async function GET(request: NextRequest) {
       .prepare(
         `SELECT t.id,
                 t.title,
-                t.client_name,
+                t.client_id,
+                COALESCE(c.name, t.client_name) AS client_name,
                 t.project_id,
                 t.status,
                 t.column_id,
@@ -133,6 +139,7 @@ export async function GET(request: NextRequest) {
                 p.name AS project_name
          FROM tasks t
          LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+         LEFT JOIN clients c ON c.id = t.client_id AND c.organization_id = t.organization_id
          WHERE t.organization_id = ?
            AND (? = 1 OR t.assignee_member_id = ?)
          ORDER BY t.updated_at DESC
@@ -143,12 +150,24 @@ export async function GET(request: NextRequest) {
 
     const projectOptions = await db
       .prepare(
-        `SELECT p.id, p.name, c.name AS client_name
+        `SELECT p.id, p.name, p.client_id, c.name AS client_name
          FROM projects p
          LEFT JOIN clients c ON c.id = p.client_id AND c.organization_id = p.organization_id
          WHERE p.organization_id = ?
          ORDER BY p.updated_at DESC
          LIMIT 100`,
+      )
+      .bind(principal.organizationId)
+      .all()
+
+    const clientOptions = await db
+      .prepare(
+        `SELECT id, name, company
+         FROM clients
+         WHERE organization_id = ?
+           AND COALESCE(status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')
+         ORDER BY name ASC
+         LIMIT 200`,
       )
       .bind(principal.organizationId)
       .all()
@@ -187,6 +206,7 @@ export async function GET(request: NextRequest) {
         tasks: (taskOptions.results || []).map((task: any) => ({
           id: task.id,
           label: `${task.client_name ? `${task.client_name}: ` : ""}${task.title}`,
+          clientId: task.client_id || null,
           projectId: task.project_id || null,
           title: task.title || "",
           clientName: task.client_name || "",
@@ -199,8 +219,15 @@ export async function GET(request: NextRequest) {
         projects: (projectOptions.results || []).map((project: any) => ({
           id: project.id,
           label: `${project.client_name ? `${project.client_name}: ` : ""}${project.name}`,
+          clientId: project.client_id || null,
           name: project.name || "",
           clientName: project.client_name || "",
+        })),
+        clients: (clientOptions.results || []).map((client: any) => ({
+          id: client.id,
+          label: client.company ? `${client.name} · ${client.company}` : client.name,
+          name: client.name || "",
+          company: client.company || "",
         })),
       },
     })

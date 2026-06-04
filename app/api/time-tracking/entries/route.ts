@@ -21,8 +21,9 @@ export async function POST(request: NextRequest) {
     const date = normalizeDate(body.date)
     const minutes = normalizeMinutes(body.minutes)
     const note = String(body.note || "").trim()
-    const projectId = body.projectId ? String(body.projectId) : null
+    let projectId = body.projectId ? String(body.projectId) : null
     const taskId = body.taskId ? String(body.taskId) : null
+    let clientId = body.clientId ? String(body.clientId) : null
 
     if (!note) {
       return Response.json({ error: "Descrivi l'attività svolta" }, { status: 400 })
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     if (taskId) {
       const task = await db
         .prepare(
-          `SELECT id
+          `SELECT id, project_id, client_id
            FROM tasks
            WHERE organization_id = ?
              AND id = ?
@@ -53,16 +54,53 @@ export async function POST(request: NextRequest) {
       if (!task) {
         return Response.json({ error: "Task non disponibile per questo dipendente" }, { status: 400 })
       }
+
+      projectId = projectId || String((task as any).project_id || "") || null
+      clientId = clientId || String((task as any).client_id || "") || null
+    }
+
+    if (projectId) {
+      const project = await db
+        .prepare(
+          `SELECT id, client_id
+           FROM projects
+           WHERE organization_id = ? AND id = ?
+           LIMIT 1`,
+        )
+        .bind(principal.organizationId, projectId)
+        .first()
+
+      if (!project) {
+        return Response.json({ error: "Progetto non disponibile" }, { status: 400 })
+      }
+
+      clientId = clientId || String((project as any).client_id || "") || null
+    }
+
+    if (clientId) {
+      const client = await db
+        .prepare(
+          `SELECT id
+           FROM clients
+           WHERE organization_id = ? AND id = ?
+           LIMIT 1`,
+        )
+        .bind(principal.organizationId, clientId)
+        .first()
+
+      if (!client) {
+        return Response.json({ error: "Cliente non disponibile" }, { status: 400 })
+      }
     }
 
     const entryId = createId("time")
     await db
       .prepare(
         `INSERT INTO time_entries
-         (id, organization_id, member_id, task_id, project_id, entry_date, minutes, billable, note)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+         (id, organization_id, member_id, task_id, project_id, client_id, entry_date, minutes, billable, note)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
       )
-      .bind(entryId, principal.organizationId, memberId, taskId, projectId, date, minutes, note)
+      .bind(entryId, principal.organizationId, memberId, taskId, projectId, clientId, date, minutes, note)
       .run()
 
     return Response.json({ success: true, id: entryId }, { status: 201 })

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   AlertTriangle,
+  Building2,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -41,9 +42,11 @@ type Entry = {
   id: string
   projectId: string | null
   taskId: string | null
+  clientId: string | null
   minutes: number
   note: string
   taskTitle: string
+  clientName: string
   projectName: string
 }
 
@@ -52,6 +55,8 @@ type Option = {
   label: string
   title?: string
   name?: string
+  company?: string
+  clientId?: string | null
   clientName?: string
   projectName?: string
   projectId?: string | null
@@ -93,6 +98,7 @@ type TimeTrackingPayload = {
   options: {
     tasks: Option[]
     projects: Option[]
+    clients: Option[]
   }
 }
 
@@ -231,6 +237,7 @@ export default function RapportiniPage() {
   const [checkOutTime, setCheckOutTime] = useState(currentTime())
   const [absenceReason, setAbsenceReason] = useState("Assenza")
   const [selectedTarget, setSelectedTarget] = useState("")
+  const [selectedClientId, setSelectedClientId] = useState("")
   const [targetPickerOpen, setTargetPickerOpen] = useState(false)
   const [targetSearch, setTargetSearch] = useState("")
   const [activity, setActivity] = useState("")
@@ -289,6 +296,22 @@ export default function RapportiniPage() {
       })),
     ]
   }, [payload])
+
+  const clientOptions = payload?.options.clients || []
+
+  const matchClientIdByName = useCallback(
+    (clientName?: string | null) => {
+      const normalized = String(clientName || "").trim().toLowerCase()
+      if (!normalized) return ""
+      return clientOptions.find((client) => String(client.name || client.label).trim().toLowerCase() === normalized)?.id || ""
+    },
+    [clientOptions],
+  )
+
+  const resolveClientId = useCallback(
+    (option?: Option | null) => option?.clientId || matchClientIdByName(option?.clientName),
+    [matchClientIdByName],
+  )
 
   const selectedOption = useMemo(
     () => targetOptions.find((option) => option.value === selectedTarget) || null,
@@ -353,6 +376,8 @@ export default function RapportiniPage() {
 
   const selectTarget = (option: TargetOption, nextActivity?: string) => {
     setSelectedTarget(option.value)
+    const nextClientId = resolveClientId(option)
+    if (nextClientId) setSelectedClientId(nextClientId)
     if (nextActivity && !activity.trim()) setActivity(nextActivity)
     setTargetPickerOpen(false)
   }
@@ -396,6 +421,7 @@ export default function RapportiniPage() {
   const handleAddEntry = async () => {
     const selected = targetOptions.find((option) => option.value === selectedTarget)
     const [kind, id] = selectedTarget.split(":")
+    const clientId = selectedClientId || resolveClientId(selected) || null
 
     const response = await fetch("/api/time-tracking/entries", {
       method: "POST",
@@ -405,6 +431,7 @@ export default function RapportiniPage() {
         memberId: selectedMemberId,
         taskId: kind === "task" ? id : null,
         projectId: kind === "project" ? id : selected?.projectId || null,
+        clientId,
         note: activity,
         minutes: Number(minutes),
       }),
@@ -414,6 +441,8 @@ export default function RapportiniPage() {
 
     setActivity("")
     setMinutes("60")
+    setSelectedTarget("")
+    setSelectedClientId("")
     await load()
   }
 
@@ -634,7 +663,9 @@ export default function RapportiniPage() {
                         {selectedOption
                           ? selectedOption.kind === "task"
                             ? `${selectedOption.projectName || selectedOption.clientName || "Task"}${selectedOption.subItems?.length ? ` · ${selectedOption.subItems.filter((item) => item.completed).length}/${selectedOption.subItems.length} checklist` : ""}`
-                            : "Progetto"
+                            : selectedOption.clientName
+                              ? `Progetto · ${selectedOption.clientName}`
+                              : "Progetto"
                           : "Nessun collegamento obbligatorio"}
                       </span>
                     </span>
@@ -651,6 +682,24 @@ export default function RapportiniPage() {
                     </Button>
                   )}
                 </div>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-400">
+                  <Building2 className="h-4 w-4" />
+                  Cliente collegato
+                </label>
+                <select className={selectClass} value={selectedClientId} onChange={(event) => setSelectedClientId(event.target.value)}>
+                  <option value="">Nessun cliente specifico</option>
+                  {clientOptions.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.label || client.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs leading-5 text-slate-500">
+                  Se scegli una task o un progetto, il cliente viene compilato automaticamente quando disponibile.
+                </p>
               </div>
 
               <Dialog open={targetPickerOpen} onOpenChange={setTargetPickerOpen}>
@@ -850,6 +899,8 @@ export default function RapportiniPage() {
                         className="w-full rounded-[8px] border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-righello-pink/40 hover:bg-righello-pink/10"
                         onClick={() => {
                           setSelectedTarget(option.value)
+                          const nextClientId = resolveClientId(option)
+                          if (nextClientId) setSelectedClientId(nextClientId)
                           setActivity(option.title || option.label)
                           setMinutes("60")
                         }}
@@ -887,6 +938,12 @@ export default function RapportiniPage() {
                         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-400">
                           <Clock className="h-4 w-4 shrink-0" />
                           {formatMinutes(entry.minutes)}
+                          {entry.clientName ? (
+                            <Badge className="gap-1 rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
+                              <Building2 className="h-3.5 w-3.5" />
+                              {entry.clientName}
+                            </Badge>
+                          ) : null}
                           {entry.taskTitle ? <span className="min-w-0 break-words">· {entry.taskTitle}</span> : null}
                         </div>
                       </div>
