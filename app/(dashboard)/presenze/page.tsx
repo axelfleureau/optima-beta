@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Activity, AlarmClock, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, RefreshCw, Sparkles, TimerOff, UserCheck, Users, X, XCircle } from "lucide-react"
 import { gsap } from "gsap"
@@ -151,6 +151,33 @@ function currentTime() {
 
 function firstName(value: string) {
   return value.trim().split(/\s+/)[0] || value
+}
+
+const ROLE_SORT_ORDER: Record<string, number> = {
+  admin: 0,
+  direzione: 1,
+  director: 1,
+  manager: 2,
+  responsabile: 2,
+  junior: 3,
+  dipendente: 4,
+  employee: 4,
+}
+
+function roleWeight(role?: string | null) {
+  return ROLE_SORT_ORDER[String(role || "").trim().toLowerCase()] ?? 9
+}
+
+function sortByOperationalRole<T extends { name: string; role?: string | null; email?: string | null }>(people: T[]) {
+  return [...people].sort((a, b) => {
+    const roleDelta = roleWeight(a.role) - roleWeight(b.role)
+    if (roleDelta !== 0) return roleDelta
+    return (a.name || a.email || "").localeCompare(b.name || b.email || "", "it", { sensitivity: "base" })
+  })
+}
+
+function compactPersonLabel(value: string) {
+  return firstName(value).slice(0, 13)
 }
 
 function formatMinutes(minutes: number) {
@@ -755,16 +782,18 @@ function PresenceCalendarHeatmap({
   const [compactPeopleColumn, setCompactPeopleColumn] = useState(false)
   const [activeSignal, setActiveSignal] = useState<HeatmapSignalSelection | null>(null)
 
+  const orderedCalendarPeople = useMemo(() => sortByOperationalRole(calendar.people), [calendar.people])
+
   useEffect(() => {
-    if (personFilter !== "all" && !calendar.people.some((person) => person.id === personFilter)) {
+    if (personFilter !== "all" && !orderedCalendarPeople.some((person) => person.id === personFilter)) {
       setPersonFilter("all")
     }
-  }, [calendar.people, personFilter])
+  }, [orderedCalendarPeople, personFilter])
 
   const visiblePeople = useMemo(() => {
-    if (!isManager || personFilter === "all") return calendar.people
-    return calendar.people.filter((person) => person.id === personFilter)
-  }, [calendar.people, isManager, personFilter])
+    if (!isManager || personFilter === "all") return orderedCalendarPeople
+    return orderedCalendarPeople.filter((person) => person.id === personFilter)
+  }, [orderedCalendarPeople, isManager, personFilter])
 
   const monthStats = useMemo(() => {
     return visiblePeople.reduce(
@@ -782,7 +811,12 @@ function PresenceCalendarHeatmap({
     )
   }, [visiblePeople])
 
-  const peopleColumnTemplate = compactPeopleColumn ? "minmax(132px, 132px)" : "minmax(220px, 1.45fr)"
+  const peopleColumnWidth = compactPeopleColumn ? 112 : 220
+  const dayCellWidth = compactPeopleColumn ? 38 : 42
+  const heatmapGridStyle: CSSProperties = {
+    gridTemplateColumns: `${peopleColumnWidth}px repeat(${calendar.days.length}, ${dayCellWidth}px)`,
+    minWidth: `${peopleColumnWidth + calendar.days.length * dayCellWidth}px`,
+  }
 
   return (
     <section className={cn(panelClass, "overflow-hidden")}>
@@ -826,14 +860,14 @@ function PresenceCalendarHeatmap({
               Calendario
             </button>
           </div>
-          {isManager && calendar.people.length > 1 && (
+          {isManager && orderedCalendarPeople.length > 1 && (
             <select
               value={personFilter}
               onChange={(event) => setPersonFilter(event.target.value)}
               className="mt-3 h-10 w-full max-w-sm rounded-[8px] border border-white/10 bg-black/30 px-3 text-sm text-white outline-none transition focus:border-righello-cyan"
             >
               <option value="all">Tutte le persone</option>
-              {calendar.people.map((person) => (
+              {orderedCalendarPeople.map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.name}
                 </option>
@@ -974,11 +1008,8 @@ function PresenceCalendarHeatmap({
       </div>
 
       <div className="hidden overflow-x-auto overscroll-x-contain p-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-x] md:block">
-        <div className={cn(compactPeopleColumn ? "min-w-[1088px]" : "min-w-[1180px]")}>
-          <div
-            className="grid items-end gap-1"
-            style={{ gridTemplateColumns: `${peopleColumnTemplate} repeat(${calendar.days.length}, minmax(34px, 1fr))` }}
-          >
+        <div className="w-max min-w-full">
+          <div className="grid items-end gap-1" style={heatmapGridStyle}>
             <div
               className={cn(
                 "sticky left-0 z-20 flex items-center gap-2 rounded-[7px] bg-[#0a1020] px-2 pb-2 pt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 shadow-[12px_0_24px_rgba(5,9,20,0.85)]",
@@ -1018,17 +1049,17 @@ function PresenceCalendarHeatmap({
                   className={cn(
                     "sticky left-0 z-10 min-w-0 rounded-[8px] border border-white/10 bg-[#0a1020] shadow-[12px_0_24px_rgba(5,9,20,0.85)]",
                     compactPeopleColumn
-                      ? "flex min-h-12 items-center justify-center px-2 py-2 text-center"
+                      ? "flex min-h-12 items-center justify-center px-1.5 py-2 text-center"
                       : "px-3 py-3",
                   )}
                 >
                   <p
                     className={cn(
                       "truncate font-black text-white",
-                      compactPeopleColumn ? "max-w-[112px] text-xs leading-tight" : "text-sm",
+                      compactPeopleColumn ? "max-w-[96px] text-xs leading-tight" : "text-sm",
                     )}
                   >
-                    {compactPeopleColumn ? firstName(person.name) : person.name}
+                    {compactPeopleColumn ? compactPersonLabel(person.name) : person.name}
                   </p>
                   {!compactPeopleColumn && <p className="mt-0.5 truncate text-xs text-slate-500">{person.role}</p>}
                 </div>
