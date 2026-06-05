@@ -23,6 +23,11 @@ export const AGENT_JOB_TYPES = [
 ] as const
 
 export const AGENT_RUNNER_STATUSES = ["online", "idle", "running", "error", "offline"] as const
+export const AGENT_JOB_TYPES_REQUIRING_REPOSITORY = new Set<AgentJobType>([
+  "codex_patch",
+  "deploy",
+  "task_update",
+])
 
 export type AgentJobStatus = (typeof AGENT_JOB_STATUSES)[number]
 export type AgentJobType = (typeof AGENT_JOB_TYPES)[number]
@@ -368,6 +373,13 @@ export async function createAgentJob(
   const id = input.id ?? createId("agjob")
   const jobType = normalizeJobType(input.jobType)
   const priority = normalizePriority(input.priority)
+  const repoUrl = input.repoUrl?.trim() || null
+  const repoBranch = input.repoBranch?.trim() || null
+  const workspaceHint = input.workspaceHint?.trim() || null
+
+  if (AGENT_JOB_TYPES_REQUIRING_REPOSITORY.has(jobType) && !repoUrl) {
+    throw new Error("Repository obbligatorio per job Codex patch, deploy e task update.")
+  }
 
   await db
     .prepare(
@@ -386,9 +398,9 @@ export async function createAgentJob(
       jobType,
       brief,
       input.contextSummary?.trim() ?? "",
-      input.repoUrl?.trim() || null,
-      input.repoBranch?.trim() || null,
-      input.workspaceHint?.trim() || null,
+      repoUrl,
+      repoBranch,
+      workspaceHint,
       priority,
       stringifyJson(input.input),
       input.contextR2Key ?? null,

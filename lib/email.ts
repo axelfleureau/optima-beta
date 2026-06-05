@@ -21,6 +21,25 @@ interface ClientWelcomeEmailData {
   loginUrl?: string
 }
 
+interface OperationalReportSummaryEmailData {
+  to?: string
+  memberName: string
+  memberEmail: string
+  dateLabel: string
+  checkInLabel: string
+  checkOutLabel: string
+  presenceLabel: string
+  activityLabel: string
+  notes?: string
+  entries: Array<{
+    projectName?: string
+    clientName?: string
+    taskTitle?: string
+    note: string
+    minutesLabel: string
+  }>
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -125,6 +144,95 @@ export async function sendClientWelcomeEmail(data: ClientWelcomeEmailData): Prom
     `,
     text: `Ciao ${data.clientName}, il tuo account è pronto. Accedi: ${loginUrl}`,
     categories: ["client-welcome"],
+  })
+}
+
+export async function sendOperationalReportSummaryEmail(
+  data: OperationalReportSummaryEmailData,
+): Promise<boolean> {
+  const recipient = data.to || "amministrazione@wearerighello.com"
+  const rows = data.entries.length
+    ? data.entries
+        .map(
+          (entry) => `
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700">${escapeHtml(entry.minutesLabel)}</td>
+              <td style="padding:10px;border-bottom:1px solid #e2e8f0">${escapeHtml(entry.projectName || "Attivita generale")}</td>
+              <td style="padding:10px;border-bottom:1px solid #e2e8f0">${escapeHtml(entry.clientName || "-")}</td>
+              <td style="padding:10px;border-bottom:1px solid #e2e8f0">${escapeHtml(entry.taskTitle || "-")}</td>
+              <td style="padding:10px;border-bottom:1px solid #e2e8f0">${escapeHtml(entry.note || "Attivita registrata")}</td>
+            </tr>
+          `,
+        )
+        .join("")
+    : `<tr><td colspan="5" style="padding:14px;color:#64748b">Nessuna attivita registrata.</td></tr>`
+
+  return sendEmail({
+    to: recipient,
+    subject: `Rapportino ${data.memberName} - ${data.dateLabel}`,
+    html: `
+      <div style="font-family:Inter,Arial,sans-serif;max-width:780px;margin:0 auto;background:#f8fafc;color:#0f172a;padding:24px">
+        <div style="background:#0b1323;color:white;padding:28px;border-radius:12px 12px 0 0">
+          <div style="font-size:12px;color:#f472b6;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Optima rapportini</div>
+          <h1 style="margin:12px 0 0;font-size:26px;line-height:1.2">Rapportino inviato</h1>
+          <p style="margin:8px 0 0;color:#cbd5e1">${escapeHtml(data.memberName)} · ${escapeHtml(data.dateLabel)}</p>
+        </div>
+        <div style="background:white;border:1px solid #e2e8f0;border-top:0;padding:24px;border-radius:0 0 12px 12px">
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+            <tr>
+              <td style="padding:8px;color:#64748b">Dipendente</td>
+              <td style="padding:8px;font-weight:800">${escapeHtml(data.memberName)} (${escapeHtml(data.memberEmail)})</td>
+            </tr>
+            <tr>
+              <td style="padding:8px;color:#64748b">Entrata / uscita</td>
+              <td style="padding:8px;font-weight:800">${escapeHtml(data.checkInLabel)} - ${escapeHtml(data.checkOutLabel)}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px;color:#64748b">Presenza netta</td>
+              <td style="padding:8px;font-weight:800">${escapeHtml(data.presenceLabel)}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px;color:#64748b">Attivita registrate</td>
+              <td style="padding:8px;font-weight:800">${escapeHtml(data.activityLabel)}</td>
+            </tr>
+          </table>
+
+          <h2 style="font-size:18px;margin:0 0 10px">Attivita</h2>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">
+            <thead>
+              <tr style="background:#f1f5f9;text-align:left">
+                <th style="padding:10px">Tempo</th>
+                <th style="padding:10px">Progetto</th>
+                <th style="padding:10px">Cliente</th>
+                <th style="padding:10px">Task</th>
+                <th style="padding:10px">Nota</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+
+          ${
+            data.notes?.trim()
+              ? `<div style="margin-top:20px;padding:14px;border-left:4px solid #ec4899;background:#fdf2f8"><strong>Note fine giornata</strong><br />${escapeHtml(data.notes)}</div>`
+              : ""
+          }
+        </div>
+      </div>
+    `,
+    text: [
+      `Rapportino ${data.memberName} - ${data.dateLabel}`,
+      `Entrata/uscita: ${data.checkInLabel} - ${data.checkOutLabel}`,
+      `Presenza: ${data.presenceLabel}`,
+      `Attivita: ${data.activityLabel}`,
+      data.notes ? `Note: ${data.notes}` : "",
+      ...data.entries.map(
+        (entry) =>
+          `- ${entry.minutesLabel} | ${entry.projectName || "Attivita generale"} | ${entry.clientName || "-"} | ${entry.taskTitle || "-"} | ${entry.note}`,
+      ),
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    categories: ["operational-report"],
   })
 }
 

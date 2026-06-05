@@ -124,6 +124,41 @@ export async function GET(request: NextRequest) {
       .bind(principal.organizationId, selectedMemberId, date)
       .all()
 
+    const submittedReports = isManager
+      ? await db
+          .prepare(
+            `SELECT wd.id,
+                    wd.entry_date,
+                    wd.review_status,
+                    wd.submitted_at,
+                    wd.review_notes,
+                    m.id AS member_id,
+                    m.email,
+                    m.first_name,
+                    m.last_name,
+                    m.role,
+                    COALESCE(te.activity_minutes, 0) AS activity_minutes,
+                    COALESCE(te.entry_count, 0) AS entry_count
+             FROM work_days wd
+             JOIN members m ON m.id = wd.member_id AND m.organization_id = wd.organization_id
+             LEFT JOIN (
+               SELECT organization_id, member_id, entry_date, SUM(minutes) AS activity_minutes, COUNT(*) AS entry_count
+               FROM time_entries
+               WHERE organization_id = ? AND entry_date = ?
+               GROUP BY organization_id, member_id, entry_date
+             ) te
+               ON te.organization_id = wd.organization_id
+              AND te.member_id = wd.member_id
+              AND te.entry_date = wd.entry_date
+             WHERE wd.organization_id = ?
+               AND wd.entry_date = ?
+               AND wd.review_status = 'submitted'
+             ORDER BY wd.submitted_at ASC`,
+          )
+          .bind(principal.organizationId, date, principal.organizationId, date)
+          .all()
+      : { results: [] }
+
     const taskOptions = await db
       .prepare(
         `SELECT t.id,
@@ -192,9 +227,26 @@ export async function GET(request: NextRequest) {
             status: day.status,
             absenceReason: day.absence_reason,
             notes: day.notes || "",
+            reviewStatus: day.review_status || "draft",
+            submittedAt: day.submitted_at || null,
+            reviewedAt: day.reviewed_at || null,
+            reviewNotes: day.review_notes || "",
           }
         : null,
       entries: mappedEntries,
+      submittedReports: (submittedReports.results || []).map((report: any) => ({
+        id: String(report.id),
+        date: report.entry_date,
+        reviewStatus: report.review_status || "submitted",
+        submittedAt: report.submitted_at || null,
+        memberId: String(report.member_id),
+        memberName: `${report.first_name || ""} ${report.last_name || ""}`.trim() || report.email,
+        memberEmail: report.email || "",
+        role: report.role || "",
+        activityMinutes: Number(report.activity_minutes || 0),
+        entryCount: Number(report.entry_count || 0),
+        reviewNotes: report.review_notes || "",
+      })),
       totals: {
         activityMinutes,
         presenceMinutes,

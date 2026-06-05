@@ -6,13 +6,37 @@ export const DEFAULT_WORK_START_TIME = "09:00"
 export const DEFAULT_LUNCH_BREAK_MINUTES = 60
 export const DEFAULT_WORK_DAYS_PER_WEEK = 5
 export const PRESENCE_GRACE_MINUTES = 15
+const ITALIAN_FIXED_PUBLIC_HOLIDAYS = new Map([
+  ["01-01", "Capodanno"],
+  ["01-06", "Epifania"],
+  ["04-25", "Festa della Liberazione"],
+  ["05-01", "Festa dei lavoratori"],
+  ["06-02", "Festa della Repubblica"],
+  ["08-15", "Ferragosto"],
+  ["11-01", "Ognissanti"],
+  ["12-08", "Immacolata"],
+  ["12-25", "Natale"],
+  ["12-26", "Santo Stefano"],
+])
 
 export function canManageTime(principal: WorkspacePrincipal) {
   return TIME_MANAGER_ROLES.has(principal.role)
 }
 
 export function hasAutomaticPresence(role: unknown) {
-  return AUTO_PRESENT_ROLES.has(String(role || "").toLowerCase())
+  return AUTO_PRESENT_ROLES.has(String(role || "").trim().toLowerCase())
+}
+
+export function nonWorkingDayReason(date: string) {
+  const parsed = new Date(`${date}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return null
+
+  const fixedHoliday = ITALIAN_FIXED_PUBLIC_HOLIDAYS.get(date.slice(5, 10))
+  if (fixedHoliday) return fixedHoliday
+  const day = parsed.getDay()
+  if (day === 0) return "Domenica"
+  if (day === 6) return "Sabato"
+  return null
 }
 
 export function normalizeDate(value: unknown) {

@@ -4,6 +4,8 @@ import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
+const CLIENT_MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
+
 export async function GET() {
   try {
     const user = await requireClerkUser()
@@ -17,6 +19,7 @@ export async function GET() {
     }
 
     const principal = await ensureWorkspacePrincipal(db, user)
+    const canViewAllClients = CLIENT_MANAGER_ROLES.has(principal.role)
     const result = await db
       .prepare(
         `SELECT id, name, email, company, status, created_at, updated_at,
@@ -78,9 +81,32 @@ export async function GET() {
                 ) AS last_activity_at
          FROM clients
          WHERE organization_id = ?
+           AND (
+             ? = 1
+             OR EXISTS (
+               SELECT 1
+               FROM tasks vt
+               LEFT JOIN projects vtp
+                 ON vtp.id = vt.project_id
+                AND vtp.organization_id = vt.organization_id
+               WHERE vt.organization_id = clients.organization_id
+                 AND vt.assignee_member_id = ?
+                 AND (vt.client_id = clients.id OR vtp.client_id = clients.id)
+             )
+             OR EXISTS (
+               SELECT 1
+               FROM projects vp
+               JOIN project_members vpm
+                 ON vpm.project_id = vp.id
+                AND vpm.organization_id = vp.organization_id
+               WHERE vp.organization_id = clients.organization_id
+                 AND vp.client_id = clients.id
+                 AND vpm.member_id = ?
+             )
+           )
          ORDER BY updated_at DESC`,
       )
-      .bind(principal.organizationId)
+      .bind(principal.organizationId, canViewAllClients ? 1 : 0, principal.memberId, principal.memberId)
       .all()
 
     return Response.json({

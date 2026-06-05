@@ -7,6 +7,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { OPENAI_CHAT_MODEL } from "@/lib/ai/models"
 import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
+import { buildOperationalContextSnapshot } from "@/lib/operational-context"
 import { ensureWorkspacePrincipal, type WorkspacePrincipal } from "@/lib/workspace-db"
 
 type StoredMemory = {
@@ -493,7 +494,7 @@ export async function POST(request: NextRequest) {
     const conversationHistory = await getConversationHistory(db, currentSessionId, principal.organizationId, principal.memberId)
     const sessionMemory = await getSessionMemory(db, currentSessionId, principal.organizationId, principal.memberId)
     const storedMemories = await getStoredMemories(db, principal.organizationId, principal.memberId)
-    const operationalContext = await buildOperationalContext(db, principal)
+    const operationalContext = await buildOperationalContextSnapshot(db, principal)
 
     await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "user", message)
     await saveExtractedMemories(db, principal.organizationId, principal.memberId, message)

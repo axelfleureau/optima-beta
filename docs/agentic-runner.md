@@ -117,7 +117,11 @@ Secret da configurare su staging e production:
 ```bash
 npx wrangler secret put AGENT_RUNNER_API_KEY --env staging
 npx wrangler secret put AGENT_RUNNER_API_KEY --env production
+npx wrangler secret put AGENT_RUNNER_ENABLED --env staging
+npx wrangler secret put AGENT_RUNNER_ENABLED --env production
 ```
+
+`AGENT_RUNNER_ENABLED` deve valere `true` per reclamare job. Se manca o contiene un altro valore, il runner puo registrare heartbeat e polling, ma `/api/agent-jobs/runner/claim` risponde con `job: null` e `suspended: true`.
 
 ## Setup rapido Hostinger
 

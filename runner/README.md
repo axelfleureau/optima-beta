@@ -67,6 +67,8 @@ CODEX_BIN=codex
 CODEX_SANDBOX=workspace-write
 ```
 
+Configura `AGENT_RUNNER_ENABLED=true` nell'ambiente server di Óptima/Cloudflare solo quando vuoi permettere al VPS di reclamare job reali. Con qualsiasi altro valore il polling resta visibile, ma i job non vengono presi in carico. Questa variabile non va nel file env del VPS: il guard vive nell'app.
+
 Permessi:
 
 ```bash

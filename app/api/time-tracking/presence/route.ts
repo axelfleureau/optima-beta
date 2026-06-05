@@ -11,6 +11,7 @@ import {
   hasAutomaticPresence,
   minutesSinceMidnightFromDate,
   netPresenceMinutes,
+  nonWorkingDayReason,
   normalizeDate,
   timeToMinutes,
   workScheduleForMember,
@@ -27,6 +28,7 @@ function getPresenceStatus(row: any) {
   if (row.day_status === "open" && row.check_in_at) return "present"
   if (row.check_in_at && !row.check_out_at) return "present"
   if (row.check_in_at && row.check_out_at) return "closed"
+  if (shouldTreatAsNonWorkingDay(row, row.entry_date)) return "holiday"
   return "missing"
 }
 
@@ -49,6 +51,19 @@ function shouldAssumePresence(row: any, date?: string | null) {
       !row.day_status &&
       !row.check_in_at &&
       !row.check_out_at,
+  )
+}
+
+function shouldTreatAsNonWorkingDay(row: any, date?: string | null) {
+  const entryDate = typeof date === "string" && date ? date.slice(0, 10) : ""
+  return Boolean(
+    entryDate &&
+      nonWorkingDayReason(entryDate) &&
+      !hasAutomaticPresence(row.role) &&
+      !row.day_status &&
+      !row.check_in_at &&
+      !row.check_out_at &&
+      Number(row.activity_minutes || 0) <= 0,
   )
 }
 
@@ -124,11 +139,23 @@ function mapCalendarDay({
     },
     date,
   )
-  const status = assumedPresence ? "present" : mapCalendarStatus(workDay)
+  const nonWorkingReason = nonWorkingDayReason(date)
+  const explicitWorkSignal = Boolean(workDay?.status || workDay?.check_in_at || workDay?.check_out_at || Number(activity?.activity_minutes || 0) > 0)
+  const holiday =
+    Boolean(nonWorkingReason) && !hasAutomaticPresence(member.role) && !explicitWorkSignal
+  const status = holiday ? "holiday" : assumedPresence ? "present" : mapCalendarStatus(workDay)
   const activityMinutes = Number(activity?.activity_minutes || 0)
   const entryCount = Number(activity?.entry_count || 0)
   const taskMinutes = Number(tasks?.task_minutes || 0)
   const taskCount = Number(tasks?.task_count || 0)
+  const taskTitles =
+    typeof tasks?.task_titles === "string" && tasks.task_titles
+      ? String(tasks.task_titles)
+          .split("|||")
+          .map((title) => title.trim())
+          .filter(Boolean)
+          .slice(0, 8)
+      : []
   const loadMinutes = Math.max(activityMinutes, taskMinutes)
   const assumedCheckInAt = assumedPresence ? localDateTime(date, schedule.workStartTime) : null
   const checkInAt = workDay?.check_in_at || assumedCheckInAt
@@ -141,9 +168,9 @@ function mapCalendarDay({
   const minutesEarly =
     status === "closed" && checkOutMinute !== null ? Math.max(0, expectedEndMinute - checkOutMinute - PRESENCE_GRACE_MINUTES) : 0
   const loadRatio = schedule.expectedOfficeMinutes > 0 ? loadMinutes / schedule.expectedOfficeMinutes : 0
-  const hasWorkSignal = assumedPresence || status === "present" || status === "closed" || activityMinutes > 0 || taskCount > 0
+  const hasWorkSignal = !holiday && (assumedPresence || status === "present" || status === "closed" || activityMinutes > 0 || taskCount > 0)
   const intensity =
-    status === "absent"
+    status === "absent" || status === "holiday"
       ? 0
       : hasWorkSignal
         ? Math.max(1, Math.min(4, Math.ceil(loadRatio * 4)))
@@ -154,11 +181,12 @@ function mapCalendarDay({
     status,
     checkInAt,
     checkOutAt: workDay?.check_out_at || null,
-    absenceReason: workDay?.absence_reason || "",
+    absenceReason: holiday ? nonWorkingReason || "Festivo" : workDay?.absence_reason || "",
     activityMinutes,
     entryCount,
     taskMinutes,
     taskCount,
+    taskTitles,
     loadMinutes,
     intensity,
     minutesLate,
@@ -178,11 +206,11 @@ function operationalAvailability({
   urgentCount: number
   dailyCapacityMinutes: number
 }) {
-  if (status === "absent") {
+  if (status === "absent" || status === "holiday") {
     return {
       status: "not-available",
-      label: "Non disponibile oggi",
-      detail: "Assenza segnata",
+      label: status === "holiday" ? "Festivo" : "Non disponibile oggi",
+      detail: status === "holiday" ? "Giornata non lavorativa salvo rapportino" : "Assenza segnata",
     }
   }
 
@@ -247,8 +275,8 @@ function mapPresenceRow(row: any, upcomingRows: any[] = []) {
   const assumedCheckInAt = assumedPresence ? localDateTime(String(row.entry_date), schedule.workStartTime) : null
   const checkInAt = row.check_in_at || assumedCheckInAt
   const visibleCheckOutAt = status === "present" ? null : row.check_out_at || null
-  const grossPresenceMinutes = assumedPresence ? schedule.dailyCapacityMinutes : currentPresenceMinutes(checkInAt, visibleCheckOutAt)
-  const presenceMinutes = assumedPresence ? schedule.expectedOfficeMinutes : netPresenceMinutes(grossPresenceMinutes, schedule.lunchBreakMinutes)
+  const grossPresenceMinutes = status === "holiday" ? 0 : assumedPresence ? schedule.dailyCapacityMinutes : currentPresenceMinutes(checkInAt, visibleCheckOutAt)
+  const presenceMinutes = status === "holiday" ? 0 : assumedPresence ? schedule.expectedOfficeMinutes : netPresenceMinutes(grossPresenceMinutes, schedule.lunchBreakMinutes)
   const checkInMinute = minutesSinceMidnightFromDate(checkInAt)
   const checkOutMinute = minutesSinceMidnightFromDate(visibleCheckOutAt)
   const expectedStartMinute = timeToMinutes(schedule.workStartTime)
@@ -275,7 +303,7 @@ function mapPresenceRow(row: any, upcomingRows: any[] = []) {
     status,
     checkInAt,
     checkOutAt: visibleCheckOutAt,
-    absenceReason: row.absence_reason || "",
+    absenceReason: status === "holiday" ? nonWorkingDayReason(String(row.entry_date)) || "Festivo" : row.absence_reason || "",
     notes: row.notes || "",
     assumedPresence,
     grossPresenceMinutes,
@@ -454,7 +482,8 @@ export async function GET(request: NextRequest) {
                     WHEN priority = 'high' THEN 180
                     WHEN priority = 'low' THEN 45
                     ELSE 90
-                  END) AS task_minutes
+                  END) AS task_minutes,
+                  GROUP_CONCAT(title, '|||') AS task_titles
            FROM tasks
            WHERE organization_id = ?
              AND assignee_member_id IS NOT NULL
@@ -504,7 +533,7 @@ export async function GET(request: NextRequest) {
     const summary = people.reduce(
       (acc, person) => {
         acc.total += 1
-        acc[person.status as "present" | "closed" | "absent" | "missing"] += 1
+        acc[person.status as "present" | "closed" | "absent" | "missing" | "holiday"] += 1
         acc.presenceMinutes += person.presenceMinutes
         acc.activityMinutes += person.activityMinutes
         return acc
@@ -515,6 +544,7 @@ export async function GET(request: NextRequest) {
         closed: 0,
         absent: 0,
         missing: 0,
+        holiday: 0,
         presenceMinutes: 0,
         activityMinutes: 0,
       },

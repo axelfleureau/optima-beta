@@ -81,13 +81,31 @@ type TimeTrackingPayload = {
   selectedMember: Member
   members: Member[]
   day: null | {
+    id: string
     checkInAt: string | null
     checkOutAt: string | null
     status: string
     absenceReason: string | null
     notes: string
+    reviewStatus: string
+    submittedAt: string | null
+    reviewedAt: string | null
+    reviewNotes: string
   }
   entries: Entry[]
+  submittedReports: Array<{
+    id: string
+    date: string
+    reviewStatus: string
+    submittedAt: string | null
+    memberId: string
+    memberName: string
+    memberEmail: string
+    role: string
+    activityMinutes: number
+    entryCount: number
+    reviewNotes: string
+  }>
   totals: {
     activityMinutes: number
     presenceMinutes: number
@@ -453,6 +471,30 @@ export default function RapportiniPage() {
     await load()
   }
 
+  const handleSubmitReport = async () => {
+    const response = await fetch("/api/time-tracking/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, memberId: selectedMemberId, notes }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || "Errore invio rapportino")
+    await load()
+    toast.success(data.emailSent ? "Rapportino inviato e riepilogo email spedito" : "Rapportino inviato per revisione")
+  }
+
+  const handleReviewReport = async (workDayId: string, action: "approved" | "changes_requested") => {
+    const response = await fetch("/api/time-tracking/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workDayId, action }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || "Errore revisione rapportino")
+    await load()
+    toast.success(action === "approved" ? "Rapportino approvato" : "Revisione richiesta")
+  }
+
   if (loading && !payload) {
     return (
       <div className={pageClass}>
@@ -515,6 +557,62 @@ export default function RapportiniPage() {
             tone={reportDeltaMinutes > 30 ? "pink" : "green"}
           />
         </section>
+
+        {payload?.isManager && payload.submittedReports?.length ? (
+          <section className={panelClass}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="text-xs font-black uppercase tracking-[0.2em] text-righello-pink">Review responsabili</div>
+                <h2 className="mt-1 text-2xl font-bold text-white">Rapportini da revisionare</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  Giornate inviate dai dipendenti per controllo operativo e amministrazione.
+                </p>
+              </div>
+              <Badge className="w-fit border-cyan-300/25 bg-cyan-300/10 text-cyan-100">
+                {payload.submittedReports.length} in attesa
+              </Badge>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {payload.submittedReports.map((report) => (
+                <div key={report.id} className="rounded-[8px] border border-white/10 bg-[#0d1524] p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <button
+                      type="button"
+                      className="min-w-0 text-left"
+                      onClick={() => setSelectedMemberId(report.memberId)}
+                    >
+                      <p className="truncate font-black text-white">{report.memberName}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {report.role} · {report.entryCount} attività · {formatMinutes(report.activityMinutes)}
+                        {report.submittedAt ? ` · inviato ${formatTime(report.submittedAt)}` : ""}
+                      </p>
+                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="rounded-[8px] bg-emerald-500 text-white hover:bg-emerald-400"
+                        onClick={() => handleReviewReport(report.id, "approved").catch((err) => toast.error(err.message))}
+                      >
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                        Approva
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15"
+                        onClick={() => handleReviewReport(report.id, "changes_requested").catch((err) => toast.error(err.message))}
+                      >
+                        Richiedi modifica
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]">
           <section className={panelClass}>
@@ -982,6 +1080,26 @@ export default function RapportiniPage() {
                   <CalendarDays className="mr-2 h-4 w-4" />
                   Salva note
                 </Button>
+                <div className="rounded-[8px] border border-white/10 bg-[#101827] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-bold text-white">
+                        Stato review: {payload?.day?.reviewStatus === "submitted" ? "Inviato" : payload?.day?.reviewStatus === "approved" ? "Approvato" : payload?.day?.reviewStatus === "changes_requested" ? "Da correggere" : "Bozza"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        L'invio chiude il riepilogo giornaliero e lo mette nella coda dei responsabili.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      className="h-10 rounded-[8px] bg-righello-pink px-4 text-white hover:bg-righello-pink-dark"
+                      onClick={() => handleSubmitReport().catch((err) => toast.error(err.message))}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Invia rapportino
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </section>

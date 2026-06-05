@@ -17,6 +17,12 @@ import {
 import { Button } from "@/components/ui/button"
 import type { AgentJob, AgentRunnerHeartbeat } from "@/lib/agent-jobs"
 
+interface AgentRunnerControlState {
+  enabled: boolean
+  status: "enabled" | "suspended"
+  reason: string | null
+}
+
 const statusCopy: Record<string, string> = {
   queued: "In coda",
   running: "In esecuzione",
@@ -41,11 +47,13 @@ const initialForm = {
   title: "",
   jobType: "codex_patch",
   priority: 3,
-  repoUrl: "https://github.com/axelfleureau/optima-beta",
-  repoBranch: "main",
+  repoUrl: "",
+  repoBranch: "",
   contextSummary: "",
   brief: "",
 }
+
+const jobTypesRequiringRepository = new Set(["codex_patch", "deploy", "task_update"])
 
 function formatRelativeTime(value: string | null) {
   if (!value) return "mai"
@@ -65,13 +73,17 @@ function formatRelativeTime(value: string | null) {
 export function AgentJobsClient({
   initialJobs,
   initialRunners,
+  initialRunnerControl,
 }: {
   initialJobs: AgentJob[]
   initialRunners: AgentRunnerHeartbeat[]
+  initialRunnerControl: AgentRunnerControlState
 }) {
   const [jobs, setJobs] = useState(initialJobs)
   const [runners, setRunners] = useState(initialRunners)
+  const [runnerControl, setRunnerControl] = useState(initialRunnerControl)
   const [form, setForm] = useState(initialForm)
+  const [showRepositoryOverride, setShowRepositoryOverride] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -85,6 +97,16 @@ export function AgentJobsClient({
   }, [jobs])
 
   const runnerHealth = useMemo(() => {
+    if (!runnerControl.enabled) {
+      return {
+        latest: runners[0] ?? null,
+        label: "Runner sospeso",
+        detail: runnerControl.reason ?? "Il claim dei job e sospeso lato server.",
+        tone: "suspended" as const,
+        isOnline: false,
+      }
+    }
+
     const latest = runners[0] ?? null
     if (!latest) {
       return {
@@ -138,7 +160,7 @@ export function AgentJobsClient({
       tone: "offline" as const,
       isOnline: false,
     }
-  }, [runners])
+  }, [runnerControl, runners])
 
   async function refreshJobs() {
     const response = await fetch("/api/agent-jobs")
@@ -152,6 +174,7 @@ export function AgentJobsClient({
     const data = await response.json()
     if (!response.ok) throw new Error(data.error ?? "Errore refresh runner")
     setRunners(data.runners ?? [])
+    if (data.runnerControl) setRunnerControl(data.runnerControl)
   }
 
   async function refreshControlPlane() {
@@ -186,6 +209,7 @@ export function AgentJobsClient({
       if (!response.ok) throw new Error(data.error ?? "Errore creazione job")
       setJobs((current) => [data.job, ...current])
       setForm(initialForm)
+      setShowRepositoryOverride(false)
     } catch (err: any) {
       setError(err?.message ?? "Errore creazione job")
     } finally {
@@ -223,7 +247,7 @@ export function AgentJobsClient({
             <p className="text-xs font-black uppercase tracking-[0.22em] text-righello-pink">AI Ops</p>
             <h2 className="mt-1 text-2xl font-black text-white">Crea job operativo</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">
-              Brief, repository, contesto e output attesi finiscono nel control plane. Il runner VPS prende in carico il lavoro in polling.
+              Brief, contesto e output attesi finiscono nel control plane. Optima risolve il grafo operativo, il runner VPS prende in carico il lavoro in polling.
             </p>
           </div>
         </div>
@@ -272,36 +296,65 @@ export function AgentJobsClient({
             </label>
           </div>
 
+          <div className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.06] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                  <GitBranch className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">Repository automatico</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    Optima prova a risolverlo da task, progetto, cliente e repository collegati.{" "}
+                    {jobTypesRequiringRepository.has(form.jobType)
+                      ? "Per questo job serve un repository: se il grafo non basta, il server chiede un override."
+                      : "Per questo job il repository resta opzionale."}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowRepositoryOverride((current) => !current)}
+                className="h-9 shrink-0 rounded-lg border-white/15 bg-transparent px-3 text-xs text-white hover:bg-white/10"
+              >
+                {showRepositoryOverride ? "Nascondi override" : "Forza repository"}
+              </Button>
+            </div>
+          </div>
+
+          {showRepositoryOverride ? (
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
+              <label className="grid gap-2 text-sm font-bold text-white">
+                Repository override
+                <input
+                  className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                  value={form.repoUrl}
+                  onChange={(event) => setForm((current) => ({ ...current, repoUrl: event.target.value }))}
+                  placeholder="https://github.com/axelfleureau/..."
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-white">
+                Branch
+                <input
+                  className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                  value={form.repoBranch}
+                  onChange={(event) => setForm((current) => ({ ...current, repoBranch: event.target.value }))}
+                  placeholder="Auto / main"
+                />
+              </label>
+            </div>
+          ) : null}
+
           <label className="grid gap-2 text-sm font-bold text-white">
-            Repository
+            Contesto breve
             <input
               className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
-              value={form.repoUrl}
-              onChange={(event) => setForm((current) => ({ ...current, repoUrl: event.target.value }))}
-              placeholder="https://github.com/axelfleureau/..."
+              value={form.contextSummary}
+              onChange={(event) => setForm((current) => ({ ...current, contextSummary: event.target.value }))}
+              placeholder="Cliente, feature o area"
             />
           </label>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm font-bold text-white">
-              Branch
-              <input
-                className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
-                value={form.repoBranch}
-                onChange={(event) => setForm((current) => ({ ...current, repoBranch: event.target.value }))}
-                placeholder="main"
-              />
-            </label>
-            <label className="grid gap-2 text-sm font-bold text-white">
-              Contesto breve
-              <input
-                className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
-                value={form.contextSummary}
-                onChange={(event) => setForm((current) => ({ ...current, contextSummary: event.target.value }))}
-                placeholder="Cliente, feature o area"
-              />
-            </label>
-          </div>
 
           <label className="grid gap-2 text-sm font-bold text-white">
             Brief operativo
@@ -352,7 +405,16 @@ export function AgentJobsClient({
             ["In coda", stats.queued],
             ["In esecuzione", stats.running],
             ["Review", stats.review],
-            ["Runner", runnerHealth.isOnline ? "Online" : runnerHealth.tone === "stale" ? "Stale" : "Offline"],
+            [
+              "Runner",
+              runnerControl.enabled
+                ? runnerHealth.isOnline
+                  ? "Online"
+                  : runnerHealth.tone === "stale"
+                    ? "Stale"
+                    : "Offline"
+                : "Sospeso",
+            ],
           ].map(([label, value]) => (
             <div key={label} className="rounded-lg border border-white/10 bg-[#060a15] p-3">
               <p className="text-xs text-slate-500">{label}</p>
@@ -361,7 +423,16 @@ export function AgentJobsClient({
           ))}
         </div>
 
-        {stats.queued > 0 && !runnerHealth.isOnline ? (
+        {stats.queued > 0 && !runnerControl.enabled ? (
+          <div className="mt-4 rounded-lg border border-cyan-300/30 bg-cyan-300/10 p-4 text-sm leading-6 text-cyan-100">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                Ci sono job in coda, ma il claim e sospeso da configurazione server. Imposta AGENT_RUNNER_ENABLED=true solo quando vuoi riattivare il VPS.
+              </p>
+            </div>
+          </div>
+        ) : stats.queued > 0 && !runnerHealth.isOnline ? (
           <div className="mt-4 rounded-lg border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />

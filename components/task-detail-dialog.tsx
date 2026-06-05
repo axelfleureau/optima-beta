@@ -301,6 +301,19 @@ export function TaskDetailDialog({
     }
   }
 
+  const currentStatusValue = String(task.status || task.columnId || "to-do")
+  const currentStatusLabel = statusOptions.find((status) => status.value === currentStatusValue)?.label || "To Do"
+  const currentStatusDotClass =
+    currentStatusValue === "done"
+      ? "bg-green-500"
+      : currentStatusValue === "in-progress"
+        ? "bg-blue-500"
+        : currentStatusValue === "review"
+          ? "bg-yellow-500"
+          : currentStatusValue === "on-hold"
+            ? "bg-gray-400"
+            : "bg-gray-300"
+
   const getScoreColor = (score: number) => {
     if (score >= 8) return "text-red-600"
     if (score >= 5) return "text-yellow-600"
@@ -1002,22 +1015,27 @@ export function TaskDetailDialog({
             </div>
 
             {/* Status */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Label className={compactLabelClass}>Stato</Label>
-              
-              {/* Status Badge Prominent */}
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100">
-                <div className={`h-3 w-3 rounded-full ${
-                  task.status === 'done' ? 'bg-green-500' :
-                  task.status === 'in-progress' ? 'bg-blue-500' :
-                  task.status === 'review' ? 'bg-yellow-500' :
-                  task.columnId === 'on-hold' ? 'bg-gray-400' :
-                  'bg-gray-300'
-                }`} />
-                <span className="font-medium text-sm">
-                  {statusOptions.find(s => s.value === (task.status || task.columnId))?.label || 'To Do'}
-                </span>
-              </div>
+
+              <Select
+                value={currentStatusValue}
+                onValueChange={(value) => handleUpdateField("status", value)}
+              >
+                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className={cn("h-3 w-3 shrink-0 rounded-full", currentStatusDotClass)} />
+                    <span className="truncate">{currentStatusLabel}</span>
+                  </span>
+                </SelectTrigger>
+                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               {/* Progress Bar (if has sub-items) */}
               {subItems && subItems.length > 0 && (
@@ -1034,23 +1052,6 @@ export function TaskDetailDialog({
                   </div>
                 </div>
               )}
-
-              {/* Status Select */}
-              <Select
-                value={task.status || task.columnId}
-                onValueChange={(value) => handleUpdateField("status", value)}
-              >
-                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                  {statusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Type/Category */}

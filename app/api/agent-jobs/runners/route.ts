@@ -1,3 +1,4 @@
+import { getAgentRunnerControlState } from "@/lib/agent-runner-control"
 import { AGENT_ADMIN_ROLES, listAgentRunnerHeartbeats } from "@/lib/agent-jobs"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
@@ -28,10 +29,14 @@ export async function GET() {
 
     try {
       const runners = await listAgentRunnerHeartbeats(auth.db)
-      return Response.json({ runners })
+      return Response.json({ runners, runnerControl: getAgentRunnerControlState() })
     } catch (error) {
       console.warn("Runner heartbeat table unavailable:", error)
-      return Response.json({ runners: [], warning: "runner-heartbeats-not-ready" })
+      return Response.json({
+        runners: [],
+        runnerControl: getAgentRunnerControlState(),
+        warning: "runner-heartbeats-not-ready",
+      })
     }
   } catch (error) {
     console.error("Error loading agent runners:", error)

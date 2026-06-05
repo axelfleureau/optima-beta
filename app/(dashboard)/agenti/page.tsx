@@ -1,4 +1,5 @@
 import { AgentJobsClient } from "@/components/agent-jobs/agent-jobs-client"
+import { getAgentRunnerControlState } from "@/lib/agent-runner-control"
 import { AGENT_ADMIN_ROLES, listAgentJobs, listAgentRunnerHeartbeats } from "@/lib/agent-jobs"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
@@ -71,7 +72,11 @@ export default async function AgentiPage() {
           </p>
         </header>
 
-        <AgentJobsClient initialJobs={jobs} initialRunners={runners} />
+        <AgentJobsClient
+          initialJobs={jobs}
+          initialRunners={runners}
+          initialRunnerControl={getAgentRunnerControlState()}
+        />
       </main>
     </div>
   )
