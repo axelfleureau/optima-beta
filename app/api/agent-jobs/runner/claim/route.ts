@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 
-import { claimNextAgentJob } from "@/lib/agent-jobs"
+import { claimNextAgentJob, upsertAgentRunnerHeartbeat } from "@/lib/agent-jobs"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 
 export const dynamic = "force-dynamic"
@@ -30,7 +30,33 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}))
     const runnerId = String(body.runnerId ?? "codex-vps").slice(0, 80)
+    const runnerMeta = {
+      event: "claim.poll",
+      label: typeof body.label === "string" ? body.label.slice(0, 120) : null,
+    }
+
+    await upsertAgentRunnerHeartbeat(db, {
+      runnerId,
+      status: "online",
+      mode: body.mode,
+      version: body.version,
+      metadata: runnerMeta,
+    }).catch((error) => console.warn("Unable to record runner poll:", error))
+
     const job = await claimNextAgentJob(db, runnerId)
+
+    await upsertAgentRunnerHeartbeat(db, {
+      runnerId,
+      status: job ? "running" : "idle",
+      mode: body.mode,
+      version: body.version,
+      lastClaimAt: job ? new Date().toISOString() : null,
+      metadata: {
+        ...runnerMeta,
+        event: job ? "claim.accepted" : "claim.empty",
+        jobId: job?.id ?? null,
+      },
+    }).catch((error) => console.warn("Unable to record runner claim:", error))
 
     return Response.json({ job })
   } catch (error) {

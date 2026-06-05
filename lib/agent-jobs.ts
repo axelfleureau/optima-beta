@@ -22,8 +22,11 @@ export const AGENT_JOB_TYPES = [
   "task_update",
 ] as const
 
+export const AGENT_RUNNER_STATUSES = ["online", "idle", "running", "error", "offline"] as const
+
 export type AgentJobStatus = (typeof AGENT_JOB_STATUSES)[number]
 export type AgentJobType = (typeof AGENT_JOB_TYPES)[number]
+export type AgentRunnerStatus = (typeof AGENT_RUNNER_STATUSES)[number]
 
 export interface AgentJob {
   id: string
@@ -65,6 +68,20 @@ export interface AgentJobArtifact {
   createdAt: string
 }
 
+export interface AgentRunnerHeartbeat {
+  id: string
+  status: AgentRunnerStatus
+  mode: string | null
+  version: string | null
+  lastSeenAt: string
+  lastClaimAt: string | null
+  lastErrorAt: string | null
+  lastErrorMessage: string | null
+  metadata: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
 function parseJsonObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "string") return {}
   try {
@@ -87,10 +104,22 @@ function normalizeStatus(value: unknown): AgentJobStatus {
   return AGENT_JOB_STATUSES.includes(value as AgentJobStatus) ? (value as AgentJobStatus) : "queued"
 }
 
+function normalizeRunnerStatus(value: unknown): AgentRunnerStatus {
+  return AGENT_RUNNER_STATUSES.includes(value as AgentRunnerStatus)
+    ? (value as AgentRunnerStatus)
+    : "online"
+}
+
 function normalizePriority(value: unknown): number {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return 3
   return Math.min(5, Math.max(1, Math.round(numeric)))
+}
+
+function trimRunnerText(value: unknown, max = 120): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed ? trimmed.slice(0, max) : null
 }
 
 export function mapAgentJobRow(row: any): AgentJob {
@@ -137,6 +166,22 @@ export function mapAgentJobArtifactRow(row: any): AgentJobArtifact {
   }
 }
 
+export function mapAgentRunnerHeartbeatRow(row: any): AgentRunnerHeartbeat {
+  return {
+    id: row.id,
+    status: normalizeRunnerStatus(row.status),
+    mode: row.mode ?? null,
+    version: row.version ?? null,
+    lastSeenAt: row.last_seen_at,
+    lastClaimAt: row.last_claim_at ?? null,
+    lastErrorAt: row.last_error_at ?? null,
+    lastErrorMessage: row.last_error_message ?? null,
+    metadata: parseJsonObject(row.metadata_json),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 export async function listAgentJobs(db: any, organizationId: string, limit = 80): Promise<AgentJob[]> {
   const rows = await db
     .prepare(
@@ -149,6 +194,84 @@ export async function listAgentJobs(db: any, organizationId: string, limit = 80)
     .all()
 
   return (rows.results ?? []).map(mapAgentJobRow)
+}
+
+export async function listAgentRunnerHeartbeats(
+  db: any,
+  limit = 20,
+): Promise<AgentRunnerHeartbeat[]> {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM agent_runner_heartbeats
+       ORDER BY last_seen_at DESC
+       LIMIT ?`,
+    )
+    .bind(Math.min(Math.max(limit, 1), 50))
+    .all()
+
+  return (rows.results ?? []).map(mapAgentRunnerHeartbeatRow)
+}
+
+export async function upsertAgentRunnerHeartbeat(
+  db: any,
+  input: {
+    runnerId: string
+    status?: unknown
+    mode?: unknown
+    version?: unknown
+    lastClaimAt?: string | null
+    errorMessage?: unknown
+    metadata?: Record<string, unknown>
+  },
+): Promise<AgentRunnerHeartbeat> {
+  const runnerId = trimRunnerText(input.runnerId, 80) ?? "codex-vps"
+  const status = normalizeRunnerStatus(input.status)
+  const mode = trimRunnerText(input.mode, 80)
+  const version = trimRunnerText(input.version, 80)
+  const errorMessage = trimRunnerText(input.errorMessage, 500)
+
+  await db
+    .prepare(
+      `INSERT INTO agent_runner_heartbeats (
+        id, status, mode, version, last_seen_at, last_claim_at,
+        last_error_at, last_error_message, metadata_json
+      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        status = excluded.status,
+        mode = COALESCE(excluded.mode, agent_runner_heartbeats.mode),
+        version = COALESCE(excluded.version, agent_runner_heartbeats.version),
+        last_seen_at = CURRENT_TIMESTAMP,
+        last_claim_at = COALESCE(excluded.last_claim_at, agent_runner_heartbeats.last_claim_at),
+        last_error_at = CASE
+          WHEN excluded.last_error_message IS NOT NULL THEN CURRENT_TIMESTAMP
+          ELSE agent_runner_heartbeats.last_error_at
+        END,
+        last_error_message = COALESCE(
+          excluded.last_error_message,
+          agent_runner_heartbeats.last_error_message
+        ),
+        metadata_json = excluded.metadata_json,
+        updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(
+      runnerId,
+      status,
+      mode,
+      version,
+      input.lastClaimAt ?? null,
+      errorMessage ? new Date().toISOString() : null,
+      errorMessage,
+      stringifyJson(input.metadata),
+    )
+    .run()
+
+  const row = await db
+    .prepare(`SELECT * FROM agent_runner_heartbeats WHERE id = ? LIMIT 1`)
+    .bind(runnerId)
+    .first()
+
+  if (!row) throw new Error("Runner heartbeat aggiornato ma non recuperabile.")
+  return mapAgentRunnerHeartbeatRow(row)
 }
 
 export async function getAgentJob(db: any, organizationId: string, id: string): Promise<AgentJob | null> {

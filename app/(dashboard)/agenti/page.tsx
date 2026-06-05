@@ -1,5 +1,5 @@
 import { AgentJobsClient } from "@/components/agent-jobs/agent-jobs-client"
-import { AGENT_ADMIN_ROLES, listAgentJobs } from "@/lib/agent-jobs"
+import { AGENT_ADMIN_ROLES, listAgentJobs, listAgentRunnerHeartbeats } from "@/lib/agent-jobs"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
@@ -51,6 +51,12 @@ export default async function AgentiPage() {
   }
 
   const jobs = await listAgentJobs(db, principal.organizationId)
+  let runners: Awaited<ReturnType<typeof listAgentRunnerHeartbeats>> = []
+  try {
+    runners = await listAgentRunnerHeartbeats(db)
+  } catch (error) {
+    console.warn("Runner heartbeat table unavailable:", error)
+  }
 
   return (
     <div className={pageClass}>
@@ -65,7 +71,7 @@ export default async function AgentiPage() {
           </p>
         </header>
 
-        <AgentJobsClient initialJobs={jobs} />
+        <AgentJobsClient initialJobs={jobs} initialRunners={runners} />
       </main>
     </div>
   )

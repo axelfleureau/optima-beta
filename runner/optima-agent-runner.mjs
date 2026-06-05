@@ -7,6 +7,7 @@ import os from "node:os"
 import path from "node:path"
 
 const args = new Set(process.argv.slice(2))
+const RUNNER_VERSION = "0.2.0"
 
 if (args.has("--help") || args.has("-h")) {
   console.log(`Optima Agent Runner
@@ -19,6 +20,7 @@ Environment:
   OPTIMA_BASE_URL         alias supported for OPTIMA_URL
   AGENT_RUNNER_API_KEY    required bearer token
   RUNNER_ID               hostinger-codex-01
+  RUNNER_LABEL            Hostinger Codex Runner
   WORK_ROOT               /srv/optima-agent/jobs
   WORKDIR                 alias supported for WORK_ROOT
   POLL_INTERVAL_MS        30000
@@ -36,6 +38,7 @@ const config = {
   optimaUrl: env("OPTIMA_URL", env("OPTIMA_BASE_URL", "https://appbeta.wearerighello.com")).replace(/\/+$/, ""),
   apiKey: env("AGENT_RUNNER_API_KEY", ""),
   runnerId: env("RUNNER_ID", `hostinger-codex-${os.hostname()}`).slice(0, 80),
+  runnerLabel: env("RUNNER_LABEL", os.hostname()).slice(0, 120),
   workRoot: env("WORK_ROOT", env("WORKDIR", "/srv/optima-agent/jobs")),
   pollIntervalMs: numberEnv("POLL_INTERVAL_MS", 30_000),
   maxJobSeconds: numberEnv("MAX_JOB_SECONDS", 1_800),
@@ -52,18 +55,21 @@ if (!config.apiKey) {
   process.exit(1)
 }
 
+let stopping = false
+
 process.on("SIGINT", () => {
-  log("info", "Stopping runner")
-  process.exit(0)
+  void shutdown("SIGINT")
 })
 
 process.on("SIGTERM", () => {
-  log("info", "Stopping runner")
-  process.exit(0)
+  void shutdown("SIGTERM")
 })
 
 await mkdir(config.workRoot, { recursive: true })
 log("info", `Runner ${config.runnerId} ready for ${config.optimaUrl}`)
+await sendHeartbeat("online", { event: "startup" }).catch((error) => {
+  log("warn", `Unable to send startup heartbeat: ${error.message}`)
+})
 
 do {
   try {
@@ -72,20 +78,58 @@ do {
       await processJob(job)
     } else if (config.once) {
       log("info", "No queued job")
+      await sendHeartbeat("idle", { event: "idle" }).catch(() => {})
     } else {
+      await sendHeartbeat("idle", { event: "idle" }).catch(() => {})
       await sleep(config.pollIntervalMs)
     }
   } catch (error) {
     log("error", error instanceof Error ? error.message : String(error))
+    await sendHeartbeat(
+      "error",
+      { event: "loop-error" },
+      error instanceof Error ? error.message : String(error),
+    ).catch(() => {})
     if (config.once) process.exitCode = 1
     if (!config.once) await sleep(config.pollIntervalMs)
   }
 } while (!config.once)
 
+async function shutdown(signal) {
+  if (stopping) return
+  stopping = true
+  log("info", `Received ${signal}, shutting down`)
+  await sendHeartbeat("offline", { event: "shutdown", signal }).catch(() => {})
+  process.exit(0)
+}
+
+async function sendHeartbeat(status, metadata = {}, errorMessage = null) {
+  await api("/api/agent-jobs/runner/heartbeat", {
+    method: "POST",
+    body: {
+      runnerId: config.runnerId,
+      status,
+      mode: config.runnerMode,
+      version: RUNNER_VERSION,
+      errorMessage,
+      metadata: {
+        ...metadata,
+        label: config.runnerLabel,
+        once: config.once,
+      },
+    },
+  })
+}
+
 async function claimJob() {
   const response = await api("/api/agent-jobs/runner/claim", {
     method: "POST",
-    body: { runnerId: config.runnerId },
+    body: {
+      runnerId: config.runnerId,
+      label: config.runnerLabel,
+      mode: config.runnerMode,
+      version: RUNNER_VERSION,
+    },
   })
 
   return response.job ?? null
@@ -97,6 +141,7 @@ async function processJob(job) {
   await writeJson(path.join(jobDir, "job.json"), job)
 
   log("info", `Claimed ${job.id}: ${job.title}`)
+  await sendHeartbeat("running", { event: "job.started", jobId: job.id, title: job.title }).catch(() => {})
 
   const repoDir = await prepareWorkspace(job, jobDir)
   const prompt = buildPrompt(job, jobDir, repoDir)
@@ -158,6 +203,11 @@ async function processJob(job) {
   })
 
   log(success ? "info" : "error", `Completed ${job.id} with exit code ${runResult.exitCode}`)
+  await sendHeartbeat(
+    success ? "idle" : "error",
+    { event: success ? "job.completed" : "job.failed", jobId: job.id },
+    success ? null : summary,
+  ).catch(() => {})
 }
 
 async function prepareWorkspace(job, jobDir) {

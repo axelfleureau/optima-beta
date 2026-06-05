@@ -1,10 +1,21 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Bot, CheckCircle2, Clock, GitBranch, Loader2, Play, ShieldCheck, XCircle } from "lucide-react"
+import {
+  AlertTriangle,
+  Bot,
+  CheckCircle2,
+  Clock,
+  GitBranch,
+  Loader2,
+  Play,
+  Radio,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import type { AgentJob } from "@/lib/agent-jobs"
+import type { AgentJob, AgentRunnerHeartbeat } from "@/lib/agent-jobs"
 
 const statusCopy: Record<string, string> = {
   queued: "In coda",
@@ -36,8 +47,30 @@ const initialForm = {
   brief: "",
 }
 
-export function AgentJobsClient({ initialJobs }: { initialJobs: AgentJob[] }) {
+function formatRelativeTime(value: string | null) {
+  if (!value) return "mai"
+  const timestamp = new Date(value).getTime()
+  if (!Number.isFinite(timestamp)) return "data non valida"
+  const diffMs = Date.now() - timestamp
+  const absMs = Math.abs(diffMs)
+  if (absMs < 60_000) return "ora"
+  const minutes = Math.round(absMs / 60_000)
+  if (minutes < 60) return `${minutes} min fa`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} h fa`
+  const days = Math.round(hours / 24)
+  return `${days} g fa`
+}
+
+export function AgentJobsClient({
+  initialJobs,
+  initialRunners,
+}: {
+  initialJobs: AgentJob[]
+  initialRunners: AgentRunnerHeartbeat[]
+}) {
   const [jobs, setJobs] = useState(initialJobs)
+  const [runners, setRunners] = useState(initialRunners)
   const [form, setForm] = useState(initialForm)
   const [isCreating, setIsCreating] = useState(false)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
@@ -51,11 +84,78 @@ export function AgentJobsClient({ initialJobs }: { initialJobs: AgentJob[] }) {
     }
   }, [jobs])
 
+  const runnerHealth = useMemo(() => {
+    const latest = runners[0] ?? null
+    if (!latest) {
+      return {
+        latest,
+        label: "Runner mai visto",
+        detail: "Nessun heartbeat ricevuto dal VPS.",
+        tone: "offline" as const,
+        isOnline: false,
+      }
+    }
+
+    const lastSeenMs = new Date(latest.lastSeenAt).getTime()
+    const ageMs = Date.now() - lastSeenMs
+    const fresh = Number.isFinite(ageMs) && ageMs < 90_000
+    const stale = Number.isFinite(ageMs) && ageMs >= 90_000 && ageMs < 300_000
+
+    if (latest.status === "error") {
+      return {
+        latest,
+        label: "Runner in errore",
+        detail: latest.lastErrorMessage ?? `Errore segnalato ${formatRelativeTime(latest.lastErrorAt)}`,
+        tone: "error" as const,
+        isOnline: false,
+      }
+    }
+
+    if (fresh && latest.status !== "offline") {
+      return {
+        latest,
+        label: latest.status === "running" ? "Runner al lavoro" : "Runner online",
+        detail: `${latest.id} · ${latest.status} · visto ${formatRelativeTime(latest.lastSeenAt)}`,
+        tone: "online" as const,
+        isOnline: true,
+      }
+    }
+
+    if (stale) {
+      return {
+        latest,
+        label: "Runner in ritardo",
+        detail: `${latest.id} non aggiorna da ${formatRelativeTime(latest.lastSeenAt)}.`,
+        tone: "stale" as const,
+        isOnline: false,
+      }
+    }
+
+    return {
+      latest,
+      label: "Runner offline",
+      detail: `${latest.id} non aggiorna da ${formatRelativeTime(latest.lastSeenAt)}.`,
+      tone: "offline" as const,
+      isOnline: false,
+    }
+  }, [runners])
+
   async function refreshJobs() {
     const response = await fetch("/api/agent-jobs")
     const data = await response.json()
     if (!response.ok) throw new Error(data.error ?? "Errore refresh job")
     setJobs(data.jobs ?? [])
+  }
+
+  async function refreshRunners() {
+    const response = await fetch("/api/agent-jobs/runners")
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error ?? "Errore refresh runner")
+    setRunners(data.runners ?? [])
+  }
+
+  async function refreshControlPlane() {
+    await Promise.all([refreshJobs(), refreshRunners()])
   }
 
   async function createJob() {
@@ -240,24 +340,75 @@ export function AgentJobsClient({ initialJobs }: { initialJobs: AgentJob[] }) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => refreshJobs().catch((err) => setError(err?.message ?? "Errore refresh"))}
+            onClick={() => refreshControlPlane().catch((err) => setError(err?.message ?? "Errore refresh"))}
             className="rounded-lg border-white/15 bg-transparent text-white hover:bg-white/10"
           >
             Aggiorna
           </Button>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
           {[
             ["In coda", stats.queued],
             ["In esecuzione", stats.running],
             ["Review", stats.review],
+            ["Runner", runnerHealth.isOnline ? "Online" : runnerHealth.tone === "stale" ? "Stale" : "Offline"],
           ].map(([label, value]) => (
             <div key={label} className="rounded-lg border border-white/10 bg-[#060a15] p-3">
               <p className="text-xs text-slate-500">{label}</p>
               <p className="mt-1 text-xl font-black text-white">{value}</p>
             </div>
           ))}
+        </div>
+
+        {stats.queued > 0 && !runnerHealth.isOnline ? (
+          <div className="mt-4 rounded-lg border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                Ci sono job in coda, ma il runner VPS non risulta online. Il lavoro resta fermo finche il servizio sul VPS non torna a fare polling.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-4 rounded-lg border border-white/10 bg-[#060a15] p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div
+                className={`grid h-9 w-9 place-items-center rounded-lg border ${
+                  runnerHealth.isOnline
+                    ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-200"
+                    : "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                }`}
+              >
+                {runnerHealth.isOnline ? <Radio className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+              </div>
+              <div>
+                <h3 className="font-black text-white">{runnerHealth.label}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-400">{runnerHealth.detail}</p>
+              </div>
+            </div>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+              {runnerHealth.latest?.mode ?? "no runner"}
+            </span>
+          </div>
+
+          {runners.length > 0 ? (
+            <div className="mt-4 space-y-2">
+              {runners.slice(0, 3).map((runner) => (
+                <div
+                  key={runner.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-300"
+                >
+                  <span className="font-bold text-white">{runner.id}</span>
+                  <span>
+                    {runner.status} · {formatRelativeTime(runner.lastSeenAt)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-5 grid max-h-[720px] gap-3 overflow-y-auto pr-1">
