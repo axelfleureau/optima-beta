@@ -114,7 +114,21 @@ const PROJECT_TARGETS: Record<string, ProjectImportTarget> = {
     projectName: "BUFFR",
     type: "Mobile / App Store",
   },
+  "buffr / bufferello": {
+    projectId: "project_internal_buffr",
+    clientId: "client_internal_righello_ops",
+    clientName: "Righello",
+    projectName: "BUFFR",
+    type: "Mobile / App Store",
+  },
   "lumis / photo publisher righello": {
+    projectId: "project_internal_lumis_photo_publisher",
+    clientId: "client_internal_righello_ops",
+    clientName: "Righello",
+    projectName: "Lumis / Photo Publisher Righello",
+    type: "Mobile / Media Product",
+  },
+  "photo publisher righello / lumis ios": {
     projectId: "project_internal_lumis_photo_publisher",
     clientId: "client_internal_righello_ops",
     clientName: "Righello",
@@ -195,13 +209,21 @@ function isProjectHeading(heading: string) {
   const nonProjectHeadings = [
     "riepilogo",
     "riepilogo generale",
+    "riepilogo operativo",
+    "riepilogo integrazione",
+    "riepilogo finale",
     "dettagli tecnici",
     "criticita",
     "criticità",
     "macro aree",
+    "macro aree di lavoro",
+    "repository attivi",
+    "progetti attivi",
     "fonte",
     "periodo",
     "obiettivo",
+    "nota tecnica",
+    "nota gestionale",
   ]
 
   return !nonProjectHeadings.some((value) => key.startsWith(value))
@@ -220,9 +242,37 @@ function isDetailsHeading(value: string) {
 }
 
 function isMetadataLine(value: string) {
-  return /^(periodo|fonte|obiettivo|repo|commit|file modificati|branch|workflow|criticita|criticità|aree|file principali|task svolti):/i.test(
+  return /^(periodo|fonte|obiettivo|repo|repository|commit|file modificati|branch|workflow|criticita|criticità|aree|file principali|task svolti|dettagli tecnici|nota tecnica):/i.test(
     value,
   )
+}
+
+function isTaskSectionHeading(value: string) {
+  return /^task\s+svolti:?$/i.test(cleanHeading(value))
+}
+
+function isSkippableTaskText(value: string) {
+  return (
+    /nessun commit nuovo/i.test(value) ||
+    /non inserire task/i.test(value) ||
+    /non creare task/i.test(value) ||
+    /non aggiungere task/i.test(value) ||
+    /non inserire task tecnico/i.test(value)
+  )
+}
+
+function cleanRepoValue(value: string) {
+  return value
+    .replace(/`/g, "")
+    .replace(/[.;,\s]+$/g, "")
+    .trim()
+}
+
+function cleanTaskBullet(value: string) {
+  return value
+    .replace(/^[-*]\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function parseInlineFileHints(value: string) {
@@ -282,46 +332,61 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
   let fileHints: string[] = []
   let mode: "none" | "tasks" | "files" | "details" = "none"
   let blockIndex = 0
+  let skipCurrentBlock = false
 
   const flush = () => {
-    if (!currentDate || !currentProject || tasks.length === 0) return
+    if (!currentDate || !currentProject || tasks.length === 0 || skipCurrentBlock) return
+    const date = currentDate
     const target = getTarget(currentProject)
-    const firstTask = tasks[0].replace(/\.$/, "")
-    const createdAt = createdAtFor(currentDate.dateIso, blockIndex, currentDate.dateLabel)
-    const dueAt = currentDate.dateLabel.toLowerCase().includes("sera")
-      ? `${currentDate.dateIso}T23:32:00.000Z`
-      : `${currentDate.dateIso}T18:00:00.000Z`
+    const dueAt = date.dateLabel.toLowerCase().includes("sera")
+      ? `${date.dateIso}T23:32:00.000Z`
+      : `${date.dateIso}T18:00:00.000Z`
 
-    items.push({
-      dateLabel: currentDate.dateLabel,
-      dateIso: currentDate.dateIso,
-      projectName: target.projectName,
-      repo,
-      title: `${currentDate.dateIso} - ${target.projectName}: ${firstTask}`,
-      description: `${firstTask}${tasks.length > 1 ? ` e altre ${tasks.length - 1} attività operative.` : "."}`,
-      richDescription: tasks.join(" "),
-      areas,
-      fileHints,
-      taskBullets: tasks,
-      projectId: target.projectId,
-      clientId: target.clientId,
-      clientName: target.clientName,
-      type: areas || target.type,
-      workflowStatus: chooseWorkflowStatus(),
-      priority: choosePriority(target.projectName, tasks),
-      score: Math.min(10, Math.max(5, Math.round(5 + tasks.length / 3))),
-      tags: [
-        "github-real",
-        currentDate.dateIso,
-        slug(target.projectName),
-        "report-import",
-        ...(repo ? [repo.replace("axelfleureau/", "")] : []),
-      ],
-      createdAt,
-      dueAt,
+    tasks.forEach((task, taskIndex) => {
+      const cleanTask = task.replace(/\.$/, "")
+      if (!cleanTask || isSkippableTaskText(cleanTask)) return
+
+      const createdAt = createdAtFor(date.dateIso, blockIndex + taskIndex, date.dateLabel)
+      const richDescription = [
+        cleanTask,
+        areas ? `Aree: ${areas}` : "",
+        repo ? `Repository: ${repo}` : "",
+        fileHints.length > 0 ? `File principali: ${fileHints.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+
+      items.push({
+        dateLabel: date.dateLabel,
+        dateIso: date.dateIso,
+        projectName: target.projectName,
+        repo,
+        title: `${date.dateIso} - ${target.projectName}: ${cleanTask}`,
+        description: `${cleanTask}.`,
+        richDescription,
+        areas,
+        fileHints,
+        taskBullets: [cleanTask],
+        projectId: target.projectId,
+        clientId: target.clientId,
+        clientName: target.clientName,
+        type: areas || target.type,
+        workflowStatus: chooseWorkflowStatus(),
+        priority: choosePriority(target.projectName, [cleanTask]),
+        score: Math.min(10, Math.max(5, Math.round(6 + cleanTask.length / 160))),
+        tags: [
+          "github-real",
+          date.dateIso,
+          slug(target.projectName),
+          "report-import",
+          ...(repo ? [repo.replace("axelfleureau/", "")] : []),
+        ],
+        createdAt,
+        dueAt,
+      })
     })
 
-    blockIndex += 1
+    blockIndex += tasks.length
   }
 
   for (const rawLine of lines) {
@@ -330,6 +395,11 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
 
     const headingMatch = line.match(/^(#{2,6})\s+(.+)$/)
     if (headingMatch) {
+      if (isTaskSectionHeading(line)) {
+        mode = "tasks"
+        continue
+      }
+
       if (isDetailsHeading(line)) {
         mode = "details"
         continue
@@ -346,6 +416,7 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
         tasks = []
         areas = ""
         fileHints = []
+        skipCurrentBlock = false
         mode = "none"
         continue
       }
@@ -356,6 +427,7 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
         tasks = []
         areas = ""
         fileHints = []
+        skipCurrentBlock = false
         mode = "tasks"
         continue
       }
@@ -365,12 +437,19 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
       tasks = []
       areas = ""
       fileHints = []
+      skipCurrentBlock = false
       mode = "none"
       continue
     }
 
-    if (line.startsWith("Repo:")) {
-      repo = line.replace(/^Repo:\s*/i, "").replace(/`/g, "").trim()
+    if (isSkippableTaskText(line)) {
+      skipCurrentBlock = true
+      continue
+    }
+
+    const repoMatch = line.match(/^(Repo|Repository):\s*(.+)$/i)
+    if (repoMatch) {
+      repo = cleanRepoValue(repoMatch[2])
       continue
     }
 
@@ -400,8 +479,14 @@ export function parseTaskReport(content: string): ParsedTaskReportItem[] {
       continue
     }
 
-    if (mode === "tasks" && line.startsWith("- ")) {
-      tasks.push(line.replace(/^-\s*/, "").trim())
+    if (currentProject && line.startsWith("- ") && !isMetadataLine(line)) {
+      const task = cleanTaskBullet(line)
+      if (isSkippableTaskText(task)) {
+        skipCurrentBlock = true
+        continue
+      }
+      tasks.push(task)
+      mode = "tasks"
       continue
     }
 
