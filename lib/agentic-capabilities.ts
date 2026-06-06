@@ -472,7 +472,19 @@ export async function createSubagent(
         id, organization_id, name, slug, lane, status, primary_provider_id,
         model_hint, connector_ids_json, system_prompt, permissions_json,
         handoff_policy_json, created_by_member_id
-      ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(organization_id, slug) DO UPDATE SET
+        name = excluded.name,
+        lane = excluded.lane,
+        status = 'active',
+        primary_provider_id = excluded.primary_provider_id,
+        model_hint = excluded.model_hint,
+        connector_ids_json = excluded.connector_ids_json,
+        system_prompt = excluded.system_prompt,
+        permissions_json = excluded.permissions_json,
+        handoff_policy_json = excluded.handoff_policy_json,
+        created_by_member_id = excluded.created_by_member_id,
+        updated_at = CURRENT_TIMESTAMP`,
     )
     .bind(
       createId("subag"),
