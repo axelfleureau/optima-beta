@@ -10,6 +10,10 @@ import {
   mcpResourceUrl,
   requireMcpPrincipal,
 } from "@/lib/mcp-auth"
+import {
+  formatStrategicMcpConnectors,
+  getStrategicMcpConnectors,
+} from "@/lib/mcp-connectors"
 
 export const dynamic = "force-dynamic"
 
@@ -114,6 +118,20 @@ function toolsList() {
         type: "object",
         properties: {
           limit: { type: "number", minimum: 1, maximum: 50 },
+        },
+      },
+    },
+    {
+      name: "optima_connector_catalog",
+      title: "Optima strategic MCP connector catalog",
+      description: "Mostra i connettori strategici dell'OS agentico: SendGrid, Codex, Cloudinary, GitHub, Cloudflare, Vercel e Hostinger.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          includeMissing: {
+            type: "boolean",
+            description: "Include anche capability non ancora configurate via env/runtime.",
+          },
         },
       },
     },
@@ -250,6 +268,13 @@ async function callTool(name: string, args: any, db: any, principal: any) {
       return toolResult(`Rapportini in review: ${rows.length}`, { reports: rows })
     }
 
+    case "optima_connector_catalog": {
+      const connectors = getStrategicMcpConnectors().filter((connector) => {
+        return args?.includeMissing ? true : connector.status !== "missing"
+      })
+      return toolResult(formatStrategicMcpConnectors(connectors), { connectors })
+    }
+
     default:
       return toolResult(`Tool MCP non supportato: ${name}`)
   }
@@ -305,24 +330,43 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
           title: "Optima operational context snapshot",
           mimeType: "text/plain",
         },
+        {
+          uri: "optima://connectors/catalog",
+          name: "Optima strategic connector catalog",
+          title: "Optima MCP strategic connector catalog",
+          mimeType: "text/plain",
+        },
       ],
     })
   }
 
   if (method === "resources/read") {
-    if (params?.uri !== "optima://context/snapshot") {
-      return jsonRpcError(id, -32602, "Risorsa MCP non supportata.")
+    if (params?.uri === "optima://context/snapshot") {
+      const snapshot = await buildOperationalContextSnapshot(db, principal)
+      return jsonRpcResult(id, {
+        contents: [
+          {
+            uri: "optima://context/snapshot",
+            mimeType: "text/plain",
+            text: snapshot.text,
+          },
+        ],
+      })
     }
-    const snapshot = await buildOperationalContextSnapshot(db, principal)
-    return jsonRpcResult(id, {
-      contents: [
-        {
-          uri: "optima://context/snapshot",
-          mimeType: "text/plain",
-          text: snapshot.text,
-        },
-      ],
-    })
+
+    if (params?.uri === "optima://connectors/catalog") {
+      return jsonRpcResult(id, {
+        contents: [
+          {
+            uri: "optima://connectors/catalog",
+            mimeType: "text/plain",
+            text: formatStrategicMcpConnectors(),
+          },
+        ],
+      })
+    }
+
+    return jsonRpcError(id, -32602, "Risorsa MCP non supportata.")
   }
 
   if (method === "prompts/list") {
