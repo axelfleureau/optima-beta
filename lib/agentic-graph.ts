@@ -75,6 +75,19 @@ export interface AgenticGraphSnapshot {
 
 export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
   {
+    id: "codex-development-knowhow",
+    label: "Codex Development Know-How",
+    sourceType: "open_source_reference",
+    url: null,
+    importPolicy: "local_markdown_indexed_as_graph_nodes",
+    usefulPatterns: [
+      "skill e lezioni operative riutilizzabili tra progetti Codex",
+      "mobile UX, SEO, performance, sicurezza, deploy e workflow agentici",
+      "nodi development_knowhow sincronizzati da development/knowhow",
+      "recupero contestuale invece di caricamento integrale nel prompt",
+    ],
+  },
+  {
     id: "hermes-agent",
     label: "Hermes Agent",
     sourceType: "open_source_reference",
@@ -488,6 +501,16 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     tags: ["subagents", "providers", "policy"],
   })
 
+  const knowhowMemory = await upsertAgenticGraphNode(db, principal, {
+    nodeType: "capability",
+    title: "Development know-how graph",
+    summary: "Indice agentico delle skill e lezioni operative salvate nella cartella globale development/knowhow.",
+    sourceType: "internal",
+    sourceId: "development-knowhow-graph",
+    confidence: "manual",
+    tags: ["knowhow", "skills", "codex", "graphify"],
+  })
+
   const referenceNodes = []
   for (const source of AGENTIC_REFERENCE_SOURCES) {
     referenceNodes.push(
@@ -512,10 +535,13 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     [optima?.id, graphMemory?.id, "has_capability", "manual"],
     [optima?.id, mcpGateway?.id, "has_capability", "manual"],
     [optima?.id, subagentLanes?.id, "has_capability", "manual"],
-    [referenceNodes[0]?.id, subagentLanes?.id, "informs_pattern", "inferred"],
-    [referenceNodes[0]?.id, mcpGateway?.id, "informs_pattern", "inferred"],
-    [referenceNodes[1]?.id, graphMemory?.id, "informs_pattern", "inferred"],
-    [referenceNodes[2]?.id, optima?.id, "informs_ux_pattern", "inferred"],
+    [optima?.id, knowhowMemory?.id, "has_capability", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "codex-development-knowhow")?.id, knowhowMemory?.id, "feeds_knowledge", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "codex-development-knowhow")?.id, graphMemory?.id, "informs_pattern", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "hermes-agent")?.id, subagentLanes?.id, "informs_pattern", "inferred"],
+    [referenceNodes.find((node) => node?.sourceId === "hermes-agent")?.id, mcpGateway?.id, "informs_pattern", "inferred"],
+    [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphMemory?.id, "informs_pattern", "inferred"],
+    [referenceNodes.find((node) => node?.sourceId === "perplexity-computer-pattern")?.id, optima?.id, "informs_ux_pattern", "inferred"],
   ] as const
 
   for (const [fromNodeId, toNodeId, edgeType, confidence] of edgeInputs) {
