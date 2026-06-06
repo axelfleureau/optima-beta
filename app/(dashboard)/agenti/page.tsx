@@ -63,12 +63,12 @@ export default async function AgentiPage() {
     <div className={pageClass}>
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-5 sm:gap-6 sm:px-6 md:py-8">
         <header className="max-w-4xl">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-righello-pink">Óptima AI Ops</p>
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-righello-pink">Optima Agentic OS</p>
           <h1 className="mt-3 text-3xl font-black leading-tight text-white md:text-5xl">
-            Base operativa agentica.
+            Control room agentica.
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-400 md:text-lg">
-            Crea job per Codex Runner, preventivi strutturati, patch, report e task update. Óptima orchestra, il VPS esegue in sandbox, la direzione approva.
+            Trasforma richieste operative in job revisionabili: Optima risolve grafo, repository, subagenti e runtime; il runner VPS esegue in sandbox e la direzione decide cosa approvare.
           </p>
         </header>
 
