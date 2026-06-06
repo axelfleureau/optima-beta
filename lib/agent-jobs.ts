@@ -26,7 +26,6 @@ export const AGENT_RUNNER_STATUSES = ["online", "idle", "running", "error", "off
 export const AGENT_JOB_TYPES_REQUIRING_REPOSITORY = new Set<AgentJobType>([
   "codex_patch",
   "deploy",
-  "task_update",
 ])
 
 export type AgentJobStatus = (typeof AGENT_JOB_STATUSES)[number]
@@ -380,7 +379,7 @@ export async function createAgentJob(
   const workspaceHint = input.workspaceHint?.trim() || null
 
   if (AGENT_JOB_TYPES_REQUIRING_REPOSITORY.has(jobType) && !repoUrl) {
-    throw new Error("Repository obbligatorio per job Codex patch, deploy e task update.")
+    throw new Error("Repository obbligatorio solo per job Codex patch/PR e deploy controllato.")
   }
 
   await db

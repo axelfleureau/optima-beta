@@ -45,7 +45,7 @@ const statusClass: Record<string, string> = {
 
 const initialForm = {
   title: "",
-  jobType: "codex_patch",
+  jobType: "task_update",
   priority: 3,
   repoUrl: "",
   repoBranch: "",
@@ -53,7 +53,30 @@ const initialForm = {
   brief: "",
 }
 
-const jobTypesRequiringRepository = new Set(["codex_patch", "deploy", "task_update"])
+const jobTypesRequiringRepository = new Set(["codex_patch", "deploy"])
+
+function getRequestedOutput(jobType: string) {
+  if (jobType === "task_update") return ["report", "task-update", "sql-seed"]
+  if (jobType === "quote_pdf") return ["quote", "pdf", "report"]
+  if (jobType === "research") return ["report", "sources"]
+  return ["patch", "report", "pull-request", "task-update"]
+}
+
+function getTitlePlaceholder(jobType: string) {
+  if (jobType === "task_update") return "Es. Aggiorna task Axel da attivita GitHub"
+  if (jobType === "quote_pdf") return "Es. Genera preventivo DICO/SYSTEMDOC"
+  if (jobType === "research") return "Es. Analizza stato progetto Solero"
+  if (jobType === "deploy") return "Es. Deploy controllato Optima production"
+  return "Es. Patch UI rapportini"
+}
+
+function getBriefPlaceholder(jobType: string) {
+  if (jobType === "task_update") {
+    return "Es. Leggi le attivita GitHub di axelfleureau dall'ultimo aggiornamento task, raggruppale per progetto/cliente e produci uno script SQL idempotente con task e time entry da revisionare. Non fare deploy, commit o push."
+  }
+
+  return "Descrivi cosa deve fare il runner, cosa deve produrre e quali limiti rispettare..."
+}
 
 function formatRelativeTime(value: string | null) {
   if (!value) return "mai"
@@ -191,11 +214,14 @@ export function AgentJobsClient({
         body: JSON.stringify({
           ...form,
           input: {
-            requestedOutput: ["patch", "report", "pull-request", "task-update"],
+            requestedOutput: getRequestedOutput(form.jobType),
             guardrails: [
               "non eseguire deploy senza approvazione admin",
               "non stampare secret",
               "mantenere worktree isolato",
+              form.jobType === "task_update"
+                ? "per aggiornamento task usa GitHub come fonte multi-repository e produci output idempotente revisionabile"
+                : "rispetta il repository risolto dal grafo o indicato manualmente",
             ],
           },
           context: {
@@ -259,7 +285,7 @@ export function AgentJobsClient({
               className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
               value={form.title}
               onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-              placeholder="Es. Genera preventivo DICO/SYSTEMDOC"
+              placeholder={getTitlePlaceholder(form.jobType)}
             />
           </label>
 
@@ -271,11 +297,11 @@ export function AgentJobsClient({
                 value={form.jobType}
                 onChange={(event) => setForm((current) => ({ ...current, jobType: event.target.value }))}
               >
+                <option value="task_update">Aggiorna task da GitHub</option>
                 <option value="codex_patch">Codex patch/PR</option>
                 <option value="quote_pdf">Preventivo PDF</option>
                 <option value="research">Ricerca operativa</option>
                 <option value="deploy">Deploy controllato</option>
-                <option value="task_update">Aggiorna task</option>
                 <option value="general">Generale</option>
               </select>
             </label>
@@ -303,12 +329,15 @@ export function AgentJobsClient({
                   <GitBranch className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-white">Repository automatico</p>
+                  <p className="text-sm font-black text-white">
+                    {form.jobType === "task_update" ? "Fonte GitHub multi-repository" : "Repository automatico"}
+                  </p>
                   <p className="mt-1 text-xs leading-5 text-slate-400">
-                    Optima prova a risolverlo da task, progetto, cliente e repository collegati.{" "}
                     {jobTypesRequiringRepository.has(form.jobType)
-                      ? "Per questo job serve un repository: se il grafo non basta, il server chiede un override."
-                      : "Per questo job il repository resta opzionale."}
+                      ? "Per patch e deploy serve un repository. Optima prova a risolverlo dal grafo; se non basta puoi forzarlo qui."
+                      : form.jobType === "task_update"
+                        ? "Non serve scegliere un repository: il runner usa le attivita GitHub e il grafo clienti/progetti per preparare task e time entry."
+                        : "Per questo job il repository resta opzionale e viene usato solo se il grafo lo suggerisce."}
                   </p>
                 </div>
               </div>
@@ -362,7 +391,7 @@ export function AgentJobsClient({
               className="min-h-44 rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-cyan-300/70"
               value={form.brief}
               onChange={(event) => setForm((current) => ({ ...current, brief: event.target.value }))}
-              placeholder="Descrivi cosa deve fare il runner, cosa deve produrre e quali limiti rispettare..."
+              placeholder={getBriefPlaceholder(form.jobType)}
             />
           </label>
 

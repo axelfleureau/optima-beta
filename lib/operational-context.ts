@@ -394,7 +394,7 @@ export async function inferRepositoryForAgentJob(
   }
 
   const jobType = String(input.jobType || "")
-  if (["codex_patch", "deploy", "task_update"].includes(jobType)) {
+  if (["codex_patch", "deploy"].includes(jobType)) {
     return {
       repoUrl: process.env.OPTIMA_DEFAULT_REPO_URL || DEFAULT_OPTIMA_REPO_URL,
       repoBranch: "main",
