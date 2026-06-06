@@ -148,6 +148,8 @@ function mapCalendarDay({
   const entryCount = Number(activity?.entry_count || 0)
   const taskMinutes = Number(tasks?.task_minutes || 0)
   const taskCount = Number(tasks?.task_count || 0)
+  const completedTaskMinutes = Number(tasks?.completed_task_minutes || 0)
+  const completedTaskCount = Number(tasks?.completed_task_count || 0)
   const taskTitles =
     typeof tasks?.task_titles === "string" && tasks.task_titles
       ? String(tasks.task_titles)
@@ -186,6 +188,8 @@ function mapCalendarDay({
     entryCount,
     taskMinutes,
     taskCount,
+    completedTaskMinutes,
+    completedTaskCount,
     taskTitles,
     loadMinutes,
     intensity,
@@ -438,7 +442,7 @@ export async function GET(request: NextRequest) {
     )
     const self = people.find((person) => person.id === principal.memberId) || null
 
-    const [workDaysResult, activityDaysResult, taskDaysResult] = await Promise.all([
+    const [workDaysResult, activityDaysResult, taskDaysResult, completedTaskDaysResult] = await Promise.all([
       db
         .prepare(
           `SELECT member_id,
@@ -497,6 +501,33 @@ export async function GET(request: NextRequest) {
         )
         .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
         .all(),
+      db
+        .prepare(
+          `SELECT assignee_member_id AS member_id,
+                  date(datetime(created_at, '+2 hours')) AS entry_date,
+                  COUNT(*) AS completed_task_count,
+                  SUM(CASE
+                    WHEN actual_minutes IS NOT NULL AND actual_minutes > 0 THEN actual_minutes
+                    WHEN estimated_minutes IS NOT NULL AND estimated_minutes > 0 THEN estimated_minutes
+                    WHEN priority = 'urgent' THEN 240
+                    WHEN priority = 'high' THEN 180
+                    WHEN priority = 'low' THEN 45
+                    ELSE 90
+                  END) AS completed_task_minutes,
+                  GROUP_CONCAT(title, '|||') AS completed_task_titles
+           FROM tasks
+           WHERE organization_id = ?
+             AND assignee_member_id IS NOT NULL
+             AND created_at IS NOT NULL
+             AND date(datetime(created_at, '+2 hours')) >= date(?)
+             AND date(datetime(created_at, '+2 hours')) <= date(?)
+             AND COALESCE(assignment_status, 'accepted') = 'accepted'
+             AND COALESCE(column_id, status) IN ('done', 'completed', 'validation')
+             AND (? = 1 OR assignee_member_id = ?)
+           GROUP BY assignee_member_id, date(datetime(created_at, '+2 hours'))`,
+        )
+        .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
+        .all(),
     ])
 
     const workDaysByMemberDate = new Map<string, any>()
@@ -512,6 +543,25 @@ export async function GET(request: NextRequest) {
     const tasksByMemberDate = new Map<string, any>()
     for (const day of (taskDaysResult.results || []) as any[]) {
       tasksByMemberDate.set(calendarKey(String(day.member_id), String(day.entry_date)), day)
+    }
+
+    for (const day of (completedTaskDaysResult.results || []) as any[]) {
+      const key = calendarKey(String(day.member_id), String(day.entry_date))
+      const current = tasksByMemberDate.get(key) || {
+        member_id: day.member_id,
+        entry_date: day.entry_date,
+        task_count: 0,
+        task_minutes: 0,
+        task_titles: "",
+      }
+      tasksByMemberDate.set(key, {
+        ...current,
+        task_count: Number(current.task_count || 0) + Number(day.completed_task_count || 0),
+        task_minutes: Number(current.task_minutes || 0) + Number(day.completed_task_minutes || 0),
+        completed_task_count: Number(day.completed_task_count || 0),
+        completed_task_minutes: Number(day.completed_task_minutes || 0),
+        task_titles: [current.task_titles, day.completed_task_titles].filter(Boolean).join("|||"),
+      })
     }
 
     const calendarPeople = memberRows.map((member) => ({

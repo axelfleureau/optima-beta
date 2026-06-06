@@ -94,6 +94,8 @@ type PresencePayload = {
         entryCount: number
         taskMinutes: number
         taskCount: number
+        completedTaskMinutes: number
+        completedTaskCount: number
         taskTitles: string[]
         loadMinutes: number
         intensity: number
@@ -370,8 +372,9 @@ function calendarDayTitle(person: PresencePayload["calendar"]["people"][number],
     `Stato: ${statusMeta(day.status).label}`,
     `Segnale: ${signal.label}`,
     `Attivita: ${formatMinutes(day.activityMinutes)}`,
-    `Task in scadenza: ${day.taskCount}`,
+    `Task collegate: ${day.taskCount}`,
   ]
+  if (day.completedTaskCount > 0) parts.push(`Task completate/importate: ${day.completedTaskCount}`)
   if (day.signal) parts.push(`Indicatore orario: ${dayTimeSignalLabel(day)}`)
   if (day.checkInAt) parts.push(`Entrata: ${formatTime(day.checkInAt)}`)
   if (day.checkOutAt) parts.push(`Uscita: ${formatTime(day.checkOutAt)}`)
@@ -1417,7 +1420,7 @@ function HeatmapSignalDialog({
   const day = selection.day
   const productivityLabel =
     day.activityMinutes > 0 || day.taskCount > 0
-      ? `${formatMinutes(day.activityMinutes)} registrate · ${day.taskCount} task`
+      ? `${formatMinutes(day.activityMinutes)} registrate · ${day.taskCount} task collegate`
       : "Nessuna attività collegata nel giorno"
 
   return (
@@ -1560,6 +1563,11 @@ function HeatmapDayDialog({
                   <span>Attività {formatMinutes(day.activityMinutes)}</span>
                   <span>Task {day.taskCount}</span>
                 </div>
+                {day.completedTaskCount > 0 ? (
+                  <p className="mt-2 text-xs opacity-75">
+                    {day.completedTaskCount} task completate/importate nel giorno
+                  </p>
+                ) : null}
                 {day.taskTitles?.length ? (
                   <div className="mt-3 border-t border-white/10 pt-3">
                     <p className="text-xs font-black uppercase tracking-[0.12em] opacity-70">Task del giorno</p>
@@ -1578,7 +1586,7 @@ function HeatmapDayDialog({
 
           {!taskTitles.length ? (
             <p className="mt-4 rounded-[8px] border border-dashed border-white/12 p-4 text-sm text-slate-400">
-              Nessuna task in scadenza collegata a questa giornata.
+              Nessuna task collegata a questa giornata.
             </p>
           ) : null}
         </div>
