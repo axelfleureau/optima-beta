@@ -72,6 +72,7 @@ Restituisce la mappa delle capability MCP/operative da trattare come parti fonda
 
 - SendGrid: email transazionali, rapportini, inviti e notifiche.
 - Codex Runner: esecuzione agentica controllata su VPS.
+- Hermes Agent: sorgente open-source per memoria, skills, tool gateway, MCP host e loop agentico self-hosted.
 - Cloudinary: asset media collegati a clienti, campagne, task e deliverable.
 - GitHub: repository, branch, PR, audit tecnico e collegamenti codice-progetto.
 - Cloudflare: runtime Optima, D1, R2, Workers, secret, cron e deploy.
@@ -79,6 +80,8 @@ Restituisce la mappa delle capability MCP/operative da trattare come parti fonda
 - Hostinger VPS: runner persistente e servizi che devono restare svegli senza browser.
 
 Il catalogo non espone valori segreti. Mostra solo stato configurativo e nomi delle variabili richieste.
+
+Hermes Agent puo essere usato come sorgente open e adapter VPS, non come sostituto del control plane. Optima resta il livello che governa grafo aziendale, permessi, memoria autorizzata, job, audit e approvazioni.
 
 ## Direzione Architetturale
 
