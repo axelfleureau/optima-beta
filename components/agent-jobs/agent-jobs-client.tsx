@@ -107,6 +107,14 @@ interface AgenticGraphSnapshot {
     confidence: string
     summary: string
   }>
+  edges: Array<{
+    id: string
+    fromNodeId: string
+    toNodeId: string
+    edgeType: string
+    confidence: string
+    weight: number
+  }>
   referenceSources: Array<{
     id: string
     label: string
@@ -126,6 +134,21 @@ const initialForm = {
 }
 
 const jobTypesRequiringRepository = new Set(["codex_patch", "deploy"])
+
+const graphNodeTypeTone: Record<string, string> = {
+  system: "border-righello-pink/65 bg-righello-pink/18 text-pink-50",
+  capability: "border-cyan-300/45 bg-cyan-300/14 text-cyan-50",
+  reference_source: "border-emerald-300/40 bg-emerald-300/12 text-emerald-50",
+  subagent: "border-violet-300/45 bg-violet-300/14 text-violet-50",
+  connector: "border-amber-300/45 bg-amber-300/12 text-amber-50",
+}
+
+const graphConfidenceStroke: Record<string, string> = {
+  manual: "#f472b6",
+  extracted: "#22d3ee",
+  inferred: "#34d399",
+  ambiguous: "#f59e0b",
+}
 
 function getRequestedOutput(jobType: string) {
   if (jobType === "task_update") return ["report", "task-update", "sql-seed"]
@@ -148,6 +171,130 @@ function getBriefPlaceholder(jobType: string) {
   }
 
   return "Descrivi cosa deve fare il runner, cosa deve produrre e quali limiti rispettare..."
+}
+
+function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"]) {
+  const laneOrder = ["system", "capability", "subagent", "connector", "reference_source"]
+  const laneY: Record<string, number> = {
+    system: 16,
+    capability: 46,
+    subagent: 46,
+    connector: 46,
+    reference_source: 76,
+  }
+  const visibleNodes = [...nodes]
+    .sort((a, b) => {
+      const aLane = laneOrder.includes(a.nodeType) ? laneOrder.indexOf(a.nodeType) : laneOrder.indexOf("capability")
+      const bLane = laneOrder.includes(b.nodeType) ? laneOrder.indexOf(b.nodeType) : laneOrder.indexOf("capability")
+      const laneDelta = aLane - bLane
+      if (laneDelta !== 0) return laneDelta
+      return a.title.localeCompare(b.title)
+    })
+    .slice(0, 12)
+
+  const grouped = visibleNodes.reduce<Record<string, typeof visibleNodes>>((acc, node) => {
+    const lane = laneY[node.nodeType] ? node.nodeType : "capability"
+    acc[lane] = acc[lane] ?? []
+    acc[lane].push(node)
+    return acc
+  }, {})
+
+  return visibleNodes.map((node) => {
+    const lane = laneY[node.nodeType] ? node.nodeType : "capability"
+    const laneNodes = grouped[lane] ?? [node]
+    const index = laneNodes.findIndex((item) => item.id === node.id)
+    const total = laneNodes.length
+    const x = total <= 1 ? 50 : 16 + index * (68 / Math.max(1, total - 1))
+    return {
+      node,
+      x,
+      y: laneY[lane],
+    }
+  })
+}
+
+function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | null }) {
+  const layout = useMemo(() => getGraphNodeLayout(graphMemory?.nodes ?? []), [graphMemory?.nodes])
+  const nodePosition = new Map(layout.map((item) => [item.node.id, item]))
+  const visibleEdges = (graphMemory?.edges ?? [])
+    .map((edge) => ({
+      edge,
+      from: nodePosition.get(edge.fromNodeId),
+      to: nodePosition.get(edge.toNodeId),
+    }))
+    .filter((item): item is { edge: AgenticGraphSnapshot["edges"][number]; from: (typeof layout)[number]; to: (typeof layout)[number] } =>
+      Boolean(item.from && item.to),
+    )
+    .slice(0, 18)
+  const featuredEdges = visibleEdges.slice(0, 4)
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-lg border border-white/10 bg-[#050914]/85">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa nodi</p>
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400">
+          {visibleEdges.length} archi visibili
+        </span>
+      </div>
+
+      {layout.length ? (
+        <div className="relative h-[250px] overflow-hidden sm:h-[290px]">
+          <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            {visibleEdges.map(({ edge, from, to }) => (
+              <line
+                key={edge.id}
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+                stroke={graphConfidenceStroke[edge.confidence] ?? "#64748b"}
+                strokeWidth={Math.max(0.7, Math.min(2.4, Number(edge.weight || 1)))}
+                strokeOpacity={edge.confidence === "ambiguous" ? 0.45 : 0.64}
+                strokeDasharray={edge.confidence === "inferred" ? "3 3" : edge.confidence === "ambiguous" ? "2 4" : undefined}
+              />
+            ))}
+          </svg>
+
+          {layout.map(({ node, x, y }) => (
+            <div
+              key={node.id}
+              className="absolute w-[8.5rem] -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${x}%`, top: `${y}%` }}
+            >
+              <div className={`rounded-lg border px-2.5 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.28)] ${graphNodeTypeTone[node.nodeType] ?? "border-white/15 bg-white/[0.06] text-slate-100"}`}>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-current" />
+                  <p className="min-w-0 truncate text-xs font-black">{node.title}</p>
+                </div>
+                <p className="mt-1 truncate text-[10px] font-bold uppercase opacity-70">{node.nodeType}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-4 text-sm leading-6 text-slate-500">
+          Nessun nodo visualizzabile. Usa “Sincronizza base” per creare o aggiornare i riferimenti agentici iniziali.
+        </div>
+      )}
+
+      {featuredEdges.length ? (
+        <div className="grid gap-1.5 border-t border-white/10 p-3">
+          {featuredEdges.map(({ edge, from, to }) => (
+            <div key={`label-${edge.id}`} className="flex min-w-0 items-center gap-2 text-[11px] text-slate-400">
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: graphConfidenceStroke[edge.confidence] ?? "#64748b" }}
+              />
+              <span className="min-w-0 truncate">
+                <span className="font-bold text-slate-200">{from.node.title}</span> → {to.node.title}
+              </span>
+              <span className="shrink-0 rounded-full border border-white/10 px-1.5 py-0.5 text-[10px]">{edge.edgeType}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function parseServerDate(value: string | null) {
@@ -419,19 +566,19 @@ export function AgentJobsClient({
     try {
       setIsSeedingGraph(true)
       setError(null)
-      const response = await fetch("/api/agentic-graph", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "seed_references" }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore inizializzazione grafo")
-      setGraphMemory(data)
-    } catch (err: any) {
-      setError(err?.message ?? "Errore inizializzazione grafo")
-    } finally {
-      setIsSeedingGraph(false)
-    }
+    const response = await fetch("/api/agentic-graph", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "seed_references" }),
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data?.error ?? "Errore sincronizzazione grafo")
+    setGraphMemory(data)
+  } catch (err: any) {
+    setError(err?.message ?? "Errore sincronizzazione grafo")
+  } finally {
+    setIsSeedingGraph(false)
+  }
   }
 
   return (
@@ -697,9 +844,10 @@ export function AgentJobsClient({
                   onClick={seedGraphReferences}
                   disabled={isSeedingGraph}
                   className="h-9 w-full shrink-0 rounded-lg border-white/15 bg-transparent px-3 text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
+                  title="Crea o aggiorna i nodi base della graph memory. Non cancella dati esistenti."
                 >
                   {isSeedingGraph ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Network className="mr-2 h-4 w-4" />}
-                  Inizializza
+                  Sincronizza base
                 </Button>
               </div>
 
@@ -715,6 +863,8 @@ export function AgentJobsClient({
                   </div>
                 ))}
               </div>
+
+              <GraphMemoryMap graphMemory={graphMemory} />
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {graphTypes.length ? (
