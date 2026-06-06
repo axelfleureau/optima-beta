@@ -43,6 +43,15 @@ La secret deve essere identica sui due lati. Non va committata e non va stampata
 
 ## Installazione
 
+Bootstrap Hostinger con un solo comando, passando la stessa chiave configurata in Cloudflare:
+
+```bash
+AGENT_RUNNER_API_KEY='incolla_la_chiave_configurata_su_cloudflare' \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/axelfleureau/optima-beta/codex/pause-vps-runner/runner/bootstrap-hostinger.sh)"
+```
+
+Installazione manuale:
+
 ```bash
 sudo mkdir -p /srv/optima-agent
 sudo chown -R "$USER":"$USER" /srv/optima-agent
