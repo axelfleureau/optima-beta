@@ -78,9 +78,16 @@ function getBriefPlaceholder(jobType: string) {
   return "Descrivi cosa deve fare il runner, cosa deve produrre e quali limiti rispettare..."
 }
 
+function parseServerDate(value: string | null) {
+  if (!value) return NaN
+  const normalized = /Z$|[+-]\d\d:?\d\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`
+  const timestamp = new Date(normalized).getTime()
+  return Number.isFinite(timestamp) ? timestamp : NaN
+}
+
 function formatRelativeTime(value: string | null) {
   if (!value) return "mai"
-  const timestamp = new Date(value).getTime()
+  const timestamp = parseServerDate(value)
   if (!Number.isFinite(timestamp)) return "data non valida"
   const diffMs = Date.now() - timestamp
   const absMs = Math.abs(diffMs)
@@ -141,7 +148,7 @@ export function AgentJobsClient({
       }
     }
 
-    const lastSeenMs = new Date(latest.lastSeenAt).getTime()
+    const lastSeenMs = parseServerDate(latest.lastSeenAt)
     const ageMs = Date.now() - lastSeenMs
     const fresh = Number.isFinite(ageMs) && ageMs < 90_000
     const stale = Number.isFinite(ageMs) && ageMs >= 90_000 && ageMs < 300_000
@@ -580,7 +587,7 @@ export function AgentJobsClient({
                   </p>
                   <p className="flex items-center gap-2">
                     <Clock className="h-3.5 w-3.5" />
-                    {new Date(job.createdAt).toLocaleString("it-IT")}
+                    {new Date(parseServerDate(job.createdAt)).toLocaleString("it-IT")}
                   </p>
                 </div>
 
