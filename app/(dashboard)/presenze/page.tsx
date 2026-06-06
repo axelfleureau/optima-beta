@@ -1,6 +1,6 @@
 "use client"
 
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Activity, AlarmClock, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, RefreshCw, Sparkles, TimerOff, UserCheck, Users, X, XCircle } from "lucide-react"
 import { gsap } from "gsap"
@@ -855,6 +855,21 @@ function PresenceCalendarHeatmap({
     () => getCalendarDayRecords(visiblePeople, selectedDate),
     [visiblePeople, selectedDate],
   )
+  const openDayDetails = useCallback(
+    (date: string, records?: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) => {
+      const dayRecords = records ?? getCalendarDayRecords(visiblePeople, date)
+      onDateChange(date)
+      setActiveDay({ date, records: dayRecords })
+    },
+    [onDateChange, visiblePeople],
+  )
+  const openCellDetails = useCallback(
+    (selection: HeatmapCellSelection) => {
+      setActiveCell(selection)
+      openDayDetails(selection.day.date)
+    },
+    [openDayDetails],
+  )
   const activeHeatmapSelection = useMemo(() => {
     if (
       activeCell &&
@@ -999,7 +1014,7 @@ function PresenceCalendarHeatmap({
             people={visiblePeople}
             selectedDate={selectedDate}
             onDateChange={onDateChange}
-            onShowDay={setActiveDay}
+            onShowDay={openDayDetails}
           />
       ) : (
         <>
@@ -1051,7 +1066,7 @@ function PresenceCalendarHeatmap({
                       compact={false}
                       onDateChange={onDateChange}
                       onShowSignal={setActiveSignal}
-                      onShowDetails={setActiveCell}
+                      onShowDetails={openCellDetails}
                     />
                   ))}
                 </div>
@@ -1126,7 +1141,7 @@ function PresenceCalendarHeatmap({
                     compact
                     onDateChange={onDateChange}
                     onShowSignal={setActiveSignal}
-                    onShowDetails={setActiveCell}
+                    onShowDetails={openCellDetails}
                   />
                 ))}
               </div>
@@ -1138,11 +1153,7 @@ function PresenceCalendarHeatmap({
       <HeatmapCellContextBanner
         selection={activeHeatmapSelection}
         dayRecords={selectedDayRecords}
-        onOpenDay={() => {
-          if (selectedDayRecords.length) {
-            setActiveDay({ date: selectedDate, records: selectedDayRecords })
-          }
-        }}
+        onOpenDay={() => openDayDetails(selectedDate, selectedDayRecords)}
         onClose={() => setActiveCell(null)}
       />
 
@@ -1186,10 +1197,29 @@ function PresenceMonthCalendar({
   people: CalendarPerson[]
   selectedDate: string
   onDateChange: (date: string) => void
-  onShowDay: (selection: HeatmapDaySelection) => void
+  onShowDay: (date: string, records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) => void
 }) {
   const cells = useMemo(() => getMonthCalendarCells(calendar.days), [calendar.days])
   const weekdayLabels = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+  const openDay = useCallback(
+    (date: string, records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) => {
+      onDateChange(date)
+      onShowDay(date, records)
+    },
+    [onDateChange, onShowDay],
+  )
+  const handleDayKeyDown = useCallback(
+    (
+      event: KeyboardEvent<HTMLDivElement>,
+      date: string,
+      records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>,
+    ) => {
+      if (event.key !== "Enter" && event.key !== " ") return
+      event.preventDefault()
+      openDay(date, records)
+    },
+    [openDay],
+  )
 
   return (
     <div className="p-4">
@@ -1214,15 +1244,14 @@ function PresenceMonthCalendar({
           const visibleRecords = importantRecords.length > 0 ? importantRecords : records
 
           return (
-            <button
+            <div
               key={`agenda-${date}`}
-              type="button"
-              onClick={() => {
-                onDateChange(date)
-                onShowDay({ date, records })
-              }}
+              role="button"
+              tabIndex={0}
+              onClick={() => openDay(date, records)}
+              onKeyDown={(event) => handleDayKeyDown(event, date, records)}
               className={cn(
-                "w-full rounded-[8px] border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                "w-full cursor-pointer rounded-[8px] border p-4 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                 calendarDayTone(records),
                 date === selectedDate && "border-righello-pink/65 shadow-[0_0_0_1px_rgba(224,64,133,0.35)]",
               )}
@@ -1256,7 +1285,7 @@ function PresenceMonthCalendar({
                 ))}
                 {visibleRecords.length > 6 && <p className="text-xs font-bold text-slate-400">+{visibleRecords.length - 6} altri record</p>}
               </div>
-            </button>
+            </div>
           )
         })}
       </div>
@@ -1281,15 +1310,14 @@ function PresenceMonthCalendar({
             const visibleRecords = importantRecords.length > 0 ? importantRecords : records
 
             return (
-              <button
+              <div
                 key={date}
-                type="button"
-                onClick={() => {
-                  onDateChange(date)
-                  onShowDay({ date, records })
-                }}
+                role="button"
+                tabIndex={0}
+                onClick={() => openDay(date, records)}
+                onKeyDown={(event) => handleDayKeyDown(event, date, records)}
                 className={cn(
-                  "min-h-[148px] rounded-[8px] border p-3 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                  "min-h-[148px] cursor-pointer rounded-[8px] border p-3 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                   calendarDayTone(records),
                   date === selectedDate && "border-righello-pink/70 shadow-[0_0_0_1px_rgba(224,64,133,0.35)]",
                 )}
@@ -1321,7 +1349,7 @@ function PresenceMonthCalendar({
                   {visibleRecords.length === 0 && <p className="text-xs text-slate-500">Nessun dato</p>}
                   {visibleRecords.length > 4 && <p className="text-[11px] font-bold text-slate-400">+{visibleRecords.length - 4} altri</p>}
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
