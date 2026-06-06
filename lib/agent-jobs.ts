@@ -72,6 +72,18 @@ export interface AgentJobArtifact {
   createdAt: string
 }
 
+export interface AgentJobEvent {
+  id: string
+  jobId: string
+  organizationId: string
+  actorMemberId: string | null
+  actorType: string
+  eventType: string
+  message: string
+  payload: Record<string, unknown>
+  createdAt: string
+}
+
 export interface AgentRunnerHeartbeat {
   id: string
   status: AgentRunnerStatus
@@ -166,6 +178,20 @@ export function mapAgentJobArtifactRow(row: any): AgentJobArtifact {
     url: row.url ?? null,
     r2Key: row.r2_key ?? null,
     metadata: parseJsonObject(row.metadata_json),
+    createdAt: row.created_at,
+  }
+}
+
+export function mapAgentJobEventRow(row: any): AgentJobEvent {
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    organizationId: row.organization_id,
+    actorMemberId: row.actor_member_id ?? null,
+    actorType: row.actor_type ?? "system",
+    eventType: row.event_type,
+    message: row.message ?? "",
+    payload: parseJsonObject(row.payload_json),
     createdAt: row.created_at,
   }
 }
@@ -309,6 +335,24 @@ export async function listAgentJobArtifacts(
     .all()
 
   return (rows.results ?? []).map(mapAgentJobArtifactRow)
+}
+
+export async function listAgentJobEvents(
+  db: any,
+  organizationId: string,
+  jobId: string,
+): Promise<AgentJobEvent[]> {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM agent_job_events
+       WHERE organization_id = ? AND job_id = ?
+       ORDER BY created_at DESC
+       LIMIT 80`,
+    )
+    .bind(organizationId, jobId)
+    .all()
+
+  return (rows.results ?? []).map(mapAgentJobEventRow)
 }
 
 export async function appendAgentJobEvent(

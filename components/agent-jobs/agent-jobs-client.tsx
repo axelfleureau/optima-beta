@@ -6,16 +6,28 @@ import {
   Bot,
   CheckCircle2,
   Clock,
+  Eye,
+  FileText,
   GitBranch,
   Loader2,
+  MessageSquareText,
   Play,
   Radio,
+  RefreshCw,
   ShieldCheck,
   XCircle,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import type { AgentJob, AgentRunnerHeartbeat } from "@/lib/agent-jobs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import type { AgentJob, AgentJobArtifact, AgentJobEvent, AgentRunnerHeartbeat } from "@/lib/agent-jobs"
 
 interface AgentRunnerControlState {
   enabled: boolean
@@ -41,6 +53,12 @@ const statusClass: Record<string, string> = {
   rejected: "border-red-300/30 bg-red-300/10 text-red-100",
   cancelled: "border-slate-500/30 bg-slate-500/10 text-slate-200",
   failed: "border-red-300/30 bg-red-300/10 text-red-100",
+}
+
+interface AgentJobDetails {
+  job: AgentJob
+  artifacts: AgentJobArtifact[]
+  events: AgentJobEvent[]
 }
 
 const initialForm = {
@@ -117,6 +135,10 @@ export function AgentJobsClient({
   const [isCreating, setIsCreating] = useState(false)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [reviewJobId, setReviewJobId] = useState<string | null>(null)
+  const [reviewDetails, setReviewDetails] = useState<AgentJobDetails | null>(null)
+  const [isLoadingReview, setIsLoadingReview] = useState(false)
+  const [revisionMessage, setRevisionMessage] = useState("")
 
   const stats = useMemo(() => {
     return {
@@ -250,24 +272,53 @@ export function AgentJobsClient({
     }
   }
 
-  async function mutateJob(id: string, action: "approve" | "reject" | "cancel") {
+  async function loadReview(job: AgentJob) {
+    setReviewJobId(job.id)
+    setReviewDetails(null)
+    setRevisionMessage("")
+    setIsLoadingReview(true)
+    setError(null)
+    try {
+      const response = await fetch(`/api/agent-jobs/${job.id}`)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error ?? "Errore caricamento revisione")
+      setReviewDetails(data)
+    } catch (err: any) {
+      setError(err?.message ?? "Errore caricamento revisione")
+    } finally {
+      setIsLoadingReview(false)
+    }
+  }
+
+  async function mutateJob(id: string, action: "approve" | "reject" | "cancel" | "revise", message?: string) {
     setBusyJobId(id)
     setError(null)
     try {
       const response = await fetch(`/api/agent-jobs/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, message }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error ?? "Errore aggiornamento job")
       setJobs((current) => current.map((job) => (job.id === id ? data.job : job)))
+      if (reviewJobId === id) {
+        if (action === "revise") {
+          setReviewJobId(null)
+          setReviewDetails(null)
+          setRevisionMessage("")
+        } else {
+          await loadReview(data.job)
+        }
+      }
     } catch (err: any) {
       setError(err?.message ?? "Errore aggiornamento job")
     } finally {
       setBusyJobId(null)
     }
   }
+
+  const activeReviewJob = reviewDetails?.job ?? jobs.find((job) => job.id === reviewJobId) ?? null
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)]">
@@ -540,6 +591,18 @@ export function AgentJobsClient({
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-400">{job.brief}</p>
                   </div>
                   <div className="flex gap-2">
+                    {["needs_review", "approved", "rejected", "failed"].includes(job.status) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => loadReview(job)}
+                        className="rounded-lg border-cyan-300/30 bg-cyan-300/5 text-cyan-50 hover:bg-cyan-300/10"
+                      >
+                        <Eye className="mr-1.5 h-4 w-4" />
+                        Revisiona
+                      </Button>
+                    ) : null}
                     {job.status === "needs_review" ? (
                       <>
                         <Button
@@ -592,7 +655,7 @@ export function AgentJobsClient({
                 </div>
 
                 {job.resultSummary ? (
-                  <div className="mt-4 rounded-lg border border-cyan-300/15 bg-cyan-300/5 p-3 text-sm leading-6 text-cyan-50">
+                  <div className="mt-4 max-h-44 overflow-hidden rounded-lg border border-cyan-300/15 bg-cyan-300/5 p-3 text-sm leading-6 text-cyan-50">
                     {job.resultSummary}
                   </div>
                 ) : null}
@@ -606,6 +669,150 @@ export function AgentJobsClient({
             ))
           )}
         </div>
+
+        <Dialog
+          open={Boolean(reviewJobId)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setReviewJobId(null)
+              setReviewDetails(null)
+              setRevisionMessage("")
+            }
+          }}
+        >
+          <DialogContent className="max-h-[92vh] overflow-y-auto border-white/10 bg-[#080d19] text-white sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black">Revisione job agentico</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Leggi output e audit, poi approva, respingi o rimanda al runner con istruzioni precise.
+              </DialogDescription>
+            </DialogHeader>
+
+            {isLoadingReview || !activeReviewJob ? (
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Caricamento revisione...
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass[activeReviewJob.status]}`}>
+                      {statusCopy[activeReviewJob.status] ?? activeReviewJob.status}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+                      {activeReviewJob.jobType}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+                      P{activeReviewJob.priority}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-xl font-black leading-tight">{activeReviewJob.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{activeReviewJob.brief}</p>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+                  <div className="grid gap-4">
+                    <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.04] p-4">
+                      <div className="flex items-center gap-2 text-cyan-50">
+                        <FileText className="h-4 w-4" />
+                        <h4 className="font-black">Output runner</h4>
+                      </div>
+                      <div className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-200">
+                        {activeReviewJob.resultSummary || activeReviewJob.errorMessage || "Nessun output ancora disponibile."}
+                      </div>
+                    </section>
+
+                    <section className="rounded-lg border border-white/10 bg-[#050914] p-4">
+                      <div className="flex items-center gap-2">
+                        <MessageSquareText className="h-4 w-4 text-righello-pink" />
+                        <h4 className="font-black">Richiedi modifiche al runner</h4>
+                      </div>
+                      <Textarea
+                        className="mt-3 min-h-32 border-white/10 bg-[#080d19] text-sm leading-6 text-white"
+                        value={revisionMessage}
+                        onChange={(event) => setRevisionMessage(event.target.value)}
+                        placeholder="Es. Ricrea lo script usando le tabelle canoniche tasks/time_entries, non staging. Non inventare durate: lascia actual_minutes=0 e tag needs-duration. Aggiungi dettaglio per righello-site solo se verificato."
+                      />
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => mutateJob(activeReviewJob.id, "revise", revisionMessage)}
+                          disabled={busyJobId === activeReviewJob.id || revisionMessage.trim().length < 12}
+                          className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
+                        >
+                          <RefreshCw className="mr-1.5 h-4 w-4" />
+                          Rimanda in revisione
+                        </Button>
+                        {activeReviewJob.status === "needs_review" ? (
+                          <>
+                            <Button
+                              type="button"
+                              onClick={() => mutateJob(activeReviewJob.id, "approve", "Approvato dalla review room.")}
+                              disabled={busyJobId === activeReviewJob.id}
+                              className="rounded-lg bg-emerald-500 text-white hover:bg-emerald-400"
+                            >
+                              <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                              Approva
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => mutateJob(activeReviewJob.id, "reject", revisionMessage || "Risultato respinto dalla review room.")}
+                              disabled={busyJobId === activeReviewJob.id}
+                              className="rounded-lg border-red-400/30 bg-transparent text-red-100 hover:bg-red-500/10"
+                            >
+                              <XCircle className="mr-1.5 h-4 w-4" />
+                              Respingi
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </section>
+                  </div>
+
+                  <aside className="grid content-start gap-4">
+                    <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                      <h4 className="font-black">Artefatti</h4>
+                      <div className="mt-3 grid gap-2">
+                        {reviewDetails?.artifacts?.length ? (
+                          reviewDetails.artifacts.map((artifact) => (
+                            <div key={artifact.id} className="rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300">
+                              <p className="font-bold text-white">{artifact.label}</p>
+                              <p className="mt-1">{artifact.artifactType}</p>
+                              {artifact.r2Key ? <p className="mt-1 break-all text-slate-500">{artifact.r2Key}</p> : null}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-500">Nessun artefatto indicizzato.</p>
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                      <h4 className="font-black">Timeline audit</h4>
+                      <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto pr-1">
+                        {reviewDetails?.events?.length ? (
+                          reviewDetails.events.map((event) => (
+                            <div key={event.id} className="rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-bold text-white">{event.eventType}</p>
+                                <span className="text-slate-500">{formatRelativeTime(event.createdAt)}</span>
+                              </div>
+                              {event.message ? <p className="mt-1 text-slate-400">{event.message}</p> : null}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-500">Nessun evento registrato.</p>
+                        )}
+                      </div>
+                    </section>
+                  </aside>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <div className="mt-5 flex items-start gap-3 rounded-lg border border-emerald-300/15 bg-emerald-300/5 p-4 text-sm leading-6 text-emerald-50">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
