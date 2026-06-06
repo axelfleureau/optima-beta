@@ -124,6 +124,7 @@ type HeatmapSignalSelection = {
   person: CalendarPerson
   day: CalendarPersonDay
 }
+type HeatmapCellSelection = HeatmapSignalSelection
 type HeatmapDaySelection = {
   date: string
   records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>
@@ -812,6 +813,7 @@ function PresenceCalendarHeatmap({
   const [viewMode, setViewMode] = useState<"heatmap" | "calendar">("heatmap")
   const [compactPeopleColumn, setCompactPeopleColumn] = useState(false)
   const [activeSignal, setActiveSignal] = useState<HeatmapSignalSelection | null>(null)
+  const [activeCell, setActiveCell] = useState<HeatmapCellSelection | null>(null)
   const [activeDay, setActiveDay] = useState<HeatmapDaySelection | null>(null)
 
   const orderedCalendarPeople = useMemo(() => sortByOperationalRole(calendar.people), [calendar.people])
@@ -849,6 +851,24 @@ function PresenceCalendarHeatmap({
     gridTemplateColumns: `${peopleColumnWidth}px repeat(${calendar.days.length}, ${dayCellWidth}px)`,
     minWidth: `${peopleColumnWidth + calendar.days.length * dayCellWidth}px`,
   }
+  const selectedDayRecords = useMemo(
+    () => getCalendarDayRecords(visiblePeople, selectedDate),
+    [visiblePeople, selectedDate],
+  )
+  const activeHeatmapSelection = useMemo(() => {
+    if (
+      activeCell &&
+      activeCell.day.date === selectedDate &&
+      visiblePeople.some((person) => person.id === activeCell.person.id)
+    ) {
+      return activeCell
+    }
+
+    const meaningfulRecord =
+      selectedDayRecords.find(({ day }) => day.taskCount > 0 || day.activityMinutes > 0 || day.signal || day.status === "absent") ??
+      selectedDayRecords[0]
+    return meaningfulRecord ? { person: meaningfulRecord.person, day: meaningfulRecord.day } : null
+  }, [activeCell, selectedDate, selectedDayRecords, visiblePeople])
 
   return (
     <section className={cn(panelClass, "overflow-hidden")}>
@@ -1031,6 +1051,7 @@ function PresenceCalendarHeatmap({
                       compact={false}
                       onDateChange={onDateChange}
                       onShowSignal={setActiveSignal}
+                      onShowDetails={setActiveCell}
                     />
                   ))}
                 </div>
@@ -1105,6 +1126,7 @@ function PresenceCalendarHeatmap({
                     compact
                     onDateChange={onDateChange}
                     onShowSignal={setActiveSignal}
+                    onShowDetails={setActiveCell}
                   />
                 ))}
               </div>
@@ -1112,6 +1134,17 @@ function PresenceCalendarHeatmap({
           </div>
         </div>
       </div>
+
+      <HeatmapCellContextBanner
+        selection={activeHeatmapSelection}
+        dayRecords={selectedDayRecords}
+        onOpenDay={() => {
+          if (selectedDayRecords.length) {
+            setActiveDay({ date: selectedDate, records: selectedDayRecords })
+          }
+        }}
+        onClose={() => setActiveCell(null)}
+      />
 
       <div className="flex flex-wrap items-center gap-4 border-t border-white/10 px-5 py-4 text-xs text-slate-300">
         <span className="font-black uppercase tracking-[0.14em] text-slate-400">Legenda</span>
@@ -1304,6 +1337,7 @@ function CalendarHeatmapCell({
   compact,
   onDateChange,
   onShowSignal,
+  onShowDetails,
 }: {
   day: PresencePayload["calendar"]["people"][number]["days"][number]
   person: PresencePayload["calendar"]["people"][number]
@@ -1311,6 +1345,7 @@ function CalendarHeatmapCell({
   compact?: boolean
   onDateChange: (date: string) => void
   onShowSignal?: (selection: HeatmapSignalSelection) => void
+  onShowDetails?: (selection: HeatmapCellSelection) => void
 }) {
   const signal = calendarCellSignal(day)
   const Icon = signal.Icon
@@ -1318,7 +1353,7 @@ function CalendarHeatmapCell({
   const TimeSignalIcon = timeSignal?.Icon
   const handleSelect = () => {
     onDateChange(day.date)
-    if (timeSignal && onShowSignal) onShowSignal({ person, day })
+    onShowDetails?.({ person, day })
   }
 
   if (compact) {
@@ -1385,6 +1420,122 @@ function CalendarHeatmapCell({
         </span>
       )}
     </button>
+  )
+}
+
+function HeatmapCellContextBanner({
+  selection,
+  dayRecords,
+  onOpenDay,
+  onClose,
+}: {
+  selection: HeatmapCellSelection | null
+  dayRecords: Array<{ person: CalendarPerson; day: CalendarPersonDay }>
+  onOpenDay: () => void
+  onClose: () => void
+}) {
+  if (!selection) return null
+
+  const day = selection.day
+  const signal = calendarCellSignal(day)
+  const SignalIcon = signal.Icon
+  const timeSignal = dayTimeSignalMeta(day)
+  const TimeSignalIcon = timeSignal?.Icon || Clock
+  const daySummary = calendarDaySummary(dayRecords)
+  const taskTitles = day.taskTitles || []
+  const contextTone = timeSignal
+    ? timeSignal.tone
+    : day.missingDurationTaskCount > 0
+      ? "border-amber-300/55"
+      : "border-cyan-300/25"
+
+  return (
+    <div className="border-t border-white/10 px-4 py-4">
+      <div className={cn("overflow-hidden rounded-[8px] border bg-[#07101d]/95 text-white shadow-[0_20px_70px_rgba(0,0,0,0.28)]", contextTone)}>
+        <div className="relative border-b border-white/10 p-4">
+          <div className="absolute -right-8 -top-12 h-28 w-28 rounded-full bg-righello-cyan/12 blur-2xl" />
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">Giorno selezionato</p>
+              <h3 className="mt-1 flex min-w-0 items-center gap-2 text-xl font-black text-white">
+                <span className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border", timeSignal?.chipTone ?? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100")}>
+                  {timeSignal ? <TimeSignalIcon className="h-5 w-5" /> : <SignalIcon className="h-5 w-5" />}
+                </span>
+                <span className="min-w-0 truncate">
+                  {selection.person.name} · {formatDateLabel(day.date)}
+                </span>
+              </h3>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onOpenDay}
+                className="h-9 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-black text-cyan-100 hover:bg-cyan-300/15"
+              >
+                Apri giorno
+              </Button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-[8px] border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+                aria-label="Chiudi dettaglio cella"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 p-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Segnale</p>
+              <p className="mt-1 text-base font-black text-white">{timeSignal?.label ?? signal.label}</p>
+              {timeSignal ? <p className="mt-1 text-xs leading-5 text-slate-400">{timeSignal.description}</p> : null}
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Ore e task</p>
+              <p className="mt-1 text-base font-black text-white">
+                {formatMinutes(day.activityMinutes)} · {day.taskCount} task
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">
+                {day.completedTaskCount} completate/importate
+                {day.missingDurationTaskCount > 0 ? ` · ${day.missingDurationTaskCount} senza durata` : ""}
+              </p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Team nel giorno</p>
+              <p className="mt-1 text-base font-black text-white">
+                {daySummary.present} presenti · {daySummary.absent} assenti · {daySummary.holiday} festivi
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[8px] border border-white/10 bg-black/20 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Task del giorno</p>
+              <span className="rounded-[7px] border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-black text-slate-300">
+                {taskTitles.length}
+              </span>
+            </div>
+            {taskTitles.length ? (
+              <ul className="mt-3 grid gap-2">
+                {taskTitles.map((title, index) => (
+                  <li key={`${day.date}-${selection.person.id}-${index}`} className="rounded-[7px] border border-white/10 bg-white/[0.035] px-3 py-2 text-sm leading-5 text-slate-100">
+                    {title}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 rounded-[7px] border border-dashed border-white/12 px-3 py-3 text-sm leading-6 text-slate-400">
+                Nessuna task collegata a questa persona nel giorno selezionato.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
