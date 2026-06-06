@@ -36,6 +36,7 @@ export async function GET(request: Request) {
       "optima:agent-jobs",
       "optima:repositories",
       "optima:reports",
+      "optima:connectors",
     ],
   })
 }

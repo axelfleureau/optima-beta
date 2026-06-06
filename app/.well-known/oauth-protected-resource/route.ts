@@ -17,6 +17,7 @@ export async function GET(request: Request) {
       "optima:agent-jobs",
       "optima:repositories",
       "optima:reports",
+      "optima:connectors",
     ],
     bearer_methods_supported: ["header"],
   })
