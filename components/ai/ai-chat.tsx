@@ -2,13 +2,13 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useCallback, useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Send, Bot, User, MessageSquare, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, RefreshCw, AlertTriangle, Database, Network } from "lucide-react"
+import { Loader2, Send, Bot, User, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, RefreshCw, AlertTriangle, Database, Network, Radio } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/lib/chat-types"
@@ -50,6 +50,8 @@ export function AIChat({
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const [modelName, setModelName] = useState("Modello Óptima")
   const [contextSources, setContextSources] = useState<string[]>([])
+  const [lastInboxSyncAt, setLastInboxSyncAt] = useState<Date | null>(null)
+  const [isInboxSyncing, setIsInboxSyncing] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
@@ -103,6 +105,75 @@ export function AIChat({
   useEffect(() => {
     setCurrentSessionId(sessionId || null)
   }, [sessionId])
+
+  const hydrateSessionMessages = useCallback(
+    async (mode: "manual" | "poll" = "poll") => {
+      if (!currentSessionId || currentSessionId.startsWith("temp_") || isLoading) return
+
+      try {
+        if (mode === "manual") setIsInboxSyncing(true)
+        const response = await fetch(`/api/ai/chat/sessions/${currentSessionId}`, {
+          credentials: "include",
+          cache: "no-store",
+        })
+        if (!response.ok) return
+
+        const payload = await response.json()
+        const nextMessages: Message[] = (payload.messages || [])
+          .filter((message: any) => message.role === "user" || message.role === "assistant")
+          .map((message: any) => ({
+            id: String(message.id),
+            content: String(message.content || ""),
+            role: message.role,
+            timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+            canRegenerate: message.role === "assistant",
+          }))
+
+        if (!nextMessages.length) return
+
+        setMessages((current) => {
+          const currentSignature = current
+            .filter((message) => message.id !== "welcome" && !message.isStreaming)
+            .map((message) => `${message.id}:${message.content.length}`)
+            .join("|")
+          const nextSignature = nextMessages.map((message) => `${message.id}:${message.content.length}`).join("|")
+          return currentSignature === nextSignature ? current : nextMessages
+        })
+        setLastInboxSyncAt(new Date())
+      } catch (error) {
+        if (mode === "manual") {
+          toast({
+            title: "Sincronizzazione non riuscita",
+            description: "Non sono riuscito a rileggere la conversazione agentica.",
+            variant: "destructive",
+          })
+        }
+      } finally {
+        if (mode === "manual") setIsInboxSyncing(false)
+      }
+    },
+    [currentSessionId, isLoading, toast],
+  )
+
+  useEffect(() => {
+    if (!currentSessionId || currentSessionId.startsWith("temp_")) return
+
+    let cancelled = false
+    const sync = () => {
+      if (cancelled || document.visibilityState === "hidden") return
+      void hydrateSessionMessages("poll")
+    }
+    const interval = window.setInterval(sync, 12000)
+    const handleFocus = () => sync()
+    window.addEventListener("focus", handleFocus)
+    sync()
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [currentSessionId, hydrateSessionMessages])
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading || !userId) {
@@ -620,9 +691,28 @@ export function AIChat({
             variant="secondary"
             className="bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300 shadow-sm"
           >
-            <MessageSquare className="h-3 w-3 mr-1" />
-            Chat Attiva
+            <Radio className="h-3 w-3 mr-1" />
+            Inbox agentica
           </Badge>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-pink-100 bg-pink-50/70 px-3 py-2 text-xs text-pink-900 dark:border-pink-900/40 dark:bg-pink-950/20 dark:text-pink-100 sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex min-w-0 items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0">
+              Puoi scrivere una richiesta e lasciarla in carico: la risposta AI puo arrivare anche in un secondo momento.
+            </span>
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => hydrateSessionMessages("manual")}
+            disabled={!currentSessionId || isInboxSyncing || isLoading}
+            className="h-7 shrink-0 rounded-lg px-2 text-xs text-pink-700 hover:bg-pink-100 dark:text-pink-100 dark:hover:bg-pink-900/30"
+          >
+            {isInboxSyncing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-1 h-3 w-3" />}
+            Rileggi
+          </Button>
         </div>
       </div>
 
@@ -765,7 +855,7 @@ export function AIChat({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Scrivi il tuo messaggio... (Premi Invio per inviare)"
+              placeholder="Scrivi una richiesta operativa... l'AI puo rispondere subito o in differita"
               disabled={isLoading}
               className="min-h-[44px] max-h-32 resize-none border-gray-300 dark:border-gray-600 focus:border-pink-500 dark:focus:border-pink-400 rounded-xl shadow-sm"
               rows={1}
@@ -784,7 +874,7 @@ export function AIChat({
         <div className="mt-2 flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
           <span className="flex min-w-0 items-center gap-2 truncate">
             <Network className="h-3 w-3 flex-shrink-0 text-pink-500" />
-            <span className="truncate">{modelName} • memoria conversazioni • contesto operativo</span>
+            <span className="truncate">{modelName} • memoria conversazioni • inbox agentica</span>
           </span>
           {contextSources.length > 0 && (
             <span className="flex min-w-0 items-center gap-1 truncate">
@@ -792,7 +882,12 @@ export function AIChat({
               <span className="truncate">{contextSources.join(", ")}</span>
             </span>
           )}
-          {currentSessionId && <span>Sessione: {currentSessionId.slice(-8)}</span>}
+          {currentSessionId && (
+            <span>
+              Sessione: {currentSessionId.slice(-8)}
+              {lastInboxSyncAt ? ` · sync ${lastInboxSyncAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+            </span>
+          )}
         </div>
       </div>
     </div>
