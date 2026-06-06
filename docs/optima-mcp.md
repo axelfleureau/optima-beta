@@ -71,6 +71,7 @@ optima://connectors/catalog
 Restituisce la mappa delle capability MCP/operative da trattare come parti fondamentali del sistema:
 
 - SendGrid: email transazionali, rapportini, inviti e notifiche.
+- Telegram: canale conversazionale stile Hermes per ricevere indicazioni e rispondere usando AI Assistant.
 - Codex Runner: esecuzione agentica controllata su VPS.
 - Hermes Agent: sorgente open-source per memoria, skills, tool gateway, MCP host e loop agentico self-hosted.
 - Cloudinary: asset media collegati a clienti, campagne, task e deliverable.
@@ -82,6 +83,27 @@ Restituisce la mappa delle capability MCP/operative da trattare come parti fonda
 Il catalogo non espone valori segreti. Mostra solo stato configurativo e nomi delle variabili richieste.
 
 Hermes Agent puo essere usato come sorgente open e adapter VPS, non come sostituto del control plane. Optima resta il livello che governa grafo aziendale, permessi, memoria autorizzata, job, audit e approvazioni.
+
+## Telegram AI Assistant
+
+Webhook:
+
+```text
+POST https://<optima-domain>/api/ai/telegram
+```
+
+Variabili:
+
+```bash
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_WEBHOOK_SECRET=...
+TELEGRAM_ALLOWED_CHAT_IDS=123456789,987654321
+TELEGRAM_ALLOWED_USERNAMES=axelfleureau
+TELEGRAM_DEFAULT_MEMBER_EMAIL=axel@wearerighello.com
+TELEGRAM_MEMBER_EMAIL_MAP={"axelfleureau":"axel@wearerighello.com"}
+```
+
+Telegram usa lo stesso grafo operativo e salva le conversazioni nelle tabelle AI Assistant. Le richieste vengono accettate solo da chat id o username in allowlist e vengono associate a un membro Optima.
 
 ## Direzione Architetturale
 

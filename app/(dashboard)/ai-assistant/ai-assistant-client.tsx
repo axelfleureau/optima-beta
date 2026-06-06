@@ -291,7 +291,7 @@ export default function AIAssistantClient() {
                   </Badge>
                 </div>
                 <div className="space-y-2">
-                  {["Memoria conversazioni attiva", "Contesto operativo Óptima", "Modello GPT aggiornato"].map(
+                  {["Memoria conversazioni attiva", "Contesto operativo Óptima", "Canale Telegram predisposto", "Modello GPT aggiornato"].map(
                     (feature, index) => (
                       <div key={index} className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
                         <div

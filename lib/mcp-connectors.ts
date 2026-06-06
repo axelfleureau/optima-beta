@@ -4,7 +4,7 @@ export type StrategicMcpConnector = {
   id: string
   label: string
   status: StrategicMcpConnectorStatus
-  category: "ai" | "code" | "cloud" | "media" | "email" | "hosting"
+  category: "ai" | "code" | "cloud" | "media" | "email" | "hosting" | "messaging"
   purpose: string
   graphUse: string[]
   requiredEnv: string[]
@@ -26,6 +26,16 @@ const CONNECTORS: ConnectorSpec[] = [
     requiredEnv: ["SENDGRID_API_KEY"],
     optionalEnv: ["SENDGRID_FROM_EMAIL", "SENDGRID_FROM_NAME"],
     notes: "Usato da Optima per invii ordinati e tracciabili, non come canale generico non governato.",
+  },
+  {
+    id: "telegram",
+    label: "Telegram",
+    category: "messaging",
+    purpose: "Canale conversazionale stile Hermes: riceve indicazioni operative e risponde usando AI Assistant, memoria e grafo Optima.",
+    graphUse: ["conversazioni", "assistant_memories", "task", "clienti", "agent_jobs", "audit"],
+    requiredEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_DEFAULT_MEMBER_EMAIL"],
+    optionalEnv: ["TELEGRAM_WEBHOOK_SECRET", "TELEGRAM_ALLOWED_CHAT_IDS", "TELEGRAM_ALLOWED_USERNAMES", "TELEGRAM_MEMBER_EMAIL_MAP"],
+    notes: "Il bot non bypassa Optima: ogni messaggio viene associato a un membro autorizzato e salvato nella cronologia AI Assistant.",
   },
   {
     id: "codex",
