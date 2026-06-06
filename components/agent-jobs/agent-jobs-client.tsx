@@ -303,7 +303,7 @@ function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"]) {
     const laneNodes = grouped[lane] ?? [node]
     const index = laneNodes.findIndex((item) => item.id === node.id)
     const total = laneNodes.length
-    const x = total <= 1 ? 50 : 16 + index * (68 / Math.max(1, total - 1))
+    const x = total <= 1 ? 50 : 20 + index * (60 / Math.max(1, total - 1))
     return {
       node,
       x,
@@ -328,7 +328,7 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
   const featuredEdges = visibleEdges.slice(0, 4)
 
   return (
-    <div className="mt-3 overflow-hidden rounded-lg border border-white/10 bg-[#050914]/85">
+    <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-white/10 bg-[#050914]/85">
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa nodi</p>
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400">
@@ -357,7 +357,7 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
           {layout.map(({ node, x, y }) => (
             <div
               key={node.id}
-              className="absolute w-[8.5rem] -translate-x-1/2 -translate-y-1/2"
+              className="absolute w-[6.5rem] -translate-x-1/2 -translate-y-1/2 sm:w-[8.5rem]"
               style={{ left: `${x}%`, top: `${y}%` }}
             >
               <div className={`rounded-lg border px-2.5 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.28)] ${graphNodeTypeTone[node.nodeType] ?? "border-white/15 bg-white/[0.06] text-slate-100"}`}>
@@ -781,46 +781,45 @@ export function AgentJobsClient({
   }
   }
 
+  const mobileTabClass = (panel: typeof mobilePanel) =>
+    `h-11 min-w-0 gap-1 rounded-md px-1 text-xs font-black !whitespace-normal min-[390px]:gap-1.5 min-[390px]:text-sm ${
+      mobilePanel === panel ? "bg-righello-pink text-white" : "text-slate-300 hover:bg-white/10"
+    }`
+
   return (
-    <section className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
-      <div className="grid grid-cols-3 gap-2 rounded-lg border border-white/10 bg-white/[0.035] p-1 lg:hidden">
+    <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
+      <div className="grid min-w-0 grid-cols-3 gap-1 rounded-lg border border-white/10 bg-white/[0.035] p-1 lg:hidden">
         <Button
           type="button"
           variant="ghost"
           onClick={() => setMobilePanel("jobs")}
-          className={`h-10 rounded-md text-sm font-black ${
-            mobilePanel === "jobs" ? "bg-righello-pink text-white" : "text-slate-300 hover:bg-white/10"
-          }`}
+          className={mobileTabClass("jobs")}
         >
-          <ClipboardList className="mr-2 h-4 w-4" />
-          Coda
+          <ClipboardList className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 truncate">Coda</span>
         </Button>
         <Button
           type="button"
           variant="ghost"
           onClick={() => setMobilePanel("create")}
-          className={`h-10 rounded-md text-sm font-black ${
-            mobilePanel === "create" ? "bg-righello-pink text-white" : "text-slate-300 hover:bg-white/10"
-          }`}
+          className={mobileTabClass("create")}
         >
-          <Plus className="mr-2 h-4 w-4" />
-          Crea
+          <Plus className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 truncate">Crea</span>
         </Button>
         <Button
           type="button"
           variant="ghost"
           onClick={() => setMobilePanel("stack")}
-          className={`h-10 rounded-md text-sm font-black ${
-            mobilePanel === "stack" ? "bg-righello-pink text-white" : "text-slate-300 hover:bg-white/10"
-          }`}
+          className={mobileTabClass("stack")}
         >
-          <Network className="mr-2 h-4 w-4" />
-          Stack
+          <Network className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 truncate">Stack</span>
         </Button>
       </div>
 
       <div
-        className={`rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-1 ${
+        className={`min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-1 ${
           mobilePanel === "create" ? "block" : "hidden"
         } lg:block`}
       >
@@ -973,30 +972,30 @@ export function AgentJobsClient({
       </div>
 
       <div
-        className={`rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-3 ${
+        className={`min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-3 ${
           mobilePanel === "stack" ? "block" : "hidden"
         } lg:col-span-2 lg:block`}
       >
-        <div className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+        <div className="flex min-w-0 flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Agentic OS</p>
             <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Provider, MCP e subagenti</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
+            <p className="mt-2 break-words text-sm leading-6 text-slate-400">
               Ogni capability e tenant-scoped: OAuth/PKCE dove possibile, installazione guidata per runner locali, secret solo come riferimento protetto.
             </p>
           </div>
-          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">
+          <span className="w-fit max-w-full rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">
             multi-tenant
           </span>
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="grid gap-3">
-            <div className="rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+        <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="grid min-w-0 gap-3">
+            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="font-black text-white">Provider AI operativi</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
                     Attiva provider per lane: codice, ricerca, media, operations e chat. Optima salva policy e secret_ref, non token in chiaro.
                   </p>
                 </div>
@@ -1007,7 +1006,7 @@ export function AgentJobsClient({
                   const state = installation?.installState ?? "not_installed"
                   const busy = capabilityAction === `provider:${provider.id}`
                   return (
-                    <div key={provider.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div key={provider.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate font-black text-white">{provider.label}</p>
@@ -1024,7 +1023,7 @@ export function AgentJobsClient({
                       <div className="mt-2 flex flex-wrap gap-1">
                         {provider.requiredSecrets.length ? (
                           provider.requiredSecrets.slice(0, 2).map((secret) => (
-                            <span key={secret} className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold text-amber-100">
+                            <span key={secret} className="max-w-full truncate rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold text-amber-100">
                               {secret}
                             </span>
                           ))
@@ -1056,19 +1055,19 @@ export function AgentJobsClient({
               ) : null}
             </div>
 
-            <div className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">
+            <div className="min-w-0 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">
               <p className="font-black text-cyan-50">OAuth e installazioni guidate</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
+              <p className="mt-2 break-words text-sm leading-6 text-slate-300">
                 {capabilities?.oauthGuidance.pattern ??
                   "Authorization Code + PKCE per installazioni utente, GitHub App per repository, secret_ref per API key e local_install per runner self-hosted."}
               </p>
             </div>
 
-            <div className="rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.055] p-3 sm:p-4">
+            <div className="min-w-0 rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.055] p-3 sm:p-4">
               <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
-                <div>
+                <div className="min-w-0">
                   <p className="font-black text-white">Graph memory aziendale</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                  <p className="mt-2 break-words text-sm leading-6 text-slate-300">
                     Nodi, archi e sessioni collegano persone, task, repo, clienti, subagenti e sorgenti. Le relazioni hanno confidence esplicita: manual, extracted, inferred o ambiguous.
                   </p>
                 </div>
@@ -1103,7 +1102,7 @@ export function AgentJobsClient({
               <div className="mt-3 flex flex-wrap gap-2">
                 {graphTypes.length ? (
                   graphTypes.map(([type, count]) => (
-                    <span key={type} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                    <span key={type} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
                       {type}: {count}
                     </span>
                   ))
@@ -1114,12 +1113,12 @@ export function AgentJobsClient({
             </div>
           </div>
 
-          <div className="grid gap-3">
-            <div className="rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+          <div className="grid min-w-0 gap-3">
+            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
-                <div>
+                <div className="min-w-0">
                   <p className="font-black text-white">Subagenti</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
                     Profili operativi con provider, connector e permessi espliciti.
                   </p>
                 </div>
@@ -1140,7 +1139,7 @@ export function AgentJobsClient({
                   const subagent = subagentsBySlug.get(template.slug)
                   const busy = capabilityAction === `subagent:${template.slug}`
                   return (
-                    <div key={template.slug} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div key={template.slug} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-center justify-between gap-3">
                         <p className="min-w-0 truncate text-sm font-black text-white">{subagent?.name ?? template.name}</p>
                         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${subagent ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-400"}`}>
@@ -1150,7 +1149,7 @@ export function AgentJobsClient({
                       <p className="mt-1 truncate text-xs text-slate-500">
                         {(subagent?.primaryProviderId ?? template.primaryProviderId)} · {(subagent?.connectorIds ?? template.connectorIds).join(", ")}
                       </p>
-                      <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-2">
+                      <div className="mt-2 grid min-w-0 grid-cols-1 items-center gap-2 min-[380px]:grid-cols-[minmax(0,1fr)_auto]">
                         <p className="truncate text-xs text-slate-400">{template.lane} · {template.modelHint}</p>
                         <Button
                           type="button"
@@ -1158,7 +1157,7 @@ export function AgentJobsClient({
                           variant="outline"
                           onClick={() => createRecommendedSubagent(template)}
                           disabled={busy}
-                          className="h-7 rounded-lg border-white/10 bg-transparent px-2 text-[11px] text-white hover:bg-white/10"
+                          className="h-7 w-full rounded-lg border-white/10 bg-transparent px-2 text-[11px] text-white hover:bg-white/10 min-[380px]:w-auto"
                         >
                           {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
                           {subagent ? "Aggiorna" : "Crea"}
@@ -1170,7 +1169,7 @@ export function AgentJobsClient({
               </div>
               <div className="mt-3 grid gap-2">
                 {(capabilities?.subagents ?? []).slice(0, 5).map((subagent) => (
-                  <div key={subagent.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div key={subagent.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="min-w-0 truncate text-sm font-black text-white">{subagent.name}</p>
                       <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-300">
@@ -1188,9 +1187,9 @@ export function AgentJobsClient({
               </div>
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <p className="font-black text-white">MCP strategici</p>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
+              <p className="mt-1 break-words text-sm leading-6 text-slate-400">
                 Ogni connector diventa un nodo installabile con scope, env richieste e uso nel grafo.
               </p>
               <div className="mt-3 grid gap-2">
@@ -1199,11 +1198,11 @@ export function AgentJobsClient({
                   const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
                   const busy = capabilityAction === `connector:${connector.id}`
                   return (
-                    <div key={connector.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div key={connector.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-white">{connector.label}</p>
-                          <p className="mt-1 truncate text-xs text-slate-500">{connector.category} · {connector.requiredEnv.length ? connector.requiredEnv.join(", ") : "oauth/reference"}</p>
+                          <p className="mt-1 break-words text-xs text-slate-500">{connector.category} · {connector.requiredEnv.length ? connector.requiredEnv.join(", ") : "oauth/reference"}</p>
                         </div>
                         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${installTone(state)}`}>
                           {installLabel(state)}
@@ -1212,7 +1211,7 @@ export function AgentJobsClient({
                       <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{connector.purpose}</p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {connector.graphUse.slice(0, 4).map((scope) => (
-                          <span key={scope} className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
+                          <span key={scope} className="max-w-full truncate rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
                             {scope}
                           </span>
                         ))}
@@ -1234,11 +1233,11 @@ export function AgentJobsClient({
               </div>
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <p className="font-black text-white">Sorgenti agentiche</p>
               <div className="mt-3 grid gap-2">
                 {(graphMemory?.referenceSources ?? []).map((source) => (
-                  <div key={source.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div key={source.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="min-w-0 truncate text-sm font-black text-white">{source.label}</p>
                       <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-300">
@@ -1258,7 +1257,7 @@ export function AgentJobsClient({
       </div>
 
       <div
-        className={`rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-2 ${
+        className={`min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-2 ${
           mobilePanel === "jobs" ? "block" : "hidden"
         } lg:block`}
       >
@@ -1277,7 +1276,7 @@ export function AgentJobsClient({
           </Button>
         </div>
 
-        <div className="mt-4 grid grid-cols-4 gap-2 sm:gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {[
             ["In coda", stats.queued],
             ["In esecuzione", stats.running],

@@ -8,7 +8,7 @@ import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 export const dynamic = "force-dynamic"
 
 const pageClass =
-  "h-[calc(100svh-73px)] overflow-y-auto overscroll-contain bg-[#050914] text-slate-100 md:h-auto md:min-h-screen md:overflow-visible"
+  "h-[calc(100svh-73px)] overflow-x-hidden overflow-y-auto overscroll-contain bg-[#050914] text-slate-100 md:h-auto md:min-h-screen md:overflow-visible"
 
 export default async function AgentiPage() {
   const user = await requireClerkUser()
@@ -61,7 +61,7 @@ export default async function AgentiPage() {
 
   return (
     <div className={pageClass}>
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 md:py-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-5 sm:gap-6 sm:px-6 md:py-8">
         <header className="max-w-4xl">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-righello-pink">Óptima AI Ops</p>
           <h1 className="mt-3 text-3xl font-black leading-tight text-white md:text-5xl">
