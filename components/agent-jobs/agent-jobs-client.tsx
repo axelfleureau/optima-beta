@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
   Bot,
@@ -12,6 +12,7 @@ import {
   GitBranch,
   Loader2,
   MessageSquareText,
+  Network,
   Play,
   Plus,
   Radio,
@@ -61,6 +62,35 @@ interface AgentJobDetails {
   job: AgentJob
   artifacts: AgentJobArtifact[]
   events: AgentJobEvent[]
+}
+
+interface AgenticCapabilities {
+  providerCatalog: Array<{
+    id: string
+    label: string
+    lane: string
+    authMethod: string
+    defaultModel: string
+  }>
+  mcpConnectorCatalog: Array<{
+    id: string
+    label: string
+    status: string
+  }>
+  providerInstallations: Array<{ providerId: string; installState: string }>
+  connectorInstallations: Array<{ connectorId: string; installState: string }>
+  subagents: Array<{
+    id: string
+    name: string
+    lane: string
+    status: string
+    primaryProviderId: string
+    connectorIds: string[]
+  }>
+  oauthGuidance: {
+    pattern: string
+    rules: string[]
+  }
 }
 
 const initialForm = {
@@ -141,7 +171,24 @@ export function AgentJobsClient({
   const [reviewDetails, setReviewDetails] = useState<AgentJobDetails | null>(null)
   const [isLoadingReview, setIsLoadingReview] = useState(false)
   const [revisionMessage, setRevisionMessage] = useState("")
-  const [mobilePanel, setMobilePanel] = useState<"jobs" | "create">("jobs")
+  const [mobilePanel, setMobilePanel] = useState<"jobs" | "create" | "stack">("jobs")
+  const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/agentic-capabilities")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data) setCapabilities(data)
+      })
+      .catch(() => {
+        if (active) setCapabilities(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const stats = useMemo(() => {
     return {
@@ -322,10 +369,12 @@ export function AgentJobsClient({
   }
 
   const activeReviewJob = reviewDetails?.job ?? jobs.find((job) => job.id === reviewJobId) ?? null
+  const installedProviderIds = new Set(capabilities?.providerInstallations.map((item) => item.providerId) ?? [])
+  const installedConnectorIds = new Set(capabilities?.connectorInstallations.map((item) => item.connectorId) ?? [])
 
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
-      <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-white/[0.035] p-1 lg:hidden">
+      <div className="grid grid-cols-3 gap-2 rounded-lg border border-white/10 bg-white/[0.035] p-1 lg:hidden">
         <Button
           type="button"
           variant="ghost"
@@ -348,10 +397,21 @@ export function AgentJobsClient({
           <Plus className="mr-2 h-4 w-4" />
           Crea
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setMobilePanel("stack")}
+          className={`h-10 rounded-md text-sm font-black ${
+            mobilePanel === "stack" ? "bg-righello-pink text-white" : "text-slate-300 hover:bg-white/10"
+          }`}
+        >
+          <Network className="mr-2 h-4 w-4" />
+          Stack
+        </Button>
       </div>
 
       <div
-        className={`rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 ${
+        className={`rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-1 ${
           mobilePanel === "create" ? "block" : "hidden"
         } lg:block`}
       >
@@ -363,7 +423,7 @@ export function AgentJobsClient({
             <p className="text-xs font-black uppercase tracking-[0.22em] text-righello-pink">AI Ops</p>
             <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Crea job operativo</h2>
             <p className="mt-2 hidden text-sm leading-6 text-slate-400 sm:block">
-              Brief, contesto e output attesi finiscono nel control plane. Optima risolve il grafo operativo, il runner VPS prende in carico il lavoro in polling.
+              Brief, contesto e output attesi finiscono nel control plane. Optima risolve grafo, subagente e strumenti; il runner VPS prende in carico il lavoro in polling.
             </p>
           </div>
         </div>
@@ -504,7 +564,112 @@ export function AgentJobsClient({
       </div>
 
       <div
-        className={`rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 ${
+        className={`rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-3 ${
+          mobilePanel === "stack" ? "block" : "hidden"
+        } lg:col-span-2 lg:block`}
+      >
+        <div className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Agentic OS</p>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Provider, MCP e subagenti</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Ogni capability e tenant-scoped: OAuth/PKCE dove possibile, installazione guidata per runner locali, secret solo come riferimento protetto.
+            </p>
+          </div>
+          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">
+            multi-tenant
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid gap-3">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {(capabilities?.providerCatalog ?? []).slice(0, 6).map((provider) => (
+                <div key={provider.id} className="rounded-lg border border-white/10 bg-[#060a15] p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-black text-white">{provider.label}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {provider.lane} · {provider.authMethod}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                        installedProviderIds.has(provider.id)
+                          ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                          : "border-white/10 bg-white/5 text-slate-400"
+                      }`}
+                    >
+                      {installedProviderIds.has(provider.id) ? "attivo" : "guida"}
+                    </span>
+                  </div>
+                  <p className="mt-2 truncate text-xs text-cyan-100">{provider.defaultModel}</p>
+                </div>
+              ))}
+              {!capabilities ? (
+                <div className="rounded-lg border border-white/10 bg-[#060a15] p-3 text-sm text-slate-400">
+                  Caricamento stack agentico...
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">
+              <p className="font-black text-cyan-50">OAuth e installazioni guidate</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                {capabilities?.oauthGuidance.pattern ??
+                  "Authorization Code + PKCE per installazioni utente, GitHub App per repository, secret_ref per API key e local_install per runner self-hosted."}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+              <p className="font-black text-white">Subagenti</p>
+              <div className="mt-3 grid gap-2">
+                {(capabilities?.subagents ?? []).slice(0, 5).map((subagent) => (
+                  <div key={subagent.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate text-sm font-black text-white">{subagent.name}</p>
+                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                        {subagent.lane}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {subagent.primaryProviderId} · {subagent.connectorIds.join(", ") || "nessun connector"}
+                    </p>
+                  </div>
+                ))}
+                {capabilities && capabilities.subagents.length === 0 ? (
+                  <p className="text-sm text-slate-500">Nessun subagente configurato per questo tenant.</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+              <p className="font-black text-white">MCP strategici</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(capabilities?.mcpConnectorCatalog ?? []).map((connector) => (
+                  <span
+                    key={connector.id}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-bold ${
+                      connector.status === "enabled" || installedConnectorIds.has(connector.id)
+                        ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                        : connector.status === "partial"
+                          ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                          : "border-white/10 bg-white/5 text-slate-400"
+                    }`}
+                  >
+                    {connector.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={`rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-2 ${
           mobilePanel === "jobs" ? "block" : "hidden"
         } lg:block`}
       >

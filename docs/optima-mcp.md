@@ -55,6 +55,10 @@ Il token di servizio non sostituisce OAuth per client esterni. Serve solo per bo
   - lista rapportini inviati in attesa di revisione.
 - `optima_connector_catalog`
   - espone il catalogo dei connettori strategici dell'OS agentico.
+- `optima_agentic_capability_catalog`
+  - espone provider AI/code, connettori MCP, stato installazioni tenant e regole OAuth/installazione.
+- `optima_subagent_roster`
+  - lista subagenti configurati per il tenant, con provider primario, lane e connector concessi.
 
 ## Risorsa MCP
 
@@ -81,6 +85,47 @@ Restituisce la mappa delle capability MCP/operative da trattare come parti fonda
 - Hostinger VPS: runner persistente e servizi che devono restare svegli senza browser.
 
 Il catalogo non espone valori segreti. Mostra solo stato configurativo e nomi delle variabili richieste.
+
+```text
+optima://agentic/capabilities
+```
+
+Restituisce lo stack agentico multi-tenant:
+
+- provider AI/code: Codex, OpenCode, Gemma, Qwen, MiniMax, OpenAI;
+- connettori MCP: SendGrid, Telegram, Cloudinary, GitHub, Cloudflare, Vercel, Hostinger;
+- installazioni per tenant;
+- roster subagenti;
+- regole OAuth/installazione.
+
+## Multi-Tenant Capability Layer
+
+Migration: `migrations/0019_agentic_capabilities.sql`
+
+Tabelle:
+
+- `agentic_provider_installations`
+  - stato provider per organization: modello, auth method, policy, `secret_ref`.
+- `mcp_connector_installations`
+  - stato MCP per organization: OAuth/API key/manual install, scope, health.
+- `agent_subagents`
+  - subagenti tenant-scoped con lane, provider primario, connector concessi e policy handoff.
+
+Regola sicurezza:
+
+- D1 non salva token, password o API key.
+- D1 salva solo stato, scope, policy, subject OAuth e `secret_ref`.
+- Le credenziali vere restano in OAuth provider, Cloudflare secrets, vault esterno o ambiente runner.
+
+Pattern installazione:
+
+- OAuth Authorization Code + PKCE per connector user-delegated.
+- GitHub App installation per repository e permessi codice.
+- API key secret con `secret_ref` per provider senza OAuth adeguato.
+- Local install per Gemma/OpenCode o modelli/tool self-hosted sul VPS.
+- External OAuth per provider gestiti da app terze.
+
+I subagenti non sono account separati senza controllo: sono profili operativi del tenant. Ogni subagente riceve solo lane, provider e connector dichiarati; le azioni rischiose tornano sempre nella review room.
 
 Hermes Agent puo essere usato come sorgente open e adapter VPS, non come sostituto del control plane. Optima resta il livello che governa grafo aziendale, permessi, memoria autorizzata, job, audit e approvazioni.
 

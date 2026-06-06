@@ -109,6 +109,19 @@ Regole operative:
 - cleanup worktree dopo review o dopo N giorni;
 - PR/patch prima del deploy;
 - deploy solo con job esplicito e approvazione admin.
+- selezionare subagente, provider e tool dal control plane, non da preferenze hardcoded nel runner.
+- per provider locali come Gemma/OpenCode, il runner espone solo capability e health; Optima resta responsabile di tenant, permessi, audit e review.
+
+## Subagenti e tool lane
+
+Il runner puo eseguire piu profili agentici, ma ogni profilo resta dichiarato in `agent_subagents`:
+
+- `code`: Codex/OpenCode con GitHub, Cloudflare, Vercel, Hostinger.
+- `research`: Qwen/OpenAI con repository, fonti e knowledge graph.
+- `media`: MiniMax/Cloudinary con asset collegati a cliente/campagna/task.
+- `operations`: Gemma/OpenAI con SendGrid, Telegram, rapportini e task.
+
+Il runner non decide autonomamente quali integrazioni usare: riceve dal job una lane e un context bundle. Se mancano provider o MCP richiesti, deve restituire `needs_review` con una richiesta di installazione guidata.
 
 ## Variabili Cloudflare
 

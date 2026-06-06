@@ -1,4 +1,5 @@
 import { AGENT_ADMIN_ROLES, createAgentJob } from "@/lib/agent-jobs"
+import { getAgenticCapabilitySnapshot } from "@/lib/agentic-capabilities"
 import { createId } from "@/lib/cloudflare-db"
 import {
   buildOperationalContextSnapshot,
@@ -135,7 +136,64 @@ function toolsList() {
         },
       },
     },
+    {
+      name: "optima_agentic_capability_catalog",
+      title: "Optima tenant agentic capability catalog",
+      description: "Mostra provider AI/code, connector MCP, regole OAuth/installazione e stato configurazione del tenant.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          includeInstallations: {
+            type: "boolean",
+            description: "Include installazioni tenant e subagenti oltre al catalogo statico.",
+          },
+        },
+      },
+    },
+    {
+      name: "optima_subagent_roster",
+      title: "Optima subagent roster",
+      description: "Lista i subagenti configurati per il tenant: lane, provider primario, connector concessi e policy handoff.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          lane: { type: "string", description: "Filtra per lane: code, research, media, operations, chat." },
+        },
+      },
+    },
   ]
+}
+
+function formatCapabilitySnapshot(snapshot: Awaited<ReturnType<typeof getAgenticCapabilitySnapshot>>) {
+  const providers = snapshot.providerCatalog
+    .map((provider) => {
+      return [
+        `## ${provider.label}`,
+        `- id: ${provider.id}`,
+        `- lane: ${provider.lane}`,
+        `- auth: ${provider.authMethod}`,
+        `- installazione: ${provider.installPattern}`,
+        `- uso tenant: ${provider.tenantUse}`,
+        `- MCP consigliati: ${provider.recommendedMcpConnectors.join(", ") || "nessuno"}`,
+      ].join("\n")
+    })
+    .join("\n\n")
+
+  return [
+    "# Optima Agentic Capabilities",
+    "",
+    "## Regola OAuth/install",
+    snapshot.oauthGuidance.pattern,
+    "",
+    ...snapshot.oauthGuidance.rules.map((rule) => `- ${rule}`),
+    "",
+    "## Provider",
+    providers,
+    "",
+    `## Installazioni provider tenant: ${snapshot.providerInstallations.length}`,
+    `## Installazioni MCP tenant: ${snapshot.connectorInstallations.length}`,
+    `## Subagenti tenant: ${snapshot.subagents.length}`,
+  ].join("\n")
 }
 
 async function callTool(name: string, args: any, db: any, principal: any) {
@@ -275,6 +333,41 @@ async function callTool(name: string, args: any, db: any, principal: any) {
       return toolResult(formatStrategicMcpConnectors(connectors), { connectors })
     }
 
+    case "optima_agentic_capability_catalog": {
+      const snapshot = await getAgenticCapabilitySnapshot(db, principal)
+      const structuredContent = args?.includeInstallations
+        ? snapshot
+        : {
+            providerCatalog: snapshot.providerCatalog,
+            mcpConnectorCatalog: snapshot.mcpConnectorCatalog,
+            oauthGuidance: snapshot.oauthGuidance,
+          }
+      return toolResult(formatCapabilitySnapshot(snapshot), structuredContent)
+    }
+
+    case "optima_subagent_roster": {
+      const snapshot = await getAgenticCapabilitySnapshot(db, principal)
+      const lane = String(args?.lane || "").trim()
+      const subagents = lane
+        ? snapshot.subagents.filter((subagent) => subagent.lane === lane)
+        : snapshot.subagents
+      const text = subagents.length
+        ? subagents
+            .map((subagent) =>
+              [
+                `## ${subagent.name}`,
+                `- slug: ${subagent.slug}`,
+                `- lane: ${subagent.lane}`,
+                `- provider: ${subagent.primaryProviderId}${subagent.modelHint ? ` / ${subagent.modelHint}` : ""}`,
+                `- connector: ${subagent.connectorIds.join(", ") || "nessuno"}`,
+                `- stato: ${subagent.status}`,
+              ].join("\n"),
+            )
+            .join("\n\n")
+        : "Nessun subagente configurato per questo tenant."
+      return toolResult(text, { subagents })
+    }
+
     default:
       return toolResult(`Tool MCP non supportato: ${name}`)
   }
@@ -336,6 +429,12 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
           title: "Optima MCP strategic connector catalog",
           mimeType: "text/plain",
         },
+        {
+          uri: "optima://agentic/capabilities",
+          name: "Optima tenant agentic capabilities",
+          title: "Optima tenant agentic capabilities",
+          mimeType: "text/plain",
+        },
       ],
     })
   }
@@ -361,6 +460,19 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
             uri: "optima://connectors/catalog",
             mimeType: "text/plain",
             text: formatStrategicMcpConnectors(),
+          },
+        ],
+      })
+    }
+
+    if (params?.uri === "optima://agentic/capabilities") {
+      const snapshot = await getAgenticCapabilitySnapshot(db, principal)
+      return jsonRpcResult(id, {
+        contents: [
+          {
+            uri: "optima://agentic/capabilities",
+            mimeType: "text/plain",
+            text: formatCapabilitySnapshot(snapshot),
           },
         ],
       })
