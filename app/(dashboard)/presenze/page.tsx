@@ -96,6 +96,7 @@ type PresencePayload = {
         taskCount: number
         completedTaskMinutes: number
         completedTaskCount: number
+        missingDurationTaskCount: number
         taskTitles: string[]
         loadMinutes: number
         intensity: number
@@ -338,6 +339,7 @@ function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["d
   if (day.status === "absent") return "border-red-300/75 bg-red-500/75 text-white shadow-[0_0_20px_rgba(248,113,113,0.22)]"
   if (day.status === "holiday") return "border-slate-300/25 bg-slate-400/16 text-slate-300"
   if (day.status === "missing" && day.intensity === 0) return "border-white/10 bg-white/[0.075] text-slate-500"
+  if (day.missingDurationTaskCount > 0) return "border-amber-300/70 bg-amber-300/20 text-amber-50 shadow-[0_0_18px_rgba(251,191,36,0.18)]"
 
   const intensityClasses = [
     "border-white/12 bg-white/[0.09] text-slate-400",
@@ -357,6 +359,9 @@ function calendarCellSignal(day: PresencePayload["calendar"]["people"][number]["
   if (day.status === "holiday") {
     return { label: "Festivo", short: "F", Icon: CalendarDays }
   }
+  if (day.missingDurationTaskCount > 0) {
+    return { label: "Da consuntivare", short: String(day.missingDurationTaskCount), Icon: AlertCircle }
+  }
   if (day.intensity >= 4) return { label: "Sprint", short: day.taskCount > 0 ? String(day.taskCount) : "MAX", Icon: Flame }
   if (day.intensity >= 3) return { label: "Focus", short: day.taskCount > 0 ? String(day.taskCount) : "F", Icon: Activity }
   if (day.intensity >= 2) return { label: "Operativo", short: day.taskCount > 0 ? String(day.taskCount) : "ON", Icon: Activity }
@@ -375,6 +380,7 @@ function calendarDayTitle(person: PresencePayload["calendar"]["people"][number],
     `Task collegate: ${day.taskCount}`,
   ]
   if (day.completedTaskCount > 0) parts.push(`Task completate/importate: ${day.completedTaskCount}`)
+  if (day.missingDurationTaskCount > 0) parts.push(`Durate mancanti: ${day.missingDurationTaskCount}`)
   if (day.signal) parts.push(`Indicatore orario: ${dayTimeSignalLabel(day)}`)
   if (day.checkInAt) parts.push(`Entrata: ${formatTime(day.checkInAt)}`)
   if (day.checkOutAt) parts.push(`Uscita: ${formatTime(day.checkOutAt)}`)
@@ -1420,7 +1426,7 @@ function HeatmapSignalDialog({
   const day = selection.day
   const productivityLabel =
     day.activityMinutes > 0 || day.taskCount > 0
-      ? `${formatMinutes(day.activityMinutes)} registrate · ${day.taskCount} task collegate`
+      ? `${formatMinutes(day.activityMinutes)} registrate · ${day.taskCount} task collegate${day.missingDurationTaskCount > 0 ? ` · ${day.missingDurationTaskCount} da consuntivare` : ""}`
       : "Nessuna attività collegata nel giorno"
 
   return (
@@ -1566,6 +1572,7 @@ function HeatmapDayDialog({
                 {day.completedTaskCount > 0 ? (
                   <p className="mt-2 text-xs opacity-75">
                     {day.completedTaskCount} task completate/importate nel giorno
+                    {day.missingDurationTaskCount > 0 ? ` · ${day.missingDurationTaskCount} senza durata` : ""}
                   </p>
                 ) : null}
                 {day.taskTitles?.length ? (

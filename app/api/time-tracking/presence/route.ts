@@ -150,6 +150,7 @@ function mapCalendarDay({
   const taskCount = Number(tasks?.task_count || 0)
   const completedTaskMinutes = Number(tasks?.completed_task_minutes || 0)
   const completedTaskCount = Number(tasks?.completed_task_count || 0)
+  const missingDurationTaskCount = Number(tasks?.missing_duration_task_count || 0)
   const taskTitles =
     typeof tasks?.task_titles === "string" && tasks.task_titles
       ? String(tasks.task_titles)
@@ -190,6 +191,7 @@ function mapCalendarDay({
     taskCount,
     completedTaskMinutes,
     completedTaskCount,
+    missingDurationTaskCount,
     taskTitles,
     loadMinutes,
     intensity,
@@ -508,12 +510,12 @@ export async function GET(request: NextRequest) {
                   COUNT(*) AS completed_task_count,
                   SUM(CASE
                     WHEN actual_minutes IS NOT NULL AND actual_minutes > 0 THEN actual_minutes
-                    WHEN estimated_minutes IS NOT NULL AND estimated_minutes > 0 THEN estimated_minutes
-                    WHEN priority = 'urgent' THEN 240
-                    WHEN priority = 'high' THEN 180
-                    WHEN priority = 'low' THEN 45
-                    ELSE 90
+                    ELSE 0
                   END) AS completed_task_minutes,
+                  SUM(CASE
+                    WHEN actual_minutes IS NULL OR actual_minutes <= 0 THEN 1
+                    ELSE 0
+                  END) AS missing_duration_task_count,
                   GROUP_CONCAT(title, '|||') AS completed_task_titles
            FROM tasks
            WHERE organization_id = ?
@@ -560,6 +562,7 @@ export async function GET(request: NextRequest) {
         task_minutes: Number(current.task_minutes || 0) + Number(day.completed_task_minutes || 0),
         completed_task_count: Number(day.completed_task_count || 0),
         completed_task_minutes: Number(day.completed_task_minutes || 0),
+        missing_duration_task_count: Number(day.missing_duration_task_count || 0),
         task_titles: [current.task_titles, day.completed_task_titles].filter(Boolean).join("|||"),
       })
     }
