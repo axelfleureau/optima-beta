@@ -249,12 +249,14 @@ export async function upsertAgentRunnerHeartbeat(
         last_claim_at = COALESCE(excluded.last_claim_at, agent_runner_heartbeats.last_claim_at),
         last_error_at = CASE
           WHEN excluded.last_error_message IS NOT NULL THEN CURRENT_TIMESTAMP
+          WHEN excluded.status != 'error' THEN NULL
           ELSE agent_runner_heartbeats.last_error_at
         END,
-        last_error_message = COALESCE(
-          excluded.last_error_message,
-          agent_runner_heartbeats.last_error_message
-        ),
+        last_error_message = CASE
+          WHEN excluded.last_error_message IS NOT NULL THEN excluded.last_error_message
+          WHEN excluded.status != 'error' THEN NULL
+          ELSE agent_runner_heartbeats.last_error_message
+        END,
         metadata_json = excluded.metadata_json,
         updated_at = CURRENT_TIMESTAMP`,
     )
