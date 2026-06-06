@@ -111,6 +111,8 @@ Regole operative:
 - deploy solo con job esplicito e approvazione admin.
 - selezionare subagente, provider e tool dal control plane, non da preferenze hardcoded nel runner.
 - per provider locali come Gemma/OpenCode, il runner espone solo capability e health; Optima resta responsabile di tenant, permessi, audit e review.
+- quando usa Graphify, importare in Optima solo nodi/archi con source e confidence esplicite; niente deduzioni operative senza review.
+- quando usa pattern Hermes, mantenere Optima come control plane: Hermes puo ispirare gateway/memoria/tooling, ma permessi, audit e approvazione restano in Optima.
 
 ## Subagenti e tool lane
 
@@ -122,6 +124,21 @@ Il runner puo eseguire piu profili agentici, ma ogni profilo resta dichiarato in
 - `operations`: Gemma/OpenAI con SendGrid, Telegram, rapportini e task.
 
 Il runner non decide autonomamente quali integrazioni usare: riceve dal job una lane e un context bundle. Se mancano provider o MCP richiesti, deve restituire `needs_review` con una richiesta di installazione guidata.
+
+## Graph memory e sessioni agentiche
+
+La memoria a grafo vive in `agentic_graph_nodes`, `agentic_graph_edges` e `agentic_graph_sessions`.
+
+Uso previsto:
+
+1. il control plane crea una sessione agentica per richieste complesse;
+2. il runner riceve task, subagente, connector consentiti e snapshot grafo;
+3. strumenti come Graphify producono `graph.json` o report;
+4. il runner restituisce artifact e propone nodi/archi;
+5. Optima salva solo relazioni con fonte e confidence;
+6. gli archi `ambiguous` o ad alto impatto tornano in review.
+
+Questo abilita un'esperienza tipo Perplexity Computer: conversazione, fonti, azioni e trace nello stesso workspace, ma con controllo aziendale e tenant scope.
 
 ## Variabili Cloudflare
 

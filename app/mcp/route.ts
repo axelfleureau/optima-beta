@@ -1,5 +1,14 @@
 import { AGENT_ADMIN_ROLES, createAgentJob } from "@/lib/agent-jobs"
 import { getAgenticCapabilitySnapshot } from "@/lib/agentic-capabilities"
+import {
+  AGENTIC_REFERENCE_SOURCES,
+  formatAgenticGraphSnapshot,
+  getAgenticGraphSnapshot,
+  listAgenticGraphNodes,
+  seedAgenticReferenceGraph,
+  upsertAgenticGraphEdge,
+  upsertAgenticGraphNode,
+} from "@/lib/agentic-graph"
 import { createId } from "@/lib/cloudflare-db"
 import {
   buildOperationalContextSnapshot,
@@ -158,6 +167,78 @@ function toolsList() {
         type: "object",
         properties: {
           lane: { type: "string", description: "Filtra per lane: code, research, media, operations, chat." },
+        },
+      },
+    },
+    {
+      name: "optima_graph_memory_snapshot",
+      title: "Optima agentic graph memory snapshot",
+      description: "Legge la memoria a grafo agentica del tenant: nodi, archi, sessioni e sorgenti/pattern Hermes-Graphify.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          includeStructured: { type: "boolean", description: "Include anche nodi, archi e sessioni in forma strutturata." },
+        },
+      },
+    },
+    {
+      name: "optima_graph_memory_search",
+      title: "Search Optima graph memory",
+      description: "Cerca nodi nel grafo aziendale/agentico senza leggere tutto il database.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          nodeType: { type: "string" },
+          limit: { type: "number", minimum: 1, maximum: 100 },
+        },
+      },
+    },
+    {
+      name: "optima_graph_memory_upsert",
+      title: "Upsert Optima graph memory node",
+      description: "Inserisce o aggiorna un nodo del grafo con source e confidence espliciti.",
+      inputSchema: {
+        type: "object",
+        required: ["nodeType", "title"],
+        properties: {
+          nodeType: { type: "string" },
+          title: { type: "string" },
+          summary: { type: "string" },
+          sourceType: { type: "string" },
+          sourceId: { type: "string" },
+          sourceUrl: { type: "string" },
+          confidence: { type: "string", enum: ["manual", "extracted", "inferred", "ambiguous"] },
+          tags: { type: "array", items: { type: "string" } },
+          properties: { type: "object" },
+        },
+      },
+    },
+    {
+      name: "optima_graph_edge_upsert",
+      title: "Upsert Optima graph memory edge",
+      description: "Inserisce o aggiorna un arco tra due nodi del grafo con tipo relazione, peso e confidence.",
+      inputSchema: {
+        type: "object",
+        required: ["fromNodeId", "toNodeId", "edgeType"],
+        properties: {
+          fromNodeId: { type: "string" },
+          toNodeId: { type: "string" },
+          edgeType: { type: "string" },
+          confidence: { type: "string", enum: ["manual", "extracted", "inferred", "ambiguous"] },
+          weight: { type: "number" },
+          properties: { type: "object" },
+        },
+      },
+    },
+    {
+      name: "optima_agentic_reference_sources",
+      title: "Optima agentic reference sources",
+      description: "Mostra le sorgenti usate come riferimento architetturale: Hermes Agent, Graphify e pattern Perplexity Computer.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          seedGraph: { type: "boolean", description: "Se true, inizializza nel grafo i nodi sorgente/pattern." },
         },
       },
     },
@@ -368,6 +449,78 @@ async function callTool(name: string, args: any, db: any, principal: any) {
       return toolResult(text, { subagents })
     }
 
+    case "optima_graph_memory_snapshot": {
+      const snapshot = await getAgenticGraphSnapshot(db, principal)
+      return toolResult(
+        formatAgenticGraphSnapshot(snapshot),
+        args?.includeStructured ? snapshot : { stats: snapshot.stats, referenceSources: snapshot.referenceSources },
+      )
+    }
+
+    case "optima_graph_memory_search": {
+      const nodes = await listAgenticGraphNodes(db, principal, {
+        query: String(args?.query || ""),
+        nodeType: String(args?.nodeType || ""),
+        limit: Number(args?.limit || 25),
+      })
+      const text = nodes.length
+        ? nodes
+            .map((node) => `- ${node.title} [${node.nodeType}/${node.confidence}] ${node.summary}`.trim())
+            .join("\n")
+        : "Nessun nodo trovato nella graph memory Optima."
+      return toolResult(text, { nodes })
+    }
+
+    case "optima_graph_memory_upsert": {
+      if (!canUseManagerMcpTools(principal)) {
+        return toolResult("Permesso negato: solo responsabili/direzione possono scrivere nella graph memory.")
+      }
+      const node = await upsertAgenticGraphNode(db, principal, {
+        nodeType: String(args?.nodeType || ""),
+        title: String(args?.title || ""),
+        summary: String(args?.summary || ""),
+        sourceType: String(args?.sourceType || "mcp"),
+        sourceId: args?.sourceId ? String(args.sourceId) : undefined,
+        sourceUrl: args?.sourceUrl ? String(args.sourceUrl) : null,
+        confidence: args?.confidence,
+        tags: Array.isArray(args?.tags) ? args.tags.map((tag: unknown) => String(tag)) : [],
+        properties: args?.properties,
+      })
+      return toolResult(`Nodo graph memory salvato: ${node?.title || args?.title}`, { node })
+    }
+
+    case "optima_graph_edge_upsert": {
+      if (!canUseManagerMcpTools(principal)) {
+        return toolResult("Permesso negato: solo responsabili/direzione possono scrivere nella graph memory.")
+      }
+      const edge = await upsertAgenticGraphEdge(db, principal, {
+        fromNodeId: String(args?.fromNodeId || ""),
+        toNodeId: String(args?.toNodeId || ""),
+        edgeType: String(args?.edgeType || ""),
+        confidence: args?.confidence,
+        weight: Number(args?.weight || 1),
+        properties: args?.properties,
+      })
+      return toolResult(`Arco graph memory salvato: ${edge?.edgeType || args?.edgeType}`, { edge })
+    }
+
+    case "optima_agentic_reference_sources": {
+      if (args?.seedGraph && !canUseManagerMcpTools(principal)) {
+        return toolResult("Permesso negato: solo responsabili/direzione possono inizializzare la graph memory.")
+      }
+      const snapshot = args?.seedGraph ? await seedAgenticReferenceGraph(db, principal) : null
+      const text = AGENTIC_REFERENCE_SOURCES.map((source) => {
+        return [
+          `## ${source.label}`,
+          `- tipo: ${source.sourceType}`,
+          `- policy: ${source.importPolicy}`,
+          `- url: ${source.url || "nessuna, pattern UX"}`,
+          `- pattern: ${source.usefulPatterns.join(", ")}`,
+        ].join("\n")
+      }).join("\n\n")
+      return toolResult(text, snapshot ? { sources: AGENTIC_REFERENCE_SOURCES, snapshot } : { sources: AGENTIC_REFERENCE_SOURCES })
+    }
+
     default:
       return toolResult(`Tool MCP non supportato: ${name}`)
   }
@@ -435,6 +588,12 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
           title: "Optima tenant agentic capabilities",
           mimeType: "text/plain",
         },
+        {
+          uri: "optima://agentic/graph-memory",
+          name: "Optima agentic graph memory",
+          title: "Optima agentic graph memory",
+          mimeType: "text/plain",
+        },
       ],
     })
   }
@@ -473,6 +632,19 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
             uri: "optima://agentic/capabilities",
             mimeType: "text/plain",
             text: formatCapabilitySnapshot(snapshot),
+          },
+        ],
+      })
+    }
+
+    if (params?.uri === "optima://agentic/graph-memory") {
+      const snapshot = await getAgenticGraphSnapshot(db, principal)
+      return jsonRpcResult(id, {
+        contents: [
+          {
+            uri: "optima://agentic/graph-memory",
+            mimeType: "text/plain",
+            text: formatAgenticGraphSnapshot(snapshot),
           },
         ],
       })

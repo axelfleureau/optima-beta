@@ -93,6 +93,28 @@ interface AgenticCapabilities {
   }
 }
 
+interface AgenticGraphSnapshot {
+  stats: {
+    nodes: number
+    edges: number
+    sessions: number
+    byType: Record<string, number>
+  }
+  nodes: Array<{
+    id: string
+    nodeType: string
+    title: string
+    confidence: string
+    summary: string
+  }>
+  referenceSources: Array<{
+    id: string
+    label: string
+    importPolicy: string
+    sourceType: string
+  }>
+}
+
 const initialForm = {
   title: "",
   jobType: "task_update",
@@ -173,6 +195,8 @@ export function AgentJobsClient({
   const [revisionMessage, setRevisionMessage] = useState("")
   const [mobilePanel, setMobilePanel] = useState<"jobs" | "create" | "stack">("jobs")
   const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
+  const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
+  const [isSeedingGraph, setIsSeedingGraph] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -183,6 +207,22 @@ export function AgentJobsClient({
       })
       .catch(() => {
         if (active) setCapabilities(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/agentic-graph")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data) setGraphMemory(data)
+      })
+      .catch(() => {
+        if (active) setGraphMemory(null)
       })
 
     return () => {
@@ -371,6 +411,28 @@ export function AgentJobsClient({
   const activeReviewJob = reviewDetails?.job ?? jobs.find((job) => job.id === reviewJobId) ?? null
   const installedProviderIds = new Set(capabilities?.providerInstallations.map((item) => item.providerId) ?? [])
   const installedConnectorIds = new Set(capabilities?.connectorInstallations.map((item) => item.connectorId) ?? [])
+  const graphTypes = Object.entries(graphMemory?.stats.byType ?? {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(0, 6)
+
+  async function seedGraphReferences() {
+    try {
+      setIsSeedingGraph(true)
+      setError(null)
+      const response = await fetch("/api/agentic-graph", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "seed_references" }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Errore inizializzazione grafo")
+      setGraphMemory(data)
+    } catch (err: any) {
+      setError(err?.message ?? "Errore inizializzazione grafo")
+    } finally {
+      setIsSeedingGraph(false)
+    }
+  }
 
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
@@ -620,6 +682,52 @@ export function AgentJobsClient({
                   "Authorization Code + PKCE per installazioni utente, GitHub App per repository, secret_ref per API key e local_install per runner self-hosted."}
               </p>
             </div>
+
+            <div className="rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.055] p-3 sm:p-4">
+              <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
+                <div>
+                  <p className="font-black text-white">Graph memory aziendale</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Nodi, archi e sessioni collegano persone, task, repo, clienti, subagenti e sorgenti. Le relazioni hanno confidence esplicita: manual, extracted, inferred o ambiguous.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={seedGraphReferences}
+                  disabled={isSeedingGraph}
+                  className="h-9 w-full shrink-0 rounded-lg border-white/15 bg-transparent px-3 text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
+                >
+                  {isSeedingGraph ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Network className="mr-2 h-4 w-4" />}
+                  Inizializza
+                </Button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[
+                  ["Nodi", graphMemory?.stats.nodes ?? 0],
+                  ["Archi", graphMemory?.stats.edges ?? 0],
+                  ["Sessioni", graphMemory?.stats.sessions ?? 0],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2">
+                    <p className="truncate text-[11px] text-slate-500">{label}</p>
+                    <p className="mt-1 text-lg font-black text-white">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {graphTypes.length ? (
+                  graphTypes.map(([type, count]) => (
+                    <span key={type} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                      {type}: {count}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-500">Nessun nodo ancora indicizzato.</span>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-3">
@@ -662,6 +770,26 @@ export function AgentJobsClient({
                     {connector.label}
                   </span>
                 ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+              <p className="font-black text-white">Sorgenti agentiche</p>
+              <div className="mt-3 grid gap-2">
+                {(graphMemory?.referenceSources ?? []).map((source) => (
+                  <div key={source.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate text-sm font-black text-white">{source.label}</p>
+                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                        {source.sourceType}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-slate-500">{source.importPolicy}</p>
+                  </div>
+                ))}
+                {!graphMemory ? (
+                  <p className="text-sm text-slate-500">Caricamento graph memory...</p>
+                ) : null}
               </div>
             </div>
           </div>

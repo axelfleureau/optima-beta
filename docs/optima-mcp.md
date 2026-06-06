@@ -59,6 +59,16 @@ Il token di servizio non sostituisce OAuth per client esterni. Serve solo per bo
   - espone provider AI/code, connettori MCP, stato installazioni tenant e regole OAuth/installazione.
 - `optima_subagent_roster`
   - lista subagenti configurati per il tenant, con provider primario, lane e connector concessi.
+- `optima_graph_memory_snapshot`
+  - legge la graph memory agentica del tenant.
+- `optima_graph_memory_search`
+  - cerca nodi nel grafo senza caricare tutto il contesto.
+- `optima_graph_memory_upsert`
+  - inserisce/aggiorna nodi con fonte e confidence esplicite.
+- `optima_graph_edge_upsert`
+  - inserisce/aggiorna archi tra nodi con tipo relazione, peso e confidence.
+- `optima_agentic_reference_sources`
+  - espone e puo inizializzare le sorgenti/pattern Hermes, Graphify e Perplexity Computer.
 
 ## Risorsa MCP
 
@@ -98,6 +108,21 @@ Restituisce lo stack agentico multi-tenant:
 - roster subagenti;
 - regole OAuth/installazione.
 
+```text
+optima://agentic/graph-memory
+```
+
+Restituisce la memoria a grafo agentica multi-tenant:
+
+- nodi aziendali e agentici;
+- archi con `manual`, `extracted`, `inferred` o `ambiguous`;
+- sessioni operative stile research/computer workspace;
+- sorgenti architetturali Hermes/Graphify/Perplexity-pattern.
+
+Migration: `migrations/0020_agentic_graph_memory.sql`
+
+Documentazione: `docs/agentic-graph-memory.md`
+
 ## Multi-Tenant Capability Layer
 
 Migration: `migrations/0019_agentic_capabilities.sql`
@@ -128,6 +153,8 @@ Pattern installazione:
 I subagenti non sono account separati senza controllo: sono profili operativi del tenant. Ogni subagente riceve solo lane, provider e connector dichiarati; le azioni rischiose tornano sempre nella review room.
 
 Hermes Agent puo essere usato come sorgente open e adapter VPS, non come sostituto del control plane. Optima resta il livello che governa grafo aziendale, permessi, memoria autorizzata, job, audit e approvazioni.
+
+Graphify puo alimentare la graph memory con `graph.json` e report codice, ma ogni import deve conservare source, confidence e tenant scope. Le relazioni dedotte non devono diventare dati operativi certi senza review.
 
 ## Telegram AI Assistant
 
