@@ -360,7 +360,7 @@ function calendarCellSignal(day: PresencePayload["calendar"]["people"][number]["
     return { label: "Festivo", short: "F", Icon: CalendarDays }
   }
   if (day.missingDurationTaskCount > 0) {
-    return { label: "Da consuntivare", short: String(day.missingDurationTaskCount), Icon: AlertCircle }
+    return { label: "Durate mancanti", short: String(day.missingDurationTaskCount), Icon: AlertCircle }
   }
   if (day.intensity >= 4) return { label: "Sprint", short: day.taskCount > 0 ? String(day.taskCount) : "MAX", Icon: Flame }
   if (day.intensity >= 3) return { label: "Focus", short: day.taskCount > 0 ? String(day.taskCount) : "F", Icon: Activity }
@@ -376,11 +376,11 @@ function calendarDayTitle(person: PresencePayload["calendar"]["people"][number],
     formatDateLabel(day.date),
     `Stato: ${statusMeta(day.status).label}`,
     `Segnale: ${signal.label}`,
-    `Attivita: ${formatMinutes(day.activityMinutes)}`,
+    `Time entry registrate: ${formatMinutes(day.activityMinutes)}`,
     `Task collegate: ${day.taskCount}`,
   ]
   if (day.completedTaskCount > 0) parts.push(`Task completate/importate: ${day.completedTaskCount}`)
-  if (day.missingDurationTaskCount > 0) parts.push(`Durate mancanti: ${day.missingDurationTaskCount}`)
+  if (day.missingDurationTaskCount > 0) parts.push(`Task senza durata: ${day.missingDurationTaskCount}`)
   if (day.signal) parts.push(`Indicatore orario: ${dayTimeSignalLabel(day)}`)
   if (day.checkInAt) parts.push(`Entrata: ${formatTime(day.checkInAt)}`)
   if (day.checkOutAt) parts.push(`Uscita: ${formatTime(day.checkOutAt)}`)
