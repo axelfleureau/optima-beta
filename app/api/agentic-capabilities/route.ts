@@ -3,7 +3,9 @@ import { NextRequest } from "next/server"
 import {
   createSubagent,
   getAgenticCapabilitySnapshot,
+  seedHostedModelRoutes,
   upsertConnectorInstallation,
+  upsertModelRoute,
   upsertProviderInstallation,
 } from "@/lib/agentic-capabilities"
 import { AGENT_ADMIN_ROLES } from "@/lib/agent-jobs"
@@ -77,6 +79,20 @@ export async function POST(request: NextRequest) {
         systemPrompt: String(body.systemPrompt || ""),
         permissions: body.permissions,
         handoffPolicy: body.handoffPolicy,
+      })
+    } else if (action === "seed_hosted_model_routes") {
+      await seedHostedModelRoutes(auth.db, auth.principal)
+    } else if (action === "upsert_model_route") {
+      await upsertModelRoute(auth.db, auth.principal, {
+        lane: body.lane,
+        providerId: String(body.providerId || ""),
+        model: String(body.model || ""),
+        mode: body.mode,
+        status: String(body.status || "configured"),
+        priority: Number(body.priority || 100),
+        endpointRef: body.endpointRef,
+        secretRef: body.secretRef,
+        config: body.config,
       })
     } else {
       return Response.json({ error: "Azione capability non supportata." }, { status: 400 })

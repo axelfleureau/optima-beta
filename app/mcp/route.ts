@@ -259,6 +259,9 @@ function formatCapabilitySnapshot(snapshot: Awaited<ReturnType<typeof getAgentic
       ].join("\n")
     })
     .join("\n\n")
+  const modelPlan = snapshot.modelRuntime.lanePlan
+    .map((route) => `- ${route.lane}: ${route.providerId} / ${route.model} (${route.mode}, ${route.runtimeStatus})`)
+    .join("\n")
 
   return [
     "# Optima Agentic Capabilities",
@@ -270,6 +273,15 @@ function formatCapabilitySnapshot(snapshot: Awaited<ReturnType<typeof getAgentic
     "",
     "## Provider",
     providers,
+    "",
+    "## Runtime modelli",
+    modelPlan || "Nessuna route modello configurata.",
+    "",
+    "## Collaborazione subagenti",
+    "- Codex Engineer gestisce codice, patch e PR.",
+    "- Media Operator usa MiniMax e Cloudinary quando Codex richiede asset media.",
+    "- Research Analyst usa Qwen per contesto lungo e fonti.",
+    "- Office Ops usa Gemma per triage operativo quando configurato.",
     "",
     `## Installazioni provider tenant: ${snapshot.providerInstallations.length}`,
     `## Installazioni MCP tenant: ${snapshot.connectorInstallations.length}`,
@@ -421,6 +433,7 @@ async function callTool(name: string, args: any, db: any, principal: any) {
         : {
             providerCatalog: snapshot.providerCatalog,
             mcpConnectorCatalog: snapshot.mcpConnectorCatalog,
+            modelRuntime: snapshot.modelRuntime,
             oauthGuidance: snapshot.oauthGuidance,
           }
       return toolResult(formatCapabilitySnapshot(snapshot), structuredContent)

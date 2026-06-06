@@ -105,6 +105,45 @@ interface AgenticCapabilities {
     secretRef: string | null
     updatedAt: string
   }>
+  modelRuntime: {
+    hosts: Array<{
+      id: string
+      label: string
+      providerId: string
+      lane: string
+      mode: string
+      defaultModel: string
+      runtimeAdapter: string
+      apiKeyEnv: string | null
+      baseUrlEnv: string | null
+      endpointEnv: string | null
+      secretRefHint: string | null
+      dataPolicy: string
+      installSteps: string[]
+      runtimeStatus: string
+      runtimeDetail: string
+    }>
+    routes: Array<{
+      id: string
+      lane: string
+      providerId: string
+      model: string
+      mode: string
+      status: string
+      priority: number
+      endpointRef: string | null
+      secretRef: string | null
+    }>
+    lanePlan: Array<{
+      lane: string
+      providerId: string
+      model: string
+      mode: string
+      source: string
+      status: string
+      runtimeStatus: string
+    }>
+  }
   subagents: Array<{
     id: string
     name: string
@@ -194,6 +233,13 @@ const installStateTone: Record<string, string> = {
   blocked: "border-red-300/25 bg-red-300/10 text-red-100",
 }
 
+const runtimeStatusTone: Record<string, string> = {
+  ready: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+  needs_secret: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+  needs_endpoint: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+  reference_only: "border-white/10 bg-white/5 text-slate-400",
+}
+
 const recommendedSubagents = [
   {
     name: "Codex Engineer",
@@ -201,10 +247,14 @@ const recommendedSubagents = [
     lane: "code",
     primaryProviderId: "codex",
     modelHint: "codex-cli",
-    connectorIds: ["github", "cloudflare", "vercel", "hostinger"],
-    systemPrompt: "Produce patch, report e PR in worktree isolato. Non fa deploy o push senza approvazione esplicita del control plane.",
+    connectorIds: ["github", "cloudflare", "vercel", "hostinger", "cloudinary"],
+    systemPrompt: "Produce patch, report e PR in worktree isolato. Se il lavoro richiede asset media, apre handoff tracciato verso Media Operator/MiniMax invece di generare media fuori review.",
     permissions: { canCreatePatch: true, canCreatePullRequest: true, canDeploy: false, requiresReview: true },
-    handoffPolicy: { onMissingRepository: "ask_or_infer_from_graph", onRiskyAction: "return_to_review" },
+    handoffPolicy: {
+      onMissingRepository: "ask_or_infer_from_graph",
+      onRiskyAction: "return_to_review",
+      onMediaAssetRequired: "handoff_to_media_operator_minimax",
+    },
   },
   {
     name: "Research Analyst",
@@ -224,7 +274,7 @@ const recommendedSubagents = [
     primaryProviderId: "minimax",
     modelHint: "minimax-media",
     connectorIds: ["cloudinary"],
-    systemPrompt: "Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
+    systemPrompt: "Collabora con Codex Engineer quando patch, landing o automazioni richiedono asset. Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
     permissions: { canCreateMedia: true, canMutateAssets: false, requiresReview: true },
     handoffPolicy: { onCopyrightRisk: "return_to_review" },
   },
@@ -247,6 +297,10 @@ function installTone(state: string) {
 
 function installLabel(state: string) {
   return installStateCopy[state] ?? state
+}
+
+function runtimeTone(state: string) {
+  return runtimeStatusTone[state] ?? runtimeStatusTone.reference_only
 }
 
 function getRequestedOutput(jobType: string) {
@@ -667,6 +721,10 @@ export function AgentJobsClient({
     }
   }
 
+  async function seedHostedModels() {
+    await mutateCapabilities({ action: "seed_hosted_model_routes" }, "models:hosted")
+  }
+
   async function createJob() {
     setError(null)
     setIsCreating(true)
@@ -1053,6 +1111,65 @@ export function AgentJobsClient({
                   Caricamento stack agentico...
                 </div>
               ) : null}
+            </div>
+
+            <div className="min-w-0 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3 sm:p-4">
+              <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-emerald-50">Runtime modelli hosted</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                    Route tenant per Qwen, Gemma, OpenAI e MiniMax. Codex resta il worker tecnico e puo fare handoff tracciato a MiniMax/Media Operator per asset.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={seedHostedModels}
+                  disabled={capabilityAction === "models:hosted"}
+                  className="h-8 w-full shrink-0 rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
+                >
+                  {capabilityAction === "models:hosted" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Radio className="mr-1.5 h-3.5 w-3.5" />}
+                  Prepara hosted
+                </Button>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {(capabilities?.modelRuntime?.lanePlan ?? []).map((route) => (
+                  <div key={`${route.lane}-${route.providerId}-${route.model}`} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/70 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">{route.lane}</p>
+                        <p className="mt-1 truncate text-xs font-bold text-cyan-100">{route.providerId} · {route.model}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${runtimeTone(route.runtimeStatus)}`}>
+                        {route.runtimeStatus}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {route.mode} · {route.source === "tenant_route" ? "route tenant" : "default"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 grid gap-2">
+                {(capabilities?.modelRuntime?.hosts ?? []).slice(0, 4).map((host) => (
+                  <div key={host.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">{host.label}</p>
+                        <p className="mt-1 break-words text-xs text-slate-500">
+                          {host.apiKeyEnv || host.endpointEnv || "no env"} · {host.runtimeDetail}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${runtimeTone(host.runtimeStatus)}`}>
+                        {host.runtimeStatus}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="min-w-0 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">

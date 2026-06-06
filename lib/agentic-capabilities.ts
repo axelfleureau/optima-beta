@@ -2,8 +2,12 @@ import { createId } from "@/lib/cloudflare-db"
 import type { WorkspacePrincipal } from "@/lib/workspace-db"
 import { getStrategicMcpConnectors } from "@/lib/mcp-connectors"
 import { safeAll } from "@/lib/operational-context"
+import { getRuntimeSecret } from "@/lib/ai/openai-runtime"
 
 export type AgenticProviderKind = "ai_model" | "code_agent" | "media_model" | "local_model" | "router"
+export type AgenticModelLane = "code" | "research" | "media" | "operations" | "chat" | "router"
+export type AgenticModelMode = "hosted" | "self_hosted" | "gateway" | "router"
+export type AgenticRuntimeStatus = "ready" | "needs_secret" | "needs_endpoint" | "reference_only"
 export type AgenticAuthMethod =
   | "none"
   | "oauth_pkce"
@@ -21,7 +25,7 @@ export interface AgenticProviderSpec {
   label: string
   kind: AgenticProviderKind
   defaultModel: string
-  lane: "code" | "research" | "media" | "operations" | "chat" | "router"
+  lane: AgenticModelLane
   authMethod: AgenticAuthMethod
   installPattern: string
   tenantUse: string
@@ -29,6 +33,22 @@ export interface AgenticProviderSpec {
   requiredSecrets: string[]
   recommendedMcpConnectors: string[]
   notes: string
+}
+
+export interface AgenticModelHostSpec {
+  id: string
+  label: string
+  providerId: string
+  lane: AgenticModelLane
+  mode: AgenticModelMode
+  defaultModel: string
+  runtimeAdapter: "openai_compatible" | "codex_cli" | "local_gateway"
+  apiKeyEnv: string | null
+  baseUrlEnv: string | null
+  endpointEnv: string | null
+  secretRefHint: string | null
+  dataPolicy: string
+  installSteps: string[]
 }
 
 export interface AgenticProviderInstallation {
@@ -47,6 +67,44 @@ export interface AgenticProviderInstallation {
   installedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface AgenticModelRoute {
+  id: string
+  organizationId: string
+  lane: AgenticModelLane
+  providerId: string
+  model: string
+  mode: AgenticModelMode
+  status: string
+  priority: number
+  endpointRef: string | null
+  secretRef: string | null
+  config: Record<string, unknown>
+  lastHealthAt: string | null
+  lastHealthStatus: string | null
+  createdByMemberId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgenticModelRuntimeSnapshot {
+  hosts: Array<
+    AgenticModelHostSpec & {
+      runtimeStatus: AgenticRuntimeStatus
+      runtimeDetail: string
+    }
+  >
+  routes: AgenticModelRoute[]
+  lanePlan: Array<{
+    lane: AgenticModelLane
+    providerId: string
+    model: string
+    mode: AgenticModelMode
+    source: "tenant_route" | "default_host"
+    status: string
+    runtimeStatus: AgenticRuntimeStatus
+  }>
 }
 
 export interface McpConnectorInstallation {
@@ -93,6 +151,7 @@ export interface AgenticCapabilitySnapshot {
   providerInstallations: AgenticProviderInstallation[]
   connectorInstallations: McpConnectorInstallation[]
   subagents: AgentSubagent[]
+  modelRuntime: AgenticModelRuntimeSnapshot
   oauthGuidance: {
     pattern: string
     rules: string[]
@@ -127,6 +186,20 @@ const PROVIDERS: AgenticProviderSpec[] = [
     requiredSecrets: [],
     recommendedMcpConnectors: ["github"],
     notes: "Da usare come adapter dietro control plane, non come processo opaco fuori audit.",
+  },
+  {
+    id: "gemma-hosted",
+    label: "Gemma Hosted",
+    kind: "ai_model",
+    defaultModel: "gemma-hosted",
+    lane: "operations",
+    authMethod: "api_key_secret",
+    installPattern: "Gateway hosted o provider compatibile: Optima salva secret_ref, endpoint_ref e policy tenant.",
+    tenantUse: "Operations agentiche, triage rapportini, classificazione richieste e assistant privacy-aware.",
+    strengths: ["operations", "classification", "cost control", "privacy policy"],
+    requiredSecrets: ["GEMMA_API_KEY"],
+    recommendedMcpConnectors: ["telegram", "sendgrid"],
+    notes: "Da preferire al modello locale quando serve disponibilita continua senza gestire GPU sul VPS.",
   },
   {
     id: "gemma",
@@ -183,6 +256,106 @@ const PROVIDERS: AgenticProviderSpec[] = [
     requiredSecrets: ["OPENAI_API_KEY"],
     recommendedMcpConnectors: ["github", "cloudflare", "sendgrid"],
     notes: "Il modello non sostituisce autorizzazioni e grafo: opera sempre nel principal tenant.",
+  },
+]
+
+const MODEL_HOSTS: AgenticModelHostSpec[] = [
+  {
+    id: "qwen-hosted",
+    label: "Qwen hosted runtime",
+    providerId: "qwen",
+    lane: "research",
+    mode: "hosted",
+    defaultModel: "qwen-long-context",
+    runtimeAdapter: "openai_compatible",
+    apiKeyEnv: "QWEN_API_KEY",
+    baseUrlEnv: "QWEN_BASE_URL",
+    endpointEnv: null,
+    secretRefHint: "secret://tenant/{organizationId}/qwen",
+    dataPolicy: "Usare per research e sintesi lunga. Dati tenant ammessi solo se policy e consenso organizzazione lo permettono.",
+    installSteps: [
+      "Crea o collega un account provider Qwen/OpenAI-compatible.",
+      "Salva la API key in secret manager o env runtime; Optima conserva solo secret_ref.",
+      "Imposta QWEN_BASE_URL se non usi il gateway predefinito del provider.",
+      "Esegui health check e abilita la route research.",
+    ],
+  },
+  {
+    id: "gemma-hosted",
+    label: "Gemma hosted runtime",
+    providerId: "gemma-hosted",
+    lane: "operations",
+    mode: "hosted",
+    defaultModel: "gemma-hosted",
+    runtimeAdapter: "openai_compatible",
+    apiKeyEnv: "GEMMA_API_KEY",
+    baseUrlEnv: "GEMMA_BASE_URL",
+    endpointEnv: null,
+    secretRefHint: "secret://tenant/{organizationId}/gemma",
+    dataPolicy: "Usare per triage operativo, bozze, rapportini e classificazione a costo controllato.",
+    installSteps: [
+      "Scegli provider hosted o gateway compatibile per Gemma.",
+      "Configura GEMMA_API_KEY e GEMMA_BASE_URL nel runtime o secret manager.",
+      "Abilita route operations e assegna Office Ops al provider Gemma Hosted.",
+      "Mantieni fallback OpenAI/router per richieste ad alto ragionamento.",
+    ],
+  },
+  {
+    id: "gemma-local",
+    label: "Gemma self-hosted runtime",
+    providerId: "gemma",
+    lane: "operations",
+    mode: "self_hosted",
+    defaultModel: "gemma-local",
+    runtimeAdapter: "local_gateway",
+    apiKeyEnv: null,
+    baseUrlEnv: null,
+    endpointEnv: "GEMMA_LOCAL_ENDPOINT",
+    secretRefHint: null,
+    dataPolicy: "Usare quando i dati non devono uscire dal perimetro VPS/rete privata.",
+    installSteps: [
+      "Installa il gateway locale sul VPS o su nodo GPU dedicato.",
+      "Esponi solo endpoint privato/Tailscale e imposta GEMMA_LOCAL_ENDPOINT.",
+      "Abilita health check e non inviare dati sensibili a provider esterni.",
+    ],
+  },
+  {
+    id: "minimax-media",
+    label: "MiniMax media runtime",
+    providerId: "minimax",
+    lane: "media",
+    mode: "hosted",
+    defaultModel: "minimax-media",
+    runtimeAdapter: "openai_compatible",
+    apiKeyEnv: "MINIMAX_API_KEY",
+    baseUrlEnv: "MINIMAX_BASE_URL",
+    endpointEnv: null,
+    secretRefHint: "secret://tenant/{organizationId}/minimax",
+    dataPolicy: "Usare per asset, audio, video e varianti creative collegate a task, clienti e review.",
+    installSteps: [
+      "Collega MiniMax o un gateway compatibile per media generation.",
+      "Configura MINIMAX_API_KEY e opzionalmente MINIMAX_BASE_URL.",
+      "Collega Cloudinary per archiviazione e trasformazioni asset.",
+      "Permetti a Codex Engineer di aprire handoff verso Media Operator quando un job tecnico richiede media.",
+    ],
+  },
+  {
+    id: "openai-router",
+    label: "OpenAI reasoning router",
+    providerId: "openai",
+    lane: "chat",
+    mode: "router",
+    defaultModel: "gpt-5.2",
+    runtimeAdapter: "openai_compatible",
+    apiKeyEnv: "OPENAI_API_KEY",
+    baseUrlEnv: null,
+    endpointEnv: null,
+    secretRefHint: "secret://tenant/{organizationId}/openai",
+    dataPolicy: "Usare come router/reasoning principale e fallback quando Qwen/Gemma non bastano.",
+    installSteps: [
+      "Mantieni chiave server-side o tenant-specific.",
+      "Usa il grafo operativo per decidere quando delegare a provider specializzati.",
+    ],
   },
 ]
 
@@ -272,8 +445,33 @@ function mapSubagent(row: any): AgentSubagent {
   }
 }
 
+function mapModelRoute(row: any): AgenticModelRoute {
+  return {
+    id: String(row.id),
+    organizationId: String(row.organization_id),
+    lane: String(row.lane || "operations") as AgenticModelLane,
+    providerId: String(row.provider_id || "openai"),
+    model: String(row.model || ""),
+    mode: String(row.mode || "hosted") as AgenticModelMode,
+    status: String(row.status || "configured"),
+    priority: Number(row.priority || 100),
+    endpointRef: row.endpoint_ref ? String(row.endpoint_ref) : null,
+    secretRef: row.secret_ref ? String(row.secret_ref) : null,
+    config: parseJsonObject(row.config_json),
+    lastHealthAt: row.last_health_at ? String(row.last_health_at) : null,
+    lastHealthStatus: row.last_health_status ? String(row.last_health_status) : null,
+    createdByMemberId: row.created_by_member_id ? String(row.created_by_member_id) : null,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  }
+}
+
 export function getAgenticProviderCatalog() {
   return PROVIDERS
+}
+
+export function getAgenticModelHosts() {
+  return MODEL_HOSTS
 }
 
 export function getOAuthGuidance() {
@@ -287,6 +485,78 @@ export function getOAuthGuidance() {
       "I subagenti ricevono solo connector e tool dichiarati nella loro lane.",
     ],
   }
+}
+
+export async function listModelRoutes(db: any, organizationId: string) {
+  const rows = await safeAll(
+    db,
+    `SELECT * FROM agentic_model_routes
+     WHERE organization_id = ?
+     ORDER BY lane ASC, priority ASC, updated_at DESC`,
+    [organizationId],
+  )
+  return rows.map(mapModelRoute)
+}
+
+async function getHostRuntimeStatus(host: AgenticModelHostSpec) {
+  const apiKey = host.apiKeyEnv ? (await getRuntimeSecret(host.apiKeyEnv)).trim() : ""
+  const baseUrl = host.baseUrlEnv ? (await getRuntimeSecret(host.baseUrlEnv)).trim() : ""
+  const endpoint = host.endpointEnv ? (await getRuntimeSecret(host.endpointEnv)).trim() : ""
+
+  if (host.mode === "self_hosted") {
+    return endpoint
+      ? { runtimeStatus: "ready" as const, runtimeDetail: `${host.endpointEnv} configurato` }
+      : { runtimeStatus: "needs_endpoint" as const, runtimeDetail: `${host.endpointEnv} non configurato` }
+  }
+
+  if (host.mode === "router" || host.mode === "hosted") {
+    if (apiKey) {
+      return {
+        runtimeStatus: "ready" as const,
+        runtimeDetail: host.baseUrlEnv ? `${host.apiKeyEnv} presente${baseUrl ? `, ${host.baseUrlEnv} configurato` : ""}` : `${host.apiKeyEnv} presente`,
+      }
+    }
+    return { runtimeStatus: "needs_secret" as const, runtimeDetail: `${host.apiKeyEnv} non configurato` }
+  }
+
+  return { runtimeStatus: "reference_only" as const, runtimeDetail: "Runtime solo documentato" }
+}
+
+export async function getAgenticModelRuntimeSnapshot(
+  db: any,
+  principal: WorkspacePrincipal,
+): Promise<AgenticModelRuntimeSnapshot> {
+  const routes = await listModelRoutes(db, principal.organizationId)
+  const hosts = await Promise.all(
+    MODEL_HOSTS.map(async (host) => ({
+      ...host,
+      ...(await getHostRuntimeStatus(host)),
+    })),
+  )
+
+  const preferredLanes: AgenticModelLane[] = ["research", "operations", "chat", "code", "media"]
+  const lanePlan = preferredLanes
+    .map((lane) => {
+      const route = routes.find((item) => item.lane === lane && item.status !== "disabled")
+      const host = route
+        ? hosts.find((item) => item.providerId === route.providerId && item.mode === route.mode) ?? hosts.find((item) => item.providerId === route.providerId)
+        : hosts.find((item) => item.lane === lane)
+
+      if (!route && !host) return null
+
+      return {
+        lane,
+        providerId: route?.providerId ?? host!.providerId,
+        model: route?.model || host!.defaultModel,
+        mode: route?.mode ?? host!.mode,
+        source: route ? "tenant_route" as const : "default_host" as const,
+        status: route?.status ?? "suggested",
+        runtimeStatus: host?.runtimeStatus ?? ("reference_only" as const),
+      }
+    })
+    .filter((item): item is AgenticModelRuntimeSnapshot["lanePlan"][number] => Boolean(item))
+
+  return { hosts, routes, lanePlan }
 }
 
 export async function listProviderInstallations(db: any, organizationId: string) {
@@ -341,6 +611,7 @@ export async function getAgenticCapabilitySnapshot(
     providerInstallations,
     connectorInstallations,
     subagents,
+    modelRuntime: await getAgenticModelRuntimeSnapshot(db, principal),
     oauthGuidance: getOAuthGuidance(),
   }
 }
@@ -445,6 +716,111 @@ export async function upsertConnectorInstallation(
       principal.memberId,
     )
     .run()
+}
+
+export async function upsertModelRoute(
+  db: any,
+  principal: WorkspacePrincipal,
+  input: {
+    lane: AgenticModelLane
+    providerId: string
+    model: string
+    mode?: AgenticModelMode
+    status?: string
+    priority?: number
+    endpointRef?: string | null
+    secretRef?: string | null
+    config?: Record<string, unknown>
+  },
+) {
+  const lane = input.lane
+  const provider = PROVIDERS.find((item) => item.id === input.providerId)
+  if (!provider) throw new Error("Provider modello non supportato.")
+
+  const host = MODEL_HOSTS.find((item) => item.providerId === provider.id && item.lane === lane) ?? MODEL_HOSTS.find((item) => item.providerId === provider.id)
+  const mode = input.mode ?? host?.mode ?? "hosted"
+  const model = input.model.trim() || host?.defaultModel || provider.defaultModel
+
+  await db
+    .prepare(
+      `INSERT INTO agentic_model_routes (
+        id, organization_id, lane, provider_id, model, mode, status, priority,
+        endpoint_ref, secret_ref, config_json, created_by_member_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(organization_id, lane, provider_id, model) DO UPDATE SET
+        mode = excluded.mode,
+        status = excluded.status,
+        priority = excluded.priority,
+        endpoint_ref = excluded.endpoint_ref,
+        secret_ref = excluded.secret_ref,
+        config_json = excluded.config_json,
+        created_by_member_id = excluded.created_by_member_id,
+        updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(
+      createId("aimod"),
+      principal.organizationId,
+      lane,
+      provider.id,
+      model,
+      mode,
+      input.status || "configured",
+      Number.isFinite(input.priority) ? Number(input.priority) : 100,
+      input.endpointRef || host?.baseUrlEnv || host?.endpointEnv || null,
+      input.secretRef || host?.secretRefHint?.replace("{organizationId}", principal.organizationId) || null,
+      stringifyJson({
+        ...(input.config || {}),
+        runtimeAdapter: host?.runtimeAdapter,
+        dataPolicy: host?.dataPolicy,
+        installSteps: host?.installSteps,
+      }),
+      principal.memberId,
+    )
+    .run()
+}
+
+export async function seedHostedModelRoutes(db: any, principal: WorkspacePrincipal) {
+  await upsertModelRoute(db, principal, {
+    lane: "research",
+    providerId: "qwen",
+    model: "qwen-long-context",
+    mode: "hosted",
+    priority: 30,
+    status: "configured",
+  })
+  await upsertModelRoute(db, principal, {
+    lane: "operations",
+    providerId: "gemma-hosted",
+    model: "gemma-hosted",
+    mode: "hosted",
+    priority: 40,
+    status: "configured",
+  })
+  await upsertModelRoute(db, principal, {
+    lane: "chat",
+    providerId: "openai",
+    model: "gpt-5.2",
+    mode: "router",
+    priority: 50,
+    status: "configured",
+  })
+  await upsertModelRoute(db, principal, {
+    lane: "media",
+    providerId: "minimax",
+    model: "minimax-media",
+    mode: "hosted",
+    priority: 45,
+    status: "configured",
+    config: {
+      collaboration: {
+        from: "codex-engineer",
+        to: "media-operator",
+        trigger: "media_asset_or_visual_generation_required",
+        storageConnector: "cloudinary",
+        reviewRequired: true,
+      },
+    },
+  })
 }
 
 export async function createSubagent(
