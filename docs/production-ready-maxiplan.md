@@ -201,7 +201,7 @@ Gate:
 
 ## Primo pacchetto applicato in questa release
 
-- `/api/health` espone readiness core e agentic senza mostrare segreti.
-- `npm run check:production` verifica anche runner, R2, schema D1 agentico e metadata MCP.
+- `/api/health` espone readiness core e agentic senza mostrare segreti, includendo anche lo stato della configurazione OAuth MCP.
+- `npm run check:production` verifica anche runner, R2, schema D1 agentico, OAuth MCP e metadata MCP.
 - AI assistant mobile mostra un pulsante `Invia` evidente e non lascia risposte vuote mute.
 - La regola di prodotto e salvata nel know-how globale quando diventa riutilizzabile.

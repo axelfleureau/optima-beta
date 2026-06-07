@@ -96,6 +96,13 @@ async function main() {
     healthJson?.checks?.taskMediaBucketConfigured === true,
     healthJson?.checks?.taskMediaBucketConfigured ? "TASK_MEDIA available" : "TASK_MEDIA missing",
   )
+  record(
+    "MCP OAuth endpoints configured",
+    healthJson?.checks?.mcpAuthorizationConfigured === true,
+    healthJson?.checks?.mcpAuthorizationConfigured
+      ? "authorization/token endpoints configured"
+      : "set OPTIMA_MCP_AUTHORIZATION_ENDPOINT and OPTIMA_MCP_TOKEN_ENDPOINT",
+  )
 
   const protectedResource = await fetchText("/.well-known/oauth-protected-resource")
   record(

@@ -57,6 +57,9 @@ export async function GET() {
   const appEnv = process.env.APP_ENV || process.env.NEXT_PUBLIC_APP_ENV || "unknown"
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
   const runnerControl = getAgentRunnerControlState()
+  const mcpAuthorizationConfigured = Boolean(
+    process.env.OPTIMA_MCP_AUTHORIZATION_ENDPOINT && process.env.OPTIMA_MCP_TOKEN_ENDPOINT,
+  )
 
   let dbStatus: "ok" | "missing" | "error" = "missing"
   let tableStatus = { ok: false, present: 0, expected: requiredTables.length, missing: requiredTables }
@@ -89,6 +92,7 @@ export async function GET() {
     agentRunnerApiKeyConfigured: Boolean(process.env.AGENT_RUNNER_API_KEY),
     agentRunnerClaimEnabled: runnerControl.enabled,
     agentRunnerStatus: runnerControl.status,
+    mcpAuthorizationConfigured,
   }
 
   const coreReady =
@@ -101,7 +105,8 @@ export async function GET() {
     tableStatus.ok &&
     taskMediaBucketConfigured &&
     checks.agentRunnerApiKeyConfigured &&
-    runnerControl.enabled
+    runnerControl.enabled &&
+    mcpAuthorizationConfigured
 
   return Response.json(
     {
