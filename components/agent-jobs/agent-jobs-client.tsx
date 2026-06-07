@@ -246,12 +246,16 @@ const quickJobTemplates = [
   },
 ] as const
 
-const graphNodeTypeTone: Record<string, string> = {
-  system: "border-righello-pink/65 bg-righello-pink/18 text-pink-50",
-  capability: "border-cyan-300/45 bg-cyan-300/14 text-cyan-50",
-  reference_source: "border-emerald-300/40 bg-emerald-300/12 text-emerald-50",
-  subagent: "border-violet-300/45 bg-violet-300/14 text-violet-50",
-  connector: "border-amber-300/45 bg-amber-300/12 text-amber-50",
+const graphNodeTypeVisual: Record<string, { fill: string; stroke: string; label: string }> = {
+  system: { fill: "#db2777", stroke: "#f9a8d4", label: "Sistema" },
+  capability: { fill: "#0891b2", stroke: "#67e8f9", label: "Capability" },
+  knowledge_base: { fill: "#7c3aed", stroke: "#c4b5fd", label: "Knowledge base" },
+  development_knowhow: { fill: "#475569", stroke: "#cbd5e1", label: "Know-how" },
+  reference_source: { fill: "#059669", stroke: "#6ee7b7", label: "Sorgente" },
+  subagent: { fill: "#8b5cf6", stroke: "#ddd6fe", label: "Subagente" },
+  connector: { fill: "#d97706", stroke: "#fcd34d", label: "Connector" },
+  hermes_memory: { fill: "#0d9488", stroke: "#5eead4", label: "Hermes" },
+  hermes_skill: { fill: "#0f766e", stroke: "#99f6e4", label: "Skill Hermes" },
 }
 
 const graphConfidenceStroke: Record<string, string> = {
@@ -377,36 +381,53 @@ function getBriefPlaceholder(jobType: string) {
   return "Descrivi cosa deve fare il runner, cosa deve produrre e quali limiti rispettare..."
 }
 
-function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"]) {
-  const laneOrder = ["system", "capability", "subagent", "connector", "reference_source"]
+function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"], edges: AgenticGraphSnapshot["edges"] = []) {
+  const typeOrder = ["system", "knowledge_base", "capability", "subagent", "connector", "reference_source", "development_knowhow"]
+  const degreeByNode = new Map<string, number>()
+  for (const edge of edges) {
+    degreeByNode.set(edge.fromNodeId, (degreeByNode.get(edge.fromNodeId) || 0) + 1)
+    degreeByNode.set(edge.toNodeId, (degreeByNode.get(edge.toNodeId) || 0) + 1)
+  }
+
   const visibleNodes = [...nodes]
     .sort((a, b) => {
-      const aLane = laneOrder.includes(a.nodeType) ? laneOrder.indexOf(a.nodeType) : laneOrder.indexOf("capability")
-      const bLane = laneOrder.includes(b.nodeType) ? laneOrder.indexOf(b.nodeType) : laneOrder.indexOf("capability")
-      const laneDelta = aLane - bLane
-      if (laneDelta !== 0) return laneDelta
+      const degreeDelta = (degreeByNode.get(b.id) || 0) - (degreeByNode.get(a.id) || 0)
+      if (degreeDelta !== 0) return degreeDelta
+      const aType = typeOrder.includes(a.nodeType) ? typeOrder.indexOf(a.nodeType) : typeOrder.length
+      const bType = typeOrder.includes(b.nodeType) ? typeOrder.indexOf(b.nodeType) : typeOrder.length
+      const typeDelta = aType - bType
+      if (typeDelta !== 0) return typeDelta
       return a.title.localeCompare(b.title)
     })
-    .slice(0, 12)
-
-  const columns = 3
-  const rows = Math.max(1, Math.ceil(visibleNodes.length / columns))
+    .slice(0, 18)
 
   return visibleNodes.map((node, index) => {
-    const column = index % columns
-    const row = Math.floor(index / columns)
-    const x = columns <= 1 ? 50 : 18 + column * (64 / Math.max(1, columns - 1))
-    const y = rows <= 1 ? 50 : 14 + row * (72 / Math.max(1, rows - 1))
+    const degree = degreeByNode.get(node.id) || 0
+    const typeBoost = node.nodeType === "system" || node.nodeType === "knowledge_base" ? 1.4 : node.nodeType === "capability" ? 0.8 : 0
+    const r = Math.max(3.6, Math.min(8.8, 3.4 + Math.sqrt(degree + 1) * 1.35 + typeBoost))
+    const ringIndex = Math.max(0, index - 1)
+    const angle = (ringIndex * 137.508 * Math.PI) / 180
+    const ring = index === 0 ? 0 : 15 + Math.floor(ringIndex / 6) * 10.5 + (ringIndex % 3) * 1.8
+    const x = index === 0 ? 50 : Math.max(10, Math.min(90, 50 + Math.cos(angle) * ring * 1.05))
+    const y = index === 0 ? 51 : Math.max(12, Math.min(88, 51 + Math.sin(angle) * ring * 0.8))
     return {
       node,
       x,
       y,
+      r,
+      degree,
+      visual: graphNodeTypeVisual[node.nodeType] ?? { fill: "#334155", stroke: "#94a3b8", label: node.nodeType },
     }
   })
 }
 
+function compactGraphLabel(value: string) {
+  const clean = value.replace(/^Optima\s+/i, "").replace(/^Codex\s+/i, "")
+  return clean.length > 18 ? `${clean.slice(0, 16).trim()}...` : clean
+}
+
 function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | null }) {
-  const layout = useMemo(() => getGraphNodeLayout(graphMemory?.nodes ?? []), [graphMemory?.nodes])
+  const layout = useMemo(() => getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? []), [graphMemory?.nodes, graphMemory?.edges])
   const totalNodes = graphMemory?.stats.nodes ?? layout.length
   const totalEdges = graphMemory?.stats.edges ?? graphMemory?.edges?.length ?? 0
   const nodePosition = new Map(layout.map((item) => [item.node.id, item]))
@@ -433,8 +454,17 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
       </div>
 
       {layout.length ? (
-        <div className="relative h-[300px] overflow-hidden sm:h-[320px]">
-          <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <div className="relative h-[320px] overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.10),transparent_48%),linear-gradient(180deg,rgba(15,23,42,0.12),rgba(2,6,23,0.72))] sm:h-[360px]">
+          <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Mappa a bolle della graph memory Optima">
+            <defs>
+              <filter id="graphGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="1.8" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
             {visibleEdges.map(({ edge, from, to }) => (
               <line
                 key={edge.id}
@@ -443,34 +473,59 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
                 x2={to.x}
                 y2={to.y}
                 stroke={graphConfidenceStroke[edge.confidence] ?? "#64748b"}
-                strokeWidth={Math.max(0.7, Math.min(2.4, Number(edge.weight || 1)))}
-                strokeOpacity={edge.confidence === "ambiguous" ? 0.32 : 0.42}
+                strokeWidth={Math.max(0.35, Math.min(1.35, Number(edge.weight || 1) * 0.52))}
+                strokeOpacity={edge.confidence === "ambiguous" ? 0.22 : 0.34}
                 strokeDasharray={edge.confidence === "inferred" ? "3 3" : edge.confidence === "ambiguous" ? "2 4" : undefined}
               />
             ))}
-          </svg>
 
-          {layout.map(({ node, x, y }) => (
-            <div
-              key={node.id}
-              className="absolute w-[5.35rem] -translate-x-1/2 -translate-y-1/2 sm:w-[8.25rem]"
-              style={{ left: `${x}%`, top: `${y}%` }}
-            >
-              <div className={`rounded-lg border px-2 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.28)] sm:px-2.5 ${graphNodeTypeTone[node.nodeType] ?? "border-white/15 bg-white/[0.06] text-slate-100"}`}>
-                <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-current" />
-                  <p className="min-w-0 truncate text-[11px] font-black sm:text-xs">{node.title}</p>
-                </div>
-                <p className="mt-1 truncate text-[9px] font-bold uppercase opacity-70 sm:text-[10px]">{node.nodeType}</p>
-              </div>
-            </div>
-          ))}
+            {layout.map(({ node, x, y, r, degree, visual }, index) => {
+              const showLabel = index < 9 || r >= 6.2
+              return (
+                <g key={node.id}>
+                  <title>{`${node.title} · ${visual.label} · ${degree} collegamenti`}</title>
+                  <circle cx={x} cy={y} r={r + 1.6} fill={visual.fill} opacity="0.12" filter="url(#graphGlow)" />
+                  <circle cx={x} cy={y} r={r} fill={visual.fill} stroke={visual.stroke} strokeWidth="0.45" opacity="0.92" />
+                  <circle cx={x - r * 0.28} cy={y - r * 0.28} r={Math.max(0.8, r * 0.2)} fill="#ffffff" opacity="0.86" />
+                  {showLabel ? (
+                    <>
+                      <text
+                        x={x}
+                        y={y + r + 3.2}
+                        textAnchor="middle"
+                        className="fill-slate-100 text-[3px] font-black"
+                      >
+                        {compactGraphLabel(node.title)}
+                      </text>
+                      <text
+                        x={x}
+                        y={y + r + 6.4}
+                        textAnchor="middle"
+                        className="fill-slate-500 text-[2.25px] font-bold uppercase"
+                      >
+                        {visual.label}
+                      </text>
+                    </>
+                  ) : null}
+                </g>
+              )
+            })}
+          </svg>
         </div>
       ) : (
         <div className="p-4 text-sm leading-6 text-slate-500">
           Nessun nodo visualizzabile. Usa "Sincronizza grafo" per creare o aggiornare i riferimenti agentici iniziali senza cancellare dati esistenti.
         </div>
       )}
+
+      <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
+        {Object.entries(graphNodeTypeVisual).slice(0, 6).map(([type, visual]) => (
+          <span key={type} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: visual.fill, border: `1px solid ${visual.stroke}` }} />
+            {visual.label}
+          </span>
+        ))}
+      </div>
 
       <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
         {Object.entries(graphConfidenceCopy).map(([confidence, label]) => (
@@ -486,7 +541,7 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
 
       {isPartialMap ? (
         <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
-          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. Questa mappa mostra una selezione leggibile con {layout.length} nodi e {visibleEdges.length} collegamenti visibili.
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. La mappa mostra i nodi piu centrali: bolle piu grandi indicano piu collegamenti.
         </div>
       ) : null}
 
