@@ -173,7 +173,7 @@ function toolsList() {
     {
       name: "optima_graph_memory_snapshot",
       title: "Optima agentic graph memory snapshot",
-      description: "Legge la memoria a grafo agentica del tenant: nodi, archi, sessioni e sorgenti/pattern Hermes-Graphify.",
+      description: "Legge la memoria a grafo agentica del tenant: nodi, archi, sessioni e sorgenti. Graphify e trattato come motore/pattern di estrazione e query, non come nodo business.",
       inputSchema: {
         type: "object",
         properties: {
@@ -234,7 +234,7 @@ function toolsList() {
     {
       name: "optima_agentic_reference_sources",
       title: "Optima agentic reference sources",
-      description: "Mostra le sorgenti usate come riferimento architetturale: Hermes Agent, Graphify e pattern Perplexity Computer.",
+      description: "Mostra le sorgenti usate come riferimento architetturale: Hermes Agent, Graphify engine reference e pattern Perplexity Computer.",
       inputSchema: {
         type: "object",
         properties: {

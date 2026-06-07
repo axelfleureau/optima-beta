@@ -117,7 +117,7 @@ export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
   },
   {
     id: "graphify",
-    label: "Graphify",
+    label: "Graphify official reference",
     sourceType: "open_source_reference",
     url: "https://github.com/safishamsi/graphify",
     importPolicy: "reference_only_graph_extraction_schema",
@@ -543,11 +543,28 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
   const graphMemory = await upsertAgenticGraphNode(db, principal, {
     nodeType: "capability",
     title: "Agentic graph memory",
-    summary: "Memoria a grafo tenant-scoped con nodi, archi, confidence e sorgenti verificabili.",
+    summary: "Memoria a grafo tenant-scoped con nodi, archi, confidence e sorgenti verificabili. Optima possiede il control plane e usa Graphify come motore/pattern di estrazione, analisi e query.",
     sourceType: "internal",
     sourceId: "agentic-graph-memory",
     confidence: "manual",
     tags: ["graph", "memory", "tenant"],
+  })
+
+  const graphEngine = await upsertAgenticGraphNode(db, principal, {
+    nodeType: "graph_engine",
+    title: "Graphify graph engine",
+    summary: "Motore/pipeline per detect, extract, build, cluster, analyze, export e MCP query del grafo. Non e un nodo business: alimenta e interroga i nodi Optima.",
+    sourceType: "internal",
+    sourceId: "graphify-graph-engine",
+    sourceUrl: "https://github.com/safishamsi/graphify",
+    confidence: "manual",
+    tags: ["graphify", "graph-engine", "mcp", "extraction", "query"],
+    properties: {
+      role: "graph_extraction_and_query_engine",
+      ownsBusinessData: false,
+      optimaStorage: "agentic_graph_nodes/agentic_graph_edges",
+      pipeline: ["detect", "extract", "build", "cluster", "analyze", "export", "serve_mcp"],
+    },
   })
 
   const mcpGateway = await upsertAgenticGraphNode(db, principal, {
@@ -602,6 +619,7 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
 
   const edgeInputs = [
     [optima?.id, graphMemory?.id, "has_capability", "manual"],
+    [graphMemory?.id, graphEngine?.id, "uses_graph_engine", "manual"],
     [optima?.id, mcpGateway?.id, "has_capability", "manual"],
     [optima?.id, subagentLanes?.id, "has_capability", "manual"],
     [optima?.id, knowhowMemory?.id, "has_capability", "manual"],
@@ -610,7 +628,8 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     [referenceNodes.find((node) => node?.sourceId === "hermes-agent")?.id, subagentLanes?.id, "informs_pattern", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "hermes-agent")?.id, mcpGateway?.id, "informs_pattern", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "hermes-righello-readonly")?.id, graphMemory?.id, "can_feed_knowledge", "manual"],
-    [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphMemory?.id, "informs_pattern", "inferred"],
+    [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphEngine?.id, "documents_engine_pattern", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphMemory?.id, "informs_graph_schema", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "perplexity-computer-pattern")?.id, optima?.id, "informs_ux_pattern", "inferred"],
   ] as const
 

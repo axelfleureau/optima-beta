@@ -264,6 +264,7 @@ const quickJobTemplates = [
 const graphNodeTypeVisual: Record<string, { fill: string; stroke: string; label: string }> = {
   system: { fill: "#db2777", stroke: "#f9a8d4", label: "Sistema" },
   capability: { fill: "#0891b2", stroke: "#67e8f9", label: "Capability" },
+  graph_engine: { fill: "#14b8a6", stroke: "#99f6e4", label: "Motore grafo" },
   knowledge_base: { fill: "#7c3aed", stroke: "#c4b5fd", label: "Knowledge base" },
   development_knowhow: { fill: "#475569", stroke: "#cbd5e1", label: "Know-how" },
   reference_source: { fill: "#059669", stroke: "#6ee7b7", label: "Sorgente" },
@@ -406,7 +407,7 @@ function getBriefPlaceholder(jobType: string) {
 }
 
 function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"], edges: AgenticGraphSnapshot["edges"] = []) {
-  const typeOrder = ["system", "knowledge_base", "capability", "subagent", "connector", "reference_source", "hermes_memory", "hermes_skill", "development_knowhow"]
+  const typeOrder = ["system", "graph_engine", "knowledge_base", "capability", "subagent", "connector", "reference_source", "hermes_memory", "hermes_skill", "development_knowhow"]
   const degreeByNode = new Map<string, number>()
   for (const edge of edges) {
     degreeByNode.set(edge.fromNodeId, (degreeByNode.get(edge.fromNodeId) || 0) + 1)
@@ -427,7 +428,7 @@ function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"], edges: Agentic
 
   return visibleNodes.map((node, index) => {
     const degree = degreeByNode.get(node.id) || 0
-    const typeBoost = node.nodeType === "system" || node.nodeType === "knowledge_base" ? 1.4 : node.nodeType === "capability" ? 0.8 : 0
+    const typeBoost = node.nodeType === "system" || node.nodeType === "knowledge_base" ? 1.4 : node.nodeType === "graph_engine" ? 1.1 : node.nodeType === "capability" ? 0.8 : 0
     const r = Math.max(3.6, Math.min(8.8, 3.4 + Math.sqrt(degree + 1) * 1.35 + typeBoost))
     const ringIndex = Math.max(0, index - 1)
     const angle = (ringIndex * 137.508 * Math.PI) / 180
@@ -479,7 +480,7 @@ function GraphMemoryMap({
   return (
     <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-white/10 bg-[#050914]/85">
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa nodi</p>
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa grafo</p>
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400">
           Vista parziale · {layout.length} di {totalNodes} nodi
         </span>
@@ -571,7 +572,7 @@ function GraphMemoryMap({
       )}
 
       <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
-        {Object.entries(graphNodeTypeVisual).slice(0, 6).map(([type, visual]) => (
+        {Object.entries(graphNodeTypeVisual).slice(0, 7).map(([type, visual]) => (
           <span key={type} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: visual.fill, border: `1px solid ${visual.stroke}` }} />
             {visual.label}
@@ -593,7 +594,7 @@ function GraphMemoryMap({
 
       {isPartialMap ? (
         <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
-          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. La mappa mostra i nodi piu centrali: bolle piu grandi indicano piu collegamenti.
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. La mappa mostra i nodi piu centrali: bolle piu grandi indicano piu collegamenti. Graphify e il motore di estrazione/query; i nodi business restano dati Optima.
         </div>
       ) : null}
 
@@ -1825,6 +1826,20 @@ export function AgentJobsClient({
                     <p className="mt-1 text-lg font-black text-white">{value}</p>
                   </div>
                 ))}
+              </div>
+
+              <div className="mt-3 rounded-lg border border-teal-300/20 bg-teal-300/[0.055] p-3">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-teal-300/25 bg-teal-300/10 text-teal-100">
+                    <Network className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white">Graphify come motore, Optima come sistema operativo</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-300">
+                      Graphify fornisce pipeline e MCP query del grafo; Optima conserva nodi, archi, tenant, permessi, review e dati aziendali.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_12rem]">
