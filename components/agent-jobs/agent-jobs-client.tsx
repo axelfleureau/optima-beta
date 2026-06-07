@@ -174,6 +174,11 @@ interface AgenticGraphSnapshot {
     title: string
     confidence: string
     summary: string
+    sourceType: string
+    sourceId: string
+    sourceUrl: string | null
+    tags: string[]
+    properties: Record<string, unknown>
   }>
   edges: Array<{
     id: string
@@ -182,6 +187,7 @@ interface AgenticGraphSnapshot {
     edgeType: string
     confidence: string
     weight: number
+    properties: Record<string, unknown>
   }>
   referenceSources: Array<{
     id: string
@@ -189,6 +195,15 @@ interface AgenticGraphSnapshot {
     importPolicy: string
     sourceType: string
   }>
+}
+
+type AgenticGraphNode = AgenticGraphSnapshot["nodes"][number]
+type AgenticGraphEdge = AgenticGraphSnapshot["edges"][number]
+
+interface AgenticGraphNodeDetail {
+  node: AgenticGraphNode
+  edges: AgenticGraphEdge[]
+  connectedNodes: AgenticGraphNode[]
 }
 
 const initialForm = {
@@ -270,6 +285,15 @@ const graphConfidenceCopy: Record<string, string> = {
   extracted: "estratto",
   inferred: "inferito",
   ambiguous: "da verificare",
+}
+
+const graphSourceCopy: Record<string, string> = {
+  internal: "Optima",
+  hermes_readonly: "Hermes Righello",
+  codex_knowhow: "Know-how Codex",
+  open_source_reference: "Open source",
+  product_pattern: "Pattern prodotto",
+  private_readonly_source: "Sorgente privata",
 }
 
 const installStateCopy: Record<string, string> = {
@@ -382,7 +406,7 @@ function getBriefPlaceholder(jobType: string) {
 }
 
 function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"], edges: AgenticGraphSnapshot["edges"] = []) {
-  const typeOrder = ["system", "knowledge_base", "capability", "subagent", "connector", "reference_source", "development_knowhow"]
+  const typeOrder = ["system", "knowledge_base", "capability", "subagent", "connector", "reference_source", "hermes_memory", "hermes_skill", "development_knowhow"]
   const degreeByNode = new Map<string, number>()
   for (const edge of edges) {
     degreeByNode.set(edge.fromNodeId, (degreeByNode.get(edge.fromNodeId) || 0) + 1)
@@ -426,7 +450,15 @@ function compactGraphLabel(value: string) {
   return clean.length > 18 ? `${clean.slice(0, 16).trim()}...` : clean
 }
 
-function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | null }) {
+function GraphMemoryMap({
+  graphMemory,
+  selectedNodeId,
+  onSelectNode,
+}: {
+  graphMemory: AgenticGraphSnapshot | null
+  selectedNodeId?: string | null
+  onSelectNode?: (node: AgenticGraphNode) => void
+}) {
   const layout = useMemo(() => getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? []), [graphMemory?.nodes, graphMemory?.edges])
   const totalNodes = graphMemory?.stats.nodes ?? layout.length
   const totalEdges = graphMemory?.stats.edges ?? graphMemory?.edges?.length ?? 0
@@ -482,10 +514,30 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
             {layout.map(({ node, x, y, r, degree, visual }, index) => {
               const showLabel = index < 9 || r >= 6.2
               return (
-                <g key={node.id}>
+                <g
+                  key={node.id}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer outline-none"
+                  onClick={() => onSelectNode?.(node)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      onSelectNode?.(node)
+                    }
+                  }}
+                >
                   <title>{`${node.title} · ${visual.label} · ${degree} collegamenti`}</title>
                   <circle cx={x} cy={y} r={r + 1.6} fill={visual.fill} opacity="0.12" filter="url(#graphGlow)" />
-                  <circle cx={x} cy={y} r={r} fill={visual.fill} stroke={visual.stroke} strokeWidth="0.45" opacity="0.92" />
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={r}
+                    fill={visual.fill}
+                    stroke={selectedNodeId === node.id ? "#ffffff" : visual.stroke}
+                    strokeWidth={selectedNodeId === node.id ? "0.95" : "0.45"}
+                    opacity="0.92"
+                  />
                   <circle cx={x - r * 0.28} cy={y - r * 0.28} r={Math.max(0.8, r * 0.2)} fill="#ffffff" opacity="0.86" />
                   {showLabel ? (
                     <>
@@ -613,6 +665,14 @@ export function AgentJobsClient({
   const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
   const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
   const [isSeedingGraph, setIsSeedingGraph] = useState(false)
+  const [graphQuery, setGraphQuery] = useState("")
+  const [graphNodeTypeFilter, setGraphNodeTypeFilter] = useState("")
+  const [graphSourceFilter, setGraphSourceFilter] = useState("")
+  const [graphSearchNodes, setGraphSearchNodes] = useState<AgenticGraphNode[] | null>(null)
+  const [isSearchingGraph, setIsSearchingGraph] = useState(false)
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null)
+  const [graphNodeDetail, setGraphNodeDetail] = useState<AgenticGraphNodeDetail | null>(null)
+  const [isLoadingGraphNode, setIsLoadingGraphNode] = useState(false)
   const [capabilityAction, setCapabilityAction] = useState<string | null>(null)
   const [setupAction, setSetupAction] = useState<string | null>(null)
 
@@ -647,6 +707,41 @@ export function AgentJobsClient({
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    const hasFilter = graphQuery.trim() || graphNodeTypeFilter || graphSourceFilter
+    if (!hasFilter) {
+      setGraphSearchNodes(null)
+      setIsSearchingGraph(false)
+      return
+    }
+
+    let active = true
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams()
+      if (graphQuery.trim()) params.set("q", graphQuery.trim())
+      if (graphNodeTypeFilter) params.set("nodeType", graphNodeTypeFilter)
+      if (graphSourceFilter) params.set("sourceType", graphSourceFilter)
+      params.set("limit", "80")
+      setIsSearchingGraph(true)
+      fetch(`/api/agentic-graph?${params.toString()}`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (active) setGraphSearchNodes(Array.isArray(data?.nodes) ? data.nodes : [])
+        })
+        .catch(() => {
+          if (active) setGraphSearchNodes([])
+        })
+        .finally(() => {
+          if (active) setIsSearchingGraph(false)
+        })
+    }, 220)
+
+    return () => {
+      active = false
+      window.clearTimeout(timeout)
+    }
+  }, [graphQuery, graphNodeTypeFilter, graphSourceFilter])
 
   const stats = useMemo(() => {
     return {
@@ -963,6 +1058,49 @@ export function AgentJobsClient({
     })
   }
 
+  async function loadGraphNode(node: AgenticGraphNode) {
+    setSelectedGraphNodeId(node.id)
+    setGraphNodeDetail(null)
+    setIsLoadingGraphNode(true)
+    setError(null)
+    try {
+      const response = await fetch(`/api/agentic-graph?nodeId=${encodeURIComponent(node.id)}&limit=80`)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Errore caricamento nodo")
+      setGraphNodeDetail(data)
+    } catch (err: any) {
+      setError(err?.message ?? "Errore caricamento nodo")
+    } finally {
+      setIsLoadingGraphNode(false)
+    }
+  }
+
+  async function createGraphNodeJob(detail: AgenticGraphNodeDetail) {
+    const connected = detail.connectedNodes.slice(0, 8)
+    await createCapabilitySetupJob({
+      actionKey: `graph-node-job:${detail.node.id}`,
+      title: `Analizza nodo grafo: ${detail.node.title}`,
+      contextSummary: `${detail.node.nodeType} / ${detail.node.sourceType}`,
+      brief: [
+        `Usa questo nodo della graph memory Optima come contesto operativo e produci un output revisionabile.`,
+        `Nodo: ${detail.node.title}`,
+        `Tipo: ${detail.node.nodeType}. Sorgente: ${graphSourceCopy[detail.node.sourceType] ?? detail.node.sourceType}. Confidence: ${graphConfidenceCopy[detail.node.confidence] ?? detail.node.confidence}.`,
+        detail.node.summary ? `Sommario: ${detail.node.summary}` : "Sommario non disponibile.",
+        connected.length
+          ? `Collegamenti principali: ${connected.map((node) => `${node.title} (${node.nodeType})`).join("; ")}.`
+          : "Nessun collegamento principale trovato.",
+        "Determina se il nodo deve diventare task, capability, subagente, connector, memoria aziendale o semplice riferimento. Non inventare dati mancanti e non modificare produzione senza review.",
+      ].join("\n\n"),
+      metadata: {
+        graphNode: detail.node,
+        connectedNodes: connected,
+        edgeCount: detail.edges.length,
+      },
+    })
+    setSelectedGraphNodeId(null)
+    setGraphNodeDetail(null)
+  }
+
   async function createRecommendedSubagent(template: (typeof recommendedSubagents)[number]) {
     await mutateCapabilities(
       {
@@ -1088,6 +1226,30 @@ export function AgentJobsClient({
   const graphTypes = Object.entries(graphMemory?.stats.byType ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(0, 8)
+  const graphTypeOptions = Object.keys(graphMemory?.stats.byType ?? {}).sort((a, b) => a.localeCompare(b))
+  const graphSourceOptions = Array.from(
+    new Set([
+      ...(graphMemory?.nodes ?? []).map((node) => node.sourceType).filter(Boolean),
+      "internal",
+      "hermes_readonly",
+      "codex_knowhow",
+      "open_source_reference",
+      "product_pattern",
+    ]),
+  ).sort((a, b) => (graphSourceCopy[a] ?? a).localeCompare(graphSourceCopy[b] ?? b))
+  const visibleGraphNodes = graphSearchNodes ?? graphMemory?.nodes ?? []
+  const visibleGraphNodeIds = new Set(visibleGraphNodes.map((node) => node.id))
+  const visibleGraphEdges = (graphMemory?.edges ?? []).filter(
+    (edge) => visibleGraphNodeIds.has(edge.fromNodeId) && visibleGraphNodeIds.has(edge.toNodeId),
+  )
+  const displayGraphMemory = graphMemory
+    ? {
+        ...graphMemory,
+        nodes: visibleGraphNodes,
+        edges: visibleGraphEdges,
+      }
+    : null
+  const graphHasActiveFilter = Boolean(graphQuery.trim() || graphNodeTypeFilter || graphSourceFilter)
   const readyRuntimeCount = capabilities?.modelRuntime?.hosts.filter((host) => host.runtimeStatus === "ready").length ?? 0
   const configuredProviderCount = capabilities?.providerInstallations.filter((item) => item.installState !== "not_installed").length ?? 0
   const configuredConnectorCount = capabilities?.connectorInstallations.filter((item) => item.installState !== "not_installed").length ?? 0
@@ -1665,7 +1827,107 @@ export function AgentJobsClient({
                 ))}
               </div>
 
-              <GraphMemoryMap graphMemory={graphMemory} />
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_12rem]">
+                <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                  Cerca memoria
+                  <input
+                    className="h-10 rounded-lg border border-white/10 bg-[#060a15] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                    value={graphQuery}
+                    onChange={(event) => setGraphQuery(event.target.value)}
+                    placeholder="cliente, skill, repo, progetto..."
+                  />
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                  Tipo
+                  <select
+                    className="h-10 rounded-lg border border-white/10 bg-[#060a15] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                    value={graphNodeTypeFilter}
+                    onChange={(event) => setGraphNodeTypeFilter(event.target.value)}
+                  >
+                    <option value="">Tutti</option>
+                    {graphTypeOptions.map((type) => (
+                      <option key={type} value={type}>
+                        {graphNodeTypeVisual[type]?.label ?? type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                  Sorgente
+                  <select
+                    className="h-10 rounded-lg border border-white/10 bg-[#060a15] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                    value={graphSourceFilter}
+                    onChange={(event) => setGraphSourceFilter(event.target.value)}
+                  >
+                    <option value="">Tutte</option>
+                    {graphSourceOptions.map((sourceType) => (
+                      <option key={sourceType} value={sourceType}>
+                        {graphSourceCopy[sourceType] ?? sourceType}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {graphHasActiveFilter ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setGraphQuery("")
+                      setGraphNodeTypeFilter("")
+                      setGraphSourceFilter("")
+                    }}
+                    className="h-8 rounded-lg border-white/10 bg-transparent px-3 text-xs text-white hover:bg-white/10"
+                  >
+                    Pulisci filtri
+                  </Button>
+                ) : null}
+                <span className="text-xs text-slate-500">
+                  {isSearchingGraph
+                    ? "Ricerca nel grafo..."
+                    : graphHasActiveFilter
+                      ? `${visibleGraphNodes.length} nodi trovati`
+                      : "Vista centrale del grafo operativo"}
+                </span>
+              </div>
+
+              <GraphMemoryMap
+                graphMemory={displayGraphMemory}
+                selectedNodeId={selectedGraphNodeId}
+                onSelectNode={loadGraphNode}
+              />
+
+              {visibleGraphNodes.length ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {visibleGraphNodes.slice(0, 6).map((node) => (
+                    <button
+                      key={`graph-node-card-${node.id}`}
+                      type="button"
+                      onClick={() => loadGraphNode(node)}
+                      className={`min-w-0 rounded-lg border p-3 text-left transition hover:border-cyan-300/40 hover:bg-cyan-300/[0.06] ${
+                        selectedGraphNodeId === node.id ? "border-cyan-300/50 bg-cyan-300/[0.08]" : "border-white/10 bg-[#060a15]/70"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-white">{node.title}</p>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {graphNodeTypeVisual[node.nodeType]?.label ?? node.nodeType} · {graphSourceCopy[node.sourceType] ?? node.sourceType}
+                          </p>
+                        </div>
+                        <Eye className="h-4 w-4 shrink-0 text-cyan-100" />
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{node.summary || "Nessun sommario disponibile."}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : graphHasActiveFilter && !isSearchingGraph ? (
+                <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15]/70 p-3 text-sm text-slate-400">
+                  Nessun nodo trovato con questi filtri.
+                </div>
+              ) : null}
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {graphTypes.length ? (
@@ -2076,6 +2338,129 @@ export function AgentJobsClient({
             ))
           )}
         </div>
+
+        <Dialog
+          open={Boolean(selectedGraphNodeId)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedGraphNodeId(null)
+              setGraphNodeDetail(null)
+            }
+          }}
+        >
+          <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
+            <DialogHeader className="pr-8 text-left">
+              <DialogTitle className="text-xl font-black sm:text-2xl">Nodo graph memory</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Dettaglio operativo del nodo selezionato: sorgente, confidence, connessioni e azione agentica.
+              </DialogDescription>
+            </DialogHeader>
+
+            {isLoadingGraphNode || !graphNodeDetail ? (
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Caricamento nodo...
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3 sm:p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100">
+                      {graphNodeTypeVisual[graphNodeDetail.node.nodeType]?.label ?? graphNodeDetail.node.nodeType}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                      {graphSourceCopy[graphNodeDetail.node.sourceType] ?? graphNodeDetail.node.sourceType}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                      {graphConfidenceCopy[graphNodeDetail.node.confidence] ?? graphNodeDetail.node.confidence}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 break-words text-xl font-black leading-tight text-white">
+                    {graphNodeDetail.node.title}
+                  </h3>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">
+                    {graphNodeDetail.node.summary || "Nessun sommario disponibile."}
+                  </p>
+                  <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
+                    <p className="min-w-0 truncate">source_id: {graphNodeDetail.node.sourceId || "n/d"}</p>
+                    <p className="min-w-0 truncate">collegamenti: {graphNodeDetail.edges.length}</p>
+                  </div>
+                  {graphNodeDetail.node.tags?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {graphNodeDetail.node.tags.slice(0, 10).map((tag) => (
+                        <span key={tag} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-bold text-slate-300">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+
+                <section className="rounded-lg border border-white/10 bg-[#050914] p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="font-black text-white">Connessioni</h4>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-bold text-slate-400">
+                      {graphNodeDetail.connectedNodes.length} nodi
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {graphNodeDetail.connectedNodes.length ? (
+                      graphNodeDetail.connectedNodes.slice(0, 8).map((node) => {
+                        const edge = graphNodeDetail.edges.find((item) => item.fromNodeId === node.id || item.toNodeId === node.id)
+                        return (
+                          <button
+                            key={`connected-${node.id}`}
+                            type="button"
+                            onClick={() => loadGraphNode(node)}
+                            className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-cyan-300/40 hover:bg-cyan-300/[0.06]"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-white">{node.title}</p>
+                                <p className="mt-1 truncate text-xs text-slate-500">
+                                  {graphNodeTypeVisual[node.nodeType]?.label ?? node.nodeType} · {edge?.edgeType ?? "collegato"}
+                                </p>
+                              </div>
+                              <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                                {edge ? graphConfidenceCopy[edge.confidence] ?? edge.confidence : "n/d"}
+                              </span>
+                            </div>
+                          </button>
+                        )
+                      })
+                    ) : (
+                      <p className="text-sm text-slate-500">Nessuna connessione indicizzata per questo nodo.</p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-righello-pink/20 bg-righello-pink/[0.055] p-3 sm:p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-black text-white">Azione agentica</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-300">
+                        Crea un job che usa questo nodo e i suoi collegamenti come contesto. Il runner produce un risultato revisionabile prima di qualsiasi modifica.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => createGraphNodeJob(graphNodeDetail)}
+                      disabled={setupAction === `graph-node-job:${graphNodeDetail.node.id}`}
+                      className="h-10 w-full shrink-0 rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90 sm:w-auto"
+                    >
+                      {setupAction === `graph-node-job:${graphNodeDetail.node.id}` ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Play className="mr-1.5 h-4 w-4" />
+                      )}
+                      Crea job dal nodo
+                    </Button>
+                  </div>
+                </section>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Dialog
           open={Boolean(reviewJobId)}

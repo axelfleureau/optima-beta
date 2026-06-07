@@ -2,8 +2,8 @@ import { NextRequest } from "next/server"
 
 import {
   createAgenticGraphSession,
+  getAgenticGraphNodeDetail,
   getAgenticGraphSnapshot,
-  listAgenticGraphEdges,
   listAgenticGraphNodes,
   seedAgenticReferenceGraph,
   upsertAgenticGraphEdge,
@@ -38,23 +38,23 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get("q") || ""
     const nodeType = searchParams.get("nodeType") || ""
+    const sourceType = searchParams.get("sourceType") || ""
     const nodeId = searchParams.get("nodeId") || ""
 
-    if (query || nodeType) {
+    if (nodeId) {
+      const detail = await getAgenticGraphNodeDetail(auth.db, auth.principal, nodeId, Number(searchParams.get("limit") || 100))
+      if (!detail) return Response.json({ error: "Nodo non trovato." }, { status: 404 })
+      return Response.json(detail)
+    }
+
+    if (query || nodeType || sourceType) {
       const nodes = await listAgenticGraphNodes(auth.db, auth.principal, {
         query,
         nodeType,
+        sourceType,
         limit: Number(searchParams.get("limit") || 50),
       })
       return Response.json({ nodes })
-    }
-
-    if (nodeId) {
-      const edges = await listAgenticGraphEdges(auth.db, auth.principal, {
-        nodeId,
-        limit: Number(searchParams.get("limit") || 100),
-      })
-      return Response.json({ edges })
     }
 
     const snapshot = await getAgenticGraphSnapshot(auth.db, auth.principal)

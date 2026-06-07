@@ -239,17 +239,23 @@ function mapSession(row: any): AgenticGraphSession {
 export async function listAgenticGraphNodes(
   db: any,
   principal: WorkspacePrincipal,
-  input: { query?: string; nodeType?: string; limit?: number } = {},
+  input: { query?: string; nodeType?: string; sourceType?: string; limit?: number } = {},
 ) {
   const clauses = ["organization_id = ?"]
   const params: unknown[] = [principal.organizationId]
   const query = String(input.query || "").trim()
   const nodeType = String(input.nodeType || "").trim()
+  const sourceType = String(input.sourceType || "").trim()
   const limit = Math.min(100, Math.max(1, Number(input.limit || 50)))
 
   if (nodeType) {
     clauses.push("node_type = ?")
     params.push(nodeType)
+  }
+
+  if (sourceType) {
+    clauses.push("source_type = ?")
+    params.push(sourceType)
   }
 
   if (query) {
@@ -270,6 +276,55 @@ export async function listAgenticGraphNodes(
     params,
   )
   return rows.map(mapNode)
+}
+
+export async function getAgenticGraphNodeDetail(
+  db: any,
+  principal: WorkspacePrincipal,
+  nodeId: string,
+  limit = 80,
+) {
+  const id = String(nodeId || "").trim()
+  if (!id) return null
+
+  const [nodeRow] = await safeAll(
+    db,
+    `SELECT *
+     FROM agentic_graph_nodes
+     WHERE organization_id = ? AND id = ?
+     LIMIT 1`,
+    [principal.organizationId, id],
+  )
+  if (!nodeRow) return null
+
+  const edges = await listAgenticGraphEdges(db, principal, { nodeId: id, limit })
+  const connectedIds = Array.from(
+    new Set(
+      edges
+        .flatMap((edge) => [edge.fromNodeId, edge.toNodeId])
+        .filter((connectedId) => connectedId && connectedId !== id),
+    ),
+  ).slice(0, Math.min(80, Math.max(1, Number(limit || 80))))
+
+  let connectedNodes: AgenticGraphNode[] = []
+  if (connectedIds.length) {
+    const placeholders = connectedIds.map(() => "?").join(", ")
+    const rows = await safeAll(
+      db,
+      `SELECT *
+       FROM agentic_graph_nodes
+       WHERE organization_id = ? AND id IN (${placeholders})
+       ORDER BY updated_at DESC`,
+      [principal.organizationId, ...connectedIds],
+    )
+    connectedNodes = rows.map(mapNode)
+  }
+
+  return {
+    node: mapNode(nodeRow),
+    edges,
+    connectedNodes,
+  }
 }
 
 export async function listAgenticGraphEdges(
