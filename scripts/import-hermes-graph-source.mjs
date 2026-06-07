@@ -49,7 +49,11 @@ function safeRelative(path) {
 }
 
 function isForbidden(relPath) {
-  return relPath
+  const normalized = relPath.toLowerCase()
+  const fileName = basename(normalized)
+  if (fileName.startsWith("request_dump")) return true
+  if (fileName.includes("credential") || fileName.includes("secret")) return true
+  return normalized
     .split("/")
     .some((segment) => forbiddenSegments.has(segment.toLowerCase()) || segment.toLowerCase().includes("secret"))
 }
@@ -57,9 +61,14 @@ function isForbidden(relPath) {
 function redact(value) {
   return String(value)
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "<email>")
-    .replace(/\b(?:sk|pk|xox|ghp|github_pat|sg|rk|tk)_[A-Za-z0-9_\-]{16,}\b/g, "<secret_ref>")
+    .replace(/\bBearer\s+[^'",\s}]+/gi, "Bearer <redacted>")
+    .replace(/\b(?:sk|pk|xox|ghp|github_pat|sg|rk|tk)[_-][A-Za-z0-9_.\-]{6,}\b/g, "<secret_ref>")
+    .replace(/\bAIza[A-Za-z0-9_.\-]{6,}\b/g, "<secret_ref>")
+    .replace(/\b[A-Za-z0-9_-]{4,}\.\.\.[A-Za-z0-9_-]{4,}\b/g, "<redacted>")
     .replace(/\b[A-Za-z0-9_\-]{32,}\.[A-Za-z0-9_\-]{16,}\.[A-Za-z0-9_\-]{16,}\b/g, "<token>")
-    .replace(/\b(?:api[_-]?key|token|secret|password|passwd|bearer)\s*[:=]\s*['"]?[^'",\s]+/gi, "$1=<redacted>")
+    .replace(/\b(api[_-]?key|token|secret|password|passwd|bearer)\s*[:=]\s*['"]?[^'",\s]+/gi, "$1=<redacted>")
+    .replace(/\b(password|passwd)\s+[^.,;\n]+/gi, "$1 <redacted>")
+    .replace(/\bAuthorization\s*:\s*Bearer\s+[^'",\s}]+/gi, "Authorization: Bearer <redacted>")
     .replace(/\b\+?\d[\d\s().-]{7,}\d\b/g, "<phone>")
 }
 

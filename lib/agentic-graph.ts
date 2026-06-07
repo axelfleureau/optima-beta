@@ -577,13 +577,25 @@ export async function getAgenticGraphSnapshot(
   db: any,
   principal: WorkspacePrincipal,
 ): Promise<AgenticGraphSnapshot> {
-  const [nodes, edges, sessions] = await Promise.all([
+  const [nodes, edges, sessions, nodeCountRows, edgeCountRows, sessionCountRows, typeRows] = await Promise.all([
     listAgenticGraphNodes(db, principal, { limit: 80 }),
     listAgenticGraphEdges(db, principal, { limit: 160 }),
     listAgenticGraphSessions(db, principal, 20),
+    safeAll(db, `SELECT COUNT(*) AS count FROM agentic_graph_nodes WHERE organization_id = ?`, [principal.organizationId]),
+    safeAll(db, `SELECT COUNT(*) AS count FROM agentic_graph_edges WHERE organization_id = ?`, [principal.organizationId]),
+    safeAll(db, `SELECT COUNT(*) AS count FROM agentic_graph_sessions WHERE organization_id = ?`, [principal.organizationId]),
+    safeAll(
+      db,
+      `SELECT node_type, COUNT(*) AS count
+       FROM agentic_graph_nodes
+       WHERE organization_id = ?
+       GROUP BY node_type`,
+      [principal.organizationId],
+    ),
   ])
-  const byType = nodes.reduce<Record<string, number>>((acc, node) => {
-    acc[node.nodeType] = (acc[node.nodeType] || 0) + 1
+
+  const byType = typeRows.reduce<Record<string, number>>((acc, row) => {
+    acc[String(row.node_type)] = Number(row.count || 0)
     return acc
   }, {})
 
@@ -592,9 +604,9 @@ export async function getAgenticGraphSnapshot(
     edges,
     sessions,
     stats: {
-      nodes: nodes.length,
-      edges: edges.length,
-      sessions: sessions.length,
+      nodes: Number(nodeCountRows[0]?.count || nodes.length),
+      edges: Number(edgeCountRows[0]?.count || edges.length),
+      sessions: Number(sessionCountRows[0]?.count || sessions.length),
       byType,
     },
     referenceSources: AGENTIC_REFERENCE_SOURCES,

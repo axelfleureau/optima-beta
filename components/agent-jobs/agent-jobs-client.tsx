@@ -828,7 +828,7 @@ export function AgentJobsClient({
               source: "NousResearch/hermes-agent",
               repository: "https://github.com/NousResearch/hermes-agent",
               referenceClone: "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
-              referenceRevision: "210f4e706",
+              referenceRevision: "846821d8c",
               relevantPatterns: [
                 "tools/mcp_tool.py: MCP server lifecycle, stderr isolation, reconnect, timeouts",
                 "tools/mcp_oauth_manager.py: token reload, OAuth metadata, 401 deduplication",
