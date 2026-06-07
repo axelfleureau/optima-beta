@@ -40,9 +40,59 @@ Questa regola evita errori come task o workload falsi: se manca una durata, una 
 
 Optima non vendorizza Hermes o Graphify automaticamente.
 
-- Hermes Agent (`NousResearch/hermes-agent`) e riferimento per gateway conversazionale, memoria, skills, provider routing, subagenti e runtime VPS/cloud.
+- Hermes Agent (`NousResearch/hermes-agent`) e riferimento ufficiale per gateway conversazionale, memoria, skills, provider routing, subagenti e runtime VPS/cloud. Il clone locale di lavoro resta fuori dal bundle applicativo: `/Users/axel/Documents/Codex/reference-sources/hermes-agent`.
+- L'installazione Hermes gia presente sul VPS puo essere usata solo come sorgente dati Righello in sola lettura. Si importano indici redatti, non codice sorgente, servizi, token o dump completi.
 - Graphify (`safishamsi/graphify`) e riferimento per estrazione grafi, schema nodi/archi, confidence, MCP e query-first workflow.
 - Perplexity Computer e un pattern UX: workspace conversazionale con obiettivo, fonti, azioni, trace e handoff umano.
+
+## Import Hermes read-only
+
+Script: `scripts/import-hermes-graph-source.mjs`
+
+Uso consigliato:
+
+```bash
+HERMES_SOURCE_DIR=/tmp/hermes-optima-import/.hermes npm run hermes:graph:import -- --dry-run
+HERMES_SOURCE_DIR=/tmp/hermes-optima-import/.hermes npm run hermes:graph:import
+```
+
+Prima di eseguirlo su dati VPS, creare una copia locale in sola lettura delle sole cartelle consentite:
+
+- `memories`
+- `skills`
+- `kanban`
+- `sessions`
+
+Esempio staging locale via rsync, leggendo dal VPS e scrivendo solo in `/tmp` locale:
+
+```bash
+mkdir -p /tmp/hermes-optima-import/.hermes
+rsync -a --prune-empty-dirs \
+  --include 'memories/***' \
+  --include 'skills/***' \
+  --include 'kanban/***' \
+  --include 'sessions/***' \
+  --exclude '*' \
+  root@<tailscale-vps>:/home/hermes/.hermes/ \
+  /tmp/hermes-optima-import/.hermes/
+```
+
+Cartelle vietate:
+
+- `secrets`
+- `.secrets`
+- `tokens`
+- `credentials`
+- file/env che contengono segreti
+
+Il risultato e idempotente e salva solo:
+
+- nodo radice `Hermes Righello read-only import`;
+- nodi `hermes_memory`, `hermes_skill`, `hermes_kanban`, `hermes_session`;
+- archi `indexes_hermes_source`;
+- `source_id` stabile, path relativo, dimensione, timestamp, tag e sommario redatto.
+
+Le sessioni sono marcate `ambiguous` per default: servono come pista di recupero, non come verita operativa finche non vengono revisionate.
 
 ## API
 
@@ -93,3 +143,4 @@ Quando il runner produce o aggiorna un `graphify-out/graph.json`, il flusso corr
 - Nessuna relazione inventata per riempire dashboard o heatmap.
 - Ogni connector OAuth/API key resta fuori da D1: la graph memory salva solo `secret_ref`, subject o metadati non sensibili quando necessario.
 - Chat, command bar, Telegram e runner devono interrogare lo stesso grafo tenant-scoped.
+- Import da sistemi esterni: mai dump integrale nel prompt o in D1; sempre indici piccoli, redatti, tenant-scoped, con source e confidence.

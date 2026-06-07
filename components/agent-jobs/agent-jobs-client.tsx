@@ -270,9 +270,9 @@ const graphConfidenceCopy: Record<string, string> = {
 
 const installStateCopy: Record<string, string> = {
   not_installed: "Non configurato",
-  guide_required: "Setup guidato",
-  configured: "Configurato",
-  healthy: "Operativo",
+  guide_required: "Setup da fare",
+  configured: "Policy salvata",
+  healthy: "Env rilevata",
   blocked: "Bloccato",
 }
 
@@ -551,6 +551,7 @@ export function AgentJobsClient({
   const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
   const [isSeedingGraph, setIsSeedingGraph] = useState(false)
   const [capabilityAction, setCapabilityAction] = useState<string | null>(null)
+  const [setupAction, setSetupAction] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -738,62 +739,165 @@ export function AgentJobsClient({
     }
   }
 
-  async function configureProvider(provider: AgenticCapabilities["providerCatalog"][number]) {
-    await mutateCapabilities(getProviderInstallBody(provider), `provider:${provider.id}`)
-  }
-
-  async function configureConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    await mutateCapabilities(getConnectorInstallBody(connector), `connector:${connector.id}`)
-  }
-
-  async function configureBaseProviders() {
-    if (!capabilities) return
+  async function createCapabilitySetupJob(input: {
+    actionKey: string
+    title: string
+    contextSummary: string
+    brief: string
+    priority?: number
+    metadata?: Record<string, unknown>
+  }) {
     try {
-      setCapabilityAction("providers:base")
+      setSetupAction(input.actionKey)
       setError(null)
-      let latest: AgenticCapabilities | null = null
-      const providers = capabilities.providerCatalog.filter((provider) => priorityProviderIds.includes(provider.id))
-      for (const provider of providers) {
-        const response = await fetch("/api/agentic-capabilities", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(getProviderInstallBody(provider)),
-        })
-        const data = await response.json()
-        if (!response.ok) throw new Error(data?.error ?? `Errore configurazione ${provider.label}`)
-        latest = data
-      }
-      if (latest) setCapabilities(latest)
+      const response = await fetch("/api/agent-jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: input.title,
+          jobType: "research",
+          priority: input.priority ?? 2,
+          contextSummary: input.contextSummary,
+          brief: input.brief,
+          input: {
+            requestedOutput: ["setup-plan", "health-check", "implementation-patch", "review-report"],
+            hermesPattern: {
+              source: "NousResearch/hermes-agent",
+              repository: "https://github.com/NousResearch/hermes-agent",
+              referenceClone: "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
+              referenceRevision: "210f4e706",
+              relevantPatterns: [
+                "tools/mcp_tool.py: MCP server lifecycle, stderr isolation, reconnect, timeouts",
+                "tools/mcp_oauth_manager.py: token reload, OAuth metadata, 401 deduplication",
+                "tools/managed_tool_gateway.py: managed vendor gateway and token refresh boundary",
+              ],
+              integrationRule: "Portare i pattern della repo ufficiale nel control plane Optima, non riusare il servizio Hermes attivo ne' i suoi token.",
+            },
+            hermesRighelloDataPolicy: {
+              source: "VPS Hermes esistente",
+              vpsReadOnlyPath: "/home/hermes/.hermes",
+              allowedDirs: ["memories", "skills", "kanban", "sessions"],
+              forbiddenDirs: ["secrets"],
+              importRule: "Solo indice redatto in graph memory: titoli, sommari, tag, confidence e source_id. Nessun token, nessun dump integrale.",
+            },
+            guardrails: [
+              "non fermare, riavviare o modificare servizi Hermes esistenti sul VPS",
+              "non scrivere token o segreti in D1, log, job brief o output",
+              "non eseguire docker prune o pulizie VPS senza approvazione esplicita",
+              "produrre patch Optima e piano di setup revisionabile prima di qualunque deploy",
+              "mantenere ogni capability tenant-scoped con audit e human review",
+            ],
+            ...(input.metadata ?? {}),
+          },
+          context: {
+            source: "agentic-stack-setup",
+            createdFrom: "agenti-stack-control-room",
+            vpsDiskState: "known_full_do_not_write_without_space_recovery",
+          },
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Errore creazione job setup")
+      setJobs((current) => [data.job, ...current])
+      setJobFilter("active")
+      setMobilePanel("jobs")
     } catch (err: any) {
-      setError(err?.message ?? "Errore configurazione provider base")
+      setError(err?.message ?? "Errore creazione job setup")
     } finally {
-      setCapabilityAction(null)
+      setSetupAction(null)
     }
   }
 
-  async function configurePriorityConnectors() {
-    if (!capabilities) return
-    try {
-      setCapabilityAction("connectors:priority")
-      setError(null)
-      let latest: AgenticCapabilities | null = null
-      const connectors = capabilities.mcpConnectorCatalog.filter((connector) => priorityConnectorIds.includes(connector.id))
-      for (const connector of connectors) {
-        const response = await fetch("/api/agentic-capabilities", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(getConnectorInstallBody(connector)),
-        })
-        const data = await response.json()
-        if (!response.ok) throw new Error(data?.error ?? `Errore configurazione ${connector.label}`)
-        latest = data
-      }
-      if (latest) setCapabilities(latest)
-    } catch (err: any) {
-      setError(err?.message ?? "Errore configurazione MCP prioritari")
-    } finally {
-      setCapabilityAction(null)
-    }
+  async function createProviderSetupJob(provider: AgenticCapabilities["providerCatalog"][number]) {
+    await createCapabilitySetupJob({
+      actionKey: `provider-setup:${provider.id}`,
+      title: `Setup provider ${provider.label}`,
+      contextSummary: `Provider ${provider.lane} / ${provider.authMethod}`,
+      brief: [
+        `Configura in Optima il provider ${provider.label} per la lane ${provider.lane}, usando pattern agentici ispirati a Hermes senza toccare il servizio Hermes attivo.`,
+        `Default model: ${provider.defaultModel}. Auth: ${provider.authMethod}.`,
+        `Segreti richiesti: ${provider.requiredSecrets.length ? provider.requiredSecrets.join(", ") : "nessuno"}.`,
+        `MCP consigliati: ${provider.recommendedMcpConnectors.length ? provider.recommendedMcpConnectors.join(", ") : "nessuno"}.`,
+        "Output richiesto: piano setup, env/secret_ref da configurare, health check, patch Optima necessaria e stato review. Non dichiarare operativo finche il runtime non e verificato.",
+      ].join("\n\n"),
+      metadata: {
+        provider,
+        installBody: getProviderInstallBody(provider),
+      },
+    })
+  }
+
+  async function createConnectorSetupJob(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    await createCapabilitySetupJob({
+      actionKey: `connector-setup:${connector.id}`,
+      title: `Setup MCP ${connector.label}`,
+      contextSummary: `MCP ${connector.category}`,
+      brief: [
+        `Configura in Optima il connector MCP ${connector.label} come capability tenant-scoped, usando i pattern Hermes MCP/OAuth come riferimento architetturale.`,
+        `Scopo: ${connector.purpose}`,
+        `Scope grafo: ${connector.graphUse.join(", ") || "nessuno"}.`,
+        `Env richieste: ${connector.requiredEnv.length ? connector.requiredEnv.join(", ") : "OAuth/reference senza env obbligatorie"}.`,
+        `Env opzionali: ${connector.optionalEnv?.length ? connector.optionalEnv.join(", ") : "nessuna"}.`,
+        "Output richiesto: schema installazione guidata, OAuth/secret_ref, health check, errori da mostrare in UI e patch necessaria. Non salvare token in chiaro.",
+      ].join("\n\n"),
+      metadata: {
+        connector,
+        installBody: getConnectorInstallBody(connector),
+      },
+    })
+  }
+
+  async function createStackSetupJob(kind: "providers" | "connectors" | "runtime" | "full") {
+    const selectedProviders = capabilities?.providerCatalog.filter((provider) => priorityProviderIds.includes(provider.id)) ?? []
+    const selectedConnectors = capabilities?.mcpConnectorCatalog.filter((connector) => priorityConnectorIds.includes(connector.id)) ?? []
+    const label =
+      kind === "providers"
+        ? "provider AI base"
+        : kind === "connectors"
+          ? "MCP prioritari"
+          : kind === "runtime"
+            ? "runtime hosted"
+            : "stack Hermes/MCP completo"
+    await createCapabilitySetupJob({
+      actionKey: `stack-setup:${kind}`,
+      title: `Piano setup ${label}`,
+      contextSummary: "Agentic OS / Hermes MCP patterns",
+      brief: [
+        `Produci un piano operativo e le patch necessarie per rendere realmente funzionante lo stack ${label} di Optima.`,
+        "Usa Hermes come sorgente pattern: MCP server lifecycle, OAuth token reload, 401 deduplication, managed tool gateway, skill/memory loop e isolamento dei tool.",
+        "Non modificare il servizio Hermes attivo sul VPS e non usare token Hermes. Il VPS e attualmente a disco pieno: qualunque intervento su Hostinger deve prima proporre una recovery sicura e revisionabile.",
+        `Provider prioritari: ${selectedProviders.map((provider) => `${provider.id}:${provider.authMethod}`).join(", ") || "nessuno"}.`,
+        `MCP prioritari: ${selectedConnectors.map((connector) => `${connector.id}:${connector.status}`).join(", ") || "nessuno"}.`,
+        "Output richiesto: matrice capability, setup guidato OAuth/secret_ref, health check per ogni connector, patch UI/API necessarie e ordine di esecuzione senza rischiare servizi esistenti.",
+      ].join("\n\n"),
+      metadata: {
+        setupKind: kind,
+        providers: selectedProviders,
+        connectors: selectedConnectors,
+      },
+    })
+  }
+
+  async function createHermesDataImportJob() {
+    await createCapabilitySetupJob({
+      actionKey: "stack-setup:hermes-data",
+      title: "Import read-only dati Hermes Righello nel grafo Optima",
+      contextSummary: "Hermes VPS data / Graphify import",
+      brief: [
+        "Crea un piano e una patch per alimentare la graph memory Optima con i dati Righello presenti nell'installazione Hermes esistente sul VPS.",
+        "Il servizio Hermes sul VPS appartiene a un'altra installazione: usalo solo come sorgente dati in sola lettura. Non modificare file, servizi, processi, systemd, env, token o cartelle secrets.",
+        "Sorgenti consentite: /home/hermes/.hermes/memories, /home/hermes/.hermes/skills, /home/hermes/.hermes/kanban e metadati redatti di /home/hermes/.hermes/sessions. Sorgente vietata: /home/hermes/.hermes/secrets.",
+        "Importa nel grafo solo indici redatti: titolo, sommario breve, tipo sorgente, source_id stabile, tag, confidence, dimensioni e timestamp. Non salvare conversazioni complete o contenuti sensibili.",
+        "Usa i pattern Graphify per distinguere extracted, inferred e ambiguous. Le relazioni ambigue devono restare revisionabili prima di influenzare task, persone o clienti.",
+        "Output richiesto: script di import sicuro, comando di esecuzione, limiti privacy, piano rollback/idempotenza e report dei nodi/archi creati.",
+      ].join("\n\n"),
+      metadata: {
+        setupKind: "hermes-data-import",
+        suggestedScript: "scripts/import-hermes-graph-source.mjs",
+        readOnlySource: "/home/hermes/.hermes",
+        excludedPaths: ["/home/hermes/.hermes/secrets"],
+      },
+    })
   }
 
   async function createRecommendedSubagent(template: (typeof recommendedSubagents)[number]) {
@@ -827,10 +931,6 @@ export function AgentJobsClient({
     } finally {
       setCapabilityAction(null)
     }
-  }
-
-  async function seedHostedModels() {
-    await mutateCapabilities({ action: "seed_hosted_model_routes" }, "models:hosted")
   }
 
   async function createJob() {
@@ -919,8 +1019,6 @@ export function AgentJobsClient({
   }
 
   const activeReviewJob = reviewDetails?.job ?? jobs.find((job) => job.id === reviewJobId) ?? null
-  const installedProviderIds = new Set(capabilities?.providerInstallations.map((item) => item.providerId) ?? [])
-  const installedConnectorIds = new Set(capabilities?.connectorInstallations.map((item) => item.connectorId) ?? [])
   const providerInstallationsById = new Map((capabilities?.providerInstallations ?? []).map((item) => [item.providerId, item]))
   const connectorInstallationsById = new Map((capabilities?.connectorInstallations ?? []).map((item) => [item.connectorId, item]))
   const subagentsBySlug = new Map((capabilities?.subagents ?? []).map((item) => [item.slug, item]))
@@ -966,28 +1064,28 @@ export function AgentJobsClient({
     {
       title: "Provider base",
       detail: `${priorityProviderConfiguredCount}/${priorityProviderIds.length} pronti`,
-      body: "Codex, OpenAI, Qwen, Gemma hosted e MiniMax con policy tenant e secret_ref.",
-      action: "Prepara provider",
-      busyKey: "providers:base",
-      onClick: configureBaseProviders,
+      body: "Crea un job setup per Codex, OpenAI, Qwen, Gemma hosted e MiniMax con health check veri.",
+      action: "Job provider",
+      busyKey: "stack-setup:providers",
+      onClick: () => createStackSetupJob("providers"),
       complete: priorityProviderConfiguredCount >= priorityProviderIds.length,
     },
     {
       title: "MCP prioritari",
       detail: `${priorityConnectorConfiguredCount}/${priorityConnectorIds.length} collegati`,
-      body: "GitHub, Cloudflare, SendGrid, Telegram, Cloudinary, Hostinger e runner Codex.",
-      action: "Collega MCP",
-      busyKey: "connectors:priority",
-      onClick: configurePriorityConnectors,
+      body: "Crea un job setup per GitHub, Cloudflare, SendGrid, Telegram, Cloudinary e Hostinger.",
+      action: "Job MCP",
+      busyKey: "stack-setup:connectors",
+      onClick: () => createStackSetupJob("connectors"),
       complete: priorityConnectorConfiguredCount >= priorityConnectorIds.length,
     },
     {
       title: "Runtime hosted",
       detail: `${readyRuntimeCount}/${capabilities?.modelRuntime?.hosts.length ?? 0} ready`,
-      body: "Route tenant per far collaborare Codex con Qwen, Gemma, MiniMax e OpenAI.",
-      action: "Prepara runtime",
-      busyKey: "models:hosted",
-      onClick: seedHostedModels,
+      body: "Crea un job setup per route tenant e health dei runtime Qwen, Gemma, MiniMax e OpenAI.",
+      action: "Job runtime",
+      busyKey: "stack-setup:runtime",
+      onClick: () => createStackSetupJob("runtime"),
       complete: readyRuntimeCount > 0,
     },
     {
@@ -1007,6 +1105,15 @@ export function AgentJobsClient({
       busyKey: "graph:seed",
       onClick: seedGraphReferences,
       complete: graphReady,
+    },
+    {
+      title: "Dati Hermes Righello",
+      detail: "read-only",
+      body: "Crea un job import Graphify-safe da memories, skills, kanban e sessioni redatte. Secrets esclusi.",
+      action: "Job import",
+      busyKey: "stack-setup:hermes-data",
+      onClick: createHermesDataImportJob,
+      complete: Number(graphMemory?.stats.byType?.hermes_memory ?? 0) > 0 || Number(graphMemory?.stats.byType?.hermes_skill ?? 0) > 0,
     },
   ]
 
@@ -1268,7 +1375,7 @@ export function AgentJobsClient({
 
         <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
           {[
-            ["Provider", configuredProviderCount, `${capabilities?.providerCatalog.length ?? 0} catalogo`],
+            ["Policy provider", configuredProviderCount, `${capabilities?.providerCatalog.length ?? 0} catalogo`],
             ["Runtime ready", readyRuntimeCount, `${capabilities?.modelRuntime?.hosts.length ?? 0} host`],
             ["Subagenti", capabilities?.subagents.length ?? 0, "tenant"],
             ["Know-how", knowhowNodeCount, "nodi"],
@@ -1286,7 +1393,7 @@ export function AgentJobsClient({
             <div className="min-w-0">
               <p className="font-black text-cyan-50">Checklist operativa</p>
               <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                Porta lo stack in stato usabile: provider, MCP, runtime, subagenti e grafo. Le azioni registrano configurazioni e policy; i segreti restano fuori dalla UI.
+                Porta lo stack in stato usabile: provider, MCP, runtime, subagenti e grafo. I bottoni provider/MCP/runtime creano job di setup revisionabili, non fingono installazioni.
               </p>
             </div>
             <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
@@ -1296,7 +1403,7 @@ export function AgentJobsClient({
 
           <div className="mt-3 grid gap-2 lg:grid-cols-5">
             {operationalActions.map((item) => {
-              const busy = item.busyKey === "graph:seed" ? isSeedingGraph : capabilityAction === item.busyKey
+              const busy = item.busyKey === "graph:seed" ? isSeedingGraph : capabilityAction === item.busyKey || setupAction === item.busyKey
               return (
                 <div key={item.title} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
                   <div className="flex items-start justify-between gap-2">
@@ -1335,7 +1442,7 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-white">Provider AI operativi</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Attiva provider per lane: codice, ricerca, media, operations e chat. Optima salva policy e secret_ref, non token in chiaro.
+                    Ogni provider richiede setup guidato, env/secret_ref e health check. Optima puo creare il job di setup; non dichiara operativo cio che non e verificato.
                   </p>
                 </div>
               </div>
@@ -1343,7 +1450,7 @@ export function AgentJobsClient({
                 {(capabilities?.providerCatalog ?? []).map((provider) => {
                   const installation = providerInstallationsById.get(provider.id)
                   const state = installation?.installState ?? "not_installed"
-                  const busy = capabilityAction === `provider:${provider.id}`
+                  const busy = setupAction === `provider-setup:${provider.id}`
                   return (
                     <div key={provider.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-start justify-between gap-2">
@@ -1376,12 +1483,12 @@ export function AgentJobsClient({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => configureProvider(provider)}
+                        onClick={() => createProviderSetupJob(provider)}
                         disabled={busy}
                         className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                       >
                         {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
-                        {installedProviderIds.has(provider.id) ? "Aggiorna policy" : "Configura"}
+                        Crea job setup
                       </Button>
                     </div>
                   )
@@ -1399,19 +1506,19 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-emerald-50">Runtime modelli hosted</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                    Route tenant per Qwen, Gemma, OpenAI e MiniMax. Codex resta il worker tecnico; se servono asset apre handoff a Media Operator.
+                    Route tenant per Qwen, Gemma, OpenAI e MiniMax. Prima si crea il job setup/health; poi si salvano le route quando il runtime e verificato.
                   </p>
                 </div>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={seedHostedModels}
-                  disabled={capabilityAction === "models:hosted"}
+                  onClick={() => createStackSetupJob("runtime")}
+                  disabled={setupAction === "stack-setup:runtime"}
                   className="h-8 w-full shrink-0 rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
                 >
-                  {capabilityAction === "models:hosted" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Radio className="mr-1.5 h-3.5 w-3.5" />}
-                  Prepara hosted
+                  {setupAction === "stack-setup:runtime" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Radio className="mr-1.5 h-3.5 w-3.5" />}
+                  Job runtime
                 </Button>
               </div>
 
@@ -1590,7 +1697,7 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-white">MCP strategici</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Connector installabili con scope, env richieste e uso nel grafo.
+                    Connector MCP da rendere operativi con setup guidato, OAuth/secret_ref e health check. I pulsanti creano job revisionabili.
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
@@ -1601,7 +1708,7 @@ export function AgentJobsClient({
                 {(capabilities?.mcpConnectorCatalog ?? []).map((connector) => {
                   const installation = connectorInstallationsById.get(connector.id)
                   const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
-                  const busy = capabilityAction === `connector:${connector.id}`
+                  const busy = setupAction === `connector-setup:${connector.id}`
                   return (
                     <div key={connector.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-start justify-between gap-3">
@@ -1625,12 +1732,12 @@ export function AgentJobsClient({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => configureConnector(connector)}
+                        onClick={() => createConnectorSetupJob(connector)}
                         disabled={busy}
                         className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                       >
                         {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
-                        {installedConnectorIds.has(connector.id) ? "Aggiorna setup" : "Collega"}
+                        Crea job setup
                       </Button>
                     </div>
                   )

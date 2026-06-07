@@ -13,6 +13,7 @@
     "check:production": "node scripts/check-production-readiness.mjs",
     "dev": "next dev",
     "lint": "next lint",
+    "hermes:graph:import": "node scripts/import-hermes-graph-source.mjs",
     "knowhow:sync": "node scripts/sync-development-knowhow-graph.mjs",
     "postinstall": "node scripts/patch-cloudflare-deps.js",
     "runner:help": "node runner/optima-agent-runner.mjs --help",

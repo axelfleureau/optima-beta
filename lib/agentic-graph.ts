@@ -54,7 +54,7 @@ export interface AgenticGraphSession {
 export interface AgenticReferenceSource {
   id: string
   label: string
-  sourceType: "open_source_reference" | "product_pattern"
+  sourceType: "open_source_reference" | "product_pattern" | "private_readonly_source"
   url: string | null
   importPolicy: string
   usefulPatterns: string[]
@@ -92,13 +92,27 @@ export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
     label: "Hermes Agent",
     sourceType: "open_source_reference",
     url: "https://github.com/NousResearch/hermes-agent",
-    importPolicy: "reference_only_adapter_patterns",
+    importPolicy: "official_repo_reference_only_adapter_patterns",
     usefulPatterns: [
       "gateway conversazionale Telegram/CLI",
       "memoria e skills persistenti",
       "routing provider e modelli",
       "subagenti e tool backend controllati",
       "runtime cloud/VPS sempre raggiungibile",
+    ],
+  },
+  {
+    id: "hermes-righello-readonly",
+    label: "Hermes Righello read-only data",
+    sourceType: "private_readonly_source",
+    url: null,
+    importPolicy: "redacted_index_only_no_secrets_no_full_conversation_dump",
+    usefulPatterns: [
+      "memories, skills, kanban e sessioni Hermes indicizzabili come nodi redatti",
+      "secrets e token esclusi sempre dall'import",
+      "source_id stabile per ogni file importato",
+      "sessioni marcate ambiguous finche non revisionate",
+      "import idempotente tenant-scoped verso agentic_graph_nodes/edges",
     ],
   },
   {
@@ -540,6 +554,7 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     [referenceNodes.find((node) => node?.sourceId === "codex-development-knowhow")?.id, graphMemory?.id, "informs_pattern", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "hermes-agent")?.id, subagentLanes?.id, "informs_pattern", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "hermes-agent")?.id, mcpGateway?.id, "informs_pattern", "inferred"],
+    [referenceNodes.find((node) => node?.sourceId === "hermes-righello-readonly")?.id, graphMemory?.id, "can_feed_knowledge", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphMemory?.id, "informs_pattern", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "perplexity-computer-pattern")?.id, optima?.id, "informs_ux_pattern", "inferred"],
   ] as const
