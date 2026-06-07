@@ -23,6 +23,7 @@ Environment:
   RUNNER_LABEL            Hostinger Codex Runner
   WORK_ROOT               /srv/optima-agent/jobs
   WORKDIR                 alias supported for WORK_ROOT
+  DISK_GUARD_PATH         optional path protected from accidental local media mirrors
   POLL_INTERVAL_MS        30000
   MAX_JOB_SECONDS         1800
   RUNNER_MODE             codex | dry-run
@@ -41,6 +42,7 @@ const config = {
   runnerId: env("RUNNER_ID", `hostinger-codex-${os.hostname()}`).slice(0, 80),
   runnerLabel: env("RUNNER_LABEL", os.hostname()).slice(0, 120),
   workRoot: env("WORK_ROOT", env("WORKDIR", "/srv/optima-agent/jobs")),
+  diskGuardPath: env("DISK_GUARD_PATH", "/home/hermes/obsidian-righello-vault/12_OneDrive"),
   pollIntervalMs: numberEnv("POLL_INTERVAL_MS", 30_000),
   maxJobSeconds: numberEnv("MAX_JOB_SECONDS", 1_800),
   runnerMode: args.has("--dry-run") ? "dry-run" : env("RUNNER_MODE", "codex"),
@@ -106,6 +108,10 @@ async function shutdown(signal) {
 }
 
 async function sendHeartbeat(status, metadata = {}, errorMessage = null) {
+  const hostMetrics = await collectHostMetrics().catch((error) => ({
+    metricsError: error instanceof Error ? error.message : String(error),
+  }))
+
   await api("/api/agent-jobs/runner/heartbeat", {
     method: "POST",
     body: {
@@ -115,11 +121,118 @@ async function sendHeartbeat(status, metadata = {}, errorMessage = null) {
       version: RUNNER_VERSION,
       errorMessage,
       metadata: {
+        host: hostMetrics,
         ...metadata,
         label: config.runnerLabel,
         once: config.once,
       },
     },
+  })
+}
+
+async function collectHostMetrics() {
+  const [rootDisk, workRootDisk, workRootSize, guardPathSize, guardTimer] = await Promise.all([
+    diskUsage("/"),
+    diskUsage(config.workRoot),
+    directorySize(config.workRoot),
+    config.diskGuardPath ? directorySize(config.diskGuardPath) : Promise.resolve(null),
+    systemdActive("optima-onedrive-mirror-guard.timer"),
+  ])
+
+  return {
+    hostname: os.hostname(),
+    platform: os.platform(),
+    arch: os.arch(),
+    uptimeSec: Math.round(os.uptime()),
+    loadavg: os.loadavg().map((value) => Number(value.toFixed(2))),
+    memory: {
+      totalBytes: os.totalmem(),
+      freeBytes: os.freemem(),
+      usedPercent: Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 100),
+    },
+    storage: {
+      root: rootDisk,
+      workRoot: workRootDisk,
+      workRootSize,
+    },
+    guard: config.diskGuardPath
+      ? {
+          path: config.diskGuardPath,
+          size: guardPathSize,
+          timerActive: guardTimer,
+        }
+      : null,
+    sampledAt: new Date().toISOString(),
+  }
+}
+
+async function diskUsage(targetPath) {
+  const output = await commandOutput("df", ["-Pk", targetPath], 2_000).catch(() => "")
+  const line = output.trim().split("\n").slice(1).find(Boolean)
+  if (!line) return null
+  const parts = line.trim().split(/\s+/)
+  if (parts.length < 6) return null
+  const totalKb = Number(parts[1])
+  const usedKb = Number(parts[2])
+  const availableKb = Number(parts[3])
+  const usedPercent = Number(parts[4]?.replace("%", ""))
+  return {
+    path: targetPath,
+    filesystem: parts[0],
+    totalBytes: Number.isFinite(totalKb) ? totalKb * 1024 : null,
+    usedBytes: Number.isFinite(usedKb) ? usedKb * 1024 : null,
+    availableBytes: Number.isFinite(availableKb) ? availableKb * 1024 : null,
+    usedPercent: Number.isFinite(usedPercent) ? usedPercent : null,
+    mount: parts.slice(5).join(" "),
+  }
+}
+
+async function directorySize(targetPath) {
+  if (!targetPath || !existsSync(targetPath)) return null
+  const output = await commandOutput("du", ["-sk", targetPath], 2_000).catch(() => "")
+  const sizeKb = Number(output.trim().split(/\s+/)[0])
+  return {
+    path: targetPath,
+    bytes: Number.isFinite(sizeKb) ? sizeKb * 1024 : null,
+  }
+}
+
+async function systemdActive(unit) {
+  const output = await commandOutput("systemctl", ["is-active", unit], 2_000).catch(() => "")
+  const status = output.trim()
+  if (!status) return null
+  return status === "active"
+}
+
+function commandOutput(command, commandArgs, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, commandArgs, {
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+    let stdout = ""
+    let stderr = ""
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM")
+      reject(new Error(`${command} timed out`))
+    }, timeoutMs)
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString()
+    })
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString()
+    })
+    child.on("error", (error) => {
+      clearTimeout(timeout)
+      reject(error)
+    })
+    child.on("close", (code) => {
+      clearTimeout(timeout)
+      if (code === 0) {
+        resolve(stdout)
+      } else {
+        reject(new Error(stderr.trim() || `${command} exited ${code}`))
+      }
+    })
   })
 }
 

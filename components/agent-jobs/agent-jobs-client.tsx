@@ -801,6 +801,69 @@ function formatRelativeTime(value: string | null) {
   return `${days} g fa`
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+function asNumber(value: unknown): number | null {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null
+}
+
+function formatBytes(value: unknown) {
+  const bytes = asNumber(value)
+  if (bytes === null) return "n/d"
+  if (bytes < 1024) return `${bytes} B`
+  const units = ["KB", "MB", "GB", "TB"]
+  let amount = bytes / 1024
+  let unitIndex = 0
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024
+    unitIndex += 1
+  }
+  const precision = amount >= 10 ? 0 : 1
+  return `${amount.toFixed(precision)} ${units[unitIndex]}`
+}
+
+function formatUptime(value: unknown) {
+  const seconds = asNumber(value)
+  if (seconds === null) return "n/d"
+  const hours = Math.floor(seconds / 3600)
+  const days = Math.floor(hours / 24)
+  if (days >= 1) return `${days} g ${hours % 24} h`
+  if (hours >= 1) return `${hours} h`
+  return `${Math.max(1, Math.round(seconds / 60))} min`
+}
+
+function runnerHostSnapshot(runner: AgentRunnerHeartbeat | null) {
+  const host = asRecord(runner?.metadata?.host)
+  if (!host) return null
+  const memory = asRecord(host.memory)
+  const storage = asRecord(host.storage)
+  const root = asRecord(storage?.root)
+  const workRootSize = asRecord(storage?.workRootSize)
+  const guard = asRecord(host.guard)
+  const guardSize = asRecord(guard?.size)
+
+  return {
+    hostname: typeof host.hostname === "string" ? host.hostname : runner?.id ?? "runner",
+    platform: typeof host.platform === "string" ? host.platform : null,
+    uptime: formatUptime(host.uptimeSec),
+    sampledAt: typeof host.sampledAt === "string" ? host.sampledAt : null,
+    memoryUsedPercent: asNumber(memory?.usedPercent),
+    rootUsedPercent: asNumber(root?.usedPercent),
+    rootAvailable: formatBytes(root?.availableBytes),
+    workRootSize: formatBytes(workRootSize?.bytes),
+    guardPath: typeof guard?.path === "string" ? guard.path : null,
+    guardSize: formatBytes(guardSize?.bytes),
+    guardTimerActive: asBoolean(guard?.timerActive),
+  }
+}
+
 export function AgentJobsClient({
   initialJobs,
   initialRunners,
@@ -983,6 +1046,8 @@ export function AgentJobsClient({
       isOnline: false,
     }
   }, [runnerControl, runners])
+
+  const runnerHost = useMemo(() => runnerHostSnapshot(runnerHealth.latest), [runnerHealth.latest])
 
   async function refreshJobs() {
     const response = await fetch("/api/agent-jobs")
@@ -2528,6 +2593,78 @@ export function AgentJobsClient({
               {runnerHealth.latest?.mode ?? "no runner"}
             </span>
           </div>
+
+          {runnerHost ? (
+            <div className="mt-4 min-w-0 rounded-lg border border-white/10 bg-white/[0.025] p-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="min-w-0 truncate text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                  Host VPS · {runnerHost.hostname}
+                </p>
+                <span className="text-[11px] font-bold text-slate-500">
+                  uptime {runnerHost.uptime}
+                  {runnerHost.sampledAt ? ` · sample ${formatRelativeTime(runnerHost.sampledAt)}` : ""}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 min-[520px]:grid-cols-4">
+                {[
+                  {
+                    label: "Disco VPS",
+                    value:
+                      runnerHost.rootUsedPercent === null
+                        ? "n/d"
+                        : `${runnerHost.rootUsedPercent}%`,
+                    detail: `${runnerHost.rootAvailable} liberi`,
+                    tone:
+                      runnerHost.rootUsedPercent !== null && runnerHost.rootUsedPercent >= 85
+                        ? "text-red-200"
+                        : runnerHost.rootUsedPercent !== null && runnerHost.rootUsedPercent >= 70
+                          ? "text-amber-100"
+                          : "text-emerald-100",
+                  },
+                  {
+                    label: "Memoria",
+                    value:
+                      runnerHost.memoryUsedPercent === null
+                        ? "n/d"
+                        : `${runnerHost.memoryUsedPercent}%`,
+                    detail: runnerHost.platform ?? "host",
+                    tone:
+                      runnerHost.memoryUsedPercent !== null && runnerHost.memoryUsedPercent >= 85
+                        ? "text-red-200"
+                        : "text-slate-100",
+                  },
+                  {
+                    label: "Workspace",
+                    value: runnerHost.workRootSize,
+                    detail: "runner jobs",
+                    tone: "text-slate-100",
+                  },
+                  {
+                    label: "Guard OneDrive",
+                    value:
+                      runnerHost.guardTimerActive === null
+                        ? "n/d"
+                        : runnerHost.guardTimerActive
+                          ? "Attiva"
+                          : "Off",
+                    detail: runnerHost.guardSize,
+                    tone: runnerHost.guardTimerActive ? "text-emerald-100" : "text-amber-100",
+                  },
+                ].map((metric) => (
+                  <div key={metric.label} className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-2">
+                    <p className="truncate text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">{metric.label}</p>
+                    <p className={`mt-1 truncate text-sm font-black ${metric.tone}`}>{metric.value}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-slate-500">{metric.detail}</p>
+                  </div>
+                ))}
+              </div>
+              {runnerHost.rootUsedPercent !== null && runnerHost.rootUsedPercent >= 85 ? (
+                <div className="mt-3 rounded-lg border border-red-300/25 bg-red-300/10 p-2 text-xs leading-5 text-red-100">
+                  Disco VPS oltre soglia: evitare job pesanti e controllare cache/media prima di procedere.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {runners.length > 0 ? (
             <div className="mt-4 space-y-2">
