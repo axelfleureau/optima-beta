@@ -65,6 +65,300 @@ async function safeAll(db: any, sql: string, params: unknown[] = []) {
   }
 }
 
+function formatCurrencyCents(value: unknown, currency = "EUR") {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: currency || "EUR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0) / 100)
+}
+
+function buildLikeWhere(columns: string[], terms: string[]) {
+  const clauses: string[] = []
+  const params: string[] = []
+
+  for (const term of terms) {
+    for (const column of columns) {
+      clauses.push(`lower(COALESCE(${column}, '')) LIKE ?`)
+      params.push(`%${term}%`)
+    }
+  }
+
+  return {
+    where: clauses.join(" OR "),
+    params,
+  }
+}
+
+function sqlPlaceholders(values: unknown[]) {
+  return values.map(() => "?").join(", ")
+}
+
+function extractBusinessLookupTerms(message: string) {
+  const stop = new Set([
+    "quanto",
+    "quanta",
+    "quanti",
+    "quante",
+    "pagato",
+    "pagata",
+    "pagati",
+    "pagate",
+    "speso",
+    "spesa",
+    "costo",
+    "costa",
+    "costato",
+    "fattura",
+    "fatture",
+    "preventivo",
+    "preventivi",
+    "cliente",
+    "clienti",
+    "sito",
+    "app",
+    "lavoro",
+    "progetto",
+    "progetti",
+    "dimmi",
+    "sapere",
+    "vorrei",
+  ])
+
+  return Array.from(
+    new Set(
+      compact(message, 420)
+        .toLowerCase()
+        .replace(/[^a-z0-9àèéìòù\s-]/gi, " ")
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 4 && !stop.has(term)),
+    ),
+  ).slice(0, 5)
+}
+
+function hasFinancialIntent(message: string) {
+  return /\b(pagat[oaie]?|spes[oa]?|cost[oa]|preventiv[oi]?|fattur[ae]?|incassat[oaie]?|saldo|acconto|budget)\b/i.test(message)
+}
+
+function buildNoDataBusinessFallback(message: string, factsText: string) {
+  const financial = hasFinancialIntent(message)
+  if (!financial || !factsText) {
+    return [
+      "Ho salvato la richiesta e ho interrogato il contesto operativo disponibile.",
+      "Non ho trovato un dato abbastanza solido per rispondere in modo affidabile. Posso trasformare questa richiesta in un job agentico revisionabile per fare una verifica piu profonda su repo, documenti e fonti collegate.",
+    ].join("\n\n")
+  }
+
+  return [
+    "Non trovo in Optima un importo pagato o incassato collegato a questa richiesta.",
+    "",
+    factsText,
+    "",
+    "Quindi non posso rispondere con una cifra senza inventarla. Per renderlo operativo bisogna collegare a Optima almeno una di queste fonti: preventivo accettato, fattura/pagamento, consuntivo ore fatturabile o documento amministrativo del cliente.",
+  ].join("\n")
+}
+
+async function buildQuestionScopedBusinessFacts(db: any, principal: WorkspacePrincipal, message: string) {
+  if (!db) return { text: "", sources: [] as string[], fallbackText: "" }
+
+  const terms = extractBusinessLookupTerms(message)
+  if (!terms.length) return { text: "", sources: [] as string[], fallbackText: "" }
+
+  const isManager = ["super-admin", "admin", "direzione", "capo-reparto"].includes(principal.role)
+  const sources = new Set<string>()
+  const clientLike = buildLikeWhere(["c.name", "c.company", "c.email", "c.notes"], terms)
+  const clients = await safeAll(
+    db,
+    `SELECT c.id, c.name, c.company, c.status, c.email, c.notes
+     FROM clients c
+     WHERE c.organization_id = ?
+       AND (${clientLike.where})
+     ORDER BY c.updated_at DESC
+     LIMIT 6`,
+    [principal.organizationId, ...clientLike.params],
+  )
+  if (clients.length) sources.add("clients")
+
+  const clientIds = clients.map((client: any) => String(client.id)).filter(Boolean)
+  const projectLike = buildLikeWhere(["p.name"], terms)
+  const projectConditions = [projectLike.where]
+  const projectParams: unknown[] = [principal.organizationId, ...projectLike.params]
+  if (clientIds.length) {
+    projectConditions.push(`p.client_id IN (${sqlPlaceholders(clientIds)})`)
+    projectParams.push(...clientIds)
+  }
+  const projects = await safeAll(
+    db,
+    `SELECT p.id, p.name, p.status, p.budget_cents, p.client_id, c.name AS client_name, p.updated_at
+     FROM projects p
+     LEFT JOIN clients c ON c.id = p.client_id AND c.organization_id = p.organization_id
+     WHERE p.organization_id = ?
+       AND (${projectConditions.join(" OR ")})
+     ORDER BY p.updated_at DESC
+     LIMIT 8`,
+    projectParams,
+  )
+  if (projects.length) sources.add("projects")
+
+  const projectIds = projects.map((project: any) => String(project.id)).filter(Boolean)
+  const quoteLike = buildLikeWhere(["q.title", "q.client_name", "q.description"], terms)
+  const quoteConditions = [quoteLike.where]
+  const quoteParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...quoteLike.params]
+  if (clientIds.length) {
+    quoteConditions.push(`q.client_id IN (${sqlPlaceholders(clientIds)})`)
+    quoteParams.push(...clientIds)
+  }
+  const quotes = await safeAll(
+    db,
+    `SELECT q.id, q.title, q.status, q.currency, q.total_cents, q.client_id, q.client_name, q.description, q.updated_at
+     FROM quotes q
+     WHERE q.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = q.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = q.client_id OR vtp.client_id = q.client_id)
+         )
+       )
+       AND (${quoteConditions.join(" OR ")})
+     ORDER BY q.updated_at DESC
+     LIMIT 8`,
+    quoteParams,
+  )
+  if (quotes.length) sources.add("quotes")
+
+  const taskLike = buildLikeWhere(["t.title", "t.description", "t.rich_description", "t.client_name"], terms)
+  const taskConditions = [taskLike.where]
+  const taskParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...taskLike.params]
+  if (clientIds.length) {
+    taskConditions.push(`t.client_id IN (${sqlPlaceholders(clientIds)})`)
+    taskParams.push(...clientIds)
+  }
+  if (projectIds.length) {
+    taskConditions.push(`t.project_id IN (${sqlPlaceholders(projectIds)})`)
+    taskParams.push(...projectIds)
+  }
+  const tasks = await safeAll(
+    db,
+    `SELECT t.id, t.title, t.status, t.column_id, t.actual_minutes, t.estimated_minutes, t.client_name, p.name AS project_name, t.updated_at
+     FROM tasks t
+     LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+     WHERE t.organization_id = ?
+       AND (? = 1 OR t.assignee_member_id = ?)
+       AND (${taskConditions.join(" OR ")})
+     ORDER BY t.updated_at DESC
+     LIMIT 12`,
+    taskParams,
+  )
+  if (tasks.length) sources.add("tasks")
+
+  const timeConditions: string[] = []
+  const timeParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId]
+  if (clientIds.length) {
+    timeConditions.push(`te.client_id IN (${sqlPlaceholders(clientIds)})`)
+    timeParams.push(...clientIds)
+  }
+  if (projectIds.length) {
+    timeConditions.push(`te.project_id IN (${sqlPlaceholders(projectIds)})`)
+    timeParams.push(...projectIds)
+  }
+  const timeEntries = timeConditions.length
+    ? await safeAll(
+        db,
+        `SELECT COUNT(*) AS entry_count,
+                SUM(te.minutes) AS total_minutes,
+                SUM(CASE WHEN te.billable = 1 THEN te.minutes ELSE 0 END) AS billable_minutes,
+                MAX(te.entry_date) AS last_entry_date
+         FROM time_entries te
+         WHERE te.organization_id = ?
+           AND (? = 1 OR te.member_id = ?)
+           AND (${timeConditions.join(" OR ")})`,
+        timeParams,
+      )
+    : []
+  if (Number(timeEntries[0]?.entry_count || 0) > 0) sources.add("time_entries")
+
+  if (!clients.length && !projects.length && !quotes.length && !tasks.length && Number(timeEntries[0]?.entry_count || 0) === 0) {
+    return { text: "", sources: [] as string[], fallbackText: "" }
+  }
+
+  const lines = [
+    "LOOKUP MIRATO SULLA DOMANDA",
+    `Termini riconosciuti: ${terms.join(", ")}`,
+    "Usa questi dati come fonte prioritaria per la risposta. Se manca un importo pagato/incassato, dichiaralo esplicitamente.",
+  ]
+
+  if (clients.length) {
+    lines.push(
+      "",
+      "Clienti trovati:",
+      ...clients.map(
+        (client: any) =>
+          `- ${compact(client.name, 90)} | azienda ${compact(client.company || "-", 90)} | stato ${compact(client.status, 30)} | note ${compact(client.notes || "-", 180)}`,
+      ),
+    )
+  }
+
+  if (projects.length) {
+    lines.push(
+      "",
+      "Progetti trovati:",
+      ...projects.map(
+        (project: any) =>
+          `- ${compact(project.name, 100)} | cliente ${compact(project.client_name || "-", 90)} | stato ${compact(project.status, 40)} | budget ${formatCurrencyCents(project.budget_cents, "EUR")} | aggiornato ${formatDate(project.updated_at)}`,
+      ),
+    )
+  }
+
+  if (quotes.length) {
+    lines.push(
+      "",
+      "Preventivi trovati:",
+      ...quotes.map(
+        (quote: any) =>
+          `- ${compact(quote.title, 110)} | cliente ${compact(quote.client_name || "-", 90)} | stato ${compact(quote.status, 40)} | totale ${formatCurrencyCents(quote.total_cents, String(quote.currency || "EUR"))} | aggiornato ${formatDate(quote.updated_at)} | descrizione ${compact(quote.description || "-", 160)}`,
+      ),
+    )
+  } else if (hasFinancialIntent(message)) {
+    lines.push("", "Preventivi trovati: nessuno collegato ai termini/clienti rilevati.")
+  }
+
+  const entryCount = Number(timeEntries[0]?.entry_count || 0)
+  if (entryCount > 0) {
+    const totalMinutes = Number(timeEntries[0]?.total_minutes || 0)
+    const billableMinutes = Number(timeEntries[0]?.billable_minutes || 0)
+    lines.push(
+      "",
+      `Consuntivi trovati: ${entryCount} righe, ${Math.round(totalMinutes / 60)}h totali, ${Math.round(billableMinutes / 60)}h fatturabili, ultimo ${formatDate(timeEntries[0]?.last_entry_date)}.`,
+    )
+  } else if (hasFinancialIntent(message)) {
+    lines.push("", "Consuntivi trovati: nessuna time entry collegata ai termini/clienti rilevati.")
+  }
+
+  if (tasks.length) {
+    lines.push(
+      "",
+      "Task rilevanti:",
+      ...tasks.slice(0, 6).map(
+        (task: any) =>
+          `- ${compact(task.title, 120)} | stato ${compact(task.column_id || task.status, 40)} | cliente ${compact(task.client_name || "-", 80)} | progetto ${compact(task.project_name || "-", 80)} | consuntivo task ${Math.round(Number(task.actual_minutes || 0) / 60)}h`,
+      ),
+    )
+  }
+
+  const factsText = lines.join("\n").slice(0, 5000)
+  return {
+    text: factsText,
+    sources: Array.from(sources),
+    fallbackText: buildNoDataBusinessFallback(message, factsText),
+  }
+}
+
 async function getConversationHistory(db: any, sessionId: string, organizationId: string, memberId: string) {
   if (!db || !sessionId) return []
 
@@ -596,6 +890,7 @@ export async function POST(request: NextRequest) {
     const storedMemories = await getStoredMemories(db, principal.organizationId, principal.memberId)
     const operationalContext = await buildOperationalContextSnapshot(db, principal)
     const graphContext = await buildGraphContext(db, principal, message)
+    const businessFacts = await buildQuestionScopedBusinessFacts(db, principal, message)
 
     await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "user", message)
     await saveExtractedMemories(db, principal.organizationId, principal.memberId, message)
@@ -663,7 +958,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const contextSources = Array.from(new Set([...operationalContext.sources, ...graphContext.sources]))
+    const contextSources = Array.from(new Set([...operationalContext.sources, ...graphContext.sources, ...businessFacts.sources]))
 
     const messages = [
       { role: "system" as const, content: SYSTEM_PROMPT },
@@ -675,6 +970,7 @@ export async function POST(request: NextRequest) {
             ? `MEMORIE UTENTE/ORGANIZZAZIONE:\n${storedMemories.map((memory) => `- ${memory.key}: ${memory.value}`).join("\n")}`
             : "",
           operationalContext.text,
+          businessFacts.text,
           graphContext.text,
         ]
           .filter(Boolean)
@@ -714,7 +1010,8 @@ export async function POST(request: NextRequest) {
 
           if (!fullText.trim()) {
             fullText =
-              "Ho ricevuto la richiesta e l'ho salvata nella conversazione, ma il modello non ha restituito contenuto utile. Riprova o chiedimi di trasformarla in un job agentico revisionabile."
+              businessFacts.fallbackText ||
+              "Ho salvato la richiesta e la risposta non e ancora disponibile. Premi Rileggi tra qualche secondo oppure trasformala in un job agentico revisionabile."
             controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ content: fullText })}\n\n`))
           }
 

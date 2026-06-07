@@ -9,6 +9,8 @@ export type OperationalContextSource =
   | "clients"
   | "members"
   | "presence"
+  | "quotes"
+  | "time_entries"
   | "repositories"
   | "report-review"
 
@@ -33,6 +35,8 @@ export interface OperationalContextSnapshot {
     clients: SafeRow[]
     projects: SafeRow[]
     tasks: SafeRow[]
+    quotes: SafeRow[]
+    timeEntries: SafeRow[]
     people: SafeRow[]
     repositories: RepositoryCandidate[]
   }
@@ -53,6 +57,14 @@ function formatDate(value: unknown) {
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return String(value)
   return date.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })
+}
+
+function formatCurrencyCents(value: unknown, currency = "EUR") {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: currency || "EUR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0) / 100)
 }
 
 export async function safeAll(db: any, sql: string, params: unknown[] = []) {
@@ -102,7 +114,7 @@ export async function buildOperationalContextSnapshot(
       sources: [],
       isManager: false,
       commandContext: { availableClients: [], availableUsers: [] },
-      graph: { clients: [], projects: [], tasks: [], people: [], repositories: [] },
+      graph: { clients: [], projects: [], tasks: [], quotes: [], timeEntries: [], people: [], repositories: [] },
     }
   }
 
@@ -193,6 +205,48 @@ export async function buildOperationalContextSnapshot(
   )
   if (clients.length) sources.push("clients")
 
+  const quotes = await safeAll(
+    db,
+    `SELECT q.id, q.title, q.status, q.currency, q.total_cents, q.client_id, q.client_name, q.description, q.updated_at
+     FROM quotes q
+     WHERE q.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = q.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = q.client_id OR vtp.client_id = q.client_id)
+         )
+       )
+     ORDER BY q.updated_at DESC
+     LIMIT 12`,
+    [principal.organizationId, isManager ? 1 : 0, principal.memberId],
+  )
+  if (quotes.length) sources.push("quotes")
+
+  const timeEntries = await safeAll(
+    db,
+    `SELECT te.client_id, te.project_id, c.name AS client_name, p.name AS project_name,
+            COUNT(*) AS entry_count,
+            SUM(te.minutes) AS total_minutes,
+            SUM(CASE WHEN te.billable = 1 THEN te.minutes ELSE 0 END) AS billable_minutes,
+            MAX(te.entry_date) AS last_entry_date
+     FROM time_entries te
+     LEFT JOIN clients c ON c.id = te.client_id AND c.organization_id = te.organization_id
+     LEFT JOIN projects p ON p.id = te.project_id AND p.organization_id = te.organization_id
+     WHERE te.organization_id = ?
+       AND date(te.entry_date) >= date('now', '-45 day')
+       ${isManager ? "" : "AND te.member_id = ?"}
+     GROUP BY te.client_id, te.project_id
+     ORDER BY last_entry_date DESC, total_minutes DESC
+     LIMIT 12`,
+    isManager ? [principal.organizationId] : [principal.organizationId, principal.memberId],
+  )
+  if (timeEntries.length) sources.push("time_entries")
+
   const people = isManager
     ? await safeAll(
         db,
@@ -260,6 +314,29 @@ export async function buildOperationalContextSnapshot(
     )
   }
 
+  if (quotes.length) {
+    lines.push(
+      "",
+      "Preventivi recenti:",
+      ...quotes.slice(0, 8).map(
+        (quote) =>
+          `- ${compact(quote.title, 110)} | cliente ${compact(quote.client_name || "-", 90)} | stato ${compact(quote.status, 40)} | valore ${formatCurrencyCents(quote.total_cents, String(quote.currency || "EUR"))} | aggiornato ${formatDate(quote.updated_at)} | note ${compact(quote.description || "-", 140)}`,
+      ),
+    )
+  }
+
+  if (timeEntries.length) {
+    lines.push(
+      "",
+      "Consuntivi recenti 45 giorni:",
+      ...timeEntries.slice(0, 8).map((entry) => {
+        const totalMinutes = Number(entry.total_minutes || 0)
+        const billableMinutes = Number(entry.billable_minutes || 0)
+        return `- cliente ${compact(entry.client_name || "-", 90)} | progetto ${compact(entry.project_name || "-", 90)} | ore ${Math.round(totalMinutes / 60)}h (${Math.round(billableMinutes / 60)}h fatturabili) | righe ${Number(entry.entry_count || 0)} | ultimo ${formatDate(entry.last_entry_date)}`
+      }),
+    )
+  }
+
   if (people.length) {
     lines.push(
       "",
@@ -307,7 +384,7 @@ export async function buildOperationalContextSnapshot(
         createdAt: new Date(),
       })),
     },
-    graph: { clients, projects, tasks, people, repositories },
+    graph: { clients, projects, tasks, quotes, timeEntries, people, repositories },
   }
 }
 
