@@ -32,7 +32,8 @@ import {
   Loader2,
   ImageIcon,
   FileText,
-  HelpCircle
+  HelpCircle,
+  Sparkles
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SECTOR_TEMPLATES } from "@/lib/quote-templates"
@@ -85,46 +86,72 @@ interface PromptEnrichmentDialogProps {
 
 const PROJECT_TYPES = [
   {
-    id: 'website_180',
-    label: 'Website "A 180°"',
-    description: 'Sito web base/semplificato',
+    id: 'website_180_core',
+    pricingTemplateId: 'website_180',
+    label: 'Sito e presenza digitale',
+    description: 'Sito vetrina, landing, SEO locale, contenuti iniziali e GDPR.',
     icon: Globe,
     template: WEBSITE_180_TEMPLATE,
-    priceLabel: '€3.500'
+    priceLabel: 'da €3.500'
   },
   {
-    id: 'website_360',
-    label: 'Website "A 360°"',
-    description: 'Sito web avanzato/integrazioni',
+    id: 'website_360_platform',
+    pricingTemplateId: 'website_360',
+    label: 'Piattaforma web e integrazioni',
+    description: 'CMS, aree riservate, booking, e-commerce, API e automazioni.',
     icon: Globe,
     template: WEBSITE_360_TEMPLATE,
-    priceLabel: '€6.170'
+    priceLabel: 'da €6.170'
   },
   {
-    id: 'video_packages',
-    label: 'Video Production',
-    description: 'Pacchetti foto/video',
+    id: 'ai_ops_automation',
+    pricingTemplateId: 'website_360',
+    label: 'AI, automazioni e sistemi operativi',
+    description: 'Workflow agentici, dashboard, integrazioni MCP/API e processi interni.',
+    icon: Sparkles,
+    template: WEBSITE_360_TEMPLATE,
+    priceLabel: 'da €6.170'
+  },
+  {
+    id: 'video_packages_media',
+    pricingTemplateId: 'video_packages',
+    label: 'Produzione foto/video',
+    description: 'Shooting, video hero, reel, contenuti verticali e asset commerciali.',
     icon: Video,
     template: VIDEO_PACKAGES_TEMPLATE,
     priceLabel: '€300-1.190'
   },
   {
-    id: 'communication_150',
-    label: 'Piano Comunicazione "A 150°"',
-    description: 'Documentazione cantieri/progetti',
+    id: 'communication_150_field',
+    pricingTemplateId: 'communication_150',
+    label: 'Documentazione cantieri/eventi',
+    description: 'Copertura operativa, produzione contenuti e racconto avanzamento lavori.',
     icon: Megaphone,
     template: COMMUNICATION_150_TEMPLATE,
-    priceLabel: '€4.000'
+    priceLabel: 'da €4.000'
   },
   {
-    id: 'communication_180',
-    label: 'Piano Comunicazione "A 180°"',
-    description: 'Strategia completa digitale',
+    id: 'communication_180_growth',
+    pricingTemplateId: 'communication_180',
+    label: 'Comunicazione e crescita',
+    description: 'Strategia editoriale, campagne, social, contenuti e coordinamento mensile.',
     icon: Megaphone,
     template: COMMUNICATION_180_TEMPLATE,
     priceLabel: '€3.500-5.000'
+  },
+  {
+    id: 'brand_content_strategy',
+    pricingTemplateId: 'communication_180',
+    label: 'Brand, contenuti e direzione creativa',
+    description: 'Posizionamento, copy, identita visiva, materiali commerciali e presentazioni.',
+    icon: Palette,
+    template: COMMUNICATION_180_TEMPLATE,
+    priceLabel: 'da €3.500'
   }
 ]
+
+const MIN_BUDGET = 500
+const MAX_BUDGET = 100000
 
 const SECTOR_ICONS: Record<string, any> = {
   edilizia: Building,
@@ -153,7 +180,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
   const [currentStep, setCurrentStep] = useState(1)
   const [isCompleting, setIsCompleting] = useState(false)
   const [formData, setFormData] = useState<Partial<EnrichedPromptData>>({
-    budgetRange: { min: 3000, max: 10000 },
+    budgetRange: { min: 3000, max: 15000 },
     complexity: 'standard',
     timeline: '8-12 settimane',
     clientMode: 'external', // Default to external client mode
@@ -180,8 +207,8 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
   const isStep1Valid = !!formData.projectType
   const isStep2Valid = !!formData.sector
   const isStep3Valid = formData.description && formData.description.length >= 50 &&
-    (formData.budgetRange?.min || 0) >= 1000 && (formData.budgetRange?.min || 0) <= 20000 &&
-    (formData.budgetRange?.max || 0) >= 1000 && (formData.budgetRange?.max || 0) <= 20000
+    (formData.budgetRange?.min || 0) >= MIN_BUDGET && (formData.budgetRange?.min || 0) <= MAX_BUDGET &&
+    (formData.budgetRange?.max || 0) >= MIN_BUDGET && (formData.budgetRange?.max || 0) <= MAX_BUDGET
   const isStep4Valid = formData.clientMode === 'platform' 
     ? !!formData.clientId 
     : !!(formData.clientName && formData.clientEmail)
@@ -189,7 +216,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
 
   const resetFormData = () => {
     setFormData({
-      budgetRange: { min: 3000, max: 10000 },
+      budgetRange: { min: 3000, max: 15000 },
       complexity: 'standard',
       timeline: '8-12 settimane',
       clientMode: 'external',
@@ -208,12 +235,12 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
       if (isStep5Valid && formData.projectType && formData.sector && formData.description) {
         setIsCompleting(true)
         const enrichedData: EnrichedPromptData = {
-          projectType: formData.projectType,
+          projectType: selectedProjectType?.pricingTemplateId || formData.projectType,
           projectTypeLabel: selectedProjectType?.label || '',
           sector: formData.sector,
           sectorLabel: selectedSector?.name || '',
           description: formData.description,
-          budgetRange: formData.budgetRange || { min: 3000, max: 10000 },
+          budgetRange: formData.budgetRange || { min: 3000, max: 15000 },
           complexity: formData.complexity || 'standard',
           timeline: formData.timeline || '8-12 settimane',
           clientMode: formData.clientMode || 'external',
@@ -326,10 +353,10 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                      ⚡ Tipo Progetto
+                      Linea di servizio
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Seleziona il tipo di progetto che desideri realizzare
+                      Parti da una famiglia Righello: il prezzo usa template controllati, il testo viene personalizzato sul brief.
                     </p>
                   </div>
                   
@@ -518,26 +545,26 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                             <Input
                               id="budgetMin"
                               type="number"
-                              min={1000}
-                              max={20000}
+                              min={MIN_BUDGET}
+                              max={MAX_BUDGET}
                               step={500}
                               value={formData.budgetRange?.min || 3000}
                               onChange={(e) => {
-                                const value = parseInt(e.target.value) || 1000
-                                const clamped = Math.max(1000, Math.min(20000, value))
+                                const value = parseInt(e.target.value) || MIN_BUDGET
+                                const clamped = Math.max(MIN_BUDGET, Math.min(MAX_BUDGET, value))
                                 setFormData({ 
                                   ...formData, 
                                   budgetRange: { 
                                     min: clamped, 
-                                    max: Math.max(clamped, formData.budgetRange?.max || 10000) 
+                                    max: Math.max(clamped, formData.budgetRange?.max || 15000) 
                                   } 
                                 })
                               }}
                               className="bg-white/50 dark:bg-black/30 backdrop-blur-sm"
                             />
-                            {(formData.budgetRange?.min && (formData.budgetRange.min < 1000 || formData.budgetRange.min > 20000)) && (
+                            {(formData.budgetRange?.min && (formData.budgetRange.min < MIN_BUDGET || formData.budgetRange.min > MAX_BUDGET)) && (
                               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                Il budget deve essere tra €1.000 e €20.000
+                                Il budget deve essere tra €500 e €100.000
                               </p>
                             )}
                           </div>
@@ -548,13 +575,13 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                             <Input
                               id="budgetMax"
                               type="number"
-                              min={1000}
-                              max={20000}
+                              min={MIN_BUDGET}
+                              max={MAX_BUDGET}
                               step={500}
-                              value={formData.budgetRange?.max || 10000}
+                              value={formData.budgetRange?.max || 15000}
                               onChange={(e) => {
-                                const value = parseInt(e.target.value) || 10000
-                                const clamped = Math.max(1000, Math.min(20000, value))
+                                const value = parseInt(e.target.value) || 15000
+                                const clamped = Math.max(MIN_BUDGET, Math.min(MAX_BUDGET, value))
                                 setFormData({ 
                                   ...formData, 
                                   budgetRange: { 
@@ -565,9 +592,9 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                               }}
                               className="bg-white/50 dark:bg-black/30 backdrop-blur-sm"
                             />
-                            {(formData.budgetRange?.max && (formData.budgetRange.max < 1000 || formData.budgetRange.max > 20000)) && (
+                            {(formData.budgetRange?.max && (formData.budgetRange.max < MIN_BUDGET || formData.budgetRange.max > MAX_BUDGET)) && (
                               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                Il budget deve essere tra €1.000 e €20.000
+                                Il budget deve essere tra €500 e €100.000
                               </p>
                             )}
                           </div>
@@ -580,7 +607,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                             </span>
                           </div>
                           <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700">
-                            Δ €{((formData.budgetRange?.max || 10000) - (formData.budgetRange?.min || 3000)).toLocaleString()}
+                            Δ €{((formData.budgetRange?.max || 15000) - (formData.budgetRange?.min || 3000)).toLocaleString()}
                           </Badge>
                         </div>
                       </div>

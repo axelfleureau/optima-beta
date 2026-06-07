@@ -69,6 +69,14 @@ const statusTabs: Array<{ value: StatusFilter; label: string }> = [
 const finalPositiveStates: Quote["status"][] = ["approved", "in_progress", "completed"]
 const openStates: Quote["status"][] = ["sent", "in_review", "pending_payment"]
 
+const righelloServiceLines = [
+  "Siti, landing e SEO locale",
+  "Piattaforme web, CMS e integrazioni",
+  "AI, automazioni e sistemi operativi",
+  "Foto, video e contenuti verticali",
+  "Comunicazione, campagne e brand",
+]
+
 function toDate(value: Date | { toDate?: () => Date } | string | number | null | undefined) {
   if (!value) return null
   if (value instanceof Date) return value
@@ -378,11 +386,21 @@ export default function PreventiviPage() {
                   </Badge>
                   <div className="space-y-3">
                     <h1 className="max-w-3xl text-4xl font-black leading-[0.96] tracking-normal text-white md:text-6xl">
-                      Preventivi che sembrano presentazioni, ma governano margine e firma.
+                      Preventivi Righello più puntuali, revisionabili e pronti alla firma.
                     </h1>
                     <p className="max-w-2xl text-base leading-7 text-slate-300 md:text-lg">
-                      Crea offerte leggibili, inviale con link pubblico, monitora stato, valore e scadenze senza perdere il contesto cliente.
+                      Genera proposte con template prezzo controllati, brief guidato, materiali brand, link pubblico e storico operativo.
                     </p>
+                  </div>
+                  <div className="flex max-w-3xl flex-wrap gap-2">
+                    {righelloServiceLines.map((line) => (
+                      <span
+                        key={line}
+                        className="rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-300"
+                      >
+                        {line}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
