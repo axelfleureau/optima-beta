@@ -379,13 +379,6 @@ function getBriefPlaceholder(jobType: string) {
 
 function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"]) {
   const laneOrder = ["system", "capability", "subagent", "connector", "reference_source"]
-  const laneY: Record<string, number> = {
-    system: 16,
-    capability: 46,
-    subagent: 46,
-    connector: 46,
-    reference_source: 76,
-  }
   const visibleNodes = [...nodes]
     .sort((a, b) => {
       const aLane = laneOrder.includes(a.nodeType) ? laneOrder.indexOf(a.nodeType) : laneOrder.indexOf("capability")
@@ -396,29 +389,25 @@ function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"]) {
     })
     .slice(0, 12)
 
-  const grouped = visibleNodes.reduce<Record<string, typeof visibleNodes>>((acc, node) => {
-    const lane = laneY[node.nodeType] ? node.nodeType : "capability"
-    acc[lane] = acc[lane] ?? []
-    acc[lane].push(node)
-    return acc
-  }, {})
+  const columns = 3
+  const rows = Math.max(1, Math.ceil(visibleNodes.length / columns))
 
-  return visibleNodes.map((node) => {
-    const lane = laneY[node.nodeType] ? node.nodeType : "capability"
-    const laneNodes = grouped[lane] ?? [node]
-    const index = laneNodes.findIndex((item) => item.id === node.id)
-    const total = laneNodes.length
-    const x = total <= 1 ? 50 : 20 + index * (60 / Math.max(1, total - 1))
+  return visibleNodes.map((node, index) => {
+    const column = index % columns
+    const row = Math.floor(index / columns)
+    const x = columns <= 1 ? 50 : 18 + column * (64 / Math.max(1, columns - 1))
+    const y = rows <= 1 ? 50 : 14 + row * (72 / Math.max(1, rows - 1))
     return {
       node,
       x,
-      y: laneY[lane],
+      y,
     }
   })
 }
 
 function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | null }) {
   const layout = useMemo(() => getGraphNodeLayout(graphMemory?.nodes ?? []), [graphMemory?.nodes])
+  const totalNodes = graphMemory?.stats.nodes ?? layout.length
   const nodePosition = new Map(layout.map((item) => [item.node.id, item]))
   const visibleEdges = (graphMemory?.edges ?? [])
     .map((edge) => ({
@@ -429,7 +418,7 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
     .filter((item): item is { edge: AgenticGraphSnapshot["edges"][number]; from: (typeof layout)[number]; to: (typeof layout)[number] } =>
       Boolean(item.from && item.to),
     )
-    .slice(0, 18)
+    .slice(0, 10)
   const featuredEdges = visibleEdges.slice(0, 4)
 
   return (
@@ -437,12 +426,12 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa nodi</p>
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400">
-          {layout.length} nodi · {visibleEdges.length} archi
+          {layout.length}/{totalNodes} nodi · {visibleEdges.length} archi
         </span>
       </div>
 
       {layout.length ? (
-        <div className="relative h-[250px] overflow-hidden sm:h-[290px]">
+        <div className="relative h-[300px] overflow-hidden sm:h-[320px]">
           <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             {visibleEdges.map(({ edge, from, to }) => (
               <line
@@ -453,7 +442,7 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
                 y2={to.y}
                 stroke={graphConfidenceStroke[edge.confidence] ?? "#64748b"}
                 strokeWidth={Math.max(0.7, Math.min(2.4, Number(edge.weight || 1)))}
-                strokeOpacity={edge.confidence === "ambiguous" ? 0.45 : 0.64}
+                strokeOpacity={edge.confidence === "ambiguous" ? 0.32 : 0.42}
                 strokeDasharray={edge.confidence === "inferred" ? "3 3" : edge.confidence === "ambiguous" ? "2 4" : undefined}
               />
             ))}
@@ -462,15 +451,15 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
           {layout.map(({ node, x, y }) => (
             <div
               key={node.id}
-              className="absolute w-[6.5rem] -translate-x-1/2 -translate-y-1/2 sm:w-[8.5rem]"
+              className="absolute w-[5.35rem] -translate-x-1/2 -translate-y-1/2 sm:w-[8.25rem]"
               style={{ left: `${x}%`, top: `${y}%` }}
             >
-              <div className={`rounded-lg border px-2.5 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.28)] ${graphNodeTypeTone[node.nodeType] ?? "border-white/15 bg-white/[0.06] text-slate-100"}`}>
-                <div className="flex items-center gap-2">
+              <div className={`rounded-lg border px-2 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.28)] sm:px-2.5 ${graphNodeTypeTone[node.nodeType] ?? "border-white/15 bg-white/[0.06] text-slate-100"}`}>
+                <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   <span className="h-2 w-2 shrink-0 rounded-full bg-current" />
-                  <p className="min-w-0 truncate text-xs font-black">{node.title}</p>
+                  <p className="min-w-0 truncate text-[11px] font-black sm:text-xs">{node.title}</p>
                 </div>
-                <p className="mt-1 truncate text-[10px] font-bold uppercase opacity-70">{node.nodeType}</p>
+                <p className="mt-1 truncate text-[9px] font-bold uppercase opacity-70 sm:text-[10px]">{node.nodeType}</p>
               </div>
             </div>
           ))}
