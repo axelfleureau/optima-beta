@@ -15,6 +15,7 @@
     "lint": "next lint",
     "hermes:graph:import": "node scripts/import-hermes-graph-source.mjs",
     "knowhow:sync": "node scripts/sync-development-knowhow-graph.mjs",
+    "portopiccolo:graph:seed": "node scripts/seed-portopiccolo-avantio-guesty-graph.mjs",
     "postinstall": "node scripts/patch-cloudflare-deps.js",
     "runner:help": "node runner/optima-agent-runner.mjs --help",
     "runner:once": "node runner/optima-agent-runner.mjs --once",

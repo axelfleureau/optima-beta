@@ -130,6 +130,20 @@ export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
     ],
   },
   {
+    id: "portopiccolo-avantio-guesty-sync",
+    label: "Portopiccolo Avantio Guesty Sync",
+    sourceType: "private_readonly_source",
+    url: null,
+    importPolicy: "skill_and_operational_index_only_no_credentials_no_runtime_dump",
+    usefulPatterns: [
+      "audit read-only prima di qualunque scrittura Guesty",
+      "hard-ban OTA prima del push: Booking, Airbnb, Vrbo e HomeAway",
+      "dedupe Guesty tramite originId=avantio:<id>",
+      "runtime macOS LaunchAgent e report audit indicizzati solo come metadati/conteggi",
+      "repo sync e dossier Portopiccolo collegati al grafo Optima per job agentici revisionabili",
+    ],
+  },
+  {
     id: "perplexity-computer-pattern",
     label: "Perplexity Computer pattern",
     sourceType: "product_pattern",

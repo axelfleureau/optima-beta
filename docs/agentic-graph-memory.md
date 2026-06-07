@@ -94,6 +94,37 @@ Il risultato e idempotente e salva solo:
 
 Le sessioni sono marcate `ambiguous` per default: servono come pista di recupero, non come verita operativa finche non vengono revisionate.
 
+## Import Portopiccolo Avantio/Guesty
+
+Script: `scripts/seed-portopiccolo-avantio-guesty-graph.mjs`
+
+Uso:
+
+```bash
+npm run portopiccolo:graph:seed -- --dry-run
+npm run portopiccolo:graph:seed
+```
+
+Fonti indicizzate:
+
+- skill Codex: `/Users/axel/.codex/skills/portopiccolo-avantio-guesty-sync/SKILL.md`;
+- mappa runtime: `/Users/axel/.codex/skills/portopiccolo-avantio-guesty-sync/references/locations.md`;
+- metadata UI skill: `/Users/axel/.codex/skills/portopiccolo-avantio-guesty-sync/agents/openai.yaml`;
+- know-how: `/Users/axel/Documents/Codex/development/knowhow/avantio-guesty-sync.md`;
+- dossier operativo: `/Users/axel/Documents/Codex/2026-06-05/ciao/outputs/portopiccolo-apartments-full-operational-context.md`;
+- repo sync: `/Users/axel/Documents/Codex/2026-05-20/clona-questo-progetto-e-iniziamo-a/tools/avantio-guesty-sync`;
+- runtime sync: `/Users/axel/Library/Application Support/PortopiccoloSync/avantio-guesty-sync`.
+
+Il seed e idempotente e salva solo nodi di indice: skill, source map, metadata, know-how, dossier, repository, runtime e audit. Il runtime viene indicizzato con metadati, percorsi, conteggi e segnali read-only. Non vengono importati credenziali, token, storage state, log completi, mailbox, issue table dettagliate o dump di prenotazioni.
+
+Safety contract:
+
+- le scritture Guesty sono production-impacting;
+- `SYNC_PUSH_TO_GUESTY=1`, reload LaunchAgent o azioni di repair richiedono conferma esplicita nel turno corrente;
+- OTA come Booking, Airbnb, Vrbo e HomeAway restano hard-banned prima di qualunque push;
+- la dedupe Guesty usa `originId=avantio:<id>`;
+- se il report runtime e stale o `drift`, Optima deve chiedere un audit read-only prima di trarre conclusioni operative.
+
 ## API
 
 Dashboard/API:

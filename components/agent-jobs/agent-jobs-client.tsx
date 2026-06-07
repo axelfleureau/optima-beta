@@ -281,6 +281,13 @@ const graphNodeTypeVisual: Record<string, { fill: string; stroke: string; label:
   reference_source: { fill: "#059669", stroke: "#6ee7b7", label: "Sorgente" },
   subagent: { fill: "#8b5cf6", stroke: "#ddd6fe", label: "Subagente" },
   connector: { fill: "#d97706", stroke: "#fcd34d", label: "Connector" },
+  codex_skill: { fill: "#0ea5e9", stroke: "#bae6fd", label: "Skill Codex" },
+  source_map: { fill: "#64748b", stroke: "#cbd5e1", label: "Mappa fonti" },
+  skill_metadata: { fill: "#38bdf8", stroke: "#e0f2fe", label: "Metadata skill" },
+  operational_dossier: { fill: "#f43f5e", stroke: "#fecdd3", label: "Dossier" },
+  repository: { fill: "#22c55e", stroke: "#bbf7d0", label: "Repository" },
+  runtime_source: { fill: "#f97316", stroke: "#fed7aa", label: "Runtime" },
+  operational_audit: { fill: "#f59e0b", stroke: "#fde68a", label: "Audit" },
   hermes_memory: { fill: "#0d9488", stroke: "#5eead4", label: "Hermes" },
   hermes_skill: { fill: "#0f766e", stroke: "#99f6e4", label: "Skill Hermes" },
 }
