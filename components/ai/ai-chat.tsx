@@ -34,6 +34,15 @@ interface AIChatProps {
   showWelcome?: boolean
 }
 
+const EMPTY_ASSISTANT_RESPONSE =
+  "Ho ricevuto la richiesta e l'ho salvata nella conversazione. La risposta non e ancora disponibile: premi Rileggi tra qualche secondo oppure trasformala in un job agentico revisionabile."
+
+function normalizeAssistantContent(content: unknown, role: "user" | "assistant") {
+  const text = String(content || "").trim()
+  if (text) return text
+  return role === "assistant" ? EMPTY_ASSISTANT_RESPONSE : ""
+}
+
 export function AIChat({
   userId,
   sessionId,
@@ -123,7 +132,7 @@ export function AIChat({
           .filter((message: any) => message.role === "user" || message.role === "assistant")
           .map((message: any) => ({
             id: String(message.id),
-            content: String(message.content || ""),
+            content: normalizeAssistantContent(message.content, message.role),
             role: message.role,
             timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
             canRegenerate: message.role === "assistant",
@@ -279,14 +288,12 @@ export function AIChat({
 
           if (data.done) {
             console.log("🏁 Stream marked as done")
-            const emptyResponseFallback =
-              "Ho ricevuto la richiesta e l'ho salvata nella conversazione, ma il modello non ha restituito contenuto utile. Riprova con Invia o usa Rileggi tra qualche secondo se la risposta arriva in differita."
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessageId
                   ? {
                       ...msg,
-                      content: receivedAssistantContent || msg.content.trim() ? msg.content : emptyResponseFallback,
+                      content: receivedAssistantContent || msg.content.trim() ? msg.content : EMPTY_ASSISTANT_RESPONSE,
                       isStreaming: false,
                       canRegenerate: true,
                       error: !receivedAssistantContent && !msg.content.trim(),
@@ -525,7 +532,11 @@ export function AIChat({
 
   const formatMessage = (content: string) => {
     if (!content || content.trim() === "") {
-      return <span className="text-gray-400 italic">Contenuto vuoto</span>
+      return (
+        <span className="block rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-amber-100">
+          {EMPTY_ASSISTANT_RESPONSE}
+        </span>
+      )
     }
 
     const lines = content.split("\n")
@@ -586,7 +597,7 @@ export function AIChat({
           <div key={i} className="flex items-start gap-3 mb-2 ml-4">
             <div className="w-1.5 h-1.5 bg-pink-500 rounded-full mt-2 flex-shrink-0"></div>
             <span
-              className="text-gray-700 dark:text-gray-300 leading-relaxed"
+              className="min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300"
               dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
@@ -605,7 +616,7 @@ export function AIChat({
           <div key={i} className="flex items-start gap-3 mb-2 ml-4">
             <div className="w-1.5 h-1.5 bg-rose-500 rounded-full mt-2 flex-shrink-0"></div>
             <span
-              className="text-gray-700 dark:text-gray-300 leading-relaxed"
+              className="min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300"
               dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
@@ -627,7 +638,7 @@ export function AIChat({
               {number}
             </div>
             <span
-              className="text-gray-700 dark:text-gray-300 leading-relaxed"
+              className="min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300"
               dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
@@ -640,7 +651,7 @@ export function AIChat({
         const code = line.replace(/```/g, "").trim()
         elements.push(
           <div key={i} className="my-3">
-            <code className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm font-mono text-gray-800 dark:text-gray-200 block">
+            <code className="block max-w-full overflow-x-auto rounded-lg bg-gray-100 px-3 py-2 font-mono text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">
               {code}
             </code>
           </div>,
@@ -659,7 +670,7 @@ export function AIChat({
           .replace(/\*(.*?)\*/g, "<em class='italic'>$1</em>")
 
         elements.push(
-          <p key={i} className="mb-3 break-words text-gray-700 dark:text-gray-300 leading-relaxed">
+          <p key={i} className="mb-3 min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300">
             <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedLine) }} />
           </p>,
         )
@@ -672,7 +683,7 @@ export function AIChat({
         .replace(/\*(.*?)\*/g, "<em class='italic'>$1</em>")
 
       elements.push(
-        <p key={i} className="mb-3 break-words text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p key={i} className="mb-3 min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300">
           <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedLine) }} />
         </p>,
       )
@@ -682,7 +693,7 @@ export function AIChat({
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-lg border border-pink-200 bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 shadow-lg dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
+    <div className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg border border-pink-200 bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 shadow-lg dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-pink-200 dark:border-gray-700 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -697,9 +708,11 @@ export function AIChat({
             </div>
             <div className="min-w-0">
               <h3 className="truncate font-semibold text-gray-900 dark:text-white">Assistente AI Optima</h3>
-              <p className="flex items-center gap-1 truncate text-sm text-gray-500 dark:text-gray-400">
-                <Sparkles className="h-3 w-3 text-pink-500" />
-                Assistente operativo • Memoria, grafo e contesto piattaforma
+              <p className="flex min-w-0 items-start gap-1 text-sm leading-5 text-gray-500 dark:text-gray-400">
+                <Sparkles className="mt-1 h-3 w-3 shrink-0 text-pink-500" />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  Assistente operativo • Memoria, grafo e contesto piattaforma
+                </span>
               </p>
             </div>
           </div>
@@ -714,7 +727,7 @@ export function AIChat({
         <div className="mt-3 flex flex-col gap-2 rounded-lg border border-pink-100 bg-pink-50/70 px-3 py-2 text-xs text-pink-900 dark:border-pink-900/40 dark:bg-pink-950/20 dark:text-pink-100 sm:flex-row sm:items-center sm:justify-between">
           <span className="flex min-w-0 items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0">
+            <span className="min-w-0 break-words [overflow-wrap:anywhere]">
               Puoi scrivere richieste asincrone o salvare conoscenza con: salva nel grafo: tipo=...; titolo=...; sommario=...
             </span>
           </span>
@@ -733,7 +746,7 @@ export function AIChat({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="min-h-0 flex-1 p-3 sm:p-4" ref={scrollAreaRef}>
+      <ScrollArea className="min-h-0 flex-1 overflow-x-hidden p-3 sm:p-4" ref={scrollAreaRef}>
         <div className="min-w-0 space-y-6">
           {messages.map((message, index) => (
             <div
@@ -750,7 +763,7 @@ export function AIChat({
 
               <div
                 className={cn(
-              "max-w-[calc(100%-2.5rem)] min-w-0 rounded-2xl px-3 py-3 shadow-sm sm:max-w-[85%] sm:px-4",
+                  "max-w-[calc(100%-2.5rem)] min-w-0 overflow-hidden rounded-2xl px-3 py-3 shadow-sm sm:max-w-[85%] sm:px-4",
                   message.role === "user"
                     ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white ml-auto shadow-md"
                     : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700",
@@ -759,11 +772,11 @@ export function AIChat({
                 <div className="min-w-0 text-sm">
                   {message.isStreaming ? (
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="min-w-0 break-words">{message.content || "Sto pensando..."}</span>
+                      <span className="min-w-0 break-words [overflow-wrap:anywhere]">{message.content || "Sto pensando..."}</span>
                       <Loader2 className="h-4 w-4 animate-spin text-pink-500" />
                     </div>
                   ) : (
-                    <div className="min-w-0 max-w-full">{formatMessage(message.content)}</div>
+                    <div className="min-w-0 max-w-full overflow-hidden">{formatMessage(message.content)}</div>
                   )}
                 </div>
 
@@ -864,7 +877,7 @@ export function AIChat({
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-800 border-t border-pink-200 dark:border-gray-700 p-3 sm:p-4">
-        <div className="grid min-w-0 gap-2 sm:flex sm:items-end sm:gap-3">
+        <div className="grid min-w-0 max-w-full gap-2 sm:flex sm:items-end sm:gap-3">
           <div className="relative min-w-0 sm:flex-1">
             <Textarea
               ref={textareaRef}
@@ -873,7 +886,7 @@ export function AIChat({
               onKeyDown={handleKeyDown}
               placeholder="Scrivi una richiesta operativa... l'AI puo rispondere subito o in differita"
               disabled={isLoading}
-              className="min-h-[44px] max-h-32 resize-none border-gray-300 dark:border-gray-600 focus:border-pink-500 dark:focus:border-pink-400 rounded-xl shadow-sm"
+              className="min-h-[44px] max-h-32 max-w-full resize-none rounded-xl border-gray-300 shadow-sm focus:border-pink-500 dark:border-gray-600 dark:focus:border-pink-400"
               rows={1}
             />
           </div>
@@ -889,18 +902,18 @@ export function AIChat({
         </div>
 
         <div className="mt-2 flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
-          <span className="flex min-w-0 items-center gap-2 truncate">
+          <span className="flex min-w-0 max-w-full items-center gap-2">
             <Network className="h-3 w-3 flex-shrink-0 text-pink-500" />
             <span className="truncate">{modelName} • memoria conversazioni • inbox agentica</span>
           </span>
           {contextSources.length > 0 && (
-            <span className="flex min-w-0 items-center gap-1 truncate">
+            <span className="flex min-w-0 max-w-full items-center gap-1">
               <Database className="h-3 w-3 flex-shrink-0 text-cyan-400" />
               <span className="truncate">{contextSources.join(", ")}</span>
             </span>
           )}
           {currentSessionId && (
-            <span>
+            <span className="min-w-0 max-w-full truncate">
               Sessione: {currentSessionId.slice(-8)}
               {lastInboxSyncAt ? ` · sync ${lastInboxSyncAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
             </span>
