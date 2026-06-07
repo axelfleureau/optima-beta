@@ -408,6 +408,7 @@ function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"]) {
 function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | null }) {
   const layout = useMemo(() => getGraphNodeLayout(graphMemory?.nodes ?? []), [graphMemory?.nodes])
   const totalNodes = graphMemory?.stats.nodes ?? layout.length
+  const totalEdges = graphMemory?.stats.edges ?? graphMemory?.edges?.length ?? 0
   const nodePosition = new Map(layout.map((item) => [item.node.id, item]))
   const visibleEdges = (graphMemory?.edges ?? [])
     .map((edge) => ({
@@ -419,6 +420,7 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
       Boolean(item.from && item.to),
     )
     .slice(0, 10)
+  const isPartialMap = totalNodes > layout.length || totalEdges > visibleEdges.length
   const featuredEdges = visibleEdges.slice(0, 4)
 
   return (
@@ -426,7 +428,7 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa nodi</p>
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400">
-          {layout.length}/{totalNodes} nodi · {visibleEdges.length} archi
+          Vista parziale · {layout.length} di {totalNodes} nodi
         </span>
       </div>
 
@@ -481,6 +483,12 @@ function GraphMemoryMap({ graphMemory }: { graphMemory: AgenticGraphSnapshot | n
           </span>
         ))}
       </div>
+
+      {isPartialMap ? (
+        <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. Questa mappa mostra una selezione leggibile con {layout.length} nodi e {visibleEdges.length} collegamenti visibili.
+        </div>
+      ) : null}
 
       {featuredEdges.length ? (
         <div className="grid gap-1.5 border-t border-white/10 p-3">
