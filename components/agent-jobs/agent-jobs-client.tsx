@@ -13,6 +13,7 @@ import {
   GitBranch,
   Loader2,
   MessageSquareText,
+  Minus,
   Network,
   Play,
   Plus,
@@ -416,16 +417,31 @@ function getBriefPlaceholder(jobType: string) {
   return "Descrivi cosa deve fare il runner, cosa deve produrre e quali limiti rispettare..."
 }
 
-function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"], edges: AgenticGraphSnapshot["edges"] = []) {
+function getGraphNodeLayout(
+  nodes: AgenticGraphSnapshot["nodes"],
+  edges: AgenticGraphSnapshot["edges"] = [],
+  options: { limit?: number; selectedNodeId?: string | null } = {},
+) {
   const typeOrder = ["system", "graph_engine", "knowledge_base", "capability", "subagent", "connector", "reference_source", "hermes_memory", "hermes_skill", "development_knowhow"]
+  const limit = options.limit ?? 18
+  const selectedNodeId = options.selectedNodeId ?? null
   const degreeByNode = new Map<string, number>()
+  const neighborIds = new Set<string>()
   for (const edge of edges) {
     degreeByNode.set(edge.fromNodeId, (degreeByNode.get(edge.fromNodeId) || 0) + 1)
     degreeByNode.set(edge.toNodeId, (degreeByNode.get(edge.toNodeId) || 0) + 1)
+    if (selectedNodeId && edge.fromNodeId === selectedNodeId) neighborIds.add(edge.toNodeId)
+    if (selectedNodeId && edge.toNodeId === selectedNodeId) neighborIds.add(edge.fromNodeId)
   }
 
   const visibleNodes = [...nodes]
     .sort((a, b) => {
+      if (selectedNodeId) {
+        if (a.id === selectedNodeId) return -1
+        if (b.id === selectedNodeId) return 1
+        const neighborDelta = Number(neighborIds.has(b.id)) - Number(neighborIds.has(a.id))
+        if (neighborDelta !== 0) return neighborDelta
+      }
       const degreeDelta = (degreeByNode.get(b.id) || 0) - (degreeByNode.get(a.id) || 0)
       if (degreeDelta !== 0) return degreeDelta
       const aType = typeOrder.includes(a.nodeType) ? typeOrder.indexOf(a.nodeType) : typeOrder.length
@@ -434,17 +450,18 @@ function getGraphNodeLayout(nodes: AgenticGraphSnapshot["nodes"], edges: Agentic
       if (typeDelta !== 0) return typeDelta
       return a.title.localeCompare(b.title)
     })
-    .slice(0, 18)
+    .slice(0, limit)
 
   return visibleNodes.map((node, index) => {
     const degree = degreeByNode.get(node.id) || 0
     const typeBoost = node.nodeType === "system" || node.nodeType === "knowledge_base" ? 1.4 : node.nodeType === "graph_engine" ? 1.1 : node.nodeType === "capability" ? 0.8 : 0
-    const r = Math.max(3.6, Math.min(8.8, 3.4 + Math.sqrt(degree + 1) * 1.35 + typeBoost))
+    const selectedBoost = node.id === selectedNodeId ? 1.5 : neighborIds.has(node.id) ? 0.6 : 0
+    const r = Math.max(3.2, Math.min(9.4, 3.2 + Math.sqrt(degree + 1) * 1.22 + typeBoost + selectedBoost))
     const ringIndex = Math.max(0, index - 1)
     const angle = (ringIndex * 137.508 * Math.PI) / 180
-    const ring = index === 0 ? 0 : 15 + Math.floor(ringIndex / 6) * 10.5 + (ringIndex % 3) * 1.8
-    const x = index === 0 ? 50 : Math.max(10, Math.min(90, 50 + Math.cos(angle) * ring * 1.05))
-    const y = index === 0 ? 51 : Math.max(12, Math.min(88, 51 + Math.sin(angle) * ring * 0.8))
+    const ring = index === 0 ? 0 : 13 + Math.floor(ringIndex / 7) * 8.8 + (ringIndex % 4) * 1.4
+    const x = index === 0 ? 50 : Math.max(7, Math.min(93, 50 + Math.cos(angle) * ring * 1.08))
+    const y = index === 0 ? 51 : Math.max(8, Math.min(92, 51 + Math.sin(angle) * ring * 0.82))
     return {
       node,
       x,
@@ -461,6 +478,10 @@ function compactGraphLabel(value: string) {
   return clean.length > 18 ? `${clean.slice(0, 16).trim()}...` : clean
 }
 
+function clampGraphZoom(value: number) {
+  return Math.max(0.85, Math.min(2.6, value))
+}
+
 function GraphMemoryMap({
   graphMemory,
   selectedNodeId,
@@ -470,7 +491,20 @@ function GraphMemoryMap({
   selectedNodeId?: string | null
   onSelectNode?: (node: AgenticGraphNode) => void
 }) {
-  const layout = useMemo(() => getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? []), [graphMemory?.nodes, graphMemory?.edges])
+  const [nodeLimit, setNodeLimit] = useState(18)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [dragState, setDragState] = useState<{
+    pointerId: number
+    startX: number
+    startY: number
+    startPan: { x: number; y: number }
+  } | null>(null)
+
+  const layout = useMemo(
+    () => getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? [], { limit: nodeLimit, selectedNodeId }),
+    [graphMemory?.nodes, graphMemory?.edges, nodeLimit, selectedNodeId],
+  )
   const totalNodes = graphMemory?.stats.nodes ?? layout.length
   const totalEdges = graphMemory?.stats.edges ?? graphMemory?.edges?.length ?? 0
   const nodePosition = new Map(layout.map((item) => [item.node.id, item]))
@@ -483,22 +517,124 @@ function GraphMemoryMap({
     .filter((item): item is { edge: AgenticGraphSnapshot["edges"][number]; from: (typeof layout)[number]; to: (typeof layout)[number] } =>
       Boolean(item.from && item.to),
     )
-    .slice(0, 10)
+    .sort((a, b) => {
+      if (selectedNodeId) {
+        const aSelected = a.edge.fromNodeId === selectedNodeId || a.edge.toNodeId === selectedNodeId
+        const bSelected = b.edge.fromNodeId === selectedNodeId || b.edge.toNodeId === selectedNodeId
+        const selectedDelta = Number(bSelected) - Number(aSelected)
+        if (selectedDelta !== 0) return selectedDelta
+      }
+      return Number(b.edge.weight || 0) - Number(a.edge.weight || 0)
+    })
+    .slice(0, Math.max(12, Math.min(90, nodeLimit * 3)))
   const isPartialMap = totalNodes > layout.length || totalEdges > visibleEdges.length
   const featuredEdges = visibleEdges.slice(0, 4)
+  const viewSize = 100 / zoom
+  const viewBox = `${(100 - viewSize) / 2 + pan.x} ${(100 - viewSize) / 2 + pan.y} ${viewSize} ${viewSize}`
+
+  function resetGraphView() {
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+  }
+
+  function handleGraphPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setDragState({
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startPan: pan,
+    })
+  }
+
+  function handleGraphPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!dragState || dragState.pointerId !== event.pointerId) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const nextViewSize = 100 / zoom
+    const dx = (event.clientX - dragState.startX) * (nextViewSize / Math.max(1, rect.width))
+    const dy = (event.clientY - dragState.startY) * (nextViewSize / Math.max(1, rect.height))
+    setPan({
+      x: Math.max(-45, Math.min(45, dragState.startPan.x - dx)),
+      y: Math.max(-45, Math.min(45, dragState.startPan.y - dy)),
+    })
+  }
+
+  function handleGraphPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (dragState?.pointerId === event.pointerId) setDragState(null)
+  }
 
   return (
     <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-white/10 bg-[#050914]/85">
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa grafo</p>
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400">
-          Vista parziale · {layout.length} di {totalNodes} nodi
-        </span>
+      <div className="grid gap-2 border-b border-white/10 px-3 py-2 sm:flex sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa grafo</p>
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 sm:hidden">
+            {layout.length}/{totalNodes}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 sm:inline-flex">
+            Vista dinamica · {layout.length} di {totalNodes} nodi
+          </span>
+          {[18, 32, 48].map((limit) => (
+            <button
+              key={limit}
+              type="button"
+              onClick={() => setNodeLimit(limit)}
+              className={`h-7 rounded-full border px-2 text-[10px] font-black transition ${
+                nodeLimit === limit ? "border-cyan-300/50 bg-cyan-300/15 text-cyan-100" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/10"
+              }`}
+            >
+              {limit}
+            </button>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setZoom((current) => clampGraphZoom(current - 0.2))}
+            className="h-7 w-7 rounded-full border-white/10 bg-transparent p-0 text-slate-200 hover:bg-white/10"
+            aria-label="Riduci zoom grafo"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </Button>
+          <span className="min-w-10 text-center text-[10px] font-black text-slate-400">{Math.round(zoom * 100)}%</span>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setZoom((current) => clampGraphZoom(current + 0.2))}
+            className="h-7 w-7 rounded-full border-white/10 bg-transparent p-0 text-slate-200 hover:bg-white/10"
+            aria-label="Aumenta zoom grafo"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={resetGraphView}
+            className="h-7 rounded-full border-white/10 bg-transparent px-2 text-[10px] font-black text-slate-200 hover:bg-white/10"
+          >
+            <RefreshCw className="mr-1 h-3 w-3" />
+            Centra
+          </Button>
+        </div>
       </div>
 
       {layout.length ? (
-        <div className="relative h-[320px] overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.10),transparent_48%),linear-gradient(180deg,rgba(15,23,42,0.12),rgba(2,6,23,0.72))] sm:h-[360px]">
-          <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Mappa a bolle della graph memory Optima">
+        <div
+          className={`relative h-[340px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.10),transparent_48%),linear-gradient(180deg,rgba(15,23,42,0.12),rgba(2,6,23,0.72))] sm:h-[390px] ${
+            dragState ? "cursor-grabbing" : "cursor-grab"
+          }`}
+          onPointerDown={handleGraphPointerDown}
+          onPointerMove={handleGraphPointerMove}
+          onPointerUp={handleGraphPointerUp}
+          onPointerCancel={handleGraphPointerUp}
+          onWheel={(event) => {
+            event.preventDefault()
+            setZoom((current) => clampGraphZoom(current + (event.deltaY > 0 ? -0.12 : 0.12)))
+          }}
+        >
+          <svg className="absolute inset-0 h-full w-full" viewBox={viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Mappa dinamica a bolle della graph memory Optima">
             <defs>
               <filter id="graphGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="1.8" result="coloredBlur" />
@@ -530,7 +666,11 @@ function GraphMemoryMap({
                   role="button"
                   tabIndex={0}
                   className="cursor-pointer outline-none"
-                  onClick={() => onSelectNode?.(node)}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onSelectNode?.(node)
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault()
@@ -574,6 +714,10 @@ function GraphMemoryMap({
               )
             })}
           </svg>
+          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-lg border border-white/10 bg-[#050914]/80 px-3 py-2 text-[11px] leading-5 text-slate-400 backdrop-blur">
+            Trascina per muoverti, usa +/- per zoom, tocca un nodo per aprire contesto e azioni.
+            {selectedNodeId ? " Nodo selezionato al centro della vista." : ""}
+          </div>
         </div>
       ) : (
         <div className="p-4 text-sm leading-6 text-slate-500">
@@ -604,7 +748,7 @@ function GraphMemoryMap({
 
       {isPartialMap ? (
         <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
-          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. La mappa mostra i nodi piu centrali: bolle piu grandi indicano piu collegamenti. Graphify e il motore di estrazione/query; i nodi business restano dati Optima.
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. Aumenta la densita per esplorare piu nodi; bolle piu grandi indicano piu collegamenti. Graphify e il motore di estrazione/query; i nodi business restano dati Optima.
         </div>
       ) : null}
 
