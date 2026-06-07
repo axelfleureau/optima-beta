@@ -235,6 +235,7 @@ export function AIChat({
 
       try {
         let buffer = ""
+        let receivedAssistantContent = false
 
         const handleSsePayload = (jsonStr: string) => {
           if (!jsonStr) return
@@ -262,6 +263,9 @@ export function AIChat({
           }
 
           if (data.content) {
+            if (String(data.content).trim()) {
+              receivedAssistantContent = true
+            }
             setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.id === assistantMessageId) {
@@ -275,8 +279,20 @@ export function AIChat({
 
           if (data.done) {
             console.log("🏁 Stream marked as done")
+            const emptyResponseFallback =
+              "Ho ricevuto la richiesta e l'ho salvata nella conversazione, ma il modello non ha restituito contenuto utile. Riprova con Invia o usa Rileggi tra qualche secondo se la risposta arriva in differita."
             setMessages((prev) =>
-              prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, isStreaming: false, canRegenerate: true } : msg)),
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? {
+                      ...msg,
+                      content: receivedAssistantContent || msg.content.trim() ? msg.content : emptyResponseFallback,
+                      isStreaming: false,
+                      canRegenerate: true,
+                      error: !receivedAssistantContent && !msg.content.trim(),
+                    }
+                  : msg,
+              ),
             )
 
             if (onMessageSent) {
@@ -848,8 +864,8 @@ export function AIChat({
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-800 border-t border-pink-200 dark:border-gray-700 p-3 sm:p-4">
-        <div className="flex gap-2 sm:gap-3 items-end">
-          <div className="flex-1 relative">
+        <div className="grid min-w-0 gap-2 sm:flex sm:items-end sm:gap-3">
+          <div className="relative min-w-0 sm:flex-1">
             <Textarea
               ref={textareaRef}
               value={input}
@@ -864,10 +880,11 @@ export function AIChat({
           <Button
             onClick={sendMessage}
             disabled={isLoading || !input.trim()}
-            className="h-11 w-11 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 shadow-lg"
+            className="h-11 w-full rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 font-black text-white shadow-lg hover:from-pink-600 hover:to-rose-700 sm:w-11 sm:p-0"
             size="sm"
           >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin sm:mr-0" /> : <Send className="mr-2 h-4 w-4 sm:mr-0" />}
+            <span className="sm:sr-only">Invia</span>
           </Button>
         </div>
 

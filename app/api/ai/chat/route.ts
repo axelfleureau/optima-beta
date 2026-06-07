@@ -712,6 +712,12 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          if (!fullText.trim()) {
+            fullText =
+              "Ho ricevuto la richiesta e l'ho salvata nella conversazione, ma il modello non ha restituito contenuto utile. Riprova o chiedimi di trasformarla in un job agentico revisionabile."
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ content: fullText })}\n\n`))
+          }
+
           await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "assistant", fullText)
           await updateSessionMemory(
             db,
