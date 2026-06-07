@@ -403,6 +403,7 @@ export function AiPageGuide() {
 
   const canShowGuide = guide ? guideVisibleForRole(guide, userData?.role) : false
   const visibleGuide = canShowGuide ? guide : undefined
+  const isAssistantWorkspace = pathname.startsWith("/ai-assistant") || pathname.startsWith("/dashboard/ai-assistant")
 
   useEffect(() => {
     setCurrentStep(0)
@@ -416,7 +417,7 @@ export function AiPageGuide() {
     return () => window.clearTimeout(timeout)
   }, [visibleGuide?.id])
 
-  if (!visibleGuide) return null
+  if (!visibleGuide || isAssistantWorkspace) return null
 
   const activeGuide = visibleGuide
   const stepCount = activeGuide.steps.length

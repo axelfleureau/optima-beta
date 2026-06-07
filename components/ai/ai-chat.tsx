@@ -659,7 +659,7 @@ export function AIChat({
           .replace(/\*(.*?)\*/g, "<em class='italic'>$1</em>")
 
         elements.push(
-          <p key={i} className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed">
+          <p key={i} className="mb-3 break-words text-gray-700 dark:text-gray-300 leading-relaxed">
             <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedLine) }} />
           </p>,
         )
@@ -672,17 +672,17 @@ export function AIChat({
         .replace(/\*(.*?)\*/g, "<em class='italic'>$1</em>")
 
       elements.push(
-        <p key={i} className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p key={i} className="mb-3 break-words text-gray-700 dark:text-gray-300 leading-relaxed">
           <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedLine) }} />
         </p>,
       )
     }
 
-    return <div className="space-y-1">{elements}</div>
+    return <div className="min-w-0 max-w-full space-y-1 break-words [overflow-wrap:anywhere] [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_pre]:max-w-full [&_pre]:overflow-x-auto">{elements}</div>
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-pink-200 bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 shadow-lg dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-lg border border-pink-200 bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 shadow-lg dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-pink-200 dark:border-gray-700 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -733,12 +733,12 @@ export function AIChat({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-        <div className="space-y-6">
+      <ScrollArea className="min-h-0 flex-1 p-3 sm:p-4" ref={scrollAreaRef}>
+        <div className="min-w-0 space-y-6">
           {messages.map((message, index) => (
             <div
               key={message.id}
-              className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}
+              className={cn("flex min-w-0 gap-2 sm:gap-3", message.role === "user" ? "justify-end" : "justify-start")}
             >
               {message.role === "assistant" && (
                 <Avatar className="h-8 w-8 bg-gradient-to-r from-pink-500 to-rose-600 flex-shrink-0 shadow-sm">
@@ -750,24 +750,24 @@ export function AIChat({
 
               <div
                 className={cn(
-              "max-w-[85%] min-w-0 rounded-2xl px-4 py-3 shadow-sm",
+              "max-w-[calc(100%-2.5rem)] min-w-0 rounded-2xl px-3 py-3 shadow-sm sm:max-w-[85%] sm:px-4",
                   message.role === "user"
                     ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white ml-auto shadow-md"
                     : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700",
                 )}
               >
-                <div className="text-sm">
+                <div className="min-w-0 text-sm">
                   {message.isStreaming ? (
-                    <div className="flex items-center gap-2">
-                      <span>{message.content || "Sto pensando..."}</span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 break-words">{message.content || "Sto pensando..."}</span>
                       <Loader2 className="h-4 w-4 animate-spin text-pink-500" />
                     </div>
                   ) : (
-                    <div>{formatMessage(message.content)}</div>
+                    <div className="min-w-0 max-w-full">{formatMessage(message.content)}</div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="mt-3 flex min-w-0 items-center justify-between gap-2 border-t border-gray-100 pt-2 dark:border-gray-700">
                   <div
                     className={cn(
                       "text-xs flex items-center gap-1",
@@ -779,7 +779,7 @@ export function AIChat({
                   </div>
 
                   {message.role === "assistant" && !message.isStreaming && message.content && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                       {/* Copy button */}
                       <Button
                         variant="ghost"

@@ -2,7 +2,7 @@ import { LoadingChat } from "@/components/ui/loading-skeleton"
 
 export default function AIAssistantLoading() {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 space-y-6 md:p-6 md:space-y-8">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-gray-50 p-3 space-y-6 dark:bg-gray-900 sm:p-4 md:p-6 md:space-y-8">
       {/* Header */}
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -31,8 +31,8 @@ export default function AIAssistantLoading() {
       </div>
 
       {/* Main Chat Interface */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="flex h-[calc(100svh-9rem)] min-h-[560px] md:h-[700px]">
+      <div className="min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex min-h-[620px] md:h-[700px]">
           {/* Sidebar */}
           <div className="hidden w-80 border-r border-gray-200 bg-gray-50 p-4 space-y-4 dark:border-gray-700 dark:bg-gray-800 lg:block">
             <div className="animate-pulse bg-gray-300/20 dark:bg-gray-700/20 h-6 w-32 rounded-md" />
@@ -44,7 +44,7 @@ export default function AIAssistantLoading() {
           </div>
 
           {/* Chat Area */}
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <LoadingChat />
           </div>
         </div>
