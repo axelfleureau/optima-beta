@@ -216,6 +216,16 @@ const initialForm = {
   brief: "",
 }
 
+const initialManualGraphNodeForm = {
+  nodeType: "knowledge_base",
+  title: "",
+  summary: "",
+  sourceType: "manual",
+  confidence: "manual",
+  tags: "",
+  sourceUrl: "",
+}
+
 const jobTypesRequiringRepository = new Set(["codex_patch", "deploy"])
 const terminalJobStatuses = new Set(["approved", "rejected", "cancelled"])
 const priorityProviderIds = ["codex", "openai", "qwen", "gemma-hosted", "minimax"]
@@ -674,6 +684,8 @@ export function AgentJobsClient({
   const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null)
   const [graphNodeDetail, setGraphNodeDetail] = useState<AgenticGraphNodeDetail | null>(null)
   const [isLoadingGraphNode, setIsLoadingGraphNode] = useState(false)
+  const [manualGraphNodeForm, setManualGraphNodeForm] = useState(initialManualGraphNodeForm)
+  const [isSavingGraphNode, setIsSavingGraphNode] = useState(false)
   const [capabilityAction, setCapabilityAction] = useState<string | null>(null)
   const [setupAction, setSetupAction] = useState<string | null>(null)
 
@@ -1362,6 +1374,52 @@ export function AgentJobsClient({
     }
   }
 
+  async function createManualGraphNode() {
+    const title = manualGraphNodeForm.title.trim()
+    if (!title) {
+      setError("Inserisci un titolo per il nodo grafo.")
+      return
+    }
+
+    try {
+      setIsSavingGraphNode(true)
+      setError(null)
+      const response = await fetch("/api/agentic-graph", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert_node",
+          nodeType: manualGraphNodeForm.nodeType,
+          title,
+          summary: manualGraphNodeForm.summary,
+          sourceType: manualGraphNodeForm.sourceType,
+          sourceUrl: manualGraphNodeForm.sourceUrl || null,
+          confidence: manualGraphNodeForm.confidence,
+          tags: manualGraphNodeForm.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+          properties: {
+            insertedFrom: "agenti-manual-graph-form",
+            manualReview: true,
+          },
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Errore salvataggio nodo grafo")
+
+      const snapshotResponse = await fetch("/api/agentic-graph", { cache: "no-store" })
+      const snapshot = await snapshotResponse.json()
+      if (snapshotResponse.ok) setGraphMemory(snapshot)
+      setGraphQuery(title)
+      setManualGraphNodeForm(initialManualGraphNodeForm)
+    } catch (err: any) {
+      setError(err?.message ?? "Errore salvataggio nodo grafo")
+    } finally {
+      setIsSavingGraphNode(false)
+    }
+  }
+
   function applyQuickTemplate(template: (typeof quickJobTemplates)[number]) {
     setForm((current) => ({
       ...current,
@@ -1839,6 +1897,117 @@ export function AgentJobsClient({
                       Graphify fornisce pipeline e MCP query del grafo; Optima conserva nodi, archi, tenant, permessi, review e dati aziendali.
                     </p>
                   </div>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15]/80 p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white">Inserimento manuale memoria</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      Usa questo canale per aggiungere conoscenza verificata: dati da Hermes, cliente, processo, skill, repo o decisione. Le relazioni si raffinano poi dal dettaglio nodo o con un job agentico.
+                    </p>
+                  </div>
+                  <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-bold text-slate-300">
+                    manual · review
+                  </span>
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                  <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                    Tipo
+                    <select
+                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                      value={manualGraphNodeForm.nodeType}
+                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, nodeType: event.target.value }))}
+                    >
+                      <option value="knowledge_base">Knowledge base</option>
+                      <option value="client">Cliente</option>
+                      <option value="project">Progetto</option>
+                      <option value="repository">Repository</option>
+                      <option value="person">Persona</option>
+                      <option value="workflow">Workflow</option>
+                      <option value="policy">Policy</option>
+                      <option value="hermes_memory">Memoria Hermes</option>
+                      <option value="hermes_skill">Skill Hermes</option>
+                      <option value="capability">Capability</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                    Titolo nodo
+                    <input
+                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                      value={manualGraphNodeForm.title}
+                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, title: event.target.value }))}
+                      placeholder="Es. Cliente DICO, Workflow rapportini, Skill SEO locale..."
+                    />
+                  </label>
+                </div>
+
+                <label className="mt-2 grid gap-1.5 text-xs font-bold text-slate-300">
+                  Sommario
+                  <textarea
+                    className="min-h-24 rounded-lg border border-white/10 bg-[#050914] px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                    value={manualGraphNodeForm.summary}
+                    onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, summary: event.target.value }))}
+                    placeholder="Descrivi solo informazione utile e verificabile. Non inserire password, token, dati sensibili inutili o transcript integrali."
+                  />
+                </label>
+
+                <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+                  <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                    Tag
+                    <input
+                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                      value={manualGraphNodeForm.tags}
+                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, tags: event.target.value }))}
+                      placeholder="hermes, cliente, seo..."
+                    />
+                  </label>
+                  <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                    Sorgente
+                    <select
+                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                      value={manualGraphNodeForm.sourceType}
+                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, sourceType: event.target.value }))}
+                    >
+                      <option value="manual">Manuale</option>
+                      <option value="hermes_readonly">Hermes read-only</option>
+                      <option value="codex_knowhow">Know-how Codex</option>
+                      <option value="internal">Optima</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                    Confidence
+                    <select
+                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                      value={manualGraphNodeForm.confidence}
+                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, confidence: event.target.value }))}
+                    >
+                      <option value="manual">Manuale</option>
+                      <option value="extracted">Estratto</option>
+                      <option value="inferred">Inferito</option>
+                      <option value="ambiguous">Da verificare</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <input
+                    className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                    value={manualGraphNodeForm.sourceUrl}
+                    onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, sourceUrl: event.target.value }))}
+                    placeholder="URL sorgente opzionale"
+                  />
+                  <Button
+                    type="button"
+                    onClick={createManualGraphNode}
+                    disabled={isSavingGraphNode}
+                    className="h-10 rounded-lg bg-righello-pink px-4 text-white hover:bg-righello-pink/90"
+                  >
+                    {isSavingGraphNode ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
+                    Salva nodo
+                  </Button>
                 </div>
               </div>
 

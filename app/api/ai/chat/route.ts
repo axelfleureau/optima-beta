@@ -8,6 +8,8 @@ import { requireClerkUser } from "@/lib/server-clerk"
 import { OPENAI_CHAT_MODEL } from "@/lib/ai/models"
 import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 import { buildOperationalContextSnapshot } from "@/lib/operational-context"
+import { listAgenticGraphNodes, upsertAgenticGraphNode, type AgenticGraphConfidence } from "@/lib/agentic-graph"
+import { AGENT_ADMIN_ROLES } from "@/lib/agent-jobs"
 import { ensureWorkspacePrincipal, type WorkspacePrincipal } from "@/lib/workspace-db"
 
 type StoredMemory = {
@@ -26,7 +28,9 @@ Comportamento:
 - Quando l'utente chiede analisi aziendale, ragiona su carico, ritardi, capacità, ownership, finestre temporali e responsabilità.
 - Quando l'utente chiede contenuti, mantieni qualità da studio creativo Righello: preciso, premium, non generico.
 - Integrazioni media disponibili in Óptima: Magnific Nano Banana Pro per immagini e Kling 2.6 Pro per video. Se l'utente chiede generazione visual/video, aiuta a scrivere un prompt pronto per il pannello Media Studio.
-- Se proponi integrazioni, distingui tra integrazione già disponibile in Óptima e integrazione consigliata da costruire.`
+- Se proponi integrazioni, distingui tra integrazione già disponibile in Óptima e integrazione consigliata da costruire.
+- Quando il contesto include GRAPH MEMORY, usala come memoria aziendale a grafo: cita source/confidence quando serve e non trasformare nodi ambigui in verità operative.
+- Se l'utente chiede di salvare conoscenza nel grafo, spiegagli il formato operativo: "salva nel grafo: tipo=client; titolo=...; sommario=...; tag=..." oppure usa la pagina Agenti > Stack.`
 
 function estimateTokens(input: string) {
   return Math.ceil(input.length / 4)
@@ -182,6 +186,102 @@ async function saveExtractedMemories(db: any, organizationId: string, memberId: 
     )
   } catch (error) {
     console.warn("Assistant memory save skipped:", error)
+  }
+}
+
+function redactGraphMemoryText(value: string, limit = 1200) {
+  return compact(value, limit)
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
+    .replace(/\bsk-[A-Za-z0-9_-]{12,}\b/g, "[REDACTED_API_KEY]")
+    .replace(/\b(api[_\s-]?key|token|password|secret)\s*[:=]\s*\S+/gi, "$1=[REDACTED]")
+}
+
+function parseGraphMemoryCommand(message: string) {
+  const trimmed = message.trim()
+  const match = trimmed.match(/^(?:salva|inserisci|aggiungi|memorizza)\s+(?:nel|nella|in)\s+(?:grafo|graph memory|memoria)(?::|\s+-\s+|\s+)([\s\S]+)$/i)
+  if (!match) return null
+
+  const rawBody = match[1].trim()
+  if (!rawBody) return null
+
+  const fields: Record<string, string> = {}
+  for (const part of rawBody.split(";")) {
+    const [rawKey, ...rawValue] = part.split("=")
+    const key = rawKey?.trim().toLowerCase()
+    const value = rawValue.join("=").trim()
+    if (key && value) fields[key] = value
+  }
+
+  const fallbackTitle = rawBody.split(/[.\n]/)[0]?.trim().slice(0, 120) || "Memoria manuale"
+  const title = fields.titolo || fields.title || fallbackTitle
+  const summary = fields.sommario || fields.summary || fields.descrizione || fields.description || rawBody
+  const nodeType = fields.tipo || fields.type || "knowledge_base"
+  const sourceType = fields.sorgente || fields.source || "manual"
+  const confidenceValue = fields.confidence || fields.fiducia || "manual"
+  const confidence: AgenticGraphConfidence =
+    confidenceValue === "extracted" || confidenceValue === "inferred" || confidenceValue === "ambiguous" || confidenceValue === "manual"
+      ? confidenceValue
+      : "manual"
+  const tags = (fields.tag || fields.tags || "chat,manual")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 12)
+
+  return {
+    nodeType: redactGraphMemoryText(nodeType, 60).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase() || "knowledge_base",
+    title: redactGraphMemoryText(title, 160),
+    summary: redactGraphMemoryText(summary, 1200),
+    sourceType: redactGraphMemoryText(sourceType, 80).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase() || "manual",
+    sourceUrl: fields.url || fields.sourceurl || null,
+    confidence,
+    tags,
+  }
+}
+
+function extractGraphSearchTerms(message: string) {
+  const stop = new Set(["questo", "quello", "della", "delle", "degli", "grafo", "graph", "memory", "salva", "inserisci", "aggiungi", "optima"])
+  return Array.from(
+    new Set(
+      compact(message, 320)
+        .toLowerCase()
+        .replace(/[^a-z0-9àèéìòù\s-]/gi, " ")
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 4 && !stop.has(term)),
+    ),
+  ).slice(0, 4)
+}
+
+async function buildGraphContext(db: any, principal: WorkspacePrincipal, message: string) {
+  if (!db) return { text: "", sources: [] as string[] }
+
+  const terms = extractGraphSearchTerms(message)
+  const byId = new Map<string, Awaited<ReturnType<typeof listAgenticGraphNodes>>[number]>()
+
+  for (const term of terms) {
+    const nodes = await listAgenticGraphNodes(db, principal, { query: term, limit: 5 })
+    for (const node of nodes) byId.set(node.id, node)
+  }
+
+  if (byId.size < 4) {
+    const recent = await listAgenticGraphNodes(db, principal, { limit: 8 })
+    for (const node of recent) byId.set(node.id, node)
+  }
+
+  const nodes = Array.from(byId.values()).slice(0, 10)
+  if (!nodes.length) return { text: "", sources: [] }
+
+  return {
+    text: [
+      "GRAPH MEMORY ÓPTIMA",
+      "Questi nodi sono contesto aziendale tenant-scoped. Usa confidence/source; non inventare relazioni mancanti.",
+      ...nodes.map(
+        (node) =>
+          `- ${node.title} | tipo ${node.nodeType} | source ${node.sourceType} | confidence ${node.confidence} | ${compact(node.summary, 260)}`,
+      ),
+    ].join("\n"),
+    sources: ["agentic_graph"],
   }
 }
 
@@ -495,9 +595,75 @@ export async function POST(request: NextRequest) {
     const sessionMemory = await getSessionMemory(db, currentSessionId, principal.organizationId, principal.memberId)
     const storedMemories = await getStoredMemories(db, principal.organizationId, principal.memberId)
     const operationalContext = await buildOperationalContextSnapshot(db, principal)
+    const graphContext = await buildGraphContext(db, principal, message)
 
     await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "user", message)
     await saveExtractedMemories(db, principal.organizationId, principal.memberId, message)
+
+    const graphMemoryCommand = parseGraphMemoryCommand(message)
+    if (graphMemoryCommand) {
+      const encoder = new TextEncoder()
+      let assistantText = ""
+
+      if (!AGENT_ADMIN_ROLES.has(principal.role)) {
+        assistantText = "Non posso scrivere nella graph memory da questo account. Serve un ruolo direzione/admin. Posso comunque aiutarti a preparare il testo da far approvare."
+      } else {
+        const node = await upsertAgenticGraphNode(db, principal, {
+          nodeType: graphMemoryCommand.nodeType,
+          title: graphMemoryCommand.title,
+          summary: graphMemoryCommand.summary,
+          sourceType: graphMemoryCommand.sourceType,
+          sourceUrl: graphMemoryCommand.sourceUrl,
+          confidence: graphMemoryCommand.confidence,
+          tags: graphMemoryCommand.tags,
+          properties: {
+            insertedFrom: "ai-assistant-chat-command",
+            conversationId: currentSessionId,
+            manualReview: true,
+          },
+        })
+
+        assistantText = [
+          `Ho salvato il nodo nella graph memory: **${node?.title || graphMemoryCommand.title}**.`,
+          `Tipo: ${node?.nodeType || graphMemoryCommand.nodeType}. Source: ${node?.sourceType || graphMemoryCommand.sourceType}. Confidence: ${node?.confidence || graphMemoryCommand.confidence}.`,
+          "L'ho marcato come inserimento manuale/review: le relazioni con clienti, task, repo o skill vanno aggiunte dal dettaglio nodo o tramite un job agentico.",
+        ].join("\n")
+      }
+
+      await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "assistant", assistantText)
+      await updateSessionMemory(
+        db,
+        currentSessionId,
+        principal.organizationId,
+        principal.memberId,
+        sessionMemory,
+        message,
+        assistantText,
+        ["agentic_graph", "chat"],
+      )
+
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ sessionId: currentSessionId, model: "graph-memory-command", contextSources: ["agentic_graph", "chat"] })}\n\n`,
+            ),
+          )
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: assistantText })}\n\n`))
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`))
+          controller.close()
+        },
+      })
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        },
+      })
+    }
+
+    const contextSources = Array.from(new Set([...operationalContext.sources, ...graphContext.sources]))
 
     const messages = [
       { role: "system" as const, content: SYSTEM_PROMPT },
@@ -509,6 +675,7 @@ export async function POST(request: NextRequest) {
             ? `MEMORIE UTENTE/ORGANIZZAZIONE:\n${storedMemories.map((memory) => `- ${memory.key}: ${memory.value}`).join("\n")}`
             : "",
           operationalContext.text,
+          graphContext.text,
         ]
           .filter(Boolean)
           .join("\n\n"),
@@ -534,7 +701,7 @@ export async function POST(request: NextRequest) {
         try {
           controller.enqueue(
             new TextEncoder().encode(
-              `data: ${JSON.stringify({ sessionId: currentSessionId, model: OPENAI_CHAT_MODEL, contextSources: operationalContext.sources })}\n\n`,
+              `data: ${JSON.stringify({ sessionId: currentSessionId, model: OPENAI_CHAT_MODEL, contextSources })}\n\n`,
             ),
           )
 
@@ -554,7 +721,7 @@ export async function POST(request: NextRequest) {
             sessionMemory,
             message,
             fullText,
-            operationalContext.sources,
+            contextSources,
           )
 
           if (db) {

@@ -91,7 +91,7 @@ export function AIChat({
         {
           id: "welcome",
           content:
-            "👋 **Ciao, sono l'assistente operativo di Óptima.**\n\nPosso aiutarti a ragionare su:\n\n• **Progetti**, task, priorità e scadenze\n• **Clienti** e stato lavori\n• **Team**, presenza, carico e colli di bottiglia\n• **Preventivi** e prossime azioni commerciali\n• **AI content** quando serve creare copy o idee\n\nQuando i dati sono disponibili, uso il contesto della piattaforma. Quando mancano, te lo dico senza inventare.",
+            "👋 **Ciao, sono l'assistente operativo di Óptima.**\n\nPosso aiutarti a ragionare su:\n\n• **Progetti**, task, priorità e scadenze\n• **Clienti** e stato lavori\n• **Team**, presenza, carico e colli di bottiglia\n• **Preventivi** e prossime azioni commerciali\n• **Graph memory**, nodi aziendali, Hermes e know-how\n\nQuando i dati sono disponibili, uso il contesto della piattaforma e del grafo. Per salvare conoscenza nel grafo puoi scrivere: `salva nel grafo: tipo=client; titolo=...; sommario=...; tag=...`.",
           role: "assistant",
           timestamp: new Date(),
         },
@@ -683,7 +683,7 @@ export function AIChat({
               <h3 className="truncate font-semibold text-gray-900 dark:text-white">Assistente AI Optima</h3>
               <p className="flex items-center gap-1 truncate text-sm text-gray-500 dark:text-gray-400">
                 <Sparkles className="h-3 w-3 text-pink-500" />
-                Assistente operativo • Memoria e contesto piattaforma
+                Assistente operativo • Memoria, grafo e contesto piattaforma
               </p>
             </div>
           </div>
@@ -699,7 +699,7 @@ export function AIChat({
           <span className="flex min-w-0 items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0">
-              Puoi scrivere una richiesta e lasciarla in carico: la risposta AI puo arrivare anche in un secondo momento.
+              Puoi scrivere richieste asincrone o salvare conoscenza con: salva nel grafo: tipo=...; titolo=...; sommario=...
             </span>
           </span>
           <Button
