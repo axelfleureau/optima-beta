@@ -18,6 +18,17 @@ function euros(cents: unknown) {
 }
 
 function mapQuote(row: any) {
+  const items = parseJson(row.items_json, []) as any[]
+  const voices = parseJson(row.voices_json, []) as any[]
+  const total = euros(row.total_cents)
+  const itemSubtotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0)
+  const voiceSubtotal = voices.reduce(
+    (sum, item) => sum + Number(item.totale ?? Number(item.quantita || 0) * Number(item.prezzoUnitario || 0)),
+    0,
+  )
+  const subtotal = euros(row.subtotal_cents) || itemSubtotal || voiceSubtotal || total
+  const vat = euros(row.vat_cents)
+
   return {
     id: String(row.id),
     title: String(row.title || ""),
@@ -29,10 +40,10 @@ function mapQuote(row: any) {
     externalClientEmail: row.external_client_email || undefined,
     status: row.status || "draft",
     currency: row.currency || "EUR",
-    items: parseJson(row.items_json, []),
-    total: euros(row.total_cents),
-    subtotale: euros(row.subtotal_cents),
-    iva: euros(row.vat_cents),
+    items,
+    total,
+    subtotale: subtotal,
+    iva: vat,
     percentualeIva: Number(row.vat_rate || 22),
     validUntil: row.valid_until,
     createdAt: row.created_at,
@@ -42,7 +53,7 @@ function mapQuote(row: any) {
     brandMateriali: parseJson(row.brand_materials_json, undefined),
     obiettivi: parseJson(row.objectives_json, []),
     attivita: parseJson(row.activities_json, []),
-    voci: parseJson(row.voices_json, []),
+    voci: voices,
     terminiCondizioni: row.terms_conditions || undefined,
   }
 }

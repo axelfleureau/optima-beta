@@ -73,7 +73,7 @@ interface QuoteFormData {
 
 export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuoteGeneratorProps) {
   const { toast } = useToast()
-  const { userData } = useAuth()
+  const { user, userData } = useAuth()
   const { createQuote } = useQuotes()
   const actionState = useAIActionState('quote-gen')
   const feedback = useAIFeedback()
@@ -142,10 +142,12 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       setEnrichedContext(enrichedData)
 
       actionState.callAI('Generazione preventivo AI...')
+      const authToken = await user?.getIdToken?.()
       const response = await fetch('/api/ai/quote-generation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
         credentials: 'include',
         body: JSON.stringify({

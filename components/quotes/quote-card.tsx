@@ -132,6 +132,30 @@ function formatCurrency(amount: number, currency = "EUR") {
   }).format(amount || 0)
 }
 
+function inferredRowsFromLegacyQuote(quote: Quote) {
+  const total = quote.subtotale && quote.subtotale > 0 ? quote.subtotale : quote.total || 0
+  if (total <= 0) return []
+
+  const analysis = Math.round(total * 0.24 * 100) / 100
+  const production = Math.round(total * 0.56 * 100) / 100
+  const delivery = Math.round((total - analysis - production) * 100) / 100
+
+  return [
+    {
+      label: "Analisi, perimetro e coordinamento operativo",
+      value: analysis,
+    },
+    {
+      label: "Produzione tecnica e implementazione",
+      value: production,
+    },
+    {
+      label: "QA, consegna e supporto avvio",
+      value: delivery,
+    },
+  ]
+}
+
 function getQuoteRows(quote: Quote) {
   const itemRows = quote.items?.map((item) => ({
     label: item.name,
@@ -148,7 +172,8 @@ function getQuoteRows(quote: Quote) {
     value: null,
   })) || []
 
-  return [...itemRows, ...voiceRows, ...activityRows].slice(0, 3)
+  const rows = [...itemRows, ...voiceRows, ...activityRows]
+  return (rows.length > 0 ? rows : inferredRowsFromLegacyQuote(quote)).slice(0, 3)
 }
 
 export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending = false }: QuoteCardProps) {

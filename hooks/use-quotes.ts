@@ -8,6 +8,10 @@ import type { Quote } from "@/types/quote"
 const safeToDate = (timestamp: any): Date => {
   if (!timestamp) return new Date()
   if (timestamp instanceof Date) return timestamp
+  if (typeof timestamp === "string" || typeof timestamp === "number") {
+    const date = new Date(timestamp)
+    return Number.isNaN(date.getTime()) ? new Date() : date
+  }
   if (timestamp.toDate && typeof timestamp.toDate === "function") {
     try {
       return timestamp.toDate()
@@ -55,10 +59,17 @@ const readApiResponse = async (response: Response) => {
 }
 
 export function useQuotes() {
-  const { userData } = useAuth()
+  const { user, userData } = useAuth()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const getAuthHeaders = useCallback(async () => {
+    const token = await user?.getIdToken?.()
+    const headers: Record<string, string> = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    return headers
+  }, [user])
 
   const loadQuotes = useCallback(async () => {
     if (!userData?.tenantId) {
@@ -71,7 +82,10 @@ export function useQuotes() {
     setError(null)
 
     try {
-      const response = await fetch("/api/quotes", { credentials: "include" })
+      const response = await fetch("/api/quotes", {
+        credentials: "include",
+        headers: await getAuthHeaders(),
+      })
       const result = await readApiResponse(response)
       if (!response.ok) {
         throw new Error(result.error || result.details || "Errore nel caricamento dei preventivi")
@@ -91,7 +105,7 @@ export function useQuotes() {
     } finally {
       setLoading(false)
     }
-  }, [userData?.tenantId])
+  }, [getAuthHeaders, userData?.tenantId])
 
   useEffect(() => {
     void loadQuotes()
@@ -132,6 +146,7 @@ export function useQuotes() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
         },
         credentials: 'include', // CRITICAL: Send firebase-auth-token cookie
         body: JSON.stringify(payload)
@@ -152,7 +167,7 @@ export function useQuotes() {
       console.error("Error creating quote:", err)
       throw new Error(err instanceof Error ? err.message : "Errore nella creazione del preventivo")
     }
-  }, [loadQuotes])
+  }, [getAuthHeaders, loadQuotes])
 
   const updateQuote = useCallback(async (id: string, updates: Partial<Quote>) => {
     throw new Error("Modifica preventivo non ancora collegata al backend D1")
@@ -162,13 +177,14 @@ export function useQuotes() {
     const response = await fetch(`/api/quotes/${id}`, {
       method: "DELETE",
       credentials: "include",
+      headers: await getAuthHeaders(),
     })
     const result = await readApiResponse(response)
     if (!response.ok) {
       throw new Error(result.error || result.details || "Errore nell'eliminazione del preventivo")
     }
     await loadQuotes()
-  }, [loadQuotes])
+  }, [getAuthHeaders, loadQuotes])
 
   const getQuotesByStatus = useCallback((status: Quote["status"]) => {
     return quotes.filter((quote) => quote.status === status)

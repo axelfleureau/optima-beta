@@ -44,7 +44,7 @@ const createQuoteSchema = z.object({
   externalClientEmail: z.string().email("Email non valida").optional().or(z.literal("")),
   status: z.enum(["draft", "sent", "in_review", "pending_payment", "approved", "in_progress", "completed", "rejected", "expired"]).optional(),
   currency: z.string().optional(),
-  items: z.array(quoteItemSchema).min(1, "Almeno una voce richiesta"),
+  items: z.array(quoteItemSchema).optional().default([]),
   total: z.number().nonnegative().optional(),
   subtotale: z.number().nonnegative().optional(),
   iva: z.number().nonnegative().optional(),
@@ -56,7 +56,7 @@ const createQuoteSchema = z.object({
   terminiCondizioni: z.string().optional(),
   validUntil: z.string().optional(),
 }).refine(
-  (data) => Boolean(data.clientId || data.externalClientName || data.clientName),
+  (data) => (data.status || "draft") === "draft" || Boolean(data.clientId || data.externalClientName || data.clientName),
   { message: "Serve un cliente piattaforma o un nome cliente esterno" },
 )
 

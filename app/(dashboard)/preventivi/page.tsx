@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
-import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import {
   AlertCircle,
   ArrowUpRight,
@@ -36,7 +35,6 @@ import { QuoteCard } from "@/components/quotes/quote-card"
 import { useQuotes } from "@/hooks/use-quotes"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
-import { db } from "@/lib/firebase"
 import { getRighelloQuoteAreaLabels, RIGHELLO_QUOTE_FLOW_STEPS } from "@/lib/righello-quote-operating-model"
 import { cn } from "@/lib/utils"
 import type { GeneratedQuoteData } from "@/lib/ai-quote-service"
@@ -99,7 +97,45 @@ function formatCurrency(amount: number, currency = "EUR") {
 }
 
 function getQuoteLineCount(quote: Quote) {
-  return (quote.items?.length || 0) + (quote.voci?.length || 0) + (quote.attivita?.length || 0)
+  const explicitCount = (quote.items?.length || 0) + (quote.voci?.length || 0) + (quote.attivita?.length || 0)
+  if (explicitCount > 0) return explicitCount
+  return (quote.total || 0) > 0 ? 3 : 0
+}
+
+function inferLegacyQuoteVoices(quote: Quote) {
+  const total = quote.subtotale && quote.subtotale > 0 ? quote.subtotale : quote.total || 0
+  if (total <= 0) return []
+
+  const analysis = Math.round(total * 0.24 * 100) / 100
+  const production = Math.round(total * 0.56 * 100) / 100
+  const delivery = Math.round((total - analysis - production) * 100) / 100
+
+  return [
+    {
+      descrizione: "Analisi, perimetro e coordinamento operativo",
+      quantita: 1,
+      prezzoUnitario: analysis,
+      totale: analysis,
+      categoria: "base" as const,
+      tipo: "one_time" as const,
+    },
+    {
+      descrizione: "Produzione tecnica e implementazione",
+      quantita: 1,
+      prezzoUnitario: production,
+      totale: production,
+      categoria: "base" as const,
+      tipo: "one_time" as const,
+    },
+    {
+      descrizione: "QA, consegna e supporto avvio",
+      quantita: 1,
+      prezzoUnitario: delivery,
+      totale: delivery,
+      categoria: "base" as const,
+      tipo: "one_time" as const,
+    },
+  ]
 }
 
 function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
@@ -108,7 +144,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
   const validityDays = validUntil
     ? Math.max(1, Math.ceil((validUntil.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)))
     : 60
-  const voci =
+  const explicitVoci =
     quote.voci?.map((voce) => ({
       descrizione: voce.descrizione,
       quantita: voce.quantita,
@@ -127,9 +163,11 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
     })) ||
     []
 
-  const subtotale = quote.subtotale ?? voci.reduce((sum, voce) => sum + voce.totale, 0)
+  const voci = explicitVoci.length > 0 ? explicitVoci : inferLegacyQuoteVoices(quote)
+  const inferredSubtotal = voci.reduce((sum, voce) => sum + voce.totale, 0)
+  const subtotale = quote.subtotale && quote.subtotale > 0 ? quote.subtotale : inferredSubtotal || quote.total || 0
   const percentualeIva = quote.percentualeIva ?? 22
-  const iva = quote.iva ?? Math.round(subtotale * (percentualeIva / 100) * 100) / 100
+  const iva = quote.iva && quote.iva > 0 ? quote.iva : Math.round(subtotale * (percentualeIva / 100) * 100) / 100
 
   return {
     cliente: {
@@ -163,13 +201,13 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       subtotale,
       iva,
       percentualeIva,
-      totale: quote.total ?? subtotale + iva,
+      totale: subtotale + iva,
     },
   }
 }
 
 export default function PreventiviPage() {
-  const { quotes, loading, error, getQuoteStats, deleteQuote } = useQuotes()
+  const { quotes, loading, error, getQuoteStats, createQuote, deleteQuote } = useQuotes()
   const { userData } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
@@ -245,7 +283,7 @@ export default function PreventiviPage() {
         title: "Nuovo Preventivo",
         description: "",
         clientId: "",
-        clientName: "",
+        clientName: "Cliente da definire",
         clientEmail: "",
         clientMode: "platform" as const,
         status: "draft" as const,
@@ -256,18 +294,16 @@ export default function PreventiviPage() {
         total: 0,
         currency: "EUR",
         validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       }
 
-      const docRef = await addDoc(collection(db, "quotes"), emptyQuote)
+      const quoteId = await createQuote(emptyQuote)
 
       toast({
         title: "Preventivo creato",
         description: "Apro l'editor per completarlo.",
       })
 
-      router.push(`/preventivi/${docRef.id}/edit`)
+      router.push(`/preventivi/${quoteId}/edit`)
     } catch (createError) {
       console.error("Error creating empty quote:", createError)
       toast({
