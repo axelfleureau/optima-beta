@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Send, Bot, User, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, RefreshCw, AlertTriangle, Database, Network, Radio } from "lucide-react"
+import { Loader2, Send, Bot, User, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, AlertTriangle, Database, Network, Radio } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/lib/chat-types"
@@ -35,7 +35,7 @@ interface AIChatProps {
 }
 
 const EMPTY_ASSISTANT_RESPONSE =
-  "Ho ricevuto la richiesta e l'ho salvata nella conversazione. In questo momento non ho ricevuto testo utile dal modello: Optima deve rispondere subito quando il dato e presente, oppure trasformare automaticamente la richiesta in un job agentico revisionabile."
+  "Ho ricevuto la richiesta e l'ho salvata nella conversazione, ma il runtime AI non ha restituito testo utile. Optima deve completare automaticamente il passaggio: risposta immediata quando il dato e presente, oppure job agentico revisionabile quando serve ricerca."
 
 function normalizeAssistantContent(content: unknown, role: "user" | "assistant") {
   const text = String(content || "").trim()
@@ -56,11 +56,9 @@ export function AIChat({
   const [isLoading, setIsLoading] = useState(false)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId || null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const [modelName, setModelName] = useState("Modello Óptima")
   const [contextSources, setContextSources] = useState<string[]>([])
   const [lastInboxSyncAt, setLastInboxSyncAt] = useState<Date | null>(null)
-  const [isInboxSyncing, setIsInboxSyncing] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
@@ -116,11 +114,10 @@ export function AIChat({
   }, [sessionId])
 
   const hydrateSessionMessages = useCallback(
-    async (mode: "manual" | "poll" = "poll") => {
+    async () => {
       if (!currentSessionId || currentSessionId.startsWith("temp_") || isLoading) return
 
       try {
-        if (mode === "manual") setIsInboxSyncing(true)
         const response = await fetch(`/api/ai/chat/sessions/${currentSessionId}`, {
           credentials: "include",
           cache: "no-store",
@@ -150,18 +147,10 @@ export function AIChat({
         })
         setLastInboxSyncAt(new Date())
       } catch (error) {
-        if (mode === "manual") {
-          toast({
-            title: "Sincronizzazione non riuscita",
-            description: "Non sono riuscito a rileggere la conversazione agentica.",
-            variant: "destructive",
-          })
-        }
-      } finally {
-        if (mode === "manual") setIsInboxSyncing(false)
+        console.warn("Agentic inbox sync skipped:", error)
       }
     },
-    [currentSessionId, isLoading, toast],
+    [currentSessionId, isLoading],
   )
 
   useEffect(() => {
@@ -170,7 +159,7 @@ export function AIChat({
     let cancelled = false
     const sync = () => {
       if (cancelled || document.visibilityState === "hidden") return
-      void hydrateSessionMessages("poll")
+      void hydrateSessionMessages()
     }
     const interval = window.setInterval(sync, 12000)
     const handleFocus = () => sync()
@@ -423,112 +412,6 @@ export function AIChat({
     }
   }
 
-  const regenerateResponse = async (messageId: string) => {
-    try {
-      setRegeneratingId(messageId)
-      
-      // Find the user message that preceded this assistant message
-      const messageIndex = messages.findIndex(msg => msg.id === messageId)
-      if (messageIndex === -1 || messageIndex === 0) return
-      
-      const userMessage = messages[messageIndex - 1]
-      if (userMessage.role !== 'user') return
-
-      // Mark the current message as regenerating
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, isStreaming: true, content: "" } : msg
-        )
-      )
-
-      // Call API to regenerate with same user message
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage.content,
-          userId: userId,
-          sessionId: currentSessionId,
-          regenerate: true,
-        }),
-      })
-
-      if (!response.ok || !response.body) {
-        throw new Error(`Errore API: ${response.status}`)
-      }
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-
-      let buffer = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() || ""
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const jsonStr = line.slice(6).trim()
-            if (jsonStr) {
-              try {
-                const data = JSON.parse(jsonStr)
-                if (data.model) setModelName(String(data.model))
-                if (Array.isArray(data.contextSources)) setContextSources(data.contextSources.map(String))
-                if (data.error) throw new Error(data.error)
-                if (data.content) {
-                  setMessages((prev) =>
-                    prev.map((msg) => {
-                      if (msg.id === messageId) {
-                        const newContent = (msg.content || "") + data.content
-                        return { ...msg, content: newContent }
-                      }
-                      return msg
-                    })
-                  )
-                }
-              } catch (parseError) {
-                console.error("❌ Error parsing SSE data:", parseError, "Line:", line)
-                throw parseError
-              }
-            }
-          }
-        }
-      }
-
-      // Mark streaming as complete
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId
-            ? { ...msg, isStreaming: false, canRegenerate: true }
-            : msg
-        )
-      )
-
-      toast({
-        description: "🔄 Risposta rigenerata con successo",
-      })
-
-    } catch (error) {
-      console.error("Failed to regenerate response:", error)
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, error: true, isStreaming: false } : msg
-        )
-      )
-      toast({
-        title: "Errore",
-        description: "Errore nella rigenerazione della risposta",
-        variant: "destructive",
-      })
-    } finally {
-      setRegeneratingId(null)
-    }
-  }
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -746,20 +629,9 @@ export function AIChat({
           <span className="flex min-w-0 items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-              Puoi scrivere richieste asincrone o salvare conoscenza con: salva nel grafo: tipo=...; titolo=...; sommario=...
+              Scrivi una richiesta: Optima risponde se il dato e nel contesto, altrimenti prepara automaticamente un lavoro agentico revisionabile.
             </span>
           </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => hydrateSessionMessages("manual")}
-            disabled={!currentSessionId || isInboxSyncing || isLoading}
-            className="h-7 shrink-0 rounded-lg px-2 text-xs text-pink-700 hover:bg-pink-100 dark:text-pink-100 dark:hover:bg-pink-900/30"
-          >
-            {isInboxSyncing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-1 h-3 w-3" />}
-            Rileggi
-          </Button>
         </div>
       </div>
 
@@ -853,22 +725,6 @@ export function AIChat({
                           <ThumbsDown className="h-3 w-3" />
                         </Button>
                       </div>
-
-                      {/* Regenerate button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700 ml-1"
-                        onClick={() => regenerateResponse(message.id)}
-                        disabled={regeneratingId === message.id}
-                        title="Rigenera risposta"
-                      >
-                        {regeneratingId === message.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3" />
-                        )}
-                      </Button>
 
                       {/* Error indicator */}
                       {message.error && (

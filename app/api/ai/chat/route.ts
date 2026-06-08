@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import type { NextRequest } from "next/server"
-import { generateText, streamText } from "ai"
+import { generateText } from "ai"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requireClerkUser } from "@/lib/server-clerk"
@@ -16,6 +16,11 @@ type StoredMemory = {
   key: string
   value: string
   source: string
+}
+
+type ChatGenerationMessage = {
+  role: "system" | "user" | "assistant"
+  content: string
 }
 
 const SYSTEM_PROMPT = `Sei l'assistente AI operativo di Óptima, il sistema interno di Righello per progetti, clienti, task, persone, preventivi, presenza e controllo aziendale.
@@ -39,6 +44,13 @@ function estimateTokens(input: string) {
 function compact(value: unknown, limit = 600) {
   return String(value || "")
     .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, limit)
+}
+
+function cleanGeneratedText(value: unknown, limit = 6000) {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
     .trim()
     .slice(0, limit)
 }
@@ -188,26 +200,64 @@ function buildImmediateOperationalFallback(message: string, contextSources: stri
   ].join("\n")
 }
 
-async function generateNonStreamingFallback(openai: Awaited<ReturnType<typeof createRuntimeOpenAI>>, messages: any[]) {
-  try {
-    const result = await generateText({
-      model: openai(OPENAI_FAST_MODEL),
-      messages: [
-        ...messages,
-        {
-          role: "system" as const,
-          content:
-            "La risposta streaming precedente e risultata vuota. Rispondi ora in italiano, massimo 8 righe, in modo operativo. Non chiedere all'utente di premere Rileggi.",
-        },
-      ],
-      maxTokens: 700,
-      temperature: 0.3,
-    })
+function uniqueModels(values: string[]) {
+  return Array.from(new Set(values.map((value) => compact(value, 80)).filter(Boolean)))
+}
 
-    return compact(result.text, 3000)
-  } catch (error) {
-    console.warn("Non-streaming chat fallback failed:", error)
-    return ""
+async function generateOperationalAnswer(openai: Awaited<ReturnType<typeof createRuntimeOpenAI>>, messages: ChatGenerationMessage[]) {
+  const candidates = uniqueModels([OPENAI_CHAT_MODEL, OPENAI_FAST_MODEL, "gpt-4.1-mini", "gpt-4o-mini"])
+  const promptMessages = [
+    ...messages,
+    {
+      role: "system" as const,
+      content:
+        "Rispondi con testo utile. Se il dato manca, indica esattamente quale fonte manca e quale azione operativa creare. Non chiedere all'utente di rileggere, rigenerare o riprovare.",
+    },
+  ]
+  const errors: string[] = []
+
+  for (const model of candidates) {
+    try {
+      const result = await generateText({
+        model: openai.responses(model),
+        messages: promptMessages,
+        maxTokens: 1100,
+      })
+      const text = cleanGeneratedText(result.text)
+      if (text) return { text, model: `${model} · responses` }
+      errors.push(`${model}/responses: empty`)
+    } catch (error) {
+      errors.push(`${model}/responses: ${error instanceof Error ? error.message : String(error)}`)
+      console.warn("OpenAI Responses chat generation failed:", { model, error })
+    }
+
+    try {
+      const result = await generateText({
+        model: openai.chat(model),
+        messages: promptMessages,
+        maxTokens: 1100,
+      })
+      const text = cleanGeneratedText(result.text)
+      if (text) return { text, model: `${model} · chat` }
+      errors.push(`${model}/chat: empty`)
+    } catch (error) {
+      errors.push(`${model}/chat: ${error instanceof Error ? error.message : String(error)}`)
+      console.warn("OpenAI Chat chat generation failed:", { model, error })
+    }
+  }
+
+  console.error("AI chat returned no useful model output after all fallbacks:", errors.slice(0, 8))
+  return { text: "", model: candidates[0] || OPENAI_CHAT_MODEL }
+}
+
+function enqueueSse(controller: ReadableStreamDefaultController, payload: unknown) {
+  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`))
+}
+
+function enqueueTextInChunks(controller: ReadableStreamDefaultController, text: string) {
+  const chunkSize = 900
+  for (let index = 0; index < text.length; index += chunkSize) {
+    enqueueSse(controller, { content: text.slice(index, index + chunkSize) })
   }
 }
 
@@ -1110,7 +1160,7 @@ export async function POST(request: NextRequest) {
 
     const contextSources = Array.from(new Set([...operationalContext.sources, ...graphContext.sources, ...businessFacts.sources]))
 
-    const messages = [
+    const messages: ChatGenerationMessage[] = [
       { role: "system" as const, content: SYSTEM_PROMPT },
       {
         role: "system" as const,
@@ -1133,38 +1183,18 @@ export async function POST(request: NextRequest) {
     const fullPrompt = JSON.stringify(messages)
     const estimatedInputTokens = estimateTokens(fullPrompt)
     const openai = await createRuntimeOpenAI()
-    const result = streamText({
-      model: openai(OPENAI_CHAT_MODEL),
-      messages,
-      maxTokens: 1000,
-      temperature: 0.7,
-    })
-
     let fullText = ""
+    let usedModel = OPENAI_CHAT_MODEL
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          controller.enqueue(
-            new TextEncoder().encode(
-              `data: ${JSON.stringify({ sessionId: currentSessionId, model: OPENAI_CHAT_MODEL, contextSources })}\n\n`,
-            ),
-          )
+          const generated = await generateOperationalAnswer(openai, messages)
+          usedModel = generated.model
+          fullText = cleanGeneratedText(generated.text) || businessFacts.fallbackText || buildImmediateOperationalFallback(message, contextSources)
 
-          for await (const delta of result.textStream) {
-            if (delta) {
-              fullText += delta
-              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ content: delta })}\n\n`))
-            }
-          }
-
-          if (!fullText.trim()) {
-            fullText =
-              (await generateNonStreamingFallback(openai, messages)) ||
-              businessFacts.fallbackText ||
-              buildImmediateOperationalFallback(message, contextSources)
-            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ content: fullText })}\n\n`))
-          }
+          enqueueSse(controller, { sessionId: currentSessionId, model: usedModel, contextSources })
+          enqueueTextInChunks(controller, fullText)
 
           await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "assistant", fullText)
           await updateSessionMemory(
@@ -1186,22 +1216,18 @@ export async function POST(request: NextRequest) {
                   `INSERT INTO ai_usage (id, organization_id, member_id, feature, model, input_tokens, output_tokens)
                    VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 )
-                .bind(createId("ai"), principal.organizationId, principal.memberId, "chat", OPENAI_CHAT_MODEL, estimatedInputTokens, outputTokens)
+                .bind(createId("ai"), principal.organizationId, principal.memberId, "chat", usedModel, estimatedInputTokens, outputTokens)
                 .run()
             } catch (error) {
               console.error("Error logging chat usage:", error)
             }
           }
 
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`))
+          enqueueSse(controller, { done: true })
           controller.close()
         } catch (error) {
           const err = error as Error
-          controller.enqueue(
-            new TextEncoder().encode(
-              `data: ${JSON.stringify({ error: "Errore durante la generazione della risposta: " + err.message })}\n\n`,
-            ),
-          )
+          enqueueSse(controller, { error: "Errore durante la generazione della risposta: " + err.message })
           controller.close()
         }
       },
