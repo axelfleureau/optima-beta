@@ -713,8 +713,13 @@ function graphMapSummary({
   return `${visibleNodes} visibili · ${loadedNodes}/${totalNodes} nodi ${scope} · ${visibleEdges}/${totalEdges} archi`
 }
 
+const GRAPH_MIN_ZOOM = 0.45
+const GRAPH_FIT_ZOOM = 0.62
+const GRAPH_MAX_ZOOM = 2.8
+const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
+
 function clampGraphZoom(value: number) {
-  return Math.max(0.85, Math.min(2.6, value))
+  return Math.max(GRAPH_MIN_ZOOM, Math.min(GRAPH_MAX_ZOOM, value))
 }
 
 function GraphMemoryMap({
@@ -729,7 +734,7 @@ function GraphMemoryMap({
   onSelectNode?: (node: AgenticGraphNode) => void
 }) {
   const [nodeLimit, setNodeLimit] = useState(48)
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(GRAPH_FIT_ZOOM)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragState, setDragState] = useState<{
     pointerId: number
@@ -781,7 +786,7 @@ function GraphMemoryMap({
   })
 
   function resetGraphView() {
-    setZoom(1)
+    setZoom(GRAPH_FIT_ZOOM)
     setPan({ x: 0, y: 0 })
   }
 
@@ -837,10 +842,28 @@ function GraphMemoryMap({
               {limit}
             </button>
           ))}
+          {GRAPH_ZOOM_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => {
+                setZoom(preset)
+                setPan({ x: 0, y: 0 })
+              }}
+              className={`h-7 rounded-full border px-2 text-[10px] font-black transition ${
+                Math.abs(zoom - preset) < 0.01
+                  ? "border-fuchsia-300/55 bg-fuchsia-300/15 text-fuchsia-100"
+                  : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/10"
+              }`}
+              aria-label={`Imposta zoom grafo al ${Math.round(preset * 100)}%`}
+            >
+              {Math.round(preset * 100)}%
+            </button>
+          ))}
           <Button
             type="button"
             variant="outline"
-            onClick={() => setZoom((current) => clampGraphZoom(current - 0.2))}
+            onClick={() => setZoom((current) => clampGraphZoom(current - 0.15))}
             className="h-7 w-7 rounded-full border-white/10 bg-transparent p-0 text-slate-200 hover:bg-white/10"
             aria-label="Riduci zoom grafo"
           >
@@ -850,7 +873,7 @@ function GraphMemoryMap({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setZoom((current) => clampGraphZoom(current + 0.2))}
+            onClick={() => setZoom((current) => clampGraphZoom(current + 0.15))}
             className="h-7 w-7 rounded-full border-white/10 bg-transparent p-0 text-slate-200 hover:bg-white/10"
             aria-label="Aumenta zoom grafo"
           >
@@ -863,7 +886,7 @@ function GraphMemoryMap({
             className="h-7 rounded-full border-white/10 bg-transparent px-2 text-[10px] font-black text-slate-200 hover:bg-white/10"
           >
             <RefreshCw className="mr-1 h-3 w-3" />
-            Centra
+            Adatta
           </Button>
         </div>
       </div>
