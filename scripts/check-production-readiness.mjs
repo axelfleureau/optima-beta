@@ -97,11 +97,11 @@ async function main() {
     healthJson?.checks?.taskMediaBucketConfigured ? "TASK_MEDIA available" : "TASK_MEDIA missing",
   )
   record(
-    "MCP OAuth endpoints configured",
+    "MCP authorization configured",
     healthJson?.checks?.mcpAuthorizationConfigured === true,
     healthJson?.checks?.mcpAuthorizationConfigured
-      ? "authorization/token endpoints configured"
-      : "set OPTIMA_MCP_AUTHORIZATION_ENDPOINT and OPTIMA_MCP_TOKEN_ENDPOINT",
+      ? `mode=${healthJson?.checks?.mcpAuthorizationMode ?? "unknown"}`
+      : "set OPTIMA_MCP_SERVICE_TOKEN or OAuth/JWT MCP env",
   )
 
   const protectedResource = await fetchText("/.well-known/oauth-protected-resource")
@@ -114,7 +114,7 @@ async function main() {
   const authServer = await fetchText("/.well-known/oauth-authorization-server")
   record(
     "MCP authorization metadata",
-    authServer.response.status === 200 && authServer.text.includes("authorization_endpoint"),
+    authServer.response.status === 200 && authServer.text.includes("token_endpoint"),
     `status ${authServer.response.status}`,
   )
 

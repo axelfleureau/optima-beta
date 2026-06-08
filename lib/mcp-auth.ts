@@ -36,6 +36,41 @@ export function mcpAuthorizationServerUrl(request?: Request) {
   ).replace(/\/$/, "")
 }
 
+export type McpAuthMode = "authorization_code" | "jwt_bearer" | "service_token" | "missing"
+
+export function getMcpAuthReadiness() {
+  const authorizationEndpoint = process.env.OPTIMA_MCP_AUTHORIZATION_ENDPOINT || ""
+  const tokenEndpoint = process.env.OPTIMA_MCP_TOKEN_ENDPOINT || ""
+  const issuer = process.env.OPTIMA_MCP_ISSUER || ""
+  const jwksUri = process.env.OPTIMA_MCP_JWKS_URI || ""
+  const serviceToken = process.env.OPTIMA_MCP_SERVICE_TOKEN || ""
+
+  const authorizationCodeConfigured = Boolean(authorizationEndpoint && tokenEndpoint)
+  const jwtBearerConfigured = Boolean(issuer && jwksUri)
+  const serviceTokenConfigured = Boolean(serviceToken)
+  const configured = authorizationCodeConfigured || jwtBearerConfigured || serviceTokenConfigured
+
+  const mode: McpAuthMode = authorizationCodeConfigured
+    ? "authorization_code"
+    : jwtBearerConfigured
+      ? "jwt_bearer"
+      : serviceTokenConfigured
+        ? "service_token"
+        : "missing"
+
+  return {
+    configured,
+    mode,
+    authorizationCodeConfigured,
+    jwtBearerConfigured,
+    serviceTokenConfigured,
+    authorizationEndpoint: authorizationEndpoint || null,
+    tokenEndpoint: tokenEndpoint || null,
+    issuer: issuer || null,
+    jwksUri: jwksUri || null,
+  }
+}
+
 export function unauthorizedMcpResponse(request: Request) {
   const metadataUrl = mcpResourceMetadataUrl(request)
   return Response.json(

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { getTaskMediaBucket } from "@/lib/cloudflare-r2"
 import { getAgentRunnerControlState } from "@/lib/agent-runner-control"
+import { getMcpAuthReadiness } from "@/lib/mcp-auth"
 
 function getClerkMode(publishableKey: string) {
   if (publishableKey.startsWith("pk_live_")) return "live"
@@ -57,9 +58,7 @@ export async function GET() {
   const appEnv = process.env.APP_ENV || process.env.NEXT_PUBLIC_APP_ENV || "unknown"
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
   const runnerControl = getAgentRunnerControlState()
-  const mcpAuthorizationConfigured = Boolean(
-    process.env.OPTIMA_MCP_AUTHORIZATION_ENDPOINT && process.env.OPTIMA_MCP_TOKEN_ENDPOINT,
-  )
+  const mcpAuth = getMcpAuthReadiness()
 
   let dbStatus: "ok" | "missing" | "error" = "missing"
   let tableStatus = { ok: false, present: 0, expected: requiredTables.length, missing: requiredTables }
@@ -92,7 +91,11 @@ export async function GET() {
     agentRunnerApiKeyConfigured: Boolean(process.env.AGENT_RUNNER_API_KEY),
     agentRunnerClaimEnabled: runnerControl.enabled,
     agentRunnerStatus: runnerControl.status,
-    mcpAuthorizationConfigured,
+    mcpAuthorizationConfigured: mcpAuth.configured,
+    mcpAuthorizationMode: mcpAuth.mode,
+    mcpOAuthAuthorizationCodeConfigured: mcpAuth.authorizationCodeConfigured,
+    mcpJwtBearerConfigured: mcpAuth.jwtBearerConfigured,
+    mcpServiceTokenConfigured: mcpAuth.serviceTokenConfigured,
   }
 
   const coreReady =
@@ -106,7 +109,7 @@ export async function GET() {
     taskMediaBucketConfigured &&
     checks.agentRunnerApiKeyConfigured &&
     runnerControl.enabled &&
-    mcpAuthorizationConfigured
+    mcpAuth.configured
 
   return Response.json(
     {
