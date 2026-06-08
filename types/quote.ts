@@ -49,6 +49,12 @@ export interface Quote {
     materialiDaRichiedere?: string[]
     domandeAperte?: string[]
   }
+
+  // External provenance, e.g. Notion/imported quote pattern.
+  sourceType?: string
+  sourceId?: string
+  sourceUrl?: string
+  sourceSnapshot?: Record<string, unknown>
   
   // Public sharing and approval fields
   shareToken?: string

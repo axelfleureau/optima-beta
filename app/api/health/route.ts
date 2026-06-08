@@ -31,6 +31,9 @@ const requiredTables = [
   "agentic_graph_nodes",
   "agentic_graph_edges",
   "agentic_graph_sessions",
+  "external_data_sources",
+  "external_data_records",
+  "client_interactions",
 ]
 
 async function checkRequiredTables(db: any) {

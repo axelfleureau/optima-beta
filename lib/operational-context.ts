@@ -12,6 +12,8 @@ export type OperationalContextSource =
   | "quotes"
   | "time_entries"
   | "repositories"
+  | "external_records"
+  | "client_interactions"
   | "report-review"
 
 export interface RepositoryCandidate {
@@ -36,6 +38,8 @@ export interface OperationalContextSnapshot {
     projects: SafeRow[]
     tasks: SafeRow[]
     quotes: SafeRow[]
+    externalRecords: SafeRow[]
+    clientInteractions: SafeRow[]
     timeEntries: SafeRow[]
     people: SafeRow[]
     repositories: RepositoryCandidate[]
@@ -114,7 +118,7 @@ export async function buildOperationalContextSnapshot(
       sources: [],
       isManager: false,
       commandContext: { availableClients: [], availableUsers: [] },
-      graph: { clients: [], projects: [], tasks: [], quotes: [], timeEntries: [], people: [], repositories: [] },
+      graph: { clients: [], projects: [], tasks: [], quotes: [], externalRecords: [], clientInteractions: [], timeEntries: [], people: [], repositories: [] },
     }
   }
 
@@ -227,6 +231,55 @@ export async function buildOperationalContextSnapshot(
   )
   if (quotes.length) sources.push("quotes")
 
+  const externalRecords = await safeAll(
+    db,
+    `SELECT er.id, er.record_type, er.title, er.summary, er.amount_cents, er.currency,
+            er.confidence, er.provider, er.external_url, er.client_id, er.quote_id, c.name AS client_name
+     FROM external_data_records er
+     LEFT JOIN clients c ON c.id = er.client_id AND c.organization_id = er.organization_id
+     WHERE er.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = er.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = er.client_id OR vtp.client_id = er.client_id)
+         )
+       )
+     ORDER BY er.updated_at DESC
+     LIMIT 14`,
+    [principal.organizationId, isManager ? 1 : 0, principal.memberId],
+  )
+  if (externalRecords.length) sources.push("external_records")
+
+  const clientInteractions = await safeAll(
+    db,
+    `SELECT ci.id, ci.title, ci.summary, ci.interaction_type, ci.status, ci.occurred_at,
+            ci.source_type, ci.source_url, ci.client_id, c.name AS client_name, p.name AS project_name
+     FROM client_interactions ci
+     LEFT JOIN clients c ON c.id = ci.client_id AND c.organization_id = ci.organization_id
+     LEFT JOIN projects p ON p.id = ci.project_id AND p.organization_id = ci.organization_id
+     WHERE ci.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = ci.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = ci.client_id OR vtp.client_id = ci.client_id)
+         )
+       )
+     ORDER BY ci.occurred_at DESC, ci.updated_at DESC
+     LIMIT 10`,
+    [principal.organizationId, isManager ? 1 : 0, principal.memberId],
+  )
+  if (clientInteractions.length) sources.push("client_interactions")
+
   const timeEntries = await safeAll(
     db,
     `SELECT te.client_id, te.project_id, c.name AS client_name, p.name AS project_name,
@@ -325,6 +378,28 @@ export async function buildOperationalContextSnapshot(
     )
   }
 
+  if (externalRecords.length) {
+    lines.push(
+      "",
+      "Fonti importate recenti:",
+      ...externalRecords.slice(0, 8).map((record) => {
+        const amount = record.amount_cents ? ` | importo ${formatCurrencyCents(record.amount_cents, record.currency || "EUR")}` : ""
+        return `- ${compact(record.title, 110)} | tipo ${compact(record.record_type, 30)} | cliente ${compact(record.client_name || "-", 80)}${amount} | source ${compact(record.provider, 30)} | confidence ${compact(record.confidence, 30)}`
+      }),
+    )
+  }
+
+  if (clientInteractions.length) {
+    lines.push(
+      "",
+      "Call/incontri recenti:",
+      ...clientInteractions.slice(0, 6).map(
+        (interaction) =>
+          `- ${compact(interaction.title, 110)} | tipo ${compact(interaction.interaction_type, 30)} | cliente ${compact(interaction.client_name || "-", 80)} | data ${formatDate(interaction.occurred_at)} | ${compact(interaction.summary || "-", 140)}`,
+      ),
+    )
+  }
+
   if (timeEntries.length) {
     lines.push(
       "",
@@ -384,7 +459,7 @@ export async function buildOperationalContextSnapshot(
         createdAt: new Date(),
       })),
     },
-    graph: { clients, projects, tasks, quotes, timeEntries, people, repositories },
+    graph: { clients, projects, tasks, quotes, externalRecords, clientInteractions, timeEntries, people, repositories },
   }
 }
 

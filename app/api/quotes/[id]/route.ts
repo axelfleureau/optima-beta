@@ -56,6 +56,10 @@ function mapQuote(row: any) {
     attivita: parseJson(row.activities_json, []),
     voci: voices,
     terminiCondizioni: row.terms_conditions || undefined,
+    sourceType: row.source_type || undefined,
+    sourceId: row.source_id || undefined,
+    sourceUrl: row.source_url || undefined,
+    sourceSnapshot: parseJson(row.source_snapshot_json, undefined),
   }
 }
 

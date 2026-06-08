@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Calendar,
   CheckCircle,
+  Database,
   Clock,
   Download,
   Edit,
@@ -176,11 +177,17 @@ function getQuoteRows(quote: Quote) {
   return (rows.length > 0 ? rows : inferredRowsFromLegacyQuote(quote)).slice(0, 3)
 }
 
+function getExplicitLineCount(quote: Quote) {
+  return (quote.items?.length || 0) + (quote.voci?.length || 0) + (quote.attivita?.length || 0)
+}
+
 export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending = false }: QuoteCardProps) {
   const effectiveStatus = getEffectiveStatus(quote)
   const statusInfo = statusConfig[effectiveStatus]
   const StatusIcon = statusInfo.icon
   const rows = useMemo(() => getQuoteRows(quote), [quote])
+  const explicitLineCount = getExplicitLineCount(quote)
+  const hasInferredRows = explicitLineCount === 0 && rows.length > 0
   const canSend = effectiveStatus === "draft" && onSend
   const canEdit = effectiveStatus === "draft" && onEdit
 
@@ -216,6 +223,12 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
             <p className="line-clamp-2 text-sm leading-6 text-slate-400">
               {quote.description || "Struttura proposta, attivita e pricing pronti per essere completati."}
             </p>
+            {quote.sourceType && (
+              <div className="flex w-fit items-center gap-2 rounded-[8px] border border-cyan-300/15 bg-cyan-300/10 px-2.5 py-1 text-xs font-semibold text-cyan-100">
+                <Database className="h-3.5 w-3.5" />
+                Fonte {quote.sourceType}
+              </div>
+            )}
           </div>
 
           <DropdownMenu>
@@ -259,14 +272,16 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
         <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4">
           <InfoCell icon={User} label="Cliente" value={quote.clientName || quote.externalClientName || "Da definire"} />
           <InfoCell icon={Calendar} label="Scadenza" value={formatDate(quote.validUntil)} />
-          <InfoCell icon={FileText} label="Voci" value={String((quote.items?.length || 0) + (quote.voci?.length || 0) + (quote.attivita?.length || 0))} />
+          <InfoCell icon={FileText} label="Voci" value={hasInferredRows ? "3 provvisorie" : String(explicitLineCount)} />
           <InfoCell icon={CheckCircle} label="Valore" value={formatCurrency(quote.total || 0, quote.currency)} accent />
         </div>
 
         <div className="mt-4 rounded-[8px] border border-white/10 bg-black/25 p-3">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-xs font-bold uppercase text-slate-500">Anteprima proposta</p>
-            <span className="text-xs text-slate-500">{quote.shareToken ? "Link attivo" : "Non condiviso"}</span>
+            <span className="text-xs text-slate-500">
+              {hasInferredRows ? "Voci ricostruite" : quote.shareToken ? "Link attivo" : "Non condiviso"}
+            </span>
           </div>
           <div className="space-y-2">
             {rows.length > 0 ? (

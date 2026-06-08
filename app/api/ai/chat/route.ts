@@ -232,6 +232,79 @@ async function buildQuestionScopedBusinessFacts(db: any, principal: WorkspacePri
   )
   if (quotes.length) sources.add("quotes")
 
+  const externalLike = buildLikeWhere(["er.title", "er.summary", "er.normalized_json"], terms)
+  const externalConditions = [externalLike.where]
+  const externalParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...externalLike.params]
+  if (clientIds.length) {
+    externalConditions.push(`er.client_id IN (${sqlPlaceholders(clientIds)})`)
+    externalParams.push(...clientIds)
+  }
+  if (projectIds.length) {
+    externalConditions.push(`er.project_id IN (${sqlPlaceholders(projectIds)})`)
+    externalParams.push(...projectIds)
+  }
+  const externalRecords = await safeAll(
+    db,
+    `SELECT er.id, er.record_type, er.title, er.summary, er.amount_cents, er.currency,
+            er.confidence, er.provider, er.external_url, er.quote_id, er.client_id, c.name AS client_name
+     FROM external_data_records er
+     LEFT JOIN clients c ON c.id = er.client_id AND c.organization_id = er.organization_id
+     WHERE er.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = er.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = er.client_id OR vtp.client_id = er.client_id)
+         )
+       )
+       AND (${externalConditions.join(" OR ")})
+     ORDER BY er.updated_at DESC
+     LIMIT 10`,
+    externalParams,
+  )
+  if (externalRecords.length) sources.add("external_data_records")
+
+  const interactionLike = buildLikeWhere(["ci.title", "ci.summary"], terms)
+  const interactionConditions = [interactionLike.where]
+  const interactionParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...interactionLike.params]
+  if (clientIds.length) {
+    interactionConditions.push(`ci.client_id IN (${sqlPlaceholders(clientIds)})`)
+    interactionParams.push(...clientIds)
+  }
+  if (projectIds.length) {
+    interactionConditions.push(`ci.project_id IN (${sqlPlaceholders(projectIds)})`)
+    interactionParams.push(...projectIds)
+  }
+  const interactions = await safeAll(
+    db,
+    `SELECT ci.id, ci.title, ci.summary, ci.interaction_type, ci.status, ci.occurred_at,
+            ci.source_type, ci.source_url, c.name AS client_name, p.name AS project_name
+     FROM client_interactions ci
+     LEFT JOIN clients c ON c.id = ci.client_id AND c.organization_id = ci.organization_id
+     LEFT JOIN projects p ON p.id = ci.project_id AND p.organization_id = ci.organization_id
+     WHERE ci.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = ci.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = ci.client_id OR vtp.client_id = ci.client_id)
+         )
+       )
+       AND (${interactionConditions.join(" OR ")})
+     ORDER BY ci.occurred_at DESC, ci.updated_at DESC
+     LIMIT 8`,
+    interactionParams,
+  )
+  if (interactions.length) sources.add("client_interactions")
+
   const taskLike = buildLikeWhere(["t.title", "t.description", "t.rich_description", "t.client_name"], terms)
   const taskConditions = [taskLike.where]
   const taskParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...taskLike.params]
@@ -326,6 +399,31 @@ async function buildQuestionScopedBusinessFacts(db: any, principal: WorkspacePri
     )
   } else if (hasFinancialIntent(message)) {
     lines.push("", "Preventivi trovati: nessuno collegato ai termini/clienti rilevati.")
+  }
+
+  if (externalRecords.length) {
+    lines.push(
+      "",
+      "Fonti importate trovate:",
+      ...externalRecords.map((record: any) => {
+        const amount = record.amount_cents ? ` | importo ${formatCurrencyCents(record.amount_cents, record.currency || "EUR")}` : ""
+        const client = record.client_name ? ` | cliente ${compact(record.client_name, 80)}` : ""
+        return `- ${compact(record.title, 120)} | tipo ${compact(record.record_type, 30)}${client}${amount} | fonte ${compact(record.provider, 30)} | confidence ${compact(record.confidence, 30)} | ${compact(record.summary || "-", 180)}`
+      }),
+    )
+  } else if (hasFinancialIntent(message)) {
+    lines.push("", "Fonti importate trovate: nessuna fonte esterna collegata ai termini rilevati.")
+  }
+
+  if (interactions.length) {
+    lines.push(
+      "",
+      "Call/incontri/note cliente:",
+      ...interactions.map(
+        (interaction: any) =>
+          `- ${compact(interaction.title, 120)} | tipo ${compact(interaction.interaction_type, 30)} | cliente ${compact(interaction.client_name || "-", 80)} | progetto ${compact(interaction.project_name || "-", 80)} | data ${formatDate(interaction.occurred_at)} | ${compact(interaction.summary || "-", 160)}`,
+      ),
+    )
   }
 
   const entryCount = Number(timeEntries[0]?.entry_count || 0)
