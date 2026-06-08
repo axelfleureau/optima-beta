@@ -188,12 +188,16 @@ const TIMELINE_OPTIONS = [
   { value: '16+ settimane', label: '16+ settimane' }
 ]
 
+const DEFAULT_BUDGET_RANGE = { min: 3000, max: 15000 }
+
+const clampBudget = (value: number) => Math.max(MIN_BUDGET, Math.min(MAX_BUDGET, value))
+
 export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: PromptEnrichmentDialogProps) {
   const { clients, loading: clientsLoading } = useClients()
   const [currentStep, setCurrentStep] = useState(1)
   const [isCompleting, setIsCompleting] = useState(false)
   const [formData, setFormData] = useState<Partial<EnrichedPromptData>>({
-    budgetRange: { min: 3000, max: 15000 },
+    budgetRange: DEFAULT_BUDGET_RANGE,
     complexity: 'standard',
     timeline: '8-12 settimane',
     clientMode: 'external', // Default to external client mode
@@ -201,6 +205,10 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
     brandNames: [],
     missingMaterials: [],
     discoveryQuestions: []
+  })
+  const [budgetInputs, setBudgetInputs] = useState({
+    min: String(DEFAULT_BUDGET_RANGE.min),
+    max: String(DEFAULT_BUDGET_RANGE.max),
   })
 
   const splitList = (value: string) => value
@@ -211,8 +219,12 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
   useEffect(() => {
     if (open) {
       setCurrentStep(1)
+      setBudgetInputs({
+        min: String(formData.budgetRange?.min || DEFAULT_BUDGET_RANGE.min),
+        max: String(formData.budgetRange?.max || DEFAULT_BUDGET_RANGE.max),
+      })
     }
-  }, [open])
+  }, [open, formData.budgetRange?.min, formData.budgetRange?.max])
 
   const selectedProjectType = PROJECT_TYPES.find(pt => pt.id === formData.projectType)
   const selectedSector = SECTOR_TEMPLATES.find(s => s.id === formData.sector)
@@ -221,7 +233,8 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
   const isStep2Valid = !!formData.sector
   const isStep3Valid = formData.description && formData.description.length >= 50 &&
     (formData.budgetRange?.min || 0) >= MIN_BUDGET && (formData.budgetRange?.min || 0) <= MAX_BUDGET &&
-    (formData.budgetRange?.max || 0) >= MIN_BUDGET && (formData.budgetRange?.max || 0) <= MAX_BUDGET
+    (formData.budgetRange?.max || 0) >= MIN_BUDGET && (formData.budgetRange?.max || 0) <= MAX_BUDGET &&
+    (formData.budgetRange?.min || 0) <= (formData.budgetRange?.max || 0)
   const isStep4Valid = formData.clientMode === 'platform' 
     ? !!formData.clientId 
     : !!(formData.clientName && formData.clientEmail)
@@ -229,7 +242,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
 
   const resetFormData = () => {
     setFormData({
-      budgetRange: { min: 3000, max: 15000 },
+      budgetRange: DEFAULT_BUDGET_RANGE,
       complexity: 'standard',
       timeline: '8-12 settimane',
       clientMode: 'external',
@@ -238,22 +251,64 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
       missingMaterials: [],
       discoveryQuestions: []
     })
+    setBudgetInputs({
+      min: String(DEFAULT_BUDGET_RANGE.min),
+      max: String(DEFAULT_BUDGET_RANGE.max),
+    })
     setCurrentStep(1)
+  }
+
+  const setBudgetDraft = (field: 'min' | 'max', rawValue: string) => {
+    const cleaned = rawValue.replace(/[^\d]/g, '').slice(0, 6)
+    const parsed = cleaned === '' ? 0 : Number(cleaned)
+    const previousRange = formData.budgetRange || DEFAULT_BUDGET_RANGE
+
+    setBudgetInputs((current) => ({ ...current, [field]: cleaned }))
+    setFormData({
+      ...formData,
+      budgetRange: {
+        min: field === 'min' ? parsed : previousRange.min,
+        max: field === 'max' ? parsed : previousRange.max,
+      },
+    })
+  }
+
+  const normalizeBudgetInputs = (field?: 'min' | 'max') => {
+    const previousRange = formData.budgetRange || DEFAULT_BUDGET_RANGE
+    let min = clampBudget(Number(budgetInputs.min || previousRange.min || DEFAULT_BUDGET_RANGE.min))
+    let max = clampBudget(Number(budgetInputs.max || previousRange.max || DEFAULT_BUDGET_RANGE.max))
+
+    if (min > max) {
+      if (field === 'max') {
+        min = max
+      } else {
+        max = min
+      }
+    }
+
+    const normalized = { min, max }
+    setBudgetInputs({ min: String(min), max: String(max) })
+    setFormData({ ...formData, budgetRange: normalized })
+    return normalized
   }
 
   const handleNext = async () => {
     if (currentStep < 5) {
+      if (currentStep === 3) {
+        normalizeBudgetInputs()
+      }
       setCurrentStep(currentStep + 1)
     } else {
       if (isStep5Valid && formData.projectType && formData.sector && formData.description) {
         setIsCompleting(true)
+        const budgetRange = normalizeBudgetInputs()
         const enrichedData: EnrichedPromptData = {
           projectType: selectedProjectType?.pricingTemplateId || formData.projectType,
           projectTypeLabel: selectedProjectType?.label || '',
           sector: formData.sector,
           sectorLabel: selectedSector?.name || '',
           description: formData.description,
-          budgetRange: formData.budgetRange || { min: 3000, max: 15000 },
+          budgetRange,
           complexity: formData.complexity || 'standard',
           timeline: formData.timeline || '8-12 settimane',
           clientMode: formData.clientMode || 'external',
@@ -577,22 +632,12 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                             </Label>
                             <Input
                               id="budgetMin"
-                              type="number"
-                              min={MIN_BUDGET}
-                              max={MAX_BUDGET}
-                              step={500}
-                              value={formData.budgetRange?.min || 3000}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value) || MIN_BUDGET
-                                const clamped = Math.max(MIN_BUDGET, Math.min(MAX_BUDGET, value))
-                                setFormData({ 
-                                  ...formData, 
-                                  budgetRange: { 
-                                    min: clamped, 
-                                    max: Math.max(clamped, formData.budgetRange?.max || 15000) 
-                                  } 
-                                })
-                              }}
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={budgetInputs.min}
+                              onChange={(e) => setBudgetDraft('min', e.target.value)}
+                              onBlur={() => normalizeBudgetInputs('min')}
                               className="bg-white/50 dark:bg-black/30 backdrop-blur-sm"
                             />
                             {(formData.budgetRange?.min && (formData.budgetRange.min < MIN_BUDGET || formData.budgetRange.min > MAX_BUDGET)) && (
@@ -607,27 +652,22 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                             </Label>
                             <Input
                               id="budgetMax"
-                              type="number"
-                              min={MIN_BUDGET}
-                              max={MAX_BUDGET}
-                              step={500}
-                              value={formData.budgetRange?.max || 15000}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value) || 15000
-                                const clamped = Math.max(MIN_BUDGET, Math.min(MAX_BUDGET, value))
-                                setFormData({ 
-                                  ...formData, 
-                                  budgetRange: { 
-                                    min: Math.min(formData.budgetRange?.min || 3000, clamped),
-                                    max: clamped
-                                  } 
-                                })
-                              }}
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={budgetInputs.max}
+                              onChange={(e) => setBudgetDraft('max', e.target.value)}
+                              onBlur={() => normalizeBudgetInputs('max')}
                               className="bg-white/50 dark:bg-black/30 backdrop-blur-sm"
                             />
                             {(formData.budgetRange?.max && (formData.budgetRange.max < MIN_BUDGET || formData.budgetRange.max > MAX_BUDGET)) && (
                               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                 Il budget deve essere tra €500 e €100.000
+                              </p>
+                            )}
+                            {Boolean(formData.budgetRange?.min && formData.budgetRange?.max && formData.budgetRange.min > formData.budgetRange.max) && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                Il massimo deve essere maggiore o uguale al minimo
                               </p>
                             )}
                           </div>
