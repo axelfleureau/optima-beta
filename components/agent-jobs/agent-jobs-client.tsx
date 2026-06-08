@@ -160,6 +160,32 @@ interface AgenticCapabilities {
     pattern: string
     rules: string[]
   }
+  hermesBlueprint: {
+    reference: {
+      repository: string
+      localClone: string
+      auditedRevision: string
+      auditedTag: string
+      license: string
+      importPolicy: string
+      integrationRule: string
+    }
+    patterns: Array<{
+      id: string
+      lane: string
+      label: string
+      status: string
+      hermesFiles: string[]
+      optimaSurface: string[]
+      implementation: string
+      guardrails: string[]
+    }>
+    stats: {
+      total: number
+      byStatus: Record<string, number>
+      implementedOrPartial: number
+    }
+  }
 }
 
 interface AgenticGraphSnapshot {
@@ -1135,6 +1161,8 @@ export function AgentJobsClient({
     metadata?: Record<string, unknown>
   }) {
     try {
+      const hermesBlueprint = capabilities?.hermesBlueprint
+      const hermesPatterns = hermesBlueprint?.patterns ?? []
       setSetupAction(input.actionKey)
       setError(null)
       const response = await fetch("/api/agent-jobs", {
@@ -1150,15 +1178,29 @@ export function AgentJobsClient({
             requestedOutput: ["setup-plan", "health-check", "implementation-patch", "review-report"],
             hermesPattern: {
               source: "NousResearch/hermes-agent",
-              repository: "https://github.com/NousResearch/hermes-agent",
-              referenceClone: "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
-              referenceRevision: "846821d8c",
-              relevantPatterns: [
-                "tools/mcp_tool.py: MCP server lifecycle, stderr isolation, reconnect, timeouts",
-                "tools/mcp_oauth_manager.py: token reload, OAuth metadata, 401 deduplication",
-                "tools/managed_tool_gateway.py: managed vendor gateway and token refresh boundary",
-              ],
-              integrationRule: "Portare i pattern della repo ufficiale nel control plane Optima, non riusare il servizio Hermes attivo ne' i suoi token.",
+              repository: hermesBlueprint?.reference.repository ?? "https://github.com/NousResearch/hermes-agent",
+              referenceClone: hermesBlueprint?.reference.localClone ?? "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
+              referenceRevision: hermesBlueprint?.reference.auditedRevision ?? "ab0a6270c",
+              referenceTag: hermesBlueprint?.reference.auditedTag ?? "v2026.6.5-208-gab0a6270c",
+              license: hermesBlueprint?.reference.license ?? "MIT",
+              relevantPatterns: hermesPatterns.length
+                ? hermesPatterns.map((pattern) => ({
+                    id: pattern.id,
+                    lane: pattern.lane,
+                    label: pattern.label,
+                    status: pattern.status,
+                    hermesFiles: pattern.hermesFiles,
+                    optimaSurface: pattern.optimaSurface,
+                    guardrails: pattern.guardrails,
+                  }))
+                : [
+                    "tools/mcp_tool.py: MCP server lifecycle, stderr isolation, reconnect, timeouts",
+                    "tools/mcp_oauth_manager.py: token reload, OAuth metadata, 401 deduplication",
+                    "tools/managed_tool_gateway.py: managed vendor gateway and token refresh boundary",
+                  ],
+              integrationRule:
+                hermesBlueprint?.reference.integrationRule ??
+                "Portare i pattern della repo ufficiale nel control plane Optima, non riusare il servizio Hermes attivo ne' i suoi token.",
             },
             hermesRighelloDataPolicy: {
               source: "VPS Hermes esistente",
@@ -2066,6 +2108,53 @@ export function AgentJobsClient({
                 {capabilities?.oauthGuidance.pattern ??
                   "Authorization Code + PKCE per installazioni utente, GitHub App per repository, secret_ref per API key e local_install per runner self-hosted."}
               </p>
+            </div>
+
+            <div className="min-w-0 rounded-lg border border-teal-300/15 bg-teal-300/[0.05] p-3 sm:p-4">
+              <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-white">Blueprint Hermes dentro Optima</p>
+                  <p className="mt-2 break-words text-sm leading-6 text-slate-300">
+                    {capabilities?.hermesBlueprint?.reference.integrationRule ??
+                      "Optima usa Hermes come sorgente pattern: gateway, memoria, skill, MCP, provider routing e subagenti restano governati dal control plane aziendale."}
+                  </p>
+                </div>
+                <span className="w-fit shrink-0 rounded-full border border-teal-300/25 bg-teal-300/10 px-2.5 py-1 text-[11px] font-black text-teal-100">
+                  {capabilities?.hermesBlueprint?.reference.auditedRevision ?? "ab0a6270c"}
+                </span>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                {[
+                  ["Pattern", capabilities?.hermesBlueprint?.stats.total ?? 0],
+                  ["Recepiti", capabilities?.hermesBlueprint?.stats.implementedOrPartial ?? 0],
+                  ["Parziali", capabilities?.hermesBlueprint?.stats.byStatus?.partial ?? 0],
+                  ["Pianificati", capabilities?.hermesBlueprint?.stats.byStatus?.planned ?? 0],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2">
+                    <p className="truncate text-[11px] text-slate-500">{label}</p>
+                    <p className="mt-1 text-lg font-black text-white">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 grid gap-2">
+                {(capabilities?.hermesBlueprint?.patterns ?? []).slice(0, 4).map((pattern) => (
+                  <div key={pattern.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">{pattern.label}</p>
+                        <p className="mt-1 break-words text-xs leading-5 text-slate-400">
+                          {pattern.lane} · {pattern.optimaSurface.slice(0, 3).join(", ")}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                        {pattern.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="min-w-0 rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.055] p-3 sm:p-4">

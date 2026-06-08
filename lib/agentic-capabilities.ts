@@ -3,6 +3,7 @@ import type { WorkspacePrincipal } from "@/lib/workspace-db"
 import { getStrategicMcpConnectors } from "@/lib/mcp-connectors"
 import { safeAll } from "@/lib/operational-context"
 import { getRuntimeSecret } from "@/lib/ai/openai-runtime"
+import { getHermesBlueprint } from "@/lib/hermes-reference"
 
 export type AgenticProviderKind = "ai_model" | "code_agent" | "media_model" | "local_model" | "router"
 export type AgenticModelLane = "code" | "research" | "media" | "operations" | "chat" | "router"
@@ -156,6 +157,7 @@ export interface AgenticCapabilitySnapshot {
     pattern: string
     rules: string[]
   }
+  hermesBlueprint: ReturnType<typeof getHermesBlueprint>
 }
 
 const PROVIDERS: AgenticProviderSpec[] = [
@@ -613,6 +615,7 @@ export async function getAgenticCapabilitySnapshot(
     subagents,
     modelRuntime: await getAgenticModelRuntimeSnapshot(db, principal),
     oauthGuidance: getOAuthGuidance(),
+    hermesBlueprint: getHermesBlueprint(),
   }
 }
 

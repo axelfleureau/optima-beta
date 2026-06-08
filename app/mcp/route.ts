@@ -24,6 +24,7 @@ import {
   formatStrategicMcpConnectors,
   getStrategicMcpConnectors,
 } from "@/lib/mcp-connectors"
+import { formatHermesBlueprint, getHermesBlueprint } from "@/lib/hermes-reference"
 
 export const dynamic = "force-dynamic"
 
@@ -242,6 +243,17 @@ function toolsList() {
         },
       },
     },
+    {
+      name: "optima_hermes_blueprint",
+      title: "Hermes to Optima integration blueprint",
+      description: "Mostra il blueprint auditato per fondere i pattern Hermes dentro Optima senza vendorizzare il runtime Python o toccare l'istanza Hermes VPS.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          includeStructured: { type: "boolean", description: "Include pattern, file Hermes, superfici Optima e guardrail in forma strutturata." },
+        },
+      },
+    },
   ]
 }
 
@@ -282,6 +294,12 @@ function formatCapabilitySnapshot(snapshot: Awaited<ReturnType<typeof getAgentic
     "- Media Operator usa MiniMax e Cloudinary quando Codex richiede asset media.",
     "- Research Analyst usa Qwen per contesto lungo e fonti.",
     "- Office Ops usa Gemma per triage operativo quando configurato.",
+    "",
+    "## Blueprint Hermes",
+    `- revision: ${snapshot.hermesBlueprint.reference.auditedRevision} (${snapshot.hermesBlueprint.reference.auditedTag})`,
+    `- licenza: ${snapshot.hermesBlueprint.reference.license}`,
+    `- pattern: ${snapshot.hermesBlueprint.stats.implementedOrPartial}/${snapshot.hermesBlueprint.stats.total} implementati o parziali`,
+    `- regola: ${snapshot.hermesBlueprint.reference.integrationRule}`,
     "",
     `## Installazioni provider tenant: ${snapshot.providerInstallations.length}`,
     `## Installazioni MCP tenant: ${snapshot.connectorInstallations.length}`,
@@ -534,6 +552,11 @@ async function callTool(name: string, args: any, db: any, principal: any) {
       return toolResult(text, snapshot ? { sources: AGENTIC_REFERENCE_SOURCES, snapshot } : { sources: AGENTIC_REFERENCE_SOURCES })
     }
 
+    case "optima_hermes_blueprint": {
+      const blueprint = getHermesBlueprint()
+      return toolResult(formatHermesBlueprint(), args?.includeStructured ? blueprint : { reference: blueprint.reference, stats: blueprint.stats })
+    }
+
     default:
       return toolResult(`Tool MCP non supportato: ${name}`)
   }
@@ -607,6 +630,12 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
           title: "Optima agentic graph memory",
           mimeType: "text/plain",
         },
+        {
+          uri: "optima://agentic/hermes-blueprint",
+          name: "Hermes to Optima blueprint",
+          title: "Hermes to Optima integration blueprint",
+          mimeType: "text/plain",
+        },
       ],
     })
   }
@@ -658,6 +687,18 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
             uri: "optima://agentic/graph-memory",
             mimeType: "text/plain",
             text: formatAgenticGraphSnapshot(snapshot),
+          },
+        ],
+      })
+    }
+
+    if (params?.uri === "optima://agentic/hermes-blueprint") {
+      return jsonRpcResult(id, {
+        contents: [
+          {
+            uri: "optima://agentic/hermes-blueprint",
+            mimeType: "text/plain",
+            text: formatHermesBlueprint(),
           },
         ],
       })

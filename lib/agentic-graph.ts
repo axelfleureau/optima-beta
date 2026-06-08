@@ -1,4 +1,5 @@
 import { createId } from "@/lib/cloudflare-db"
+import { HERMES_ADAPTER_PATTERNS, HERMES_REFERENCE } from "@/lib/hermes-reference"
 import { safeAll } from "@/lib/operational-context"
 import type { WorkspacePrincipal } from "@/lib/workspace-db"
 
@@ -91,15 +92,9 @@ export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
     id: "hermes-agent",
     label: "Hermes Agent",
     sourceType: "open_source_reference",
-    url: "https://github.com/NousResearch/hermes-agent",
-    importPolicy: "official_repo_reference_only_adapter_patterns",
-    usefulPatterns: [
-      "gateway conversazionale Telegram/CLI",
-      "memoria e skills persistenti",
-      "routing provider e modelli",
-      "subagenti e tool backend controllati",
-      "runtime cloud/VPS sempre raggiungibile",
-    ],
+    url: HERMES_REFERENCE.repository,
+    importPolicy: HERMES_REFERENCE.importPolicy,
+    usefulPatterns: HERMES_ADAPTER_PATTERNS.map((pattern) => `${pattern.label} (${pattern.status})`),
   },
   {
     id: "hermes-righello-readonly",
@@ -631,6 +626,29 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     )
   }
 
+  const hermesPatternNodes = []
+  for (const pattern of HERMES_ADAPTER_PATTERNS) {
+    hermesPatternNodes.push(
+      await upsertAgenticGraphNode(db, principal, {
+        nodeType: "hermes_pattern",
+        title: `Hermes pattern: ${pattern.label}`,
+        summary: pattern.implementation,
+        sourceType: "open_source_reference",
+        sourceId: `hermes-pattern:${pattern.id}`,
+        sourceUrl: HERMES_REFERENCE.repository,
+        confidence: pattern.status === "implemented" ? "manual" : "inferred",
+        tags: ["hermes", "adapter-pattern", pattern.lane, pattern.status],
+        properties: {
+          hermesRevision: HERMES_REFERENCE.auditedRevision,
+          hermesFiles: pattern.hermesFiles,
+          optimaSurface: pattern.optimaSurface,
+          guardrails: pattern.guardrails,
+          status: pattern.status,
+        },
+      }),
+    )
+  }
+
   const edgeInputs = [
     [optima?.id, graphMemory?.id, "has_capability", "manual"],
     [graphMemory?.id, graphEngine?.id, "uses_graph_engine", "manual"],
@@ -656,6 +674,43 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
       confidence,
       properties: { seededBy: "seedAgenticReferenceGraph" },
     })
+  }
+
+  const hermesReferenceNode = referenceNodes.find((node) => node?.sourceId === "hermes-agent")
+  const targetByLane: Record<string, string | undefined> = {
+    memory: graphMemory?.id,
+    skills: knowhowMemory?.id,
+    mcp: mcpGateway?.id,
+    "provider-routing": subagentLanes?.id,
+    messaging: mcpGateway?.id,
+    scheduler: optima?.id,
+    subagents: subagentLanes?.id,
+    runtime: optima?.id,
+  }
+
+  for (const node of hermesPatternNodes) {
+    if (!node) continue
+    if (hermesReferenceNode?.id) {
+      await upsertAgenticGraphEdge(db, principal, {
+        fromNodeId: hermesReferenceNode.id,
+        toNodeId: node.id,
+        edgeType: "documents_adapter_pattern",
+        confidence: "manual",
+        properties: { seededBy: "seedAgenticReferenceGraph", hermesRevision: HERMES_REFERENCE.auditedRevision },
+      })
+    }
+
+    const lane = Array.isArray(node.tags) ? node.tags.find((tag) => targetByLane[tag]) : null
+    const targetId = lane ? targetByLane[lane] : optima?.id
+    if (targetId) {
+      await upsertAgenticGraphEdge(db, principal, {
+        fromNodeId: node.id,
+        toNodeId: targetId,
+        edgeType: "maps_to_optima_surface",
+        confidence: "inferred",
+        properties: { seededBy: "seedAgenticReferenceGraph", hermesRevision: HERMES_REFERENCE.auditedRevision },
+      })
+    }
   }
 
   return getAgenticGraphSnapshot(db, principal)
