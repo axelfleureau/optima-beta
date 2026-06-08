@@ -235,7 +235,7 @@ function toolsList() {
     {
       name: "optima_agentic_reference_sources",
       title: "Optima agentic reference sources",
-      description: "Mostra le sorgenti usate come riferimento architetturale: Hermes Agent, Graphify engine reference e pattern Perplexity Computer.",
+      description: "Mostra le sorgenti usate come riferimento architetturale: core agentico derivato da audit Hermes, Graphify engine reference e pattern Perplexity Computer.",
       inputSchema: {
         type: "object",
         properties: {
@@ -244,9 +244,9 @@ function toolsList() {
       },
     },
     {
-      name: "optima_hermes_blueprint",
-      title: "Hermes to Optima integration blueprint",
-      description: "Mostra il blueprint auditato per fondere i pattern Hermes dentro Optima senza vendorizzare il runtime Python o toccare l'istanza Hermes VPS.",
+      name: "optima_agentic_core_blueprint",
+      title: "Optima fused agentic core blueprint",
+      description: "Mostra il blueprint auditato del core agentico assorbito in Optima: memoria, skill, MCP/OAuth, provider routing, gateway, subagenti e runtime.",
       inputSchema: {
         type: "object",
         properties: {
@@ -295,7 +295,7 @@ function formatCapabilitySnapshot(snapshot: Awaited<ReturnType<typeof getAgentic
     "- Research Analyst usa Qwen per contesto lungo e fonti.",
     "- Office Ops usa Gemma per triage operativo quando configurato.",
     "",
-    "## Blueprint Hermes",
+    "## Core agentico fuso",
     `- revision: ${snapshot.hermesBlueprint.reference.auditedRevision} (${snapshot.hermesBlueprint.reference.auditedTag})`,
     `- licenza: ${snapshot.hermesBlueprint.reference.license}`,
     `- pattern: ${snapshot.hermesBlueprint.stats.implementedOrPartial}/${snapshot.hermesBlueprint.stats.total} implementati o parziali`,
@@ -552,6 +552,7 @@ async function callTool(name: string, args: any, db: any, principal: any) {
       return toolResult(text, snapshot ? { sources: AGENTIC_REFERENCE_SOURCES, snapshot } : { sources: AGENTIC_REFERENCE_SOURCES })
     }
 
+    case "optima_agentic_core_blueprint":
     case "optima_hermes_blueprint": {
       const blueprint = getHermesBlueprint()
       return toolResult(formatHermesBlueprint(), args?.includeStructured ? blueprint : { reference: blueprint.reference, stats: blueprint.stats })
@@ -631,9 +632,9 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
           mimeType: "text/plain",
         },
         {
-          uri: "optima://agentic/hermes-blueprint",
-          name: "Hermes to Optima blueprint",
-          title: "Hermes to Optima integration blueprint",
+          uri: "optima://agentic/core-blueprint",
+          name: "Optima fused agentic core blueprint",
+          title: "Optima fused agentic core blueprint",
           mimeType: "text/plain",
         },
       ],
@@ -692,11 +693,11 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
       })
     }
 
-    if (params?.uri === "optima://agentic/hermes-blueprint") {
+    if (params?.uri === "optima://agentic/core-blueprint" || params?.uri === "optima://agentic/hermes-blueprint") {
       return jsonRpcResult(id, {
         contents: [
           {
-            uri: "optima://agentic/hermes-blueprint",
+            uri: "optima://agentic/core-blueprint",
             mimeType: "text/plain",
             text: formatHermesBlueprint(),
           },

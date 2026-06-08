@@ -1,15 +1,15 @@
 export const HERMES_REFERENCE = {
   id: "hermes-agent",
-  label: "Hermes Agent",
+  label: "Hermes-derived agentic core",
   repository: "https://github.com/NousResearch/hermes-agent",
   localClone: "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
   auditedRevision: "ab0a6270c",
   auditedTag: "v2026.6.5-208-gab0a6270c",
   license: "MIT",
   importPolicy:
-    "Reference-only adapter import: reuse compatible MIT patterns and small TypeScript-native adapters in Optima. Do not vendor the Python runtime, desktop app, secrets, or the active Hermes VPS service.",
+    "Reference-only pattern import: Hermes is not an external connector to install. Optima absorbs compatible MIT patterns as TypeScript-native capabilities. Do not vendor the Python runtime, desktop app, secrets, or the active Hermes VPS service.",
   integrationRule:
-    "Optima remains the enterprise control plane: tenant scope, permissions, graph memory, jobs, audit, review and deploy approval stay in Optima. Hermes patterns inform gateways, skills, memory, provider routing and MCP lifecycle.",
+    "Hermes is a source blueprint, not a linked service. Optima becomes the enterprise agentic OS: tenant scope, permissions, graph memory, jobs, audit, review and deploy approval stay in Optima while the useful Hermes patterns are reimplemented inside Optima.",
 } as const
 
 export type HermesAdapterLane =
@@ -217,14 +217,14 @@ export function getHermesBlueprint() {
 export function formatHermesBlueprint() {
   const blueprint = getHermesBlueprint()
   return [
-    "# Hermes -> Optima integration blueprint",
+    "# Optima fused agentic core blueprint",
     "",
     `Repository: ${blueprint.reference.repository}`,
     `Revision auditata: ${blueprint.reference.auditedRevision} (${blueprint.reference.auditedTag})`,
     `Licenza: ${blueprint.reference.license}`,
     `Policy: ${blueprint.reference.importPolicy}`,
     "",
-    "## Regola di integrazione",
+    "## Regola di fusione",
     blueprint.reference.integrationRule,
     "",
     "## Pattern importabili",

@@ -1177,7 +1177,7 @@ export function AgentJobsClient({
           input: {
             requestedOutput: ["setup-plan", "health-check", "implementation-patch", "review-report"],
             hermesPattern: {
-              source: "NousResearch/hermes-agent",
+              source: "hermes-reference-audit",
               repository: hermesBlueprint?.reference.repository ?? "https://github.com/NousResearch/hermes-agent",
               referenceClone: hermesBlueprint?.reference.localClone ?? "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
               referenceRevision: hermesBlueprint?.reference.auditedRevision ?? "ab0a6270c",
@@ -1262,7 +1262,7 @@ export function AgentJobsClient({
       title: `Setup MCP ${connector.label}`,
       contextSummary: `MCP ${connector.category}`,
       brief: [
-        `Configura in Optima il connector MCP ${connector.label} come capability tenant-scoped, usando i pattern Hermes MCP/OAuth come riferimento architetturale.`,
+        `Configura in Optima il connector MCP ${connector.label} come capability tenant-scoped del core agentico nativo di Optima.`,
         `Scopo: ${connector.purpose}`,
         `Scope grafo: ${connector.graphUse.join(", ") || "nessuno"}.`,
         `Env richieste: ${connector.requiredEnv.length ? connector.requiredEnv.join(", ") : "OAuth/reference senza env obbligatorie"}.`,
@@ -1286,15 +1286,15 @@ export function AgentJobsClient({
           ? "MCP prioritari"
           : kind === "runtime"
             ? "runtime hosted"
-            : "stack Hermes/MCP completo"
+            : "core agentico completo"
     await createCapabilitySetupJob({
       actionKey: `stack-setup:${kind}`,
       title: `Piano setup ${label}`,
-      contextSummary: "Agentic OS / Hermes MCP patterns",
+      contextSummary: "Optima Agentic OS / native MCP core",
       brief: [
         `Produci un piano operativo e le patch necessarie per rendere realmente funzionante lo stack ${label} di Optima.`,
-        "Usa Hermes come sorgente pattern: MCP server lifecycle, OAuth token reload, 401 deduplication, managed tool gateway, skill/memory loop e isolamento dei tool.",
-        "Non modificare il servizio Hermes attivo sul VPS e non usare token Hermes. Il VPS e attualmente a disco pieno: qualunque intervento su Hostinger deve prima proporre una recovery sicura e revisionabile.",
+        "Optima deve copiare/assorbire le funzioni utili di Hermes come funzioni native: MCP server lifecycle, OAuth token reload, 401 deduplication, managed tool gateway, skill/memory loop, scheduler, subagenti e isolamento tool.",
+        "Hermes resta solo sorgente di audit codice: non collegare Optima al servizio Hermes attivo sul VPS e non usare token Hermes. Qualunque intervento su Hostinger deve restare confinato al runner Optima o a recovery approvata.",
         `Provider prioritari: ${selectedProviders.map((provider) => `${provider.id}:${provider.authMethod}`).join(", ") || "nessuno"}.`,
         `MCP prioritari: ${selectedConnectors.map((connector) => `${connector.id}:${connector.status}`).join(", ") || "nessuno"}.`,
         "Output richiesto: matrice capability, setup guidato OAuth/secret_ref, health check per ogni connector, patch UI/API necessarie e ordine di esecuzione senza rischiare servizi esistenti.",
@@ -2113,10 +2113,10 @@ export function AgentJobsClient({
             <div className="min-w-0 rounded-lg border border-teal-300/15 bg-teal-300/[0.05] p-3 sm:p-4">
               <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
                 <div className="min-w-0">
-                  <p className="font-black text-white">Blueprint Hermes dentro Optima</p>
+                  <p className="font-black text-white">Core agentico Optima derivato da Hermes</p>
                   <p className="mt-2 break-words text-sm leading-6 text-slate-300">
                     {capabilities?.hermesBlueprint?.reference.integrationRule ??
-                      "Optima usa Hermes come sorgente pattern: gateway, memoria, skill, MCP, provider routing e subagenti restano governati dal control plane aziendale."}
+                      "Optima assorbe le funzioni utili di Hermes come capability native: gateway, memoria, skill, MCP, provider routing e subagenti governati dal control plane aziendale."}
                   </p>
                 </div>
                 <span className="w-fit shrink-0 rounded-full border border-teal-300/25 bg-teal-300/10 px-2.5 py-1 text-[11px] font-black text-teal-100">

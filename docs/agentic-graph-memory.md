@@ -38,9 +38,9 @@ Questa regola evita errori come task o workload falsi: se manca una durata, una 
 
 ## Fonti agentiche
 
-Optima non vendorizza Hermes o Graphify automaticamente.
+Optima deve assorbire le funzioni utili di Hermes e Graphify come capability native, senza diventare un wrapper fragile di servizi esterni.
 
-- Hermes Agent (`NousResearch/hermes-agent`) e riferimento ufficiale per gateway conversazionale, memoria, skills, provider routing, subagenti e runtime VPS/cloud. Il clone locale di lavoro resta fuori dal bundle applicativo: `/Users/axel/Documents/Codex/reference-sources/hermes-agent`.
+- Hermes Agent (`NousResearch/hermes-agent`) e la repo sorgente da cui copiare pattern e funzioni agentiche: gateway conversazionale, memoria, skills, provider routing, subagenti e runtime VPS/cloud. Non e un connettore Optima. Il clone locale di audit resta fuori dal bundle applicativo: `/Users/axel/Documents/Codex/reference-sources/hermes-agent`.
 - Il blueprint auditato e versionato vive in `lib/hermes-reference.ts`: al 2026-06-08 punta a revision `ab0a6270c` (`v2026.6.5-208-gab0a6270c`) e classifica i pattern Hermes come implemented, partial o planned per Optima.
 - L'installazione Hermes gia presente sul VPS puo essere usata solo come sorgente dati Righello in sola lettura. Si importano indici redatti, non codice sorgente, servizi, token o dump completi.
 - Graphify (`safishamsi/graphify`) e riferimento per estrazione grafi, schema nodi/archi, confidence, MCP e query-first workflow.

@@ -87,7 +87,6 @@ Restituisce la mappa delle capability MCP/operative da trattare come parti fonda
 - SendGrid: email transazionali, rapportini, inviti e notifiche.
 - Telegram: canale conversazionale stile Hermes per ricevere indicazioni e rispondere usando AI Assistant.
 - Codex Runner: esecuzione agentica controllata su VPS.
-- Hermes Agent: sorgente open-source per memoria, skills, tool gateway, MCP host e loop agentico self-hosted.
 - Cloudinary: asset media collegati a clienti, campagne, task e deliverable.
 - GitHub: repository, branch, PR, audit tecnico e collegamenti codice-progetto.
 - Cloudflare: runtime Optima, D1, R2, Workers, secret, cron e deploy.
@@ -152,7 +151,7 @@ Pattern installazione:
 
 I subagenti non sono account separati senza controllo: sono profili operativi del tenant. Ogni subagente riceve solo lane, provider e connector dichiarati; le azioni rischiose tornano sempre nella review room.
 
-Hermes Agent puo essere usato come sorgente open e adapter VPS, non come sostituto del control plane. Optima resta il livello che governa grafo aziendale, permessi, memoria autorizzata, job, audit e approvazioni.
+Hermes Agent non va collegato come servizio esterno. La repo ufficiale e una sorgente di audit da cui Optima copia e reimplementa funzioni agentiche native: memoria, skills, MCP host, provider routing, scheduler, gateway e subagenti. Optima resta il livello che governa grafo aziendale, permessi, memoria autorizzata, job, audit e approvazioni.
 
 Graphify puo alimentare la graph memory con `graph.json` e report codice, ma ogni import deve conservare source, confidence e tenant scope. Le relazioni dedotte non devono diventare dati operativi certi senza review.
 

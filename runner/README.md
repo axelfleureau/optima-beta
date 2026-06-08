@@ -134,7 +134,7 @@ Fase 2: MCP Óptima esposto da Cloudflare, non dal VPS. In questo modo Codex puo
 
 Fase 3: browser/Chromium/Playwright sul VPS solo per automazioni visuali, scraping controllato o verifica screenshot. Attivarlo solo quando serve davvero.
 
-Fase 4: valutare Hermes Agent come sorgente open-source per memoria persistente, skills, MCP host e tool gateway. Hermes puo diventare un adapter del runner, ma non deve bypassare Optima: job, permessi, audit e approvazioni restano nel control plane.
+Fase 4: copiare da Hermes Agent i pattern utili per memoria persistente, skills, MCP host, gateway e tool loop, reimplementandoli come funzioni native Optima. Hermes non deve diventare un servizio collegato al runner: job, permessi, audit e approvazioni restano nel control plane Optima.
 
 ## Dati necessari per installazione gestita
 

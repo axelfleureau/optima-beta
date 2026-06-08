@@ -48,17 +48,6 @@ const CONNECTORS: ConnectorSpec[] = [
     notes: "Il runner deve fare polling verso Optima. I risultati tornano in review prima di diventare operativi.",
   },
   {
-    id: "hermes-agent",
-    label: "Hermes Agent",
-    category: "ai",
-    purpose: "Sorgente open-source per memoria persistente, skills, tool gateway, MCP host e loop agentico self-hosted.",
-    graphUse: ["memoria", "skills", "agent_jobs", "mcp", "runner", "conversazioni"],
-    requiredEnv: [],
-    optionalEnv: ["HERMES_BIN", "HERMES_HOME", "HERMES_CONFIG"],
-    mode: "external",
-    notes: "Da usare come reference/adapter dietro il control plane Optima: Optima governa contesto, permessi, audit e review.",
-  },
-  {
     id: "cloudinary",
     label: "Cloudinary",
     category: "media",
