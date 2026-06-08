@@ -767,22 +767,22 @@ export function calculateQuoteWithExplicitParams(
   const isWebsite = template.type === 'website'
   const managementCosts = isWebsite ? getStandardManagementCosts(false) : null
   
-  // Convert pricing breakdown to quote items format
+  // Convert pricing breakdown to quote items format.
+  // Recurring website management is kept in gestioneAnnuale, not inside the
+  // signed development total, otherwise a 3.5k site looks like a 9k site.
   const items = pricing.breakdown
-    .filter(b => b.isIncluded)
+    .filter(b => b.isIncluded && b.item.category !== 'recurring')
     .map(b => ({
       descrizione: b.item.description,
       quantita: b.item.quantity || 1,
       prezzoUnitario: b.calculatedPrice,
-      totale: b.item.category === 'recurring' 
-        ? b.calculatedPrice * (customizations?.recurringMonths || 12)
-        : b.calculatedPrice * (b.item.quantity || 1),
+      totale: b.calculatedPrice * (b.item.quantity || 1),
       categoria: b.item.category,
       tipo: (b.item.unit || 'one_time') as 'one_time' | 'monthly' | 'annual'
     }))
   
-  // Calculate totals
-  const subtotale = pricing.total
+  // Calculate signed project totals. Recurring annual support remains separate.
+  const subtotale = pricing.oneTimeTotal
   const iva = subtotale * 0.22
   const totale = subtotale + iva
   
