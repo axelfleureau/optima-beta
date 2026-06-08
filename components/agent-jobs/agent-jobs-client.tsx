@@ -160,6 +160,17 @@ interface AgenticCapabilities {
     pattern: string
     rules: string[]
   }
+  tenantIsolation: {
+    organizationId: string
+    memberId: string
+    secretBoundary: string
+    dataBoundary: string
+    runnerBoundary: string
+    graphBoundary: string
+    reviewBoundary: string
+    defaultBootstrapActions: string[]
+    warnings: string[]
+  }
   runtimePolicy: {
     source: string
     contexts: Array<{
@@ -1424,6 +1435,15 @@ export function AgentJobsClient({
     }
   }
 
+  async function bootstrapTenantAgenticStack() {
+    await mutateCapabilities(
+      {
+        action: "bootstrap_tenant_agentic_stack",
+      },
+      "tenant:bootstrap",
+    )
+  }
+
   async function createJob() {
     setError(null)
     setIsCreating(true)
@@ -1576,6 +1596,15 @@ export function AgentJobsClient({
     { key: "all", label: "Tutti", count: jobs.length },
   ]
   const operationalActions = [
+    {
+      title: "Tenant OS",
+      detail: capabilities?.tenantIsolation?.organizationId ? "scoped" : "da inizializzare",
+      body: "Inizializza route modello e subagenti standard solo per l'organizzazione corrente.",
+      action: "Bootstrap tenant",
+      busyKey: "tenant:bootstrap",
+      onClick: bootstrapTenantAgenticStack,
+      complete: recommendedSubagentConfiguredCount >= recommendedSubagents.length && Boolean(capabilities?.modelRuntime?.routes.length),
+    },
     {
       title: "Provider base",
       detail: `${priorityProviderConfiguredCount}/${priorityProviderIds.length} pronti`,
@@ -1994,6 +2023,43 @@ export function AgentJobsClient({
               )
             })}
           </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3 sm:p-4">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="font-black text-emerald-50">Isolamento multi-tenant</p>
+              <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                Ogni provider, MCP, subagente, grafo e job opera dentro l'organizzazione attiva. Optima salva solo `secret_ref`, mai token o API key in chiaro.
+              </p>
+            </div>
+            <span className="w-fit max-w-full truncate rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-black text-emerald-100">
+              {capabilities?.tenantIsolation?.organizationId ?? "tenant"}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {[
+              ["Dati", capabilities?.tenantIsolation?.dataBoundary ?? "organization_id"],
+              ["Segreti", capabilities?.tenantIsolation?.secretBoundary ?? "secret_ref_only"],
+              ["Runner", capabilities?.tenantIsolation?.runnerBoundary ?? "job_payload_scoped"],
+              ["Grafo", capabilities?.tenantIsolation?.graphBoundary ?? "tenant_scoped"],
+              ["Review", capabilities?.tenantIsolation?.reviewBoundary ?? "required"],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+                <p className="mt-1 truncate text-xs font-black text-white">{value}</p>
+              </div>
+            ))}
+          </div>
+          {capabilities?.tenantIsolation?.warnings?.length ? (
+            <div className="mt-3 grid gap-2 lg:grid-cols-3">
+              {capabilities.tenantIsolation.warnings.map((warning) => (
+                <div key={warning} className="rounded-lg border border-amber-300/15 bg-amber-300/[0.055] p-3 text-xs leading-5 text-amber-50">
+                  {warning}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">

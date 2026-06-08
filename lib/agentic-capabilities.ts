@@ -130,6 +130,18 @@ export interface NativeAgenticRuntimePolicy {
   rules: string[]
 }
 
+export interface AgenticTenantIsolation {
+  organizationId: string
+  memberId: string
+  secretBoundary: "secret_ref_only"
+  dataBoundary: "organization_id"
+  runnerBoundary: "job_payload_scoped"
+  graphBoundary: "tenant_scoped_nodes_edges_sessions"
+  reviewBoundary: "irreversible_actions_require_review"
+  defaultBootstrapActions: string[]
+  warnings: string[]
+}
+
 export interface McpConnectorInstallation {
   id: string
   organizationId: string
@@ -179,6 +191,7 @@ export interface AgenticCapabilitySnapshot {
     pattern: string
     rules: string[]
   }
+  tenantIsolation: AgenticTenantIsolation
   runtimePolicy: NativeAgenticRuntimePolicy
   hermesBlueprint: ReturnType<typeof getHermesBlueprint>
 }
@@ -603,6 +616,30 @@ export function getNativeAgenticRuntimePolicy(): NativeAgenticRuntimePolicy {
   }
 }
 
+export function getAgenticTenantIsolation(principal: WorkspacePrincipal): AgenticTenantIsolation {
+  return {
+    organizationId: principal.organizationId,
+    memberId: principal.memberId,
+    secretBoundary: "secret_ref_only",
+    dataBoundary: "organization_id",
+    runnerBoundary: "job_payload_scoped",
+    graphBoundary: "tenant_scoped_nodes_edges_sessions",
+    reviewBoundary: "irreversible_actions_require_review",
+    defaultBootstrapActions: [
+      "seed_subagents_for_current_tenant",
+      "seed_model_routes_for_current_tenant",
+      "resolve_connectors_from_runtime_policy",
+      "store_only_secret_refs",
+      "return_artifacts_to_review_room",
+    ],
+    warnings: [
+      "Non riusare token o memoria tra organization_id diversi.",
+      "Il runner e condivisibile solo se ogni job contiene organizationId e non riceve segreti tenant in chiaro.",
+      "Le sorgenti esterne importano indici redatti tenant-scoped, non dump completi.",
+    ],
+  }
+}
+
 export async function listModelRoutes(db: any, organizationId: string) {
   const rows = await safeAll(
     db,
@@ -729,10 +766,58 @@ export async function getAgenticCapabilitySnapshot(
     subagents,
     modelRuntime: await getAgenticModelRuntimeSnapshot(db, principal),
     oauthGuidance: getOAuthGuidance(),
+    tenantIsolation: getAgenticTenantIsolation(principal),
     runtimePolicy: getNativeAgenticRuntimePolicy(),
     hermesBlueprint: getHermesBlueprint(),
   }
 }
+
+const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
+  {
+    name: "Codex Engineer",
+    slug: "codex-engineer",
+    lane: "code",
+    primaryProviderId: "codex",
+    modelHint: "codex-cli",
+    connectorIds: ["github", "cloudflare", "vercel", "hostinger"],
+    systemPrompt: "Produce patch, report e PR in worktree isolato. Non fa deploy, push o mutazioni produzione senza approvazione esplicita del control plane.",
+    permissions: { canCreatePatch: true, canCreatePullRequest: true, canDeploy: false, requiresReview: true },
+    handoffPolicy: { onMissingRepository: "ask_or_infer_from_graph", onRiskyAction: "return_to_review" },
+  },
+  {
+    name: "Research Analyst",
+    slug: "research-analyst",
+    lane: "research",
+    primaryProviderId: "qwen",
+    modelHint: "qwen-long-context",
+    connectorIds: ["github", "cloudinary"],
+    systemPrompt: "Raccoglie contesto, fonti e sintesi operative. Non inventa dati: segnala lacune e produce output revisionabile.",
+    permissions: { canReadGraph: true, canWriteTasks: false, requiresSources: true },
+    handoffPolicy: { onInsufficientSources: "return_to_review" },
+  },
+  {
+    name: "Media Operator",
+    slug: "media-operator",
+    lane: "media",
+    primaryProviderId: "minimax",
+    modelHint: "minimax-media",
+    connectorIds: ["cloudinary"],
+    systemPrompt: "Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
+    permissions: { canCreateMedia: true, canMutateAssets: false, requiresReview: true },
+    handoffPolicy: { onCopyrightRisk: "return_to_review" },
+  },
+  {
+    name: "Office Ops",
+    slug: "office-ops",
+    lane: "operations",
+    primaryProviderId: "gemma-hosted",
+    modelHint: "gemma-hosted",
+    connectorIds: ["sendgrid", "telegram"],
+    systemPrompt: "Classifica richieste operative, rapportini e comunicazioni interne con modello leggero o hosted quando basta.",
+    permissions: { canSendEmail: false, canDraftEmail: true, canCreateJob: true, requiresReview: true },
+    handoffPolicy: { onExternalMessage: "create_job_or_draft" },
+  },
+]
 
 export async function upsertProviderInstallation(
   db: any,
@@ -995,4 +1080,14 @@ export async function createSubagent(
       principal.memberId,
     )
     .run()
+}
+
+export async function bootstrapAgenticTenant(db: any, principal: WorkspacePrincipal) {
+  await seedHostedModelRoutes(db, principal)
+
+  for (const subagent of DEFAULT_SUBAGENTS) {
+    await createSubagent(db, principal, subagent)
+  }
+
+  return getAgenticCapabilitySnapshot(db, principal)
 }

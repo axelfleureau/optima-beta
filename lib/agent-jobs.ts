@@ -471,9 +471,14 @@ export async function claimNextAgentJob(db: any, runnerId: string): Promise<Agen
     .prepare(
       `SELECT * FROM agent_jobs
        WHERE status = 'queued'
+         AND (
+           assigned_runner = ?
+           OR assigned_runner IN ('codex-vps', 'shared-codex-vps', 'any')
+         )
        ORDER BY priority ASC, created_at ASC
        LIMIT 1`,
     )
+    .bind(runnerId)
     .first()
 
   if (!row) return null

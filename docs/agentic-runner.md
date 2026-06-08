@@ -106,6 +106,7 @@ Regole operative:
 - mai scrivere secret nei log;
 - timeout per job;
 - massimo 1-2 job concorrenti sul VPS se ospita altri servizi;
+- ogni job porta `organizationId` e il runner non deve conservare memoria, artifact temporanei o credenziali tra tenant diversi;
 - cleanup worktree dopo review o dopo N giorni;
 - PR/patch prima del deploy;
 - deploy solo con job esplicito e approvazione admin.
@@ -124,6 +125,8 @@ Il runner puo eseguire piu profili agentici, ma ogni profilo resta dichiarato in
 - `operations`: Gemma/OpenAI con SendGrid, Telegram, rapportini e task.
 
 Il runner non decide autonomamente quali integrazioni usare: riceve dal job una lane e un context bundle. Se mancano provider o MCP richiesti, deve restituire `needs_review` con una richiesta di installazione guidata.
+
+In natura multi-tenant, il runner e infrastruttura condivisa ma non e autorita tenant: non sceglie organization, non risolve segreti tenant e non puo leggere graph memory fuori dal payload ricevuto. Ogni output torna con `organizationId` del job e viene salvato in R2/D1 sotto quel tenant.
 
 La policy runtime nativa vive nello snapshot capability (`runtimePolicy`) e deriva dai pattern Hermes auditati, ma resta codice Optima. Risolve per contesto:
 

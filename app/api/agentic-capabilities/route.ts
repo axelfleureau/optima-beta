@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 
 import {
+  bootstrapAgenticTenant,
   createSubagent,
   getAgenticCapabilitySnapshot,
   seedHostedModelRoutes,
@@ -82,6 +83,9 @@ export async function POST(request: NextRequest) {
       })
     } else if (action === "seed_hosted_model_routes") {
       await seedHostedModelRoutes(auth.db, auth.principal)
+    } else if (action === "bootstrap_tenant_agentic_stack") {
+      const snapshot = await bootstrapAgenticTenant(auth.db, auth.principal)
+      return Response.json(snapshot)
     } else if (action === "upsert_model_route") {
       await upsertModelRoute(auth.db, auth.principal, {
         lane: body.lane,

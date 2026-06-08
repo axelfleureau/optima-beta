@@ -107,6 +107,7 @@ Restituisce lo stack agentico multi-tenant:
 - roster subagenti;
 - regole OAuth/installazione;
 - policy runtime per chat, job agentici, scheduled job e handoff subagenti.
+- confini tenant: `organization_id` per dati, `secret_ref` per credenziali, job payload scoped per runner, graph memory tenant-scoped.
 
 ```text
 optima://agentic/graph-memory
@@ -141,6 +142,8 @@ Regola sicurezza:
 - D1 non salva token, password o API key.
 - D1 salva solo stato, scope, policy, subject OAuth e `secret_ref`.
 - Le credenziali vere restano in OAuth provider, Cloudflare secrets, vault esterno o ambiente runner.
+- Ogni installazione, route modello, subagente, nodo grafo, sessione e job deve essere filtrato da `organization_id`.
+- Un runner puo servire piu tenant solo se riceve job gia scoped e non conserva segreti o memoria tra job.
 
 Pattern installazione:
 
@@ -151,6 +154,8 @@ Pattern installazione:
 - External OAuth per provider gestiti da app terze.
 
 I subagenti non sono account separati senza controllo: sono profili operativi del tenant. Ogni subagente riceve solo lane, provider e connector dichiarati; le azioni rischiose tornano sempre nella review room.
+
+Il bootstrap tenant (`bootstrap_tenant_agentic_stack`) crea solo default idempotenti per l'organizzazione corrente: route modello suggerite e subagenti standard. Non installa provider reali, non salva token e non dichiara healthy una capability non verificata.
 
 Hermes Agent non va collegato come servizio esterno. La repo ufficiale e una sorgente di audit da cui Optima copia e reimplementa funzioni agentiche native: memoria, skills, MCP host, provider routing, scheduler, gateway e subagenti. Optima resta il livello che governa grafo aziendale, permessi, memoria autorizzata, job, audit e approvazioni.
 
