@@ -56,7 +56,7 @@ Il token di servizio non sostituisce OAuth per client esterni. Serve solo per bo
 - `optima_connector_catalog`
   - espone il catalogo dei connettori strategici dell'OS agentico.
 - `optima_agentic_capability_catalog`
-  - espone provider AI/code, connettori MCP, stato installazioni tenant e regole OAuth/installazione.
+  - espone provider AI/code, connettori MCP, stato installazioni tenant, regole OAuth/installazione e policy runtime nativa.
 - `optima_subagent_roster`
   - lista subagenti configurati per il tenant, con provider primario, lane e connector concessi.
 - `optima_graph_memory_snapshot`
@@ -105,7 +105,8 @@ Restituisce lo stack agentico multi-tenant:
 - connettori MCP: SendGrid, Telegram, Cloudinary, GitHub, Cloudflare, Vercel, Hostinger;
 - installazioni per tenant;
 - roster subagenti;
-- regole OAuth/installazione.
+- regole OAuth/installazione;
+- policy runtime per chat, job agentici, scheduled job e handoff subagenti.
 
 ```text
 optima://agentic/graph-memory
@@ -152,6 +153,8 @@ Pattern installazione:
 I subagenti non sono account separati senza controllo: sono profili operativi del tenant. Ogni subagente riceve solo lane, provider e connector dichiarati; le azioni rischiose tornano sempre nella review room.
 
 Hermes Agent non va collegato come servizio esterno. La repo ufficiale e una sorgente di audit da cui Optima copia e reimplementa funzioni agentiche native: memoria, skills, MCP host, provider routing, scheduler, gateway e subagenti. Optima resta il livello che governa grafo aziendale, permessi, memoria autorizzata, job, audit e approvazioni.
+
+La prima funzione assorbita come codice nativo e `runtimePolicy`: definisce toolset consentiti, toolset bloccati e passaggi review per chat, job agentici, scheduled job e handoff subagenti. Questo evita che provider o runner decidano autonomamente cosa possono fare.
 
 Graphify puo alimentare la graph memory con `graph.json` e report codice, ma ogni import deve conservare source, confidence e tenant scope. Le relazioni dedotte non devono diventare dati operativi certi senza review.
 

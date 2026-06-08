@@ -125,6 +125,13 @@ Il runner puo eseguire piu profili agentici, ma ogni profilo resta dichiarato in
 
 Il runner non decide autonomamente quali integrazioni usare: riceve dal job una lane e un context bundle. Se mancano provider o MCP richiesti, deve restituire `needs_review` con una richiesta di installazione guidata.
 
+La policy runtime nativa vive nello snapshot capability (`runtimePolicy`) e deriva dai pattern Hermes auditati, ma resta codice Optima. Risolve per contesto:
+
+- `interactive_chat`: grafo, lookup business, memoria e creazione job; niente deploy, shell, secret o bulk write.
+- `agent_job`: lettura grafo, artifact, git read, patch propose e MCP allowlist; deploy, PR, email e mutazioni DB tornano in review.
+- `scheduled_job`: health, digest, notifiche draft e graph read; niente tool interattivi o shell.
+- `subagent_handoff`: memoria scoped, connector di lane e handoff event; niente accesso cross-tenant o tutti i connector.
+
 ## Graph memory e sessioni agentiche
 
 La memoria a grafo vive in `agentic_graph_nodes`, `agentic_graph_edges` e `agentic_graph_sessions`.

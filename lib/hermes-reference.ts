@@ -140,17 +140,20 @@ export const HERMES_ADAPTER_PATTERNS: HermesAdapterPattern[] = [
     id: "scheduler-cron",
     lane: "scheduler",
     label: "Scheduled automations",
-    status: "planned",
+    status: "partial",
     hermesFiles: [
       "README.md",
       "website/docs/user-guide/features/cron.md",
+      "cron/scheduler.py",
       "tests/cron/test_scheduler_mcp_init.py",
+      "tests/cron/test_scheduler_toolset_policy.py",
     ],
-    optimaSurface: ["agent_jobs", "Cloudflare Cron", "work_days", "notifications"],
+    optimaSurface: ["agent_jobs", "Cloudflare Cron", "work_days", "notifications", "runtimePolicy"],
     implementation:
-      "Optima should schedule recurring audits, digest emails, graph sync and runner health checks as visible jobs with review/audit.",
+      "Optima now exposes a native Hermes-derived runtime policy for scheduled jobs, interactive chat, agent jobs and subagent handoffs. Next step is persisted scheduled job management with visible pause/cancel/retry controls.",
     guardrails: [
       "Cron jobs must be visible and cancellable.",
+      "Cron context must use a narrower toolset than interactive chat or agent jobs.",
       "Automations must not mutate client-facing state without policy.",
       "Failures should notify responsible roles.",
     ],

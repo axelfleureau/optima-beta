@@ -160,6 +160,25 @@ interface AgenticCapabilities {
     pattern: string
     rules: string[]
   }
+  runtimePolicy: {
+    source: string
+    contexts: Array<{
+      id: string
+      label: string
+      allowedToolsets: string[]
+      blockedToolsets: string[]
+      requiredReview: string[]
+      notes: string
+    }>
+    lanePolicies: Array<{
+      lane: string
+      defaultProviderId: string
+      allowedConnectors: string[]
+      blockedActions: string[]
+      fallbackProviderId: string | null
+    }>
+    rules: string[]
+  }
   hermesBlueprint: {
     reference: {
       repository: string
@@ -2108,6 +2127,62 @@ export function AgentJobsClient({
                 {capabilities?.oauthGuidance.pattern ??
                   "Authorization Code + PKCE per installazioni utente, GitHub App per repository, secret_ref per API key e local_install per runner self-hosted."}
               </p>
+            </div>
+
+            <div className="min-w-0 rounded-lg border border-sky-300/15 bg-sky-300/[0.045] p-3 sm:p-4">
+              <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-sky-50">Policy runtime nativa</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                    Optima risolve toolset, connector e review dal control plane. Questa e la prima funzione assorbita dalla filosofia Hermes: ogni contesto parte da una allowlist minima.
+                  </p>
+                </div>
+                <span className="w-fit shrink-0 rounded-full border border-sky-300/25 bg-sky-300/10 px-2.5 py-1 text-[11px] font-black text-sky-100">
+                  {capabilities?.runtimePolicy?.source === "optima_native_hermes_derived" ? "native" : "policy"}
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {(capabilities?.runtimePolicy?.contexts ?? []).map((context) => (
+                  <div key={context.id} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                    <p className="truncate text-sm font-black text-white">{context.label}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{context.notes}</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {context.allowedToolsets.slice(0, 3).map((toolset) => (
+                        <span key={toolset} className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100">
+                          {toolset}
+                        </span>
+                      ))}
+                      {context.blockedToolsets.slice(0, 2).map((toolset) => (
+                        <span key={toolset} className="max-w-full truncate rounded-full border border-red-300/20 bg-red-300/10 px-2 py-0.5 text-[10px] font-bold text-red-100">
+                          no {toolset}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-2 truncate text-[11px] font-bold text-amber-100">
+                      Review: {context.requiredReview.slice(0, 3).join(", ")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 grid gap-2 min-[540px]:grid-cols-2 xl:grid-cols-3">
+                {(capabilities?.runtimePolicy?.lanePolicies ?? []).map((lane) => (
+                  <div key={lane.lane} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">{lane.lane}</p>
+                        <p className="mt-1 truncate text-xs text-slate-500">
+                          {lane.defaultProviderId}{lane.fallbackProviderId ? ` -> ${lane.fallbackProviderId}` : ""}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                        {lane.allowedConnectors.length} tool
+                      </span>
+                    </div>
+                    <p className="mt-2 truncate text-xs text-cyan-100">{lane.allowedConnectors.join(", ") || "nessun connector"}</p>
+                    <p className="mt-1 line-clamp-1 text-[11px] text-red-100/80">Blocca: {lane.blockedActions.slice(0, 2).join(", ")}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="min-w-0 rounded-lg border border-teal-300/15 bg-teal-300/[0.05] p-3 sm:p-4">

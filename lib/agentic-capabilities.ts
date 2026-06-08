@@ -108,6 +108,28 @@ export interface AgenticModelRuntimeSnapshot {
   }>
 }
 
+export type AgenticExecutionContext = "interactive_chat" | "agent_job" | "scheduled_job" | "subagent_handoff"
+
+export interface NativeAgenticRuntimePolicy {
+  source: "optima_native_hermes_derived"
+  contexts: Array<{
+    id: AgenticExecutionContext
+    label: string
+    allowedToolsets: string[]
+    blockedToolsets: string[]
+    requiredReview: string[]
+    notes: string
+  }>
+  lanePolicies: Array<{
+    lane: AgenticModelLane
+    defaultProviderId: string
+    allowedConnectors: string[]
+    blockedActions: string[]
+    fallbackProviderId: string | null
+  }>
+  rules: string[]
+}
+
 export interface McpConnectorInstallation {
   id: string
   organizationId: string
@@ -157,6 +179,7 @@ export interface AgenticCapabilitySnapshot {
     pattern: string
     rules: string[]
   }
+  runtimePolicy: NativeAgenticRuntimePolicy
   hermesBlueprint: ReturnType<typeof getHermesBlueprint>
 }
 
@@ -489,6 +512,97 @@ export function getOAuthGuidance() {
   }
 }
 
+export function getNativeAgenticRuntimePolicy(): NativeAgenticRuntimePolicy {
+  return {
+    source: "optima_native_hermes_derived",
+    contexts: [
+      {
+        id: "interactive_chat",
+        label: "Chat e command bar",
+        allowedToolsets: ["graph_read", "business_lookup", "memory_read", "job_create"],
+        blockedToolsets: ["deploy", "shell", "secret_read", "bulk_write"],
+        requiredReview: ["job_create_with_repository", "customer_facing_send", "financial_statement"],
+        notes: "La chat risponde subito solo quando il dato e nel grafo o nelle tabelle Optima; il lavoro operativo diventa job revisionabile.",
+      },
+      {
+        id: "agent_job",
+        label: "Job agentico",
+        allowedToolsets: ["graph_read", "artifact_write", "git_read", "patch_propose", "mcp_allowlist"],
+        blockedToolsets: ["direct_deploy", "unscoped_customer_export", "secret_print"],
+        requiredReview: ["patch_apply", "pull_request", "email_send", "database_mutation", "production_deploy"],
+        notes: "Il runner riceve lane, connector concessi e brief; restituisce output in review prima di mutare stato irreversibile.",
+      },
+      {
+        id: "scheduled_job",
+        label: "Scheduler e cron",
+        allowedToolsets: ["graph_read", "health_check", "digest_generate", "notification_draft"],
+        blockedToolsets: ["interactive_messaging", "deploy", "shell", "secret_read"],
+        requiredReview: ["write_business_records", "send_external_email", "modify_clients"],
+        notes: "I cron devono essere visibili, cancellabili e non devono ereditare tool interattivi o privilegi larghi.",
+      },
+      {
+        id: "subagent_handoff",
+        label: "Handoff subagenti",
+        allowedToolsets: ["graph_read", "memory_scoped", "connector_lane_allowlist", "handoff_event"],
+        blockedToolsets: ["all_connectors", "cross_tenant_memory", "unreviewed_irreversible_action"],
+        requiredReview: ["lane_escalation", "connector_escalation", "external_delivery"],
+        notes: "Ogni subagente eredita solo lane, provider e connector dichiarati; l'escalation crea evento tracciato.",
+      },
+    ],
+    lanePolicies: [
+      {
+        lane: "code",
+        defaultProviderId: "codex",
+        allowedConnectors: ["github", "cloudflare", "vercel", "hostinger"],
+        blockedActions: ["direct_production_deploy", "secret_exfiltration", "unreviewed_force_push"],
+        fallbackProviderId: "open-code",
+      },
+      {
+        lane: "research",
+        defaultProviderId: "qwen",
+        allowedConnectors: ["github", "cloudinary"],
+        blockedActions: ["write_customer_records", "send_external_message"],
+        fallbackProviderId: "openai",
+      },
+      {
+        lane: "media",
+        defaultProviderId: "minimax",
+        allowedConnectors: ["cloudinary"],
+        blockedActions: ["publish_unreviewed_asset", "use_unlicensed_source"],
+        fallbackProviderId: null,
+      },
+      {
+        lane: "operations",
+        defaultProviderId: "gemma-hosted",
+        allowedConnectors: ["sendgrid", "telegram"],
+        blockedActions: ["send_unreviewed_admin_email", "modify_timesheets_without_trace"],
+        fallbackProviderId: "openai",
+      },
+      {
+        lane: "chat",
+        defaultProviderId: "openai",
+        allowedConnectors: ["github", "cloudflare", "sendgrid"],
+        blockedActions: ["answer_with_empty_model_content", "invent_missing_business_data"],
+        fallbackProviderId: null,
+      },
+      {
+        lane: "router",
+        defaultProviderId: "openai",
+        allowedConnectors: ["github", "cloudflare", "sendgrid", "telegram", "cloudinary"],
+        blockedActions: ["bypass_tenant_scope", "bypass_review_room"],
+        fallbackProviderId: null,
+      },
+    ],
+    rules: [
+      "Toolset e connector vengono risolti dal control plane Optima, non dal runner o dal modello.",
+      "Ogni contesto parte da una allowlist minima e aggiunge capability solo tramite lane o job scope.",
+      "La policy cron e piu restrittiva della policy chat: niente tool interattivi, deploy o shell.",
+      "Fallback provider esplicito: non sostituire modello/provider in silenzio.",
+      "Azioni irreversibili passano dalla review room con evento audit.",
+    ],
+  }
+}
+
 export async function listModelRoutes(db: any, organizationId: string) {
   const rows = await safeAll(
     db,
@@ -615,6 +729,7 @@ export async function getAgenticCapabilitySnapshot(
     subagents,
     modelRuntime: await getAgenticModelRuntimeSnapshot(db, principal),
     oauthGuidance: getOAuthGuidance(),
+    runtimePolicy: getNativeAgenticRuntimePolicy(),
     hermesBlueprint: getHermesBlueprint(),
   }
 }

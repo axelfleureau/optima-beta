@@ -283,6 +283,13 @@ function formatCapabilitySnapshot(snapshot: Awaited<ReturnType<typeof getAgentic
     "",
     ...snapshot.oauthGuidance.rules.map((rule) => `- ${rule}`),
     "",
+    "## Policy runtime nativa",
+    `- source: ${snapshot.runtimePolicy.source}`,
+    ...snapshot.runtimePolicy.contexts.map(
+      (context) =>
+        `- ${context.label}: allow ${context.allowedToolsets.join(", ")}; block ${context.blockedToolsets.join(", ")}; review ${context.requiredReview.join(", ")}`,
+    ),
+    "",
     "## Provider",
     providers,
     "",
