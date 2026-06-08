@@ -1,6 +1,6 @@
 export const HERMES_REFERENCE = {
   id: "hermes-agent",
-  label: "Hermes-derived agentic core",
+  label: "Optima native agentic core blueprint",
   repository: "https://github.com/NousResearch/hermes-agent",
   localClone: "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
   auditedRevision: "ab0a6270c",
@@ -9,7 +9,7 @@ export const HERMES_REFERENCE = {
   importPolicy:
     "Reference-only pattern import: Hermes is not an external connector to install. Optima absorbs compatible MIT patterns as TypeScript-native capabilities. Do not vendor the Python runtime, desktop app, secrets, or the active Hermes VPS service.",
   integrationRule:
-    "Hermes is a source blueprint, not a linked service. Optima becomes the enterprise agentic OS: tenant scope, permissions, graph memory, jobs, audit, review and deploy approval stay in Optima while the useful Hermes patterns are reimplemented inside Optima.",
+    "External agentic runtimes are source blueprints, not linked services. Optima is the enterprise agentic OS: tenant scope, permissions, graph memory, jobs, audit, review and deploy approval stay in Optima while useful open-source patterns are reimplemented as native Optima capabilities.",
 } as const
 
 export type HermesAdapterLane =

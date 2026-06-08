@@ -90,7 +90,7 @@ export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
   },
   {
     id: "hermes-agent",
-    label: HERMES_REFERENCE.label,
+    label: "Blueprint agentico open-source assorbito",
     sourceType: "open_source_reference",
     url: HERMES_REFERENCE.repository,
     importPolicy: HERMES_REFERENCE.importPolicy,

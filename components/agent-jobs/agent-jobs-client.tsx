@@ -1424,7 +1424,7 @@ export function AgentJobsClient({
       title: `Setup provider ${provider.label}`,
       contextSummary: `Provider ${provider.lane} / ${provider.authMethod}`,
       brief: [
-        `Configura in Optima il provider ${provider.label} per la lane ${provider.lane}, usando pattern agentici ispirati a Hermes senza toccare il servizio Hermes attivo.`,
+        `Configura in Optima il provider ${provider.label} per la lane ${provider.lane}, usando pattern agentici nativi e auditati senza dipendere da servizi agentici esterni.`,
         `Default model: ${provider.defaultModel}. Auth: ${provider.authMethod}.`,
         `Segreti richiesti: ${provider.requiredSecrets.length ? provider.requiredSecrets.join(", ") : "nessuno"}.`,
         `MCP consigliati: ${provider.recommendedMcpConnectors.length ? provider.recommendedMcpConnectors.join(", ") : "nessuno"}.`,
@@ -1713,7 +1713,9 @@ export function AgentJobsClient({
   const graphHasActiveFilter = Boolean(graphQuery.trim() || graphNodeTypeFilter || graphSourceFilter)
   const readyRuntimeCount = capabilities?.modelRuntime?.hosts.filter((host) => host.runtimeStatus === "ready").length ?? 0
   const configuredProviderCount = capabilities?.providerInstallations.filter((item) => item.installState !== "not_installed").length ?? 0
-  const configuredConnectorCount = capabilities?.connectorInstallations.filter((item) => item.installState !== "not_installed").length ?? 0
+  const operationalMcpConnectors = (capabilities?.mcpConnectorCatalog ?? []).filter((connector) => connector.id !== "hermes-agent")
+  const configuredConnectorCount =
+    capabilities?.connectorInstallations.filter((item) => item.connectorId !== "hermes-agent" && item.installState !== "not_installed").length ?? 0
   const priorityProviderConfiguredCount =
     capabilities?.providerInstallations.filter((item) => priorityProviderIds.includes(item.providerId) && item.installState !== "not_installed").length ?? 0
   const priorityConnectorConfiguredCount =
@@ -2351,7 +2353,7 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-sky-50">Policy runtime nativa</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                    Optima risolve toolset, connector e review dal control plane. Questa e la prima funzione assorbita dalla filosofia Hermes: ogni contesto parte da una allowlist minima.
+                    Optima risolve toolset, connector e review dal control plane. Ogni contesto parte da una allowlist minima e le capability esterne restano subordinate alla policy tenant.
                   </p>
                 </div>
                 <span className="w-fit shrink-0 rounded-full border border-sky-300/25 bg-sky-300/10 px-2.5 py-1 text-[11px] font-black text-sky-100">
@@ -2405,10 +2407,10 @@ export function AgentJobsClient({
             <div className="min-w-0 rounded-lg border border-teal-300/15 bg-teal-300/[0.05] p-3 sm:p-4">
               <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
                 <div className="min-w-0">
-                  <p className="font-black text-white">Core agentico Optima derivato da Hermes</p>
+                  <p className="font-black text-white">Core agentico nativo Optima</p>
                   <p className="mt-2 break-words text-sm leading-6 text-slate-300">
                     {capabilities?.hermesBlueprint?.reference.integrationRule ??
-                      "Optima assorbe le funzioni utili di Hermes come capability native: gateway, memoria, skill, MCP, provider routing e subagenti governati dal control plane aziendale."}
+                      "Optima assorbe pattern agentici auditati come capability native: gateway, memoria, skill, MCP, provider routing e subagenti governati dal control plane aziendale."}
                   </p>
                 </div>
                 <span className="w-fit shrink-0 rounded-full border border-teal-300/25 bg-teal-300/10 px-2.5 py-1 text-[11px] font-black text-teal-100">
@@ -2808,11 +2810,11 @@ export function AgentJobsClient({
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-                  {configuredConnectorCount}/{capabilities?.mcpConnectorCatalog.length ?? 0}
+                  {configuredConnectorCount}/{operationalMcpConnectors.length}
                 </span>
               </div>
               <div className="mt-3 grid gap-2">
-                {(capabilities?.mcpConnectorCatalog ?? []).map((connector) => {
+                {operationalMcpConnectors.map((connector) => {
                   const installation = connectorInstallationsById.get(connector.id)
                   const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
                   const busy = setupAction === `connector-setup:${connector.id}`

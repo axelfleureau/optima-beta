@@ -31,7 +31,7 @@ const CONNECTORS: ConnectorSpec[] = [
     id: "telegram",
     label: "Telegram",
     category: "messaging",
-    purpose: "Canale conversazionale stile Hermes: riceve indicazioni operative e risponde usando AI Assistant, memoria e grafo Optima.",
+    purpose: "Canale conversazionale Optima: riceve indicazioni operative e risponde usando AI Assistant, memoria e grafo aziendale.",
     graphUse: ["conversazioni", "assistant_memories", "task", "clienti", "agent_jobs", "audit"],
     requiredEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_DEFAULT_MEMBER_EMAIL"],
     optionalEnv: ["TELEGRAM_WEBHOOK_SECRET", "TELEGRAM_ALLOWED_CHAT_IDS", "TELEGRAM_ALLOWED_USERNAMES", "TELEGRAM_MEMBER_EMAIL_MAP"],
