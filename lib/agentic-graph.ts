@@ -119,6 +119,8 @@ export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
     usefulPatterns: [
       "RIG_CLIENTI RIGHELLO: collection://28132473-a5fc-8035-803f-000b76e5cbf3",
       "RIG_WORK: collection://27f32473-a5fc-818d-8448-000b562dd5cf",
+      "Configuratore preventivi Righello: documentazione step, servizi, PDF e dashboard amministrazione in RIG_WORK",
+      "Preventivi storici: indicizzare solo titolo, macro-servizi, range economici redatti, stato e relazioni cliente/progetto",
       "importare clienti, task, stati, tipologie, relazioni e timestamp come nodi redatti",
       "escludere pagine credenziali, accessi, token, fiscali non necessari, allegati pesanti e dump integrali",
       "relazioni Notion cliente-task mappate come archi tenant-scoped revisionabili",
@@ -674,6 +676,49 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     },
   })
 
+  const quoteConfigurator = await upsertAgenticGraphNode(db, principal, {
+    nodeType: "notion_quote_configurator",
+    title: "Notion configuratore preventivi Righello",
+    summary: "Fonte funzionale per flusso preventivi: pacchetto o custom, servizi, dati cliente, riepilogo, PDF, dashboard amministrazione e stile.",
+    sourceType: "notion_righello",
+    sourceId: "notion:page:27f32473-a5fc-8130-9985-c3d4b4728bf4",
+    sourceUrl: "https://app.notion.com/p/27f32473a5fc81309985c3d4b4728bf4",
+    confidence: "manual",
+    tags: ["notion", "righello", "quotes", "configurator", "preventivi"],
+    properties: {
+      safeChildPages: [
+        "SCEGLI UN PACCHETTO",
+        "CONFIGURA I SERVIZI",
+        "DATI CLIENTE",
+        "RIEPILOGO",
+        "PREVENTIVO",
+        "DASHBOARD AMMINISTRAZIONE",
+        "STILE",
+      ],
+      serviceAreas: ["sito web", "gestione annuale", "piano comunicazione", "foto e video", "seo", "advertising", "crm/sige", "extra"],
+      importPolicy: "functional_spec_and_redacted_pricing_patterns_only",
+    },
+  })
+
+  const quoteHistoricalPatterns = await upsertAgenticGraphNode(db, principal, {
+    nodeType: "notion_quote_patterns",
+    title: "Notion preventivi storici Righello",
+    summary: "Pattern commerciali reali da usare come memoria redatta per migliorare precisione preventivi: sito base/Webflow, WhatsApp/API/AI annuale, task PREVENTIVO in RIG_WORK.",
+    sourceType: "notion_righello",
+    sourceId: "notion:rig_work:quote-patterns",
+    sourceUrl: "collection://27f32473-a5fc-818d-8448-000b562dd5cf",
+    confidence: "manual",
+    tags: ["notion", "righello", "quotes", "pricing-patterns", "preventivi"],
+    properties: {
+      examples: [
+        "CONTABILIZZARE TUBARO SITO: sito base, inserimento annunci, Webflow, pagamenti parziali",
+        "PREVENTIVO WHATSAPP: opzioni annuali 18-22k, 10.5k/11.7k, 38.7k premium",
+      ],
+      excludedFields: ["EMAIL CLIENTE", "EMAIL PERSONA", "ALLEGATI", "LINK ONEDRIVE", "Attachments", "credenziali", "accessi"],
+      importPolicy: "redacted_title_macroservice_range_status_only",
+    },
+  })
+
   const hermesPatternNodes = []
   for (const pattern of HERMES_ADAPTER_PATTERNS) {
     hermesPatternNodes.push(
@@ -711,8 +756,13 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     [referenceNodes.find((node) => node?.sourceId === "notion-righello-readonly")?.id, graphMemory?.id, "can_feed_business_graph", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "notion-righello-readonly")?.id, notionClients?.id, "allowlists_database", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "notion-righello-readonly")?.id, notionWork?.id, "allowlists_database", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "notion-righello-readonly")?.id, quoteConfigurator?.id, "allowlists_quote_source", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "notion-righello-readonly")?.id, quoteHistoricalPatterns?.id, "allowlists_quote_source", "manual"],
     [notionClients?.id, graphMemory?.id, "feeds_client_graph", "manual"],
     [notionWork?.id, graphMemory?.id, "feeds_task_graph", "manual"],
+    [quoteConfigurator?.id, graphMemory?.id, "feeds_quote_workflow", "manual"],
+    [quoteHistoricalPatterns?.id, graphMemory?.id, "feeds_quote_pricing_memory", "manual"],
+    [notionWork?.id, quoteHistoricalPatterns?.id, "contains_quote_tasks", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphEngine?.id, "documents_engine_pattern", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphMemory?.id, "informs_graph_schema", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "perplexity-computer-pattern")?.id, optima?.id, "informs_ux_pattern", "inferred"],

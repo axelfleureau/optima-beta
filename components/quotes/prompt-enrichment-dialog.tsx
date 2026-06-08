@@ -37,6 +37,10 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SECTOR_TEMPLATES } from "@/lib/quote-templates"
+import {
+  RIGHELLO_QUOTE_DISCOVERY_QUESTIONS,
+  RIGHELLO_QUOTE_SERVICE_AREAS,
+} from "@/lib/righello-quote-operating-model"
 import { useClients } from "@/hooks/use-clients"
 import { 
   WEBSITE_180_TEMPLATE, 
@@ -105,12 +109,21 @@ const PROJECT_TYPES = [
   },
   {
     id: 'ai_ops_automation',
-    pricingTemplateId: 'website_360',
+    pricingTemplateId: 'messaging_automation',
     label: 'AI, automazioni e sistemi operativi',
-    description: 'Workflow agentici, dashboard, integrazioni MCP/API e processi interni.',
+    description: 'WhatsApp/API, AI FAQ, dashboard operatori, MCP/API e workflow agentici.',
     icon: Sparkles,
     template: WEBSITE_360_TEMPLATE,
-    priceLabel: 'da €6.170'
+    priceLabel: 'da discovery'
+  },
+  {
+    id: 'crm_sige_platform',
+    pricingTemplateId: 'website_360',
+    label: 'CRM/SIGE e gestionale',
+    description: 'Moduli dipendenti, formazione, DPI, documenti, certificazioni e dashboard operative.',
+    icon: FileText,
+    template: WEBSITE_360_TEMPLATE,
+    priceLabel: 'su misura'
   },
   {
     id: 'video_packages_media',
@@ -396,6 +409,26 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                       )
                     })}
                   </RadioGroup>
+                  <div className="rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-200">
+                      Catalogo operativo Righello
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {RIGHELLO_QUOTE_SERVICE_AREAS.map((area) => (
+                        <Badge
+                          key={area.id}
+                          variant="outline"
+                          className="rounded-[8px] border-cyan-300/30 bg-cyan-300/10 text-cyan-900 dark:text-cyan-100"
+                          title={area.summary}
+                        >
+                          {area.shortLabel}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-cyan-950/70 dark:text-cyan-100/70">
+                      Il preventivo deve collegare servizi, cliente, progetto, fonte e storico commerciale quando disponibili.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -478,7 +511,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                         id="description"
                         value={formData.description || ''}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        placeholder="Descrivi in dettaglio il progetto, gli obiettivi, le funzionalità desiderate..."
+                        placeholder="Descrivi progetto, macro-servizi, costi una tantum/mensili/annuali, materiali disponibili, varianti richieste e vincoli commerciali..."
                         className="mt-2 min-h-[120px] bg-white/50 dark:bg-black/30 backdrop-blur-sm"
                         autoFocus
                       />
@@ -610,6 +643,16 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                             Δ €{((formData.budgetRange?.max || 15000) - (formData.budgetRange?.min || 3000)).toLocaleString()}
                           </Badge>
                         </div>
+                      </div>
+                    </div>
+                    <div className="rounded-[8px] border border-white/10 bg-white/40 p-4 dark:bg-black/20">
+                      <p className="text-sm font-semibold">Domande da non saltare</p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {RIGHELLO_QUOTE_DISCOVERY_QUESTIONS.slice(0, 6).map((question) => (
+                          <p key={question} className="text-xs leading-5 text-muted-foreground">
+                            {question}
+                          </p>
+                        ))}
                       </div>
                     </div>
                   </div>

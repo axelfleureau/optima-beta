@@ -37,6 +37,7 @@ import { useQuotes } from "@/hooks/use-quotes"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { db } from "@/lib/firebase"
+import { getRighelloQuoteAreaLabels, RIGHELLO_QUOTE_FLOW_STEPS } from "@/lib/righello-quote-operating-model"
 import { cn } from "@/lib/utils"
 import type { GeneratedQuoteData } from "@/lib/ai-quote-service"
 import type { Quote } from "@/types/quote"
@@ -69,13 +70,7 @@ const statusTabs: Array<{ value: StatusFilter; label: string }> = [
 const finalPositiveStates: Quote["status"][] = ["approved", "in_progress", "completed"]
 const openStates: Quote["status"][] = ["sent", "in_review", "pending_payment"]
 
-const righelloServiceLines = [
-  "Siti, landing e SEO locale",
-  "Piattaforme web, CMS e integrazioni",
-  "AI, automazioni e sistemi operativi",
-  "Foto, video e contenuti verticali",
-  "Comunicazione, campagne e brand",
-]
+const righelloServiceLines = getRighelloQuoteAreaLabels()
 
 function toDate(value: Date | { toDate?: () => Date } | string | number | null | undefined) {
   if (!value) return null
@@ -400,6 +395,20 @@ export default function PreventiviPage() {
                       >
                         {line}
                       </span>
+                    ))}
+                  </div>
+                  <div className="grid max-w-4xl gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    {RIGHELLO_QUOTE_FLOW_STEPS.map((flowStep, index) => (
+                      <div
+                        key={flowStep.id}
+                        className="rounded-[8px] border border-white/10 bg-black/20 p-3"
+                        title={flowStep.summary}
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">
+                          Step {index + 1}
+                        </p>
+                        <p className="mt-1 text-xs font-bold text-white">{flowStep.label}</p>
+                      </div>
                     ))}
                   </div>
                 </div>

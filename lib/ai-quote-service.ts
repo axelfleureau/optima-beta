@@ -8,6 +8,9 @@ import {
   generateQuoteNumber
 } from "@/lib/quote-templates"
 import { getBaseUrl } from "@/lib/quote-utils"
+import { buildRighelloQuoteOperatingContext } from "@/lib/righello-quote-operating-model"
+
+const RIGHELLO_QUOTE_OPERATING_CONTEXT = buildRighelloQuoteOperatingContext()
 
 export interface EnrichedPromptData {
   projectType: string
@@ -192,6 +195,8 @@ const QUOTE_SYSTEM_PROMPT = `Sei un commerciale esperto di Righello che crea pre
 
 Analizza la descrizione del progetto e identifica il settore per utilizzare i prezzi e servizi corretti di Righello.
 
+${RIGHELLO_QUOTE_OPERATING_CONTEXT}
+
 PREZZI STANDARDIZZATI RIGHELLO:
 
 SITI WEB BASE (3500€):
@@ -211,6 +216,13 @@ VIDEO E FOTO:
 - Video principale (45-60s): 400-770€
 - Shooting fotografico: 250-300€
 - Video sociale verticale: 70€
+
+CANALI CONVERSAZIONALI, API E AI:
+- WhatsApp/API/AI annuale base scenario: circa 19.800€/anno
+- Range operativo verificato: 18.000-22.000€/anno
+- Variante setup + API/AI: 10.500€ anno 1 e 11.700€ anno 2+
+- Premium API totale: 38.700€/anno
+- Esplicita sempre volumi, canali, GDPR, dashboard, report, handoff e responsabilita operative
 
 SETTORI SPECIALIZZATI:
 - Edilizia: 3500€ base, focus su portfolio cantieri
@@ -292,6 +304,8 @@ FORMATO JSON:
 const CONTENT_ONLY_SYSTEM_PROMPT = `Sei un commerciale senior di Righello. I PREZZI e le VOCI DI COSTO sono gia stati calcolati dai template aziendali.
 
 Il preventivo deve sembrare scritto da uno studio di design: concreto, elegante, leggibile e orientato alla firma. Non deve sembrare un template Word.
+
+${RIGHELLO_QUOTE_OPERATING_CONTEXT}
 
 IL TUO COMPITO E SOLO GENERARE CONTENUTI TESTUALI:
 1. Personalizzare OBIETTIVI basandoti sulla descrizione del progetto e settore del cliente
@@ -437,6 +451,9 @@ INFORMAZIONI PROGETTO:
 
 MATERIALI BRAND E DISCOVERY:
 ${brandContext || '- Materiali da verificare in fase di avvio progetto'}
+
+MODELLO OPERATIVO RIGHELLO:
+${RIGHELLO_QUOTE_OPERATING_CONTEXT}
 
 VOCI DI COSTO GIÀ CALCOLATE (NON MODIFICARE):
 ${JSON.stringify(templateResult.items.slice(0, 5), null, 2)}
@@ -638,6 +655,9 @@ ${data.clientCompany ? `AZIENDA: ${data.clientCompany}` : ''}
 ${data.budget ? `BUDGET INDICATIVO: ${data.budget}` : ''}
 ${data.deadline ? `SCADENZA: ${data.deadline}` : ''}
 ${data.additionalRequirements ? `REQUISITI AGGIUNTIVI: ${data.additionalRequirements}` : ''}${sectorPrompt}
+
+MODELLO OPERATIVO RIGHELLO:
+${RIGHELLO_QUOTE_OPERATING_CONTEXT}
 
 GENERA PREVENTIVO RIGHELLO:
 - Numero: ${quoteNumber}

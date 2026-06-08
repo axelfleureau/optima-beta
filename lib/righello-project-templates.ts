@@ -501,12 +501,116 @@ export const COMMUNICATION_180_TEMPLATE: ProjectTemplate = {
   examples: ['La Vie en Rose']
 }
 
+export const MESSAGING_AUTOMATION_TEMPLATE: ProjectTemplate = {
+  id: 'messaging_automation',
+  type: 'communication',
+  complexity: 'advanced',
+  name: 'Canali conversazionali, API e AI',
+  description: 'Sistema annuale per WhatsApp Business API, broadcast, profilazione, AI FAQ, dashboard operatori, GDPR, report e governance operativa.',
+  basePrice: 19800,
+  priceRange: {
+    min: 10500,
+    max: 38700,
+    standard: 19800
+  },
+  items: [
+    {
+      id: 'broadcast_management',
+      name: 'Gestione broadcasting e liste',
+      description: 'Preparazione liste, script professionali, invii programmati, monitoraggio operativo e coordinamento comunicazioni.',
+      priceRange: { min: 0, max: 7000, standard: 7000 },
+      category: 'base',
+      unit: 'one_time',
+      quantity: 1,
+      variability: 25
+    },
+    {
+      id: 'personalized_api_service',
+      name: 'Servizio API comunicazioni profilate',
+      description: 'Invii personalizzati, segmentazione, tracciamento e analytics per contatti profilati.',
+      priceRange: { min: 3224, max: 3224, standard: 3224 },
+      category: 'base',
+      unit: 'one_time',
+      quantity: 1,
+      variability: 10
+    },
+    {
+      id: 'whatsapp_business_platform',
+      name: 'Piattaforma WhatsApp Business API',
+      description: 'Canale WhatsApp Business API con template, configurazione piattaforma e costi servizio base.',
+      priceRange: { min: 980, max: 1380, standard: 980 },
+      category: 'base',
+      unit: 'one_time',
+      quantity: 1,
+      variability: 10
+    },
+    {
+      id: 'ai_conversation_setup',
+      name: 'AI conversazionale e manutenzione',
+      description: 'Setup AI FAQ, training iniziale, handoff operatore, aggiornamento risposte e controllo qualita.',
+      priceRange: { min: 500, max: 1833, standard: 500 },
+      category: 'base',
+      unit: 'one_time',
+      quantity: 1,
+      variability: 30
+    },
+    {
+      id: 'system_setup',
+      name: 'Setup iniziale sistema',
+      description: 'Form GDPR, database contatti, dashboard, template, permessi, report e formazione iniziale.',
+      priceRange: { min: 2500, max: 5833, standard: 5833 },
+      category: 'base',
+      unit: 'one_time',
+      quantity: 1,
+      variability: 20
+    },
+    {
+      id: 'project_management',
+      name: 'PM e coordinamento progetto',
+      description: 'Governance, riunioni, tracciamento avanzamento, verifica compliance e controllo qualita consegne.',
+      priceRange: { min: 856, max: 8096, standard: 2263 },
+      category: 'base',
+      unit: 'one_time',
+      quantity: 1,
+      variability: 25
+    },
+    {
+      id: 'premium_full_api',
+      name: 'Opzione premium API totale',
+      description: 'Automazione piena, database completo via API, chat 1-to-1 estesa, report premium e supporto prioritario.',
+      priceRange: { min: 38700, max: 38700, standard: 38700 },
+      category: 'optional',
+      unit: 'one_time',
+      quantity: 1,
+      variability: 0
+    }
+  ],
+  timeline: '3-6 settimane per avvio, poi gestione annuale',
+  deliverables: [
+    'Architettura canali e consenso GDPR',
+    'Configurazione WhatsApp Business API',
+    'Dashboard operativa per operatori',
+    'AI FAQ con handoff umano',
+    'Flussi broadcast e profilazione',
+    'Report KPI e governance',
+    'Formazione staff e documentazione'
+  ],
+  standardClauses: {
+    costVariation: 10,
+    validityDays: 60,
+    paymentTerms: "Fatturazione annuale anticipata, rate semestrali possibili se approvate",
+    cancellationPenalty: 10
+  },
+  examples: ['Preventivo WhatsApp Comune di Pordenone']
+}
+
 export const PROJECT_TEMPLATES: ProjectTemplate[] = [
   WEBSITE_180_TEMPLATE,
   WEBSITE_360_TEMPLATE,
   VIDEO_PACKAGES_TEMPLATE,
   COMMUNICATION_150_TEMPLATE,
-  COMMUNICATION_180_TEMPLATE
+  COMMUNICATION_180_TEMPLATE,
+  MESSAGING_AUTOMATION_TEMPLATE
 ]
 
 export const ANNUAL_MANAGEMENT_COSTS = {

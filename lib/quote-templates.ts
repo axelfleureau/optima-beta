@@ -630,6 +630,19 @@ export function identifyProjectType(description: string): {
   complexity?: ProjectTemplate['complexity']
 } | null {
   const normalized = description.toLowerCase()
+
+  if (
+    normalized.includes('whatsapp') ||
+    normalized.includes('broadcast') ||
+    normalized.includes('messenger') ||
+    normalized.includes('instagram direct') ||
+    normalized.includes('faq') ||
+    normalized.includes('chatbot') ||
+    normalized.includes('ai conversazionale') ||
+    normalized.includes('profilazione')
+  ) {
+    return { type: 'communication', complexity: 'advanced' }
+  }
   
   if (normalized.includes('360') || normalized.includes('avanzato') || normalized.includes('complesso')) {
     return { type: 'website', complexity: '360' }
