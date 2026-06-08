@@ -33,7 +33,7 @@ export interface QuoteCreativeSystem {
   sourcePattern: string
 }
 
-const dicoLikePalette: QuoteCreativePalette = {
+const righelloInstitutionalPalette: QuoteCreativePalette = {
   primary: "#005EEC",
   ink: "#10131A",
   paper: "#F5F7FA",
@@ -52,7 +52,7 @@ export const RIGHELLO_QUOTE_CREATIVE_SYSTEMS: QuoteCreativeSystem[] = [
     label: "Istituzionale operativo",
     summary: "Documento solido, chiaro e deliberabile, adatto a enti, aziende strutturate e progetti con molti stakeholder.",
     keywords: ["dico", "ente", "comune", "istituzionale", "pa", "direzione", "systemdoc", "whatsapp", "cittadini"],
-    palette: dicoLikePalette,
+    palette: righelloInstitutionalPalette,
     documentTone: "Autorevole, asciutto, leggibile. Prima il perche, poi il perimetro, poi le condizioni.",
     layoutPrinciples: [
       "A4 verticale con griglia semplice, gerarchia netta e sezioni corte.",
@@ -263,7 +263,7 @@ Principio:
 - Non usare guardrail arbitrari su angoli, inclinazioni o decorazioni. Usa invece archetipi editoriali coerenti con cliente, settore e deliverable.
 - Il documento deve sembrare progettato da Righello, non generato da una AI: meno enfasi, piu gerarchia, ritmo, responsabilita e dettagli verificabili.
 - PDF A4 leggibile, stampabile, con glyph sicuri e sezioni che aiutano una decisione commerciale reale.
-- Il kit e' Righello: i casi come DICO4 sono esempi di qualita e metodo, non template da copiare.
+- Il kit e' Righello: i casi cliente riusciti sono esempi di qualita e metodo, non template da copiare.
 
 Archetipi disponibili:
 ${archetypes}`
