@@ -160,6 +160,24 @@ export const RIGHELLO_QUOTE_HISTORICAL_PATTERNS: RighelloQuoteHistoricalPattern[
     pricingSignal: "Opzione 1 18-22k/anno, variante 10.5k anno 1 e 11.7k anno 2+, premium 38.7k/anno.",
     caution: "Richiede perimetro, volumi, canale, responsabilita operative e compliance espliciti.",
   },
+  {
+    id: "notion-portopiccolo-frontend",
+    label: "Portopiccolo sito front-end 5 pagine",
+    source: "notion_rig_work",
+    sourceTitle: "RIGHELLO | Preventivo — Porto Piccolo Apartments | Sito Front-End (5 pagine)",
+    summary: "Preventivo reale per sito vetrina front-end a codice, 5 pagine, booking esterno escluso, timeline accelerata.",
+    pricingSignal: "Totale sviluppo 3.795 euro + IVA; manutenzione post consegna 150 euro/mese oppure 75 euro/ora.",
+    caution: "E' un preventivo/proposta Notion, non una prova di pagamento o incasso.",
+  },
+  {
+    id: "notion-portopiccolo-guesty",
+    label: "Portopiccolo back-end + Guesty",
+    source: "notion_rig_work",
+    sourceTitle: "RIGHELLO | Preventivo — Porto Piccolo Apartments | Back-end + Guesty (mobile-first)",
+    summary: "Preventivo reale per rifacimento sito con back-end, pannello gestione e integrazione Guesty API mobile-first.",
+    pricingSignal: "Opzione standard 5.000 euro + IVA; opzione accelerata 5.500 euro + IVA; hosting Righello 240 euro/anno.",
+    caution: "E' un preventivo/proposta Notion, non una prova di pagamento o incasso.",
+  },
 ]
 
 export const RIGHELLO_QUOTE_DISCOVERY_QUESTIONS = [

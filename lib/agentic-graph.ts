@@ -703,7 +703,7 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
   const quoteHistoricalPatterns = await upsertAgenticGraphNode(db, principal, {
     nodeType: "notion_quote_patterns",
     title: "Notion preventivi storici Righello",
-    summary: "Pattern commerciali reali da usare come memoria redatta per migliorare precisione preventivi: sito base/Webflow, WhatsApp/API/AI annuale, task PREVENTIVO in RIG_WORK.",
+    summary: "Pattern commerciali reali da usare come memoria redatta per migliorare precisione preventivi: sito base/Webflow, WhatsApp/API/AI annuale, Portopiccolo sito/front-end/back-end Guesty, task PREVENTIVO in RIG_WORK.",
     sourceType: "notion_righello",
     sourceId: "notion:rig_work:quote-patterns",
     sourceUrl: "collection://27f32473-a5fc-818d-8448-000b562dd5cf",
@@ -713,6 +713,8 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
       examples: [
         "CONTABILIZZARE TUBARO SITO: sito base, inserimento annunci, Webflow, pagamenti parziali",
         "PREVENTIVO WHATSAPP: opzioni annuali 18-22k, 10.5k/11.7k, 38.7k premium",
+        "Portopiccolo Apartments front-end 5 pagine: 3.795 euro + IVA, booking esterno escluso",
+        "Portopiccolo Apartments back-end + Guesty: 5.000 euro + IVA standard, 5.500 euro + IVA accelerata",
       ],
       excludedFields: ["EMAIL CLIENTE", "EMAIL PERSONA", "ALLEGATI", "LINK ONEDRIVE", "Attachments", "credenziali", "accessi"],
       importPolicy: "redacted_title_macroservice_range_status_only",
