@@ -78,14 +78,23 @@ ON CONFLICT(organization_id, node_type, source_type, source_id) DO UPDATE SET
   updated_at = CURRENT_TIMESTAMP;`
 }
 
-function edgeUpsert({ id, fromNodeId, toNodeId, edgeType, weight = 1, properties = {} }) {
+function edgeUpsertBySource({ id, fromSourceType, fromSourceId, toSourceType, toSourceId, edgeType, weight = 1, properties = {} }) {
   return `INSERT INTO agentic_graph_edges (
   id, organization_id, from_node_id, to_node_id, edge_type,
   confidence, weight, properties_json, created_by_member_id
-) VALUES (
-  ${sql(id)}, ${sql(organizationId)}, ${sql(fromNodeId)}, ${sql(toNodeId)},
-  ${sql(edgeType)}, 'manual', ${Number(weight)}, ${json(properties)}, NULL
 )
+SELECT
+  ${sql(id)}, ${sql(organizationId)}, from_node.id, to_node.id,
+  ${sql(edgeType)}, 'manual', ${Number(weight)}, ${json(properties)}, NULL
+FROM agentic_graph_nodes from_node
+JOIN agentic_graph_nodes to_node
+  ON to_node.organization_id = from_node.organization_id
+WHERE from_node.organization_id = ${sql(organizationId)}
+  AND from_node.source_type = ${sql(fromSourceType)}
+  AND from_node.source_id = ${sql(fromSourceId)}
+  AND to_node.source_type = ${sql(toSourceType)}
+  AND to_node.source_id = ${sql(toSourceId)}
+LIMIT 1
 ON CONFLICT(organization_id, from_node_id, to_node_id, edge_type) DO UPDATE SET
   confidence = excluded.confidence,
   weight = excluded.weight,
@@ -97,7 +106,16 @@ const files = readdirSync(knowhowDir)
   .filter((file) => file.endsWith(".md"))
   .sort((a, b) => a.localeCompare(b))
 
+const removeOrphanKnowhowEdges = `DELETE FROM agentic_graph_edges
+WHERE organization_id = ${sql(organizationId)}
+  AND id LIKE 'agedge_knowhow_%'
+  AND (
+    from_node_id NOT IN (SELECT id FROM agentic_graph_nodes WHERE organization_id = ${sql(organizationId)})
+    OR to_node_id NOT IN (SELECT id FROM agentic_graph_nodes WHERE organization_id = ${sql(organizationId)})
+  );`
+
 const statements = [
+  removeOrphanKnowhowEdges,
   nodeUpsert({
     id: rootNodeId,
     nodeType: "knowledge_base",
@@ -141,16 +159,20 @@ for (const file of files) {
     }),
   )
   statements.push(
-    edgeUpsert({
+    edgeUpsertBySource({
       id: `agedge_knowhow_${hashId(`${organizationId}:index:${file}`)}`,
-      fromNodeId: rootNodeId,
-      toNodeId: nodeId,
+      fromSourceType: "codex_knowhow",
+      fromSourceId: "development-knowhow-index",
+      toSourceType: "codex_knowhow",
+      toSourceId: file,
       edgeType: "indexes_knowhow",
       weight: 1,
       properties: { fileName: file },
     }),
   )
 }
+
+statements.push(removeOrphanKnowhowEdges)
 
 const tempDir = mkdtempSync(join(tmpdir(), "optima-knowhow-"))
 const sqlPath = join(tempDir, "sync-knowhow.sql")
