@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic"
 
 import type { NextRequest } from "next/server"
-import { streamText } from "ai"
+import { generateText, streamText } from "ai"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requireClerkUser } from "@/lib/server-clerk"
-import { OPENAI_CHAT_MODEL } from "@/lib/ai/models"
+import { OPENAI_CHAT_MODEL, OPENAI_FAST_MODEL } from "@/lib/ai/models"
 import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 import { buildOperationalContextSnapshot } from "@/lib/operational-context"
 import { listAgenticGraphNodes, upsertAgenticGraphNode, type AgenticGraphConfidence } from "@/lib/agentic-graph"
@@ -157,6 +157,58 @@ function buildNoDataBusinessFallback(message: string, factsText: string) {
     "",
     "Quindi non posso rispondere con una cifra senza inventarla. Per renderlo operativo bisogna collegare a Optima almeno una di queste fonti: preventivo accettato, fattura/pagamento, consuntivo ore fatturabile o documento amministrativo del cliente.",
   ].join("\n")
+}
+
+function buildImmediateOperationalFallback(message: string, contextSources: string[], businessFallback?: string) {
+  if (businessFallback) return businessFallback
+
+  const normalized = compact(message, 320).toLowerCase()
+  const sources = contextSources.length ? contextSources.join(", ") : "contesto base Optima"
+
+  if (/\b(ora|adesso).*\b(sa|sapere|sai)\b|\blo sa\b/.test(normalized)) {
+    return [
+      "Sì: la richiesta è salvata e viene gestita con il contesto operativo disponibile in Optima.",
+      `Fonti viste in questa sessione: ${sources}.`,
+      "Se manca un dato specifico, non lo invento: lo trasformo in import, job agentico o nodo verificabile del grafo.",
+    ].join("\n")
+  }
+
+  if (/\b(dovresti|devi|fai tu|mica io|tutto tu)\b/.test(normalized)) {
+    return [
+      "Hai ragione: il flusso deve lavorare per te, non chiederti di inseguire la risposta.",
+      "Ho salvato la richiesta nella conversazione. Quando l'azione richiede ricerca, import o modifica dati, Optima deve trasformarla in job revisionabile; quando il dato è già nel contesto, deve rispondere subito.",
+      `Contesto disponibile ora: ${sources}.`,
+    ].join("\n")
+  }
+
+  return [
+    "Ho preso in carico la richiesta e l'ho salvata nella conversazione.",
+    "In questo passaggio il modello non ha restituito testo utile, quindi non invento una risposta. Uso il contesto disponibile per rispondere subito quando il dato è presente; altrimenti la richiesta va trasformata automaticamente in job agentico revisionabile.",
+    `Contesto disponibile: ${sources}.`,
+  ].join("\n")
+}
+
+async function generateNonStreamingFallback(openai: Awaited<ReturnType<typeof createRuntimeOpenAI>>, messages: any[]) {
+  try {
+    const result = await generateText({
+      model: openai(OPENAI_FAST_MODEL),
+      messages: [
+        ...messages,
+        {
+          role: "system" as const,
+          content:
+            "La risposta streaming precedente e risultata vuota. Rispondi ora in italiano, massimo 8 righe, in modo operativo. Non chiedere all'utente di premere Rileggi.",
+        },
+      ],
+      maxTokens: 700,
+      temperature: 0.3,
+    })
+
+    return compact(result.text, 3000)
+  } catch (error) {
+    console.warn("Non-streaming chat fallback failed:", error)
+    return ""
+  }
 }
 
 async function buildQuestionScopedBusinessFacts(db: any, principal: WorkspacePrincipal, message: string) {
@@ -1108,8 +1160,9 @@ export async function POST(request: NextRequest) {
 
           if (!fullText.trim()) {
             fullText =
+              (await generateNonStreamingFallback(openai, messages)) ||
               businessFacts.fallbackText ||
-              "Ho salvato la richiesta e la risposta non e ancora disponibile. Premi Rileggi tra qualche secondo oppure trasformala in un job agentico revisionabile."
+              buildImmediateOperationalFallback(message, contextSources)
             controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ content: fullText })}\n\n`))
           }
 

@@ -35,7 +35,7 @@ interface AIChatProps {
 }
 
 const EMPTY_ASSISTANT_RESPONSE =
-  "Ho ricevuto la richiesta e l'ho salvata nella conversazione. La risposta non e ancora disponibile: premi Rileggi tra qualche secondo oppure trasformala in un job agentico revisionabile."
+  "Ho ricevuto la richiesta e l'ho salvata nella conversazione. In questo momento non ho ricevuto testo utile dal modello: Optima deve rispondere subito quando il dato e presente, oppure trasformare automaticamente la richiesta in un job agentico revisionabile."
 
 function normalizeAssistantContent(content: unknown, role: "user" | "assistant") {
   const text = String(content || "").trim()
@@ -245,6 +245,7 @@ export function AIChat({
       try {
         let buffer = ""
         let receivedAssistantContent = false
+        let doneReceived = false
 
         const handleSsePayload = (jsonStr: string) => {
           if (!jsonStr) return
@@ -288,6 +289,7 @@ export function AIChat({
 
           if (data.done) {
             console.log("🏁 Stream marked as done")
+            doneReceived = true
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessageId
@@ -336,6 +338,22 @@ export function AIChat({
 
         if (buffer.startsWith("data: ")) {
           handleSsePayload(buffer.slice(6).trim())
+        }
+
+        if (!doneReceived) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? {
+                    ...msg,
+                    content: msg.content.trim() ? msg.content : EMPTY_ASSISTANT_RESPONSE,
+                    isStreaming: false,
+                    canRegenerate: true,
+                    error: !msg.content.trim(),
+                  }
+                : msg,
+            ),
+          )
         }
       } finally {
         reader.releaseLock()
