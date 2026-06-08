@@ -8,6 +8,12 @@ import {
   generateQuoteNumber
 } from "@/lib/quote-templates"
 import { getBaseUrl } from "@/lib/quote-utils"
+import {
+  getQuoteCreativeSystem,
+  serializeQuoteCreativeDirection,
+  type QuoteCreativeArchetypeId,
+  type QuoteCreativePalette,
+} from "@/lib/righello-quote-creative-system"
 import { buildRighelloQuoteOperatingContext } from "@/lib/righello-quote-operating-model"
 
 const RIGHELLO_QUOTE_OPERATING_CONTEXT = buildRighelloQuoteOperatingContext()
@@ -152,6 +158,17 @@ export interface GeneratedQuoteData {
     materialiDaRichiedere?: string[]
     domandeAperte?: string[]
   }
+  creativeDirection?: {
+    archetypeId: QuoteCreativeArchetypeId | string
+    label: string
+    summary: string
+    palette: QuoteCreativePalette
+    documentTone: string
+    layoutPrinciples: string[]
+    sectionRhythm: string[]
+    visualNotes: string[]
+    sourcePattern: string
+  }
   totali: {
     subtotale: number
     iva: number
@@ -189,6 +206,16 @@ function uniqueNonEmpty(values: Array<string | undefined | null>) {
       seen.add(key)
       return true
     })
+}
+
+function inferCreativeDirection(input: {
+  projectType?: string
+  sector?: string
+  clientName?: string
+  description?: string
+  title?: string
+}) {
+  return serializeQuoteCreativeDirection(getQuoteCreativeSystem(input))
 }
 
 const QUOTE_SYSTEM_PROMPT = `Sei un commerciale esperto di Righello che crea preventivi basati sui template standardizzati dell'azienda.
@@ -425,6 +452,12 @@ export async function generateQuoteFromEnrichedData(
       ...(enrichedData.discoveryQuestions || []),
       ...DEFAULT_QUOTE_DISCOVERY_QUESTIONS,
     ])
+    const creativeDirection = inferCreativeDirection({
+      projectType: `${enrichedData.projectType} ${enrichedData.projectTypeLabel}`,
+      sector: `${enrichedData.sector} ${enrichedData.sectorLabel}`,
+      clientName: `${enrichedData.clientName} ${enrichedData.clientCompany || ""}`,
+      description: enrichedData.description,
+    })
 
     const brandContext = [
       primaryBrandName ? `- Brand principale: ${primaryBrandName}` : '',
@@ -451,6 +484,14 @@ INFORMAZIONI PROGETTO:
 
 MATERIALI BRAND E DISCOVERY:
 ${brandContext || '- Materiali da verificare in fase di avvio progetto'}
+
+DIREZIONE DOCUMENTO RIGHELLO:
+- Archetipo: ${creativeDirection.label}
+- Sintesi: ${creativeDirection.summary}
+- Tono: ${creativeDirection.documentTone}
+- Ritmo sezione: ${creativeDirection.sectionRhythm.join(' > ')}
+- Principi layout: ${creativeDirection.layoutPrinciples.join('; ')}
+- Note visuali: ${creativeDirection.visualNotes.join('; ')}
 
 MODELLO OPERATIVO RIGHELLO:
 ${RIGHELLO_QUOTE_OPERATING_CONTEXT}
@@ -592,6 +633,7 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
         materialiDaRichiedere: missingMaterials,
         domandeAperte: discoveryQuestions,
       },
+      creativeDirection,
       totali: templateResult.totals // DA TEMPLATE ✅ NON RICALCOLARE
     }
     
@@ -707,6 +749,14 @@ Restituisci SOLO il JSON completo.`
         totalAnnual: 4164
       }
     }
+
+    quoteData.creativeDirection = quoteData.creativeDirection || inferCreativeDirection({
+      projectType: quoteData.projectType,
+      sector: quoteData.preventivo?.settore || detectedSector?.name,
+      clientName: `${quoteData.cliente?.nome || ""} ${quoteData.cliente?.azienda || ""}`,
+      description: `${quoteData.preventivo?.titolo || ""} ${quoteData.preventivo?.descrizione || ""} ${data.projectDescription}`,
+      title: quoteData.preventivo?.titolo,
+    })
 
     // CRITICAL FIX: First normalize each line item, then recalculate totals
     // Ensure each voce has correct totale based on pricing math

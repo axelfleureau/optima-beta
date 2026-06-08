@@ -1,3 +1,5 @@
+import { buildQuoteCreativeSystemContext } from "@/lib/righello-quote-creative-system"
+
 export type RighelloQuoteAreaId =
   | "website"
   | "annual_management"
@@ -182,6 +184,7 @@ export const RIGHELLO_QUOTE_HISTORICAL_PATTERNS: RighelloQuoteHistoricalPattern[
 
 export const RIGHELLO_QUOTE_DISCOVERY_QUESTIONS = [
   "Quale macro-area Righello e' primaria e quali sono solo accessorie?",
+  "Quale direzione documento e' piu adatta: istituzionale, prodotto digitale, hospitality, creativa, sistema tecnico o documentazione di campo?",
   "Il preventivo deve separare costi una tantum, mensili, annuali e budget media?",
   "Ci sono materiali mancanti, loghi, accessi, reference o contenuti da richiedere?",
   "Il cliente e' gia censito in Optima/Notion o va creato come cliente esterno?",
@@ -218,6 +221,8 @@ ${areas}
 
 Pattern storici verificati da Notion/RIG_WORK:
 ${patterns}
+
+${buildQuoteCreativeSystemContext()}
 
 Regole:
 - Non inventare prezzi o servizi: se manca un dato, indicarlo come domanda aperta o voce da revisionare.
