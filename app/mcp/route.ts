@@ -1,4 +1,5 @@
-import { AGENT_ADMIN_ROLES, createAgentJob } from "@/lib/agent-jobs"
+import { getAgentRunnerControlState } from "@/lib/agent-runner-control"
+import { AGENT_ADMIN_ROLES, createAgentJob, listAgentRunnerHeartbeats } from "@/lib/agent-jobs"
 import { getAgenticCapabilitySnapshot } from "@/lib/agentic-capabilities"
 import {
   AGENTIC_REFERENCE_SOURCES,
@@ -16,7 +17,12 @@ import {
   safeAll,
 } from "@/lib/operational-context"
 import {
+  buildAgenticProductionReadinessSnapshot,
+  formatAgenticProductionReadiness,
+} from "@/lib/agentic-production-readiness"
+import {
   canUseManagerMcpTools,
+  getMcpAuthReadiness,
   mcpResourceUrl,
   requireMcpPrincipal,
 } from "@/lib/mcp-auth"
@@ -156,6 +162,20 @@ function toolsList() {
           includeInstallations: {
             type: "boolean",
             description: "Include installazioni tenant e subagenti oltre al catalogo statico.",
+          },
+        },
+      },
+    },
+    {
+      name: "optima_agentic_production_readiness",
+      title: "Optima agentic production readiness",
+      description: "Mostra cosa manca davvero per rendere Optima un sistema operativo agentico production-ready.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          includeStructured: {
+            type: "boolean",
+            description: "Include gap, metriche e summary in forma strutturata.",
           },
         },
       },
@@ -323,6 +343,46 @@ function formatCapabilitySnapshot(snapshot: Awaited<ReturnType<typeof getAgentic
   ].join("\n")
 }
 
+async function getProductionReadinessSnapshot(db: any, principal: any) {
+  const runnerControl = getAgentRunnerControlState()
+  const mcpAuth = getMcpAuthReadiness()
+  const [capabilities, graphMemory, runners] = await Promise.all([
+    getAgenticCapabilitySnapshot(db, principal),
+    getAgenticGraphSnapshot(db, principal),
+    listAgentRunnerHeartbeats(db).catch(() => []),
+  ])
+
+  const appEnv = process.env.APP_ENV || process.env.NEXT_PUBLIC_APP_ENV || "unknown"
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+  const coreReady = appEnv === "production" && Boolean(siteUrl)
+  const configuredProviders = capabilities.providerInstallations.filter((item) => item.installState !== "not_installed")
+  const configuredConnectors = capabilities.connectorInstallations.filter((item) => item.installState !== "not_installed")
+  const readyRuntimeHosts = capabilities.modelRuntime.hosts.filter((host) => host.runtimeStatus === "ready")
+
+  return buildAgenticProductionReadinessSnapshot({
+    coreReady,
+    agenticReady: coreReady && runnerControl.enabled && mcpAuth.configured && graphMemory.stats.nodes > 0,
+    runnerEnabled: runnerControl.enabled,
+    runnerStatus: runnerControl.status,
+    latestRunnerSeenAt: runners[0]?.lastSeenAt ?? null,
+    mcpAuthMode: mcpAuth.mode,
+    mcpAuthorizationConfigured: mcpAuth.configured,
+    mcpOAuthAuthorizationCodeConfigured: mcpAuth.authorizationCodeConfigured,
+    mcpJwtBearerConfigured: mcpAuth.jwtBearerConfigured,
+    mcpServiceTokenConfigured: mcpAuth.serviceTokenConfigured,
+    graphNodes: graphMemory.stats.nodes,
+    graphEdges: graphMemory.stats.edges,
+    graphSessions: graphMemory.stats.sessions,
+    providerConfiguredCount: configuredProviders.length,
+    providerTotalCount: capabilities.providerCatalog.length,
+    connectorConfiguredCount: configuredConnectors.length,
+    connectorTotalCount: capabilities.mcpConnectorCatalog.filter((connector) => connector.id !== "hermes-agent").length,
+    subagentCount: capabilities.subagents.length,
+    hostedRuntimeReadyCount: readyRuntimeHosts.length,
+    hostedRuntimeTotalCount: capabilities.modelRuntime.hosts.length,
+  })
+}
+
 async function callTool(name: string, args: any, db: any, principal: any) {
   switch (name) {
     case "optima_context_snapshot": {
@@ -471,6 +531,14 @@ async function callTool(name: string, args: any, db: any, principal: any) {
             oauthGuidance: snapshot.oauthGuidance,
           }
       return toolResult(formatCapabilitySnapshot(snapshot), structuredContent)
+    }
+
+    case "optima_agentic_production_readiness": {
+      const snapshot = await getProductionReadinessSnapshot(db, principal)
+      return toolResult(
+        formatAgenticProductionReadiness(snapshot),
+        args?.includeStructured ? snapshot : { summary: snapshot.summary, metrics: snapshot.metrics },
+      )
     }
 
     case "optima_subagent_roster": {
@@ -648,6 +716,12 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
           mimeType: "text/plain",
         },
         {
+          uri: "optima://agentic/production-readiness",
+          name: "Optima agentic production readiness",
+          title: "Optima agentic production readiness",
+          mimeType: "text/plain",
+        },
+        {
           uri: "optima://agentic/core-blueprint",
           name: "Optima fused agentic core blueprint",
           title: "Optima fused agentic core blueprint",
@@ -704,6 +778,19 @@ async function handleRpc(requestBody: JsonRpcRequest, request: Request) {
             uri: "optima://agentic/graph-memory",
             mimeType: "text/plain",
             text: formatAgenticGraphSnapshot(snapshot),
+          },
+        ],
+      })
+    }
+
+    if (params?.uri === "optima://agentic/production-readiness") {
+      const snapshot = await getProductionReadinessSnapshot(db, principal)
+      return jsonRpcResult(id, {
+        contents: [
+          {
+            uri: "optima://agentic/production-readiness",
+            mimeType: "text/plain",
+            text: formatAgenticProductionReadiness(snapshot),
           },
         ],
       })

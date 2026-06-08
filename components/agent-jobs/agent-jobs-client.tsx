@@ -263,6 +263,37 @@ interface AgenticGraphNodeDetail {
   connectedNodes: AgenticGraphNode[]
 }
 
+interface AgenticReadinessGap {
+  id: string
+  area: string
+  label: string
+  status: "ready" | "partial" | "blocked" | "missing"
+  severity: "critical" | "high" | "medium" | "low"
+  current: string
+  target: string
+  nextActions: string[]
+  jobHint?: {
+    title: string
+    brief: string
+  }
+}
+
+interface AgenticProductionReadiness {
+  generatedAt: string
+  summary: {
+    coreReady: boolean
+    agenticReady: boolean
+    readyCount: number
+    partialCount: number
+    blockedCount: number
+    missingCount: number
+    score: number
+    headline: string
+    nextCriticalAction: string
+  }
+  gaps: AgenticReadinessGap[]
+}
+
 const initialForm = {
   title: "",
   jobType: "task_update",
@@ -396,6 +427,27 @@ const runtimeStatusTone: Record<string, string> = {
   needs_secret: "border-amber-300/25 bg-amber-300/10 text-amber-100",
   needs_endpoint: "border-amber-300/25 bg-amber-300/10 text-amber-100",
   reference_only: "border-white/10 bg-white/5 text-slate-400",
+}
+
+const readinessStatusCopy: Record<AgenticReadinessGap["status"], string> = {
+  ready: "Pronto",
+  partial: "Parziale",
+  blocked: "Bloccato",
+  missing: "Manca",
+}
+
+const readinessStatusTone: Record<AgenticReadinessGap["status"], string> = {
+  ready: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+  partial: "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
+  blocked: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+  missing: "border-red-300/25 bg-red-300/10 text-red-100",
+}
+
+const readinessSeverityTone: Record<AgenticReadinessGap["severity"], string> = {
+  critical: "text-red-100",
+  high: "text-amber-100",
+  medium: "text-cyan-100",
+  low: "text-emerald-100",
 }
 
 const recommendedSubagents = [
@@ -1114,6 +1166,7 @@ export function AgentJobsClient({
   const [jobFilter, setJobFilter] = useState<JobFilter>("active")
   const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
   const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
+  const [productionReadiness, setProductionReadiness] = useState<AgenticProductionReadiness | null>(null)
   const [isSeedingGraph, setIsSeedingGraph] = useState(false)
   const [graphQuery, setGraphQuery] = useState("")
   const [graphNodeTypeFilter, setGraphNodeTypeFilter] = useState("")
@@ -1153,6 +1206,22 @@ export function AgentJobsClient({
       })
       .catch(() => {
         if (active) setGraphMemory(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/agentic-readiness")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data) setProductionReadiness(data)
+      })
+      .catch(() => {
+        if (active) setProductionReadiness(null)
       })
 
     return () => {
@@ -1290,7 +1359,13 @@ export function AgentJobsClient({
   }
 
   async function refreshControlPlane() {
-    await Promise.all([refreshJobs(), refreshRunners()])
+    const readinessRequest = fetch("/api/agentic-readiness")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) setProductionReadiness(data)
+      })
+      .catch(() => null)
+    await Promise.all([refreshJobs(), refreshRunners(), readinessRequest])
   }
 
   async function mutateCapabilities(body: Record<string, unknown>, actionKey: string) {
@@ -1502,6 +1577,26 @@ export function AgentJobsClient({
         setupKind: kind,
         providers: selectedProviders,
         connectors: selectedConnectors,
+      },
+    })
+  }
+
+  async function createProductionGapJob(gap: AgenticReadinessGap) {
+    await createCapabilitySetupJob({
+      actionKey: `readiness-gap:${gap.id}`,
+      title: gap.jobHint?.title ?? `Completa readiness: ${gap.label}`,
+      contextSummary: `Production readiness / ${gap.area}`,
+      brief: [
+        gap.jobHint?.brief ?? `Risolvi il gap production-ready "${gap.label}" in Optima con patch e verifiche reali.`,
+        `Stato attuale: ${gap.current}`,
+        `Target: ${gap.target}`,
+        `Prossime azioni richieste:\n${gap.nextActions.map((action) => `- ${action}`).join("\n")}`,
+        "Output richiesto: piano, patch implementabile, health check, rischi, dati da non toccare e risultato revisionabile. Non dichiarare pronto cio che non viene verificato.",
+      ].join("\n\n"),
+      priority: gap.severity === "critical" ? 1 : gap.severity === "high" ? 2 : 3,
+      metadata: {
+        setupKind: "production-readiness-gap",
+        gap,
       },
     })
   }
@@ -2184,6 +2279,92 @@ export function AgentJobsClient({
               <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-4 rounded-lg border border-righello-pink/20 bg-righello-pink/[0.055] p-3 sm:p-4">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="font-black text-white">Readiness reale</p>
+              <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                {productionReadiness?.summary.headline ??
+                  "Caricamento dello stato reale: MCP, OAuth, grafo, provider, subagenti, VPS e workflow produttivi."}
+              </p>
+            </div>
+            <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto">
+              <div className="rounded-lg border border-white/10 bg-[#060a15]/80 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Score</p>
+                <p className="mt-1 text-xl font-black text-white">{productionReadiness?.summary.score ?? "--"}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-[#060a15]/80 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Agentic</p>
+                <p className="mt-1 text-sm font-black text-white">
+                  {productionReadiness?.summary.agenticReady ? "acceso" : productionReadiness ? "parziale" : "--"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {productionReadiness ? (
+              [
+                ["Pronti", productionReadiness.summary.readyCount, "ready"],
+                ["Parziali", productionReadiness.summary.partialCount, "partial"],
+                ["Bloccati", productionReadiness.summary.blockedCount, "blocked"],
+                ["Mancanti", productionReadiness.summary.missingCount, "missing"],
+              ].map(([label, count, status]) => (
+                <span
+                  key={String(label)}
+                  className={`rounded-full border px-2.5 py-1 text-xs font-black ${readinessStatusTone[status as AgenticReadinessGap["status"]]}`}
+                >
+                  {label}: {count}
+                </span>
+              ))
+            ) : (
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-400">
+                Stato in caricamento
+              </span>
+            )}
+          </div>
+
+          {productionReadiness?.summary.nextCriticalAction ? (
+            <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15]/80 p-3 text-sm leading-6 text-slate-300">
+              <span className="font-black text-white">Prossima azione: </span>
+              {productionReadiness.summary.nextCriticalAction}
+            </div>
+          ) : null}
+
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {(productionReadiness?.gaps ?? []).filter((gap) => gap.status !== "ready").slice(0, 4).map((gap) => {
+              const busy = setupAction === `readiness-gap:${gap.id}`
+              return (
+                <div key={gap.id} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-white">{gap.label}</p>
+                      <p className={`mt-1 truncate text-xs font-bold ${readinessSeverityTone[gap.severity]}`}>
+                        {gap.area} · {gap.severity}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${readinessStatusTone[gap.status]}`}>
+                      {readinessStatusCopy[gap.status]}
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{gap.current}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => createProductionGapJob(gap)}
+                    disabled={busy}
+                    className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
+                  >
+                    {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ClipboardList className="mr-1.5 h-3.5 w-3.5" />}
+                    Crea job
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         <div className="mt-4 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3 sm:p-4">
