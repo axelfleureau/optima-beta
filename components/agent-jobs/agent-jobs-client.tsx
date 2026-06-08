@@ -286,7 +286,7 @@ const initialManualGraphNodeForm = {
 const jobTypesRequiringRepository = new Set(["codex_patch", "deploy"])
 const terminalJobStatuses = new Set(["approved", "rejected", "cancelled"])
 const priorityProviderIds = ["codex", "openai", "qwen", "gemma-hosted", "minimax"]
-const priorityConnectorIds = ["codex", "github", "cloudflare", "sendgrid", "telegram", "cloudinary", "hostinger"]
+const priorityConnectorIds = ["codex", "github", "notion", "cloudflare", "sendgrid", "telegram", "cloudinary", "hostinger"]
 type JobFilter = "active" | "review" | "running" | "done" | "all"
 
 const quickJobTemplates = [
@@ -344,6 +344,9 @@ const graphNodeTypeVisual: Record<string, { fill: string; stroke: string; label:
   repository: { fill: "#22c55e", stroke: "#bbf7d0", label: "Repository" },
   runtime_source: { fill: "#f97316", stroke: "#fed7aa", label: "Runtime" },
   operational_audit: { fill: "#f59e0b", stroke: "#fde68a", label: "Audit" },
+  notion_database: { fill: "#2563eb", stroke: "#93c5fd", label: "DB Notion" },
+  notion_task: { fill: "#1d4ed8", stroke: "#bfdbfe", label: "Task Notion" },
+  notion_client: { fill: "#0369a1", stroke: "#7dd3fc", label: "Cliente Notion" },
   hermes_memory: { fill: "#0d9488", stroke: "#5eead4", label: "Hermes" },
   hermes_skill: { fill: "#0f766e", stroke: "#99f6e4", label: "Skill Hermes" },
 }
@@ -365,6 +368,7 @@ const graphConfidenceCopy: Record<string, string> = {
 const graphSourceCopy: Record<string, string> = {
   internal: "Optima",
   hermes_readonly: "Hermes Righello",
+  notion_righello: "Notion Righello",
   codex_knowhow: "Know-how Codex",
   open_source_reference: "Open source",
   product_pattern: "Pattern prodotto",
@@ -416,7 +420,7 @@ const recommendedSubagents = [
     lane: "research",
     primaryProviderId: "qwen",
     modelHint: "qwen-long-context",
-    connectorIds: ["github", "cloudinary"],
+    connectorIds: ["github", "notion", "cloudinary"],
     systemPrompt: "Raccoglie contesto, fonti e sintesi operative. Non inventa dati: segnala lacune e produce output revisionabile.",
     permissions: { canReadGraph: true, canWriteTasks: false, requiresSources: true },
     handoffPolicy: { onInsufficientSources: "return_to_review" },
@@ -438,7 +442,7 @@ const recommendedSubagents = [
     lane: "operations",
     primaryProviderId: "gemma",
     modelHint: "gemma-local",
-    connectorIds: ["sendgrid", "telegram"],
+    connectorIds: ["notion", "sendgrid", "telegram"],
     systemPrompt: "Classifica richieste operative, rapportini e comunicazioni interne con modello leggero o locale quando basta.",
     permissions: { canSendEmail: false, canDraftEmail: true, canCreateJob: true, requiresReview: true },
     handoffPolicy: { onExternalMessage: "create_job_or_draft" },
@@ -485,7 +489,21 @@ function getGraphNodeLayout(
   edges: AgenticGraphSnapshot["edges"] = [],
   options: { limit?: number; selectedNodeId?: string | null } = {},
 ) {
-  const typeOrder = ["system", "graph_engine", "knowledge_base", "capability", "subagent", "connector", "reference_source", "hermes_memory", "hermes_skill", "development_knowhow"]
+  const typeOrder = [
+    "system",
+    "graph_engine",
+    "knowledge_base",
+    "capability",
+    "subagent",
+    "connector",
+    "reference_source",
+    "notion_database",
+    "notion_client",
+    "notion_task",
+    "hermes_memory",
+    "hermes_skill",
+    "development_knowhow",
+  ]
   const limit = options.limit ?? 18
   const selectedNodeId = options.selectedNodeId ?? null
   const degreeByNode = new Map<string, number>()
@@ -1510,6 +1528,33 @@ export function AgentJobsClient({
     })
   }
 
+  async function createNotionDataImportJob() {
+    await createCapabilitySetupJob({
+      actionKey: "stack-setup:notion-data",
+      title: "Import read-only Notion Righello nel grafo Optima",
+      contextSummary: "Notion Righello / Graphify import",
+      brief: [
+        "Crea un piano e una patch per indicizzare in Optima i database Notion aziendali Righello usando una pipeline Graphify-safe e tenant-scoped.",
+        "Sorgenti allowlistate scoperte: RIG_CLIENTI RIGHELLO collection://28132473-a5fc-8035-803f-000b76e5cbf3; RIG_WORK collection://27f32473-a5fc-818d-8448-000b562dd5cf.",
+        "Importa solo indici operativi: clienti, codici cliente, stato/tipo, task/lavori, stato task, tipologie, priorita, deadline, minute/durate, relazioni cliente-task, sorgente Notion e timestamp.",
+        "Escludi sempre CREDENZIALI RIGHELLO, ACCESSI RIGHELLO, token, password, segreti, allegati pesanti, file OneDrive scaricati in locale, dati fiscali non necessari e transcript/dump integrali.",
+        "PII come email/telefono/P.IVA/CF va omessa, hashata o mantenuta come secret_ref/field protetto solo se serve a un workflow approvato. Per default non salvarla nei nodi grafo.",
+        "Output richiesto: script import idempotente, dry-run, report nodi/archi, mappa campi Notion->Optima, health check Notion, rollback e lista record scartati per policy.",
+      ].join("\n\n"),
+      metadata: {
+        setupKind: "notion-data-import",
+        suggestedScript: "scripts/import-notion-graph-source.mjs",
+        sourcePolicy: "allowlist_only_redacted_index",
+        allowlistedDataSources: {
+          clients: "collection://28132473-a5fc-8035-803f-000b76e5cbf3",
+          work: "collection://27f32473-a5fc-818d-8448-000b562dd5cf",
+        },
+        excludedPages: ["CREDENZIALI RIGHELLO", "ACCESSI RIGHELLO"],
+        excludedFields: ["EMAIL", "TELEFONO", "PEC", "Partita IVA", "Codice Fiscale", "Codice Destinatario", "ALLEGATI", "LINK ONEDRIVE"],
+      },
+    })
+  }
+
   async function loadGraphNode(node: AgenticGraphNode) {
     setSelectedGraphNodeId(node.id)
     setGraphNodeDetail(null)
@@ -1692,6 +1737,7 @@ export function AgentJobsClient({
     new Set([
       ...(graphMemory?.nodes ?? []).map((node) => node.sourceType).filter(Boolean),
       "internal",
+      "notion_righello",
       "hermes_readonly",
       "codex_knowhow",
       "open_source_reference",
@@ -1770,7 +1816,7 @@ export function AgentJobsClient({
     {
       title: "MCP prioritari",
       detail: `${priorityConnectorConfiguredCount}/${priorityConnectorIds.length} collegati`,
-      body: "Crea un job setup per GitHub, Cloudflare, SendGrid, Telegram, Cloudinary e Hostinger.",
+      body: "Crea un job setup per GitHub, Notion, Cloudflare, SendGrid, Telegram, Cloudinary e Hostinger.",
       action: "Job MCP",
       busyKey: "stack-setup:connectors",
       onClick: () => createStackSetupJob("connectors"),
@@ -1811,6 +1857,15 @@ export function AgentJobsClient({
       busyKey: "stack-setup:hermes-data",
       onClick: createHermesDataImportJob,
       complete: Number(graphMemory?.stats.byType?.hermes_memory ?? 0) > 0 || Number(graphMemory?.stats.byType?.hermes_skill ?? 0) > 0,
+    },
+    {
+      title: "Dati Notion Righello",
+      detail: "allowlist",
+      body: "Import Graphify-safe da RIG_CLIENTI e RIG_WORK. Credenziali, accessi, PII e allegati esclusi di default.",
+      action: "Job Notion",
+      busyKey: "stack-setup:notion-data",
+      onClick: createNotionDataImportJob,
+      complete: Number(graphMemory?.stats.byType?.notion_database ?? 0) > 0 || Number(graphMemory?.stats.byType?.notion_task ?? 0) > 0,
     },
   ]
 
@@ -2504,7 +2559,7 @@ export function AgentJobsClient({
                   <div className="min-w-0">
                     <p className="text-sm font-black text-white">Inserimento manuale memoria</p>
                     <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Usa questo canale per aggiungere conoscenza verificata: dati da Hermes, cliente, processo, skill, repo o decisione. Le relazioni si raffinano poi dal dettaglio nodo o con un job agentico.
+                      Usa questo canale per aggiungere conoscenza verificata: dati da Notion, cliente, processo, skill, repo o decisione. Le relazioni si raffinano poi dal dettaglio nodo o con un job agentico.
                     </p>
                   </div>
                   <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-bold text-slate-300">
@@ -2527,6 +2582,8 @@ export function AgentJobsClient({
                       <option value="person">Persona</option>
                       <option value="workflow">Workflow</option>
                       <option value="policy">Policy</option>
+                      <option value="notion_database">Database Notion</option>
+                      <option value="notion_task">Task Notion</option>
                       <option value="hermes_memory">Memoria Hermes</option>
                       <option value="hermes_skill">Skill Hermes</option>
                       <option value="capability">Capability</option>
@@ -2560,7 +2617,7 @@ export function AgentJobsClient({
                       className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                       value={manualGraphNodeForm.tags}
                       onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, tags: event.target.value }))}
-                      placeholder="hermes, cliente, seo..."
+                      placeholder="notion, cliente, seo..."
                     />
                   </label>
                   <label className="grid gap-1.5 text-xs font-bold text-slate-300">
@@ -2571,6 +2628,7 @@ export function AgentJobsClient({
                       onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, sourceType: event.target.value }))}
                     >
                       <option value="manual">Manuale</option>
+                      <option value="notion_righello">Notion Righello</option>
                       <option value="hermes_readonly">Hermes read-only</option>
                       <option value="codex_knowhow">Know-how Codex</option>
                       <option value="internal">Optima</option>

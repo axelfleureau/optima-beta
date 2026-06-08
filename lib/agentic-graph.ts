@@ -111,6 +111,20 @@ export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
     ],
   },
   {
+    id: "notion-righello-readonly",
+    label: "Notion Righello read-only data",
+    sourceType: "private_readonly_source",
+    url: null,
+    importPolicy: "allowlisted_database_index_only_no_credentials_no_raw_dump",
+    usefulPatterns: [
+      "RIG_CLIENTI RIGHELLO: collection://28132473-a5fc-8035-803f-000b76e5cbf3",
+      "RIG_WORK: collection://27f32473-a5fc-818d-8448-000b562dd5cf",
+      "importare clienti, task, stati, tipologie, relazioni e timestamp come nodi redatti",
+      "escludere pagine credenziali, accessi, token, fiscali non necessari, allegati pesanti e dump integrali",
+      "relazioni Notion cliente-task mappate come archi tenant-scoped revisionabili",
+    ],
+  },
+  {
     id: "graphify",
     label: "Graphify official reference",
     sourceType: "open_source_reference",
@@ -626,6 +640,40 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     )
   }
 
+  const notionClients = await upsertAgenticGraphNode(db, principal, {
+    nodeType: "notion_database",
+    title: "Notion RIG_CLIENTI RIGHELLO",
+    summary: "Database clienti Righello da indicizzare in forma redatta: nome cliente, codice, tipo, stato, sorgente, assegnazioni e relazioni lavori. PII/fiscali esclusi di default.",
+    sourceType: "notion_righello",
+    sourceId: "notion:collection:28132473-a5fc-8035-803f-000b76e5cbf3",
+    sourceUrl: "collection://28132473-a5fc-8035-803f-000b76e5cbf3",
+    confidence: "manual",
+    tags: ["notion", "righello", "clients", "allowlist"],
+    properties: {
+      databaseId: "28132473-a5fc-80ed-b121-e2d11a2a4968",
+      dataSourceUrl: "collection://28132473-a5fc-8035-803f-000b76e5cbf3",
+      safeFields: ["Name", "NOME ATTIVITA'", "CODICE", "TIPO", "STATO", "SORGENTE", "TIPOLOGIA LAVORI", "Comune", "RIG_WORK"],
+      excludedFields: ["EMAIL", "TELEFONO", "PEC", "Partita IVA", "Codice Fiscale", "Codice Destinatario", "Contratti & Preventivi"],
+    },
+  })
+
+  const notionWork = await upsertAgenticGraphNode(db, principal, {
+    nodeType: "notion_database",
+    title: "Notion RIG_WORK",
+    summary: "Database lavori/task Righello da indicizzare in forma redatta: task, cliente, stato, tipologia, priorita, deadline, minuti e relazioni. Allegati e link OneDrive non vanno scaricati.",
+    sourceType: "notion_righello",
+    sourceId: "notion:collection:27f32473-a5fc-818d-8448-000b562dd5cf",
+    sourceUrl: "collection://27f32473-a5fc-818d-8448-000b562dd5cf",
+    confidence: "manual",
+    tags: ["notion", "righello", "work", "tasks", "allowlist"],
+    properties: {
+      databaseId: "27f32473-a5fc-81f5-90b7-cead9baa872b",
+      dataSourceUrl: "collection://27f32473-a5fc-818d-8448-000b562dd5cf",
+      safeFields: ["NOME TASK", "CLIENTE", "STATO", "TIPO", "PRIORITA'", "DEADLINE", "Minutes", "DESCRIZIONE", "CLIENTI RIGHELLO"],
+      excludedFields: ["EMAIL CLIENTE", "EMAIL PERSONA", "ALLEGATI", "LINK ONEDRIVE", "Attachments", "COSTI", "GUADAGNI"],
+    },
+  })
+
   const hermesPatternNodes = []
   for (const pattern of HERMES_ADAPTER_PATTERNS) {
     hermesPatternNodes.push(
@@ -660,6 +708,11 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     [referenceNodes.find((node) => node?.sourceId === "hermes-agent")?.id, subagentLanes?.id, "absorbed_into_optima_pattern", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "hermes-agent")?.id, mcpGateway?.id, "absorbed_into_optima_pattern", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "hermes-righello-readonly")?.id, graphMemory?.id, "can_feed_knowledge", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "notion-righello-readonly")?.id, graphMemory?.id, "can_feed_business_graph", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "notion-righello-readonly")?.id, notionClients?.id, "allowlists_database", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "notion-righello-readonly")?.id, notionWork?.id, "allowlists_database", "manual"],
+    [notionClients?.id, graphMemory?.id, "feeds_client_graph", "manual"],
+    [notionWork?.id, graphMemory?.id, "feeds_task_graph", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphEngine?.id, "documents_engine_pattern", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphMemory?.id, "informs_graph_schema", "inferred"],
     [referenceNodes.find((node) => node?.sourceId === "perplexity-computer-pattern")?.id, optima?.id, "informs_ux_pattern", "inferred"],

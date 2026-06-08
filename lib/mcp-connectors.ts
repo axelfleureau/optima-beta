@@ -68,6 +68,16 @@ const CONNECTORS: ConnectorSpec[] = [
     notes: "GitHub non e il centro del gestionale: e il grafo codice collegato al grafo aziendale.",
   },
   {
+    id: "notion",
+    label: "Notion",
+    category: "cloud",
+    purpose: "Knowledge base e database storici Righello: clienti, lavori, task, portali e documenti operativi da indicizzare in Optima.",
+    graphUse: ["clienti", "task", "progetti", "knowledge_base", "notion_pages", "notion_databases"],
+    requiredEnv: ["NOTION_API_KEY"],
+    optionalEnv: ["NOTION_RIGHELLO_CLIENTS_SOURCE", "NOTION_RIGHELLO_WORK_SOURCE", "NOTION_IMPORT_ALLOWLIST"],
+    notes: "Import solo da allowlist: RIG_CLIENTI e RIG_WORK prima di tutto. Escludere sempre credenziali, accessi, token, file segreti e dump integrali.",
+  },
+  {
     id: "cloudflare",
     label: "Cloudflare",
     category: "cloud",
