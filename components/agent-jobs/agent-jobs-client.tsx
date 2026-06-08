@@ -515,30 +515,132 @@ function getGraphNodeLayout(
     })
     .slice(0, limit)
 
-  return visibleNodes.map((node, index) => {
+  const groups = new Map<string, AgenticGraphSnapshot["nodes"]>()
+  for (const node of visibleNodes) {
+    const key = typeOrder.includes(node.nodeType) ? node.nodeType : "other"
+    groups.set(key, [...(groups.get(key) ?? []), node])
+  }
+
+  const selectedIndex = visibleNodes.findIndex((node) => node.id === selectedNodeId)
+  const rankedTypes = [...groups.keys()].sort((a, b) => {
+    const aType = typeOrder.includes(a) ? typeOrder.indexOf(a) : typeOrder.length
+    const bType = typeOrder.includes(b) ? typeOrder.indexOf(b) : typeOrder.length
+    return aType - bType
+  })
+
+  const layout = visibleNodes.map((node, index) => {
     const degree = degreeByNode.get(node.id) || 0
     const typeBoost = node.nodeType === "system" || node.nodeType === "knowledge_base" ? 1.4 : node.nodeType === "graph_engine" ? 1.1 : node.nodeType === "capability" ? 0.8 : 0
     const selectedBoost = node.id === selectedNodeId ? 1.5 : neighborIds.has(node.id) ? 0.6 : 0
     const r = Math.max(3.2, Math.min(9.4, 3.2 + Math.sqrt(degree + 1) * 1.22 + typeBoost + selectedBoost))
-    const ringIndex = Math.max(0, index - 1)
-    const angle = (ringIndex * 137.508 * Math.PI) / 180
-    const ring = index === 0 ? 0 : 13 + Math.floor(ringIndex / 7) * 8.8 + (ringIndex % 4) * 1.4
-    const x = index === 0 ? 50 : Math.max(7, Math.min(93, 50 + Math.cos(angle) * ring * 1.08))
-    const y = index === 0 ? 51 : Math.max(8, Math.min(92, 51 + Math.sin(angle) * ring * 0.82))
+
+    let x = 50
+    let y = 50
+    const isSelected = node.id === selectedNodeId
+    const isNeighbor = neighborIds.has(node.id)
+
+    if (selectedNodeId && selectedIndex >= 0) {
+      if (isSelected) {
+        x = 50
+        y = 50
+      } else if (isNeighbor) {
+        const neighbors = visibleNodes.filter((item) => neighborIds.has(item.id))
+        const neighborIndex = Math.max(0, neighbors.findIndex((item) => item.id === node.id))
+        const angle = (-90 + (360 / Math.max(1, neighbors.length)) * neighborIndex) * (Math.PI / 180)
+        const ring = neighbors.length > 14 ? 28 : 24
+        x = 50 + Math.cos(angle) * ring
+        y = 50 + Math.sin(angle) * ring * 0.82
+      } else {
+        const outerNodes = visibleNodes.filter((item) => item.id !== selectedNodeId && !neighborIds.has(item.id))
+        const outerIndex = Math.max(0, outerNodes.findIndex((item) => item.id === node.id))
+        const angle = (outerIndex * 137.508 - 24) * (Math.PI / 180)
+        const ring = 37 + (outerIndex % 3) * 5
+        x = 50 + Math.cos(angle) * ring
+        y = 50 + Math.sin(angle) * ring * 0.78
+      }
+    } else if (index === 0) {
+      x = 50
+      y = 50
+    } else {
+      const groupKey = typeOrder.includes(node.nodeType) ? node.nodeType : "other"
+      const groupNodes = groups.get(groupKey) ?? [node]
+      const groupIndex = Math.max(0, groupNodes.findIndex((item) => item.id === node.id))
+      const typeIndex = Math.max(0, rankedTypes.indexOf(groupKey))
+      const clusterAngle = (-92 + (360 / Math.max(1, rankedTypes.length)) * typeIndex) * (Math.PI / 180)
+      const clusterX = 50 + Math.cos(clusterAngle) * 27
+      const clusterY = 50 + Math.sin(clusterAngle) * 21
+      const localAngle = (groupIndex * 137.508) * (Math.PI / 180)
+      const localRing = 5 + Math.floor(groupIndex / 4) * 6.5
+      x = clusterX + Math.cos(localAngle) * localRing
+      y = clusterY + Math.sin(localAngle) * localRing * 0.82
+    }
+
     return {
       node,
-      x,
-      y,
+      x: Math.max(7, Math.min(93, x)),
+      y: Math.max(8, Math.min(92, y)),
       r,
       degree,
+      isSelected,
+      isNeighbor,
       visual: graphNodeTypeVisual[node.nodeType] ?? { fill: "#334155", stroke: "#94a3b8", label: node.nodeType },
     }
   })
+
+  for (let pass = 0; pass < 52; pass += 1) {
+    for (let i = 0; i < layout.length; i += 1) {
+      for (let j = i + 1; j < layout.length; j += 1) {
+        const a = layout[i]
+        const b = layout[j]
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const distance = Math.max(0.001, Math.hypot(dx, dy))
+        const minDistance = a.r + b.r + 2.8
+        if (distance >= minDistance) continue
+
+        const push = (minDistance - distance) * 0.5
+        const ux = dx / distance
+        const uy = dy / distance
+        const aLocked = a.isSelected
+        const bLocked = b.isSelected
+
+        if (!aLocked) {
+          a.x = Math.max(6, Math.min(94, a.x - ux * push * (bLocked ? 1.4 : 1)))
+          a.y = Math.max(7, Math.min(93, a.y - uy * push * (bLocked ? 1.4 : 1)))
+        }
+        if (!bLocked) {
+          b.x = Math.max(6, Math.min(94, b.x + ux * push * (aLocked ? 1.4 : 1)))
+          b.y = Math.max(7, Math.min(93, b.y + uy * push * (aLocked ? 1.4 : 1)))
+        }
+      }
+    }
+  }
+
+  return layout
 }
 
 function compactGraphLabel(value: string) {
   const clean = value.replace(/^Optima\s+/i, "").replace(/^Codex\s+/i, "")
   return clean.length > 18 ? `${clean.slice(0, 16).trim()}...` : clean
+}
+
+function graphMapSummary({
+  visibleNodes,
+  loadedNodes,
+  totalNodes,
+  visibleEdges,
+  totalEdges,
+  filtered,
+}: {
+  visibleNodes: number
+  loadedNodes: number
+  totalNodes: number
+  visibleEdges: number
+  totalEdges: number
+  filtered: boolean
+}) {
+  const scope = filtered ? "filtrati" : "caricati"
+  return `${visibleNodes} visibili · ${loadedNodes}/${totalNodes} nodi ${scope} · ${visibleEdges}/${totalEdges} archi`
 }
 
 function clampGraphZoom(value: number) {
@@ -548,13 +650,15 @@ function clampGraphZoom(value: number) {
 function GraphMemoryMap({
   graphMemory,
   selectedNodeId,
+  filtered = false,
   onSelectNode,
 }: {
   graphMemory: AgenticGraphSnapshot | null
   selectedNodeId?: string | null
+  filtered?: boolean
   onSelectNode?: (node: AgenticGraphNode) => void
 }) {
-  const [nodeLimit, setNodeLimit] = useState(18)
+  const [nodeLimit, setNodeLimit] = useState(48)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragState, setDragState] = useState<{
@@ -570,7 +674,9 @@ function GraphMemoryMap({
   )
   const totalNodes = graphMemory?.stats.nodes ?? layout.length
   const totalEdges = graphMemory?.stats.edges ?? graphMemory?.edges?.length ?? 0
+  const loadedNodes = graphMemory?.nodes.length ?? layout.length
   const nodePosition = new Map(layout.map((item) => [item.node.id, item]))
+  const selectedLayoutNode = selectedNodeId ? nodePosition.get(selectedNodeId) : null
   const visibleEdges = (graphMemory?.edges ?? [])
     .map((edge) => ({
       edge,
@@ -589,11 +695,20 @@ function GraphMemoryMap({
       }
       return Number(b.edge.weight || 0) - Number(a.edge.weight || 0)
     })
-    .slice(0, Math.max(12, Math.min(90, nodeLimit * 3)))
+    .slice(0, Math.max(18, Math.min(360, nodeLimit * 4)))
   const isPartialMap = totalNodes > layout.length || totalEdges > visibleEdges.length
   const featuredEdges = visibleEdges.slice(0, 4)
   const viewSize = 100 / zoom
   const viewBox = `${(100 - viewSize) / 2 + pan.x} ${(100 - viewSize) / 2 + pan.y} ${viewSize} ${viewSize}`
+  const densityOptions = [24, 48, 96, 160, 240].filter((limit) => limit <= Math.max(240, loadedNodes || 0))
+  const summary = graphMapSummary({
+    visibleNodes: layout.length,
+    loadedNodes,
+    totalNodes,
+    visibleEdges: visibleEdges.length,
+    totalEdges,
+    filtered,
+  })
 
   function resetGraphView() {
     setZoom(1)
@@ -632,15 +747,15 @@ function GraphMemoryMap({
       <div className="grid gap-2 border-b border-white/10 px-3 py-2 sm:flex sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center justify-between gap-2">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa grafo</p>
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 sm:hidden">
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 sm:hidden" title={summary}>
             {layout.length}/{totalNodes}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 sm:inline-flex">
-            Vista dinamica · {layout.length} di {totalNodes} nodi
+          <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 lg:inline-flex">
+            {summary}
           </span>
-          {[18, 32, 48].map((limit) => (
+          {densityOptions.map((limit) => (
             <button
               key={limit}
               type="button"
@@ -685,7 +800,7 @@ function GraphMemoryMap({
 
       {layout.length ? (
         <div
-          className={`relative h-[340px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.10),transparent_48%),linear-gradient(180deg,rgba(15,23,42,0.12),rgba(2,6,23,0.72))] sm:h-[390px] ${
+          className={`relative h-[390px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.10),transparent_48%),linear-gradient(180deg,rgba(15,23,42,0.12),rgba(2,6,23,0.72))] sm:h-[460px] ${
             dragState ? "cursor-grabbing" : "cursor-grab"
           }`}
           onPointerDown={handleGraphPointerDown}
@@ -707,7 +822,9 @@ function GraphMemoryMap({
                 </feMerge>
               </filter>
             </defs>
-            {visibleEdges.map(({ edge, from, to }) => (
+            {visibleEdges.map(({ edge, from, to }) => {
+              const selectedEdge = selectedNodeId && (edge.fromNodeId === selectedNodeId || edge.toNodeId === selectedNodeId)
+              return (
               <line
                 key={edge.id}
                 x1={from.x}
@@ -715,14 +832,18 @@ function GraphMemoryMap({
                 x2={to.x}
                 y2={to.y}
                 stroke={graphConfidenceStroke[edge.confidence] ?? "#64748b"}
-                strokeWidth={Math.max(0.35, Math.min(1.35, Number(edge.weight || 1) * 0.52))}
-                strokeOpacity={edge.confidence === "ambiguous" ? 0.22 : 0.34}
+                strokeWidth={selectedEdge ? 1.45 : Math.max(0.35, Math.min(1.35, Number(edge.weight || 1) * 0.52))}
+                strokeOpacity={selectedNodeId ? (selectedEdge ? 0.68 : 0.12) : edge.confidence === "ambiguous" ? 0.22 : 0.34}
                 strokeDasharray={edge.confidence === "inferred" ? "3 3" : edge.confidence === "ambiguous" ? "2 4" : undefined}
               />
-            ))}
+              )
+            })}
 
-            {layout.map(({ node, x, y, r, degree, visual }, index) => {
-              const showLabel = index < 9 || r >= 6.2
+            {layout.map(({ node, x, y, r, degree, visual, isSelected, isNeighbor }, index) => {
+              const showLabel = isSelected || isNeighbor || index < 10 || r >= 6.4
+              const isDimmed = Boolean(selectedNodeId && !isSelected && !isNeighbor)
+              const label = compactGraphLabel(node.title)
+              const labelWidth = Math.max(13, Math.min(31, label.length * 1.28 + 5))
               return (
                 <g
                   key={node.id}
@@ -742,32 +863,43 @@ function GraphMemoryMap({
                   }}
                 >
                   <title>{`${node.title} · ${visual.label} · ${degree} collegamenti`}</title>
-                  <circle cx={x} cy={y} r={r + 1.6} fill={visual.fill} opacity="0.12" filter="url(#graphGlow)" />
+                  <circle cx={x} cy={y} r={r + 1.6} fill={visual.fill} opacity={isDimmed ? "0.04" : "0.12"} filter="url(#graphGlow)" />
                   <circle
                     cx={x}
                     cy={y}
                     r={r}
                     fill={visual.fill}
-                    stroke={selectedNodeId === node.id ? "#ffffff" : visual.stroke}
-                    strokeWidth={selectedNodeId === node.id ? "0.95" : "0.45"}
-                    opacity="0.92"
+                    stroke={isSelected ? "#ffffff" : isNeighbor ? "#e0f2fe" : visual.stroke}
+                    strokeWidth={isSelected ? "1.25" : isNeighbor ? "0.8" : "0.45"}
+                    opacity={isDimmed ? "0.32" : "0.92"}
                   />
-                  <circle cx={x - r * 0.28} cy={y - r * 0.28} r={Math.max(0.8, r * 0.2)} fill="#ffffff" opacity="0.86" />
+                  <circle cx={x - r * 0.28} cy={y - r * 0.28} r={Math.max(0.8, r * 0.2)} fill="#ffffff" opacity={isDimmed ? "0.36" : "0.86"} />
                   {showLabel ? (
                     <>
+                      <rect
+                        x={x - labelWidth / 2}
+                        y={y + r + 1}
+                        width={labelWidth}
+                        height="8.3"
+                        rx="1.8"
+                        fill="#050914"
+                        opacity={isDimmed ? "0.35" : "0.82"}
+                        stroke={isSelected ? "#e0f2fe" : "rgba(255,255,255,0.12)"}
+                        strokeWidth="0.18"
+                      />
                       <text
                         x={x}
                         y={y + r + 3.2}
                         textAnchor="middle"
-                        className="fill-slate-100 text-[3px] font-black"
+                        className={`${isDimmed ? "fill-slate-500" : "fill-slate-100"} text-[3px] font-black`}
                       >
-                        {compactGraphLabel(node.title)}
+                        {label}
                       </text>
                       <text
                         x={x}
                         y={y + r + 6.4}
                         textAnchor="middle"
-                        className="fill-slate-500 text-[2.25px] font-bold uppercase"
+                        className={`${isDimmed ? "fill-slate-600" : "fill-slate-400"} text-[2.25px] font-bold uppercase`}
                       >
                         {visual.label}
                       </text>
@@ -778,9 +910,28 @@ function GraphMemoryMap({
             })}
           </svg>
           <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-lg border border-white/10 bg-[#050914]/80 px-3 py-2 text-[11px] leading-5 text-slate-400 backdrop-blur">
-            Trascina per muoverti, usa +/- per zoom, tocca un nodo per aprire contesto e azioni.
-            {selectedNodeId ? " Nodo selezionato al centro della vista." : ""}
+            <span className="font-bold text-slate-200">Dimensione = centralita.</span> Colore = tipo nodo. Linea = relazione/confidence. Trascina, zooma e tocca un nodo per contesto e azioni.
+            {selectedNodeId ? " Il focus mostra il nodo selezionato e i suoi vicini." : ""}
           </div>
+          {selectedLayoutNode ? (
+            <div className="pointer-events-none absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-lg border border-cyan-300/20 bg-[#050914]/88 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-cyan-950/20 backdrop-blur sm:max-w-sm">
+              <div className="flex items-start gap-2">
+                <span
+                  className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: selectedLayoutNode.visual.fill, border: `1px solid ${selectedLayoutNode.visual.stroke}` }}
+                />
+                <div className="min-w-0">
+                  <p className="truncate font-black text-white">{selectedLayoutNode.node.title}</p>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    {selectedLayoutNode.visual.label} · {selectedLayoutNode.degree} collegamenti · {graphConfidenceCopy[selectedLayoutNode.node.confidence] ?? selectedLayoutNode.node.confidence}
+                  </p>
+                  {selectedLayoutNode.node.summary ? (
+                    <p className="mt-1 line-clamp-2 text-[11px] text-slate-300">{selectedLayoutNode.node.summary}</p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="p-4 text-sm leading-6 text-slate-500">
@@ -789,7 +940,7 @@ function GraphMemoryMap({
       )}
 
       <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
-        {Object.entries(graphNodeTypeVisual).slice(0, 7).map(([type, visual]) => (
+        {Object.entries(graphNodeTypeVisual).map(([type, visual]) => (
           <span key={type} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: visual.fill, border: `1px solid ${visual.stroke}` }} />
             {visual.label}
@@ -811,7 +962,7 @@ function GraphMemoryMap({
 
       {isPartialMap ? (
         <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
-          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. Aumenta la densita per esplorare piu nodi; bolle piu grandi indicano piu collegamenti. Graphify e il motore di estrazione/query; i nodi business restano dati Optima.
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. La vista e progressiva per restare leggibile: aumenta la densita, filtra o seleziona un nodo per investigare il vicinato. Graphify e il motore di estrazione/query; clienti, persone, task, repo e skill restano dati Optima.
         </div>
       ) : null}
 
@@ -1005,7 +1156,7 @@ export function AgentJobsClient({
       if (graphQuery.trim()) params.set("q", graphQuery.trim())
       if (graphNodeTypeFilter) params.set("nodeType", graphNodeTypeFilter)
       if (graphSourceFilter) params.set("sourceType", graphSourceFilter)
-      params.set("limit", "80")
+      params.set("limit", "240")
       setIsSearchingGraph(true)
       fetch(`/api/agentic-graph?${params.toString()}`)
         .then((response) => (response.ok ? response.json() : null))
@@ -2526,6 +2677,7 @@ export function AgentJobsClient({
               <GraphMemoryMap
                 graphMemory={displayGraphMemory}
                 selectedNodeId={selectedGraphNodeId}
+                filtered={graphHasActiveFilter}
                 onSelectNode={loadGraphNode}
               />
 

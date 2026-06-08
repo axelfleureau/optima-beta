@@ -255,7 +255,7 @@ export async function listAgenticGraphNodes(
   const query = String(input.query || "").trim()
   const nodeType = String(input.nodeType || "").trim()
   const sourceType = String(input.sourceType || "").trim()
-  const limit = Math.min(100, Math.max(1, Number(input.limit || 50)))
+  const limit = Math.min(300, Math.max(1, Number(input.limit || 50)))
 
   if (nodeType) {
     clauses.push("node_type = ?")
@@ -342,7 +342,7 @@ export async function listAgenticGraphEdges(
   input: { nodeId?: string; limit?: number } = {},
 ) {
   const nodeId = String(input.nodeId || "").trim()
-  const limit = Math.min(200, Math.max(1, Number(input.limit || 100)))
+  const limit = Math.min(900, Math.max(1, Number(input.limit || 100)))
   const clauses = ["organization_id = ?"]
   const params: unknown[] = [principal.organizationId]
 
@@ -721,8 +721,8 @@ export async function getAgenticGraphSnapshot(
   principal: WorkspacePrincipal,
 ): Promise<AgenticGraphSnapshot> {
   const [nodes, edges, sessions, nodeCountRows, edgeCountRows, sessionCountRows, typeRows] = await Promise.all([
-    listAgenticGraphNodes(db, principal, { limit: 80 }),
-    listAgenticGraphEdges(db, principal, { limit: 160 }),
+    listAgenticGraphNodes(db, principal, { limit: 300 }),
+    listAgenticGraphEdges(db, principal, { limit: 900 }),
     listAgenticGraphSessions(db, principal, 20),
     safeAll(db, `SELECT COUNT(*) AS count FROM agentic_graph_nodes WHERE organization_id = ?`, [principal.organizationId]),
     safeAll(db, `SELECT COUNT(*) AS count FROM agentic_graph_edges WHERE organization_id = ?`, [principal.organizationId]),
