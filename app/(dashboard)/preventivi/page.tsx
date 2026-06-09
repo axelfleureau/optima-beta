@@ -207,7 +207,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
 }
 
 export default function PreventiviPage() {
-  const { quotes, loading, error, getQuoteStats, createQuote, deleteQuote } = useQuotes()
+  const { quotes, loading, error, getQuoteStats, createQuote, deleteQuote, reloadQuotes } = useQuotes()
   const { userData } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
@@ -333,6 +333,8 @@ export default function PreventiviPage() {
       if (payload?.publicUrl) {
         await navigator.clipboard.writeText(payload.publicUrl).catch(() => undefined)
       }
+
+      await reloadQuotes()
 
       toast({
         title: "Preventivo pronto",

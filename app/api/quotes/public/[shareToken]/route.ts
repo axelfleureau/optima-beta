@@ -16,9 +16,43 @@ export const dynamic = 'force-dynamic'
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebase-admin"
+import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { validateShareToken, isQuoteExpired } from "@/lib/quote-utils"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
+
+function parseJson<T>(value: unknown, fallback: T): T {
+  if (typeof value !== "string" || !value.trim()) return fallback
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return fallback
+  }
+}
+
+function euros(cents: unknown) {
+  return Number(cents || 0) / 100
+}
+
+function mapPublicItems(row: any) {
+  const items = parseJson<any[]>(row.items_json, [])
+  const voices = parseJson<any[]>(row.voices_json, [])
+
+  if (items.length > 0) {
+    return items.map((item) => ({
+      description: String(item.description || item.name || "Voce preventivo"),
+      quantity: Number(item.quantity || 1),
+      unitPrice: Number(item.unitPrice || item.prezzoUnitario || 0),
+      total: Number(item.total || item.totale || 0),
+    }))
+  }
+
+  return voices.map((voice) => ({
+    description: String(voice.descrizione || "Voce preventivo"),
+    quantity: Number(voice.quantita || 1),
+    unitPrice: Number(voice.prezzoUnitario || 0),
+    total: Number(voice.totale ?? Number(voice.quantita || 1) * Number(voice.prezzoUnitario || 0)),
+  }))
+}
 
 export async function GET(
   request: NextRequest,
@@ -41,34 +75,37 @@ export async function GET(
       )
     }
 
-    // Fetch quote by share token from Firestore
-    if (!adminDb) {
+    const db = await getCloudflareDb()
+    if (!db) {
       return NextResponse.json(
         { error: 'Errore di configurazione database' },
         { status: 500 }
       )
     }
 
-    const quotesSnapshot = await adminDb
-      .collection('quotes')
-      .where('shareToken', '==', shareToken)
-      .limit(1)
-      .get()
+    const quoteData = await db
+      .prepare(
+        `SELECT q.*, c.name AS linked_client_name, c.email AS linked_client_email
+         FROM quotes q
+         LEFT JOIN clients c
+           ON c.organization_id = q.organization_id
+          AND c.id = q.client_id
+         WHERE q.share_token = ?
+         LIMIT 1`,
+      )
+      .bind(shareToken)
+      .first()
 
-    if (quotesSnapshot.empty) {
+    if (!quoteData?.id) {
       return NextResponse.json(
         { error: 'Preventivo non trovato' },
         { status: 404 }
       )
     }
 
-    const quoteDoc = quotesSnapshot.docs[0]
-    const quoteData = quoteDoc.data()
-
-    // Convert Firestore timestamps to ISO strings
-    const validUntil = quoteData.validUntil?.toDate 
-      ? quoteData.validUntil.toDate() 
-      : new Date(quoteData.validUntil)
+    const validUntil = quoteData.valid_until
+      ? new Date(String(quoteData.valid_until))
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
     // Check if expired
     if (isQuoteExpired(validUntil)) {
@@ -81,21 +118,21 @@ export async function GET(
     // Return public-safe quote data (NO sensitive tenant info)
     // DUAL CLIENT MODE: Include both platform and external client data
     return NextResponse.json({
-      id: quoteDoc.id,
+      id: quoteData.id,
       title: quoteData.title || '',
       description: quoteData.description,
       // Platform client fields
-      clientId: quoteData.clientId, // Safe to expose for display logic
-      clientName: quoteData.clientName || '',
+      clientId: quoteData.client_id, // Safe to expose for display logic
+      clientName: quoteData.client_name || quoteData.linked_client_name || '',
       // External client fields
-      externalClientName: quoteData.externalClientName,
-      externalClientEmail: quoteData.externalClientEmail,
-      items: quoteData.items || [],
-      total: quoteData.total || 0,
+      externalClientName: quoteData.external_client_name,
+      externalClientEmail: quoteData.external_client_email || quoteData.client_email || quoteData.linked_client_email,
+      items: mapPublicItems(quoteData),
+      total: euros(quoteData.total_cents),
       currency: quoteData.currency || 'EUR',
       validUntil: validUntil.toISOString(),
       status: quoteData.status || 'draft',
-      paymentPlan: quoteData.paymentPlan,
+      paymentPlan: parseJson(quoteData.payment_plan_json, undefined),
       // Internal fields excluded: tenantId, createdBy, shareToken, etc.
     })
   } catch (error) {

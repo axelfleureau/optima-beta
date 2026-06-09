@@ -211,6 +211,7 @@ export function useQuotes() {
     createQuote,
     updateQuote,
     deleteQuote,
+    reloadQuotes: loadQuotes,
     getQuotesByStatus,
     getQuoteStats,
   }
