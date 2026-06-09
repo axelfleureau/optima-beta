@@ -86,14 +86,19 @@ export async function GET(
     const quoteData = await db
       .prepare(
         `SELECT q.*, c.name AS linked_client_name, c.email AS linked_client_email
-         FROM quotes q
+         FROM external_data_records r
+         JOIN quotes q
+           ON q.organization_id = r.organization_id
+          AND q.id = r.quote_id
          LEFT JOIN clients c
            ON c.organization_id = q.organization_id
           AND c.id = q.client_id
-         WHERE q.share_token = ?
+         WHERE r.provider = 'optima'
+           AND r.record_type = 'quote_share'
+           AND r.external_id = ?
          LIMIT 1`,
       )
-      .bind(shareToken)
+      .bind(`quote-share-token:${shareToken}`)
       .first()
 
     if (!quoteData?.id) {

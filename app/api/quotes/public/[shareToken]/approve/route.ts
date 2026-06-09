@@ -70,12 +70,17 @@ export async function POST(
 
     const quoteData = await db
       .prepare(
-        `SELECT id, valid_until, status
-         FROM quotes
-         WHERE share_token = ?
+        `SELECT q.id, q.organization_id, q.valid_until, q.status
+         FROM external_data_records r
+         JOIN quotes q
+           ON q.organization_id = r.organization_id
+          AND q.id = r.quote_id
+         WHERE r.provider = 'optima'
+           AND r.record_type = 'quote_share'
+           AND r.external_id = ?
          LIMIT 1`,
       )
-      .bind(shareToken)
+      .bind(`quote-share-token:${shareToken}`)
       .first()
 
     if (!quoteData?.id) {
@@ -112,13 +117,57 @@ export async function POST(
       .prepare(
         `UPDATE quotes
          SET status = 'approved',
-             approved_at = CURRENT_TIMESTAMP,
-             approved_by_name = ?,
-             approved_by_email = ?,
              updated_at = CURRENT_TIMESTAMP
-         WHERE share_token = ?`,
+         WHERE organization_id = ? AND id = ?`,
       )
-      .bind(clientName, clientEmail, shareToken)
+      .bind(quoteData.organization_id, quoteData.id)
+      .run()
+
+    const approvalPayload = JSON.stringify({
+      shareToken,
+      quoteId: quoteData.id,
+      approvedByName: clientName,
+      approvedByEmail: clientEmail,
+      approvedAt: new Date().toISOString(),
+    })
+    const sourceId = `source_quote_public_${quoteData.organization_id}`
+
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO external_data_sources (
+          id, organization_id, provider, source_type, external_id, title, domain, sync_mode, schema_json, allowed_fields_json, redacted_fields_json
+        ) VALUES (?, ?, 'optima', 'system', 'quote_public_sharing', 'Optima public quote sharing', 'quotes', 'manual', '{}', '[]', '[]')`,
+      )
+      .bind(sourceId, quoteData.organization_id)
+      .run()
+
+    await db
+      .prepare(
+        `INSERT OR REPLACE INTO external_data_records (
+          id, organization_id, source_id, provider, record_type, external_id,
+          title, summary, quote_id, occurred_at, confidence, raw_json, normalized_json
+        ) VALUES (
+          COALESCE(
+            (SELECT id FROM external_data_records WHERE organization_id = ? AND provider = 'optima' AND external_id = ? LIMIT 1),
+            ?
+          ),
+          ?, ?, 'optima', 'quote_approval', ?,
+          ?, ?, ?, CURRENT_TIMESTAMP, 'manual', ?, ?
+        )`,
+      )
+      .bind(
+        quoteData.organization_id,
+        `quote-approval:${shareToken}`,
+        `quote_approval_${shareToken}`,
+        quoteData.organization_id,
+        sourceId,
+        `quote-approval:${shareToken}`,
+        `Approvazione preventivo ${quoteData.id}`,
+        `Preventivo approvato da ${clientName} (${clientEmail}).`,
+        quoteData.id,
+        approvalPayload,
+        approvalPayload,
+      )
       .run()
 
     return NextResponse.json({

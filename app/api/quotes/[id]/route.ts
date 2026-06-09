@@ -21,6 +21,12 @@ function euros(cents: unknown) {
 function mapQuote(row: any) {
   const items = parseJson(row.items_json, []) as any[]
   const voices = parseJson(row.voices_json, []) as any[]
+  const shareRecord = parseJson(row.share_record_json, {}) as { shareToken?: string; sentAt?: string }
+  const approvalRecord = parseJson(row.approval_record_json, {}) as {
+    approvedAt?: string
+    approvedByName?: string
+    approvedByEmail?: string
+  }
   const total = euros(row.total_cents)
   const itemSubtotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0)
   const voiceSubtotal = voices.reduce(
@@ -49,10 +55,10 @@ function mapQuote(row: any) {
     validUntil: row.valid_until,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    shareToken: row.share_token || undefined,
-    sentAt: row.sent_at || undefined,
-    approvedAt: row.approved_at || undefined,
-    approvedBy: row.approved_by_name || undefined,
+    shareToken: shareRecord.shareToken || row.share_token || undefined,
+    sentAt: shareRecord.sentAt || row.sent_at || undefined,
+    approvedAt: approvalRecord.approvedAt || row.approved_at || undefined,
+    approvedBy: approvalRecord.approvedByName || row.approved_by_name || undefined,
     tenantId: row.organization_id,
     createdBy: row.created_by_member_id || "",
     brandMateriali: parseJson(row.brand_materials_json, undefined),
@@ -88,7 +94,24 @@ export async function GET(
 
     const { id } = await params
     const row = await context.db
-      .prepare(`SELECT * FROM quotes WHERE organization_id = ? AND id = ? LIMIT 1`)
+      .prepare(
+        `SELECT q.*,
+                share.raw_json AS share_record_json,
+                approval.raw_json AS approval_record_json
+         FROM quotes q
+         LEFT JOIN external_data_records share
+           ON share.organization_id = q.organization_id
+          AND share.quote_id = q.id
+          AND share.provider = 'optima'
+          AND share.record_type = 'quote_share'
+         LEFT JOIN external_data_records approval
+           ON approval.organization_id = q.organization_id
+          AND approval.quote_id = q.id
+          AND approval.provider = 'optima'
+          AND approval.record_type = 'quote_approval'
+         WHERE q.organization_id = ? AND q.id = ?
+         LIMIT 1`,
+      )
       .bind(context.principal.organizationId, id)
       .first()
 
