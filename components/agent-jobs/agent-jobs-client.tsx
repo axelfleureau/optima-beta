@@ -363,6 +363,7 @@ const graphNodeTypeVisual: Record<string, { fill: string; stroke: string; label:
   system: { fill: "#db2777", stroke: "#f9a8d4", label: "Sistema" },
   capability: { fill: "#0891b2", stroke: "#67e8f9", label: "Capability" },
   graph_engine: { fill: "#14b8a6", stroke: "#99f6e4", label: "Motore grafo" },
+  graph_workspace: { fill: "#a855f7", stroke: "#e9d5ff", label: "Workspace grafo" },
   knowledge_base: { fill: "#7c3aed", stroke: "#c4b5fd", label: "Knowledge base" },
   development_knowhow: { fill: "#475569", stroke: "#cbd5e1", label: "Know-how" },
   reference_source: { fill: "#059669", stroke: "#6ee7b7", label: "Sorgente" },
@@ -380,6 +381,7 @@ const graphNodeTypeVisual: Record<string, { fill: string; stroke: string; label:
   notion_client: { fill: "#0369a1", stroke: "#7dd3fc", label: "Cliente Notion" },
   hermes_memory: { fill: "#0d9488", stroke: "#5eead4", label: "Hermes" },
   hermes_skill: { fill: "#0f766e", stroke: "#99f6e4", label: "Skill Hermes" },
+  obsidian_note: { fill: "#7e22ce", stroke: "#f0abfc", label: "Nota Obsidian" },
 }
 
 const graphConfidenceStroke: Record<string, string> = {
@@ -404,6 +406,8 @@ const graphSourceCopy: Record<string, string> = {
   open_source_reference: "Open source",
   product_pattern: "Pattern prodotto",
   private_readonly_source: "Sorgente privata",
+  local_tool: "Tool locale",
+  obsidian_vault: "Obsidian Vault",
 }
 
 const installStateCopy: Record<string, string> = {
@@ -544,6 +548,7 @@ function getGraphNodeLayout(
   const typeOrder = [
     "system",
     "graph_engine",
+    "graph_workspace",
     "knowledge_base",
     "capability",
     "subagent",
@@ -554,6 +559,7 @@ function getGraphNodeLayout(
     "notion_task",
     "hermes_memory",
     "hermes_skill",
+    "obsidian_note",
     "development_knowhow",
   ]
   const limit = options.limit ?? 18
@@ -2790,6 +2796,7 @@ export function AgentJobsClient({
                       <option value="notion_task">Task Notion</option>
                       <option value="hermes_memory">Memoria Hermes</option>
                       <option value="hermes_skill">Skill Hermes</option>
+                      <option value="obsidian_note">Nota Obsidian</option>
                       <option value="capability">Capability</option>
                     </select>
                   </label>
@@ -2834,6 +2841,7 @@ export function AgentJobsClient({
                       <option value="manual">Manuale</option>
                       <option value="notion_righello">Notion Righello</option>
                       <option value="hermes_readonly">Hermes read-only</option>
+                      <option value="obsidian_vault">Obsidian Vault</option>
                       <option value="codex_knowhow">Know-how Codex</option>
                       <option value="internal">Optima</option>
                     </select>

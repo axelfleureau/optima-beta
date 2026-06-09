@@ -55,7 +55,7 @@ export interface AgenticGraphSession {
 export interface AgenticReferenceSource {
   id: string
   label: string
-  sourceType: "open_source_reference" | "product_pattern" | "private_readonly_source"
+  sourceType: "open_source_reference" | "product_pattern" | "private_readonly_source" | "local_tool"
   url: string | null
   importPolicy: string
   usefulPatterns: string[]
@@ -138,6 +138,20 @@ export const AGENTIC_REFERENCE_SOURCES: AgenticReferenceSource[] = [
       "graph.json interrogabile da agenti",
       "MCP server per query sul grafo",
       "skill installabile per workflow agentici",
+    ],
+  },
+  {
+    id: "obsidian-vault-bridge",
+    label: "Obsidian graph workspace",
+    sourceType: "local_tool",
+    url: "https://obsidian.md",
+    importPolicy: "bidirectional_markdown_vault_index_no_secrets_no_binary_assets",
+    usefulPatterns: [
+      "vault markdown locale con wikilink bidirezionali tra nodi Optima",
+      "graph view Obsidian per esplorazione visuale, cluster, tag e backlink",
+      "frontmatter YAML per source_id, confidence, tenant, tipo nodo e provenance",
+      "import opzionale di note Obsidian come nodi obsidian_note revisionabili",
+      "asset binari e allegati pesanti esclusi: si salvano link o riferimenti, non download locali",
     ],
   },
   {
@@ -592,6 +606,26 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     },
   })
 
+  const obsidianWorkspace = await upsertAgenticGraphNode(db, principal, {
+    nodeType: "graph_workspace",
+    title: "Obsidian graph workspace",
+    summary:
+      "Vault markdown reale per esplorare la graph memory Optima in Obsidian: note, wikilink, backlink, tag, graph view e frontmatter revisionabile. Graphify resta motore di estrazione/query; Obsidian diventa workspace umano di navigazione e cura della conoscenza.",
+    sourceType: "local_tool",
+    sourceId: "obsidian-vault-bridge",
+    sourceUrl: "https://obsidian.md",
+    confidence: "manual",
+    tags: ["obsidian", "vault", "markdown", "wikilinks", "graph-workspace"],
+    properties: {
+      role: "human_graph_workspace",
+      exportScript: "scripts/export-agentic-graph-obsidian-vault.mjs",
+      defaultVaultDir: "/Users/axel/Documents/Optima Obsidian Vault",
+      ownsBusinessData: false,
+      writesBackPolicy: "manual_or_reviewed_import_only",
+      excludedAssets: ["video", "raw attachments", "credentials", "tokens"],
+    },
+  })
+
   const mcpGateway = await upsertAgenticGraphNode(db, principal, {
     nodeType: "capability",
     title: "MCP tool gateway",
@@ -747,6 +781,8 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
   const edgeInputs = [
     [optima?.id, graphMemory?.id, "has_capability", "manual"],
     [graphMemory?.id, graphEngine?.id, "uses_graph_engine", "manual"],
+    [graphMemory?.id, obsidianWorkspace?.id, "exports_to_graph_workspace", "manual"],
+    [obsidianWorkspace?.id, graphMemory?.id, "can_feed_reviewed_notes", "manual"],
     [optima?.id, mcpGateway?.id, "has_capability", "manual"],
     [optima?.id, subagentLanes?.id, "has_capability", "manual"],
     [optima?.id, knowhowMemory?.id, "has_capability", "manual"],
@@ -767,6 +803,8 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
     [notionWork?.id, quoteHistoricalPatterns?.id, "contains_quote_tasks", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphEngine?.id, "documents_engine_pattern", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "graphify")?.id, graphMemory?.id, "informs_graph_schema", "inferred"],
+    [referenceNodes.find((node) => node?.sourceId === "obsidian-vault-bridge")?.id, obsidianWorkspace?.id, "documents_workspace_pattern", "manual"],
+    [referenceNodes.find((node) => node?.sourceId === "obsidian-vault-bridge")?.id, graphMemory?.id, "enables_human_graph_curation", "manual"],
     [referenceNodes.find((node) => node?.sourceId === "perplexity-computer-pattern")?.id, optima?.id, "informs_ux_pattern", "inferred"],
   ] as const
 
