@@ -316,6 +316,8 @@ const initialManualGraphNodeForm = {
 
 const jobTypesRequiringRepository = new Set(["codex_patch", "deploy"])
 const terminalJobStatuses = new Set(["approved", "rejected", "cancelled"])
+const OPTIMA_REPOSITORY_URL = "https://github.com/axelfleureau/optima-beta"
+const OPTIMA_REPOSITORY_BRANCH = "codex/pause-vps-runner"
 const priorityProviderIds = ["codex", "openai", "qwen", "gemma-hosted", "minimax"]
 const priorityConnectorIds = ["codex", "github", "notion", "cloudflare", "sendgrid", "telegram", "cloudinary", "hostinger"]
 type JobFilter = "active" | "review" | "running" | "done" | "all"
@@ -1531,10 +1533,15 @@ export function AgentJobsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: input.title,
-          jobType: "research",
+          jobType: "codex_patch",
           priority: input.priority ?? 2,
+          repoUrl: OPTIMA_REPOSITORY_URL,
+          repoBranch: OPTIMA_REPOSITORY_BRANCH,
           contextSummary: input.contextSummary,
-          brief: input.brief,
+          brief: [
+            input.brief,
+            "Repository operativo: Optima. Lavora in modo conservativo, produci patch o piano revisionabile e non fare deploy automatico.",
+          ].join("\n\n"),
           input: {
             requestedOutput: ["setup-plan", "health-check", "implementation-patch", "review-report"],
             hermesPattern: {
@@ -3656,7 +3663,7 @@ export function AgentJobsClient({
             }
           }}
         >
-          <DialogContent className="max-h-[94svh] w-[calc(100vw-1rem)] overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-4xl sm:p-6">
+          <DialogContent className="max-h-[94svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-4xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-xl font-black sm:text-2xl">Revisione job agentico</DialogTitle>
               <DialogDescription className="text-slate-400">
@@ -3670,8 +3677,8 @@ export function AgentJobsClient({
                 Caricamento revisione...
               </div>
             ) : (
-              <div className="grid gap-4">
-                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+              <div className="grid min-w-0 gap-4">
+                <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass[activeReviewJob.status]}`}>
                       {statusCopy[activeReviewJob.status] ?? activeReviewJob.status}
@@ -3683,23 +3690,23 @@ export function AgentJobsClient({
                       P{activeReviewJob.priority}
                     </span>
                   </div>
-                  <h3 className="mt-3 text-lg font-black leading-tight sm:text-xl">{activeReviewJob.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">{activeReviewJob.brief}</p>
+                  <h3 className="mt-3 break-words text-lg font-black leading-tight sm:text-xl">{activeReviewJob.title}</h3>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-400">{activeReviewJob.brief}</p>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-                  <div className="grid gap-4">
-                    <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.04] p-3 sm:p-4">
+                <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+                  <div className="grid min-w-0 gap-4">
+                    <section className="min-w-0 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.04] p-3 sm:p-4">
                       <div className="flex items-center gap-2 text-cyan-50">
                         <FileText className="h-4 w-4" />
                         <h4 className="font-black">Output runner</h4>
                       </div>
-                      <div className="mt-3 max-h-72 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-slate-200 sm:max-h-96">
+                      <div className="mt-3 max-h-72 min-w-0 overflow-y-auto whitespace-pre-wrap break-all text-sm leading-6 text-slate-200 sm:max-h-96">
                         {activeReviewJob.resultSummary || activeReviewJob.errorMessage || "Nessun output ancora disponibile."}
                       </div>
                     </section>
 
-                    <section className="rounded-lg border border-white/10 bg-[#050914] p-3 sm:p-4">
+                    <section className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 sm:p-4">
                       <div className="flex items-center gap-2">
                         <MessageSquareText className="h-4 w-4 text-righello-pink" />
                         <h4 className="font-black">Richiedi modifiche al runner</h4>
@@ -3747,14 +3754,14 @@ export function AgentJobsClient({
                     </section>
                   </div>
 
-                  <aside className="grid content-start gap-4">
-                    <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+                  <aside className="grid min-w-0 content-start gap-4">
+                    <section className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
                       <h4 className="font-black">Artefatti</h4>
                       <div className="mt-3 grid gap-2">
                         {reviewDetails?.artifacts?.length ? (
                           reviewDetails.artifacts.map((artifact) => (
-                            <div key={artifact.id} className="rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300">
-                              <p className="font-bold text-white">{artifact.label}</p>
+                            <div key={artifact.id} className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300">
+                              <p className="break-words font-bold text-white">{artifact.label}</p>
                               <p className="mt-1">{artifact.artifactType}</p>
                               {artifact.r2Key ? <p className="mt-1 break-all text-slate-500">{artifact.r2Key}</p> : null}
                             </div>
@@ -3765,17 +3772,17 @@ export function AgentJobsClient({
                       </div>
                     </section>
 
-                    <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+                    <section className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
                       <h4 className="font-black">Timeline audit</h4>
-                      <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto pr-1">
+                      <div className="mt-3 grid max-h-72 min-w-0 gap-2 overflow-y-auto pr-1">
                         {reviewDetails?.events?.length ? (
                           reviewDetails.events.map((event) => (
-                            <div key={event.id} className="rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="font-bold text-white">{event.eventType}</p>
-                                <span className="text-slate-500">{formatRelativeTime(event.createdAt)}</span>
+                            <div key={event.id} className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300">
+                              <div className="flex min-w-0 items-center justify-between gap-2">
+                                <p className="min-w-0 truncate font-bold text-white">{event.eventType}</p>
+                                <span className="shrink-0 text-slate-500">{formatRelativeTime(event.createdAt)}</span>
                               </div>
-                              {event.message ? <p className="mt-1 text-slate-400">{event.message}</p> : null}
+                              {event.message ? <p className="mt-1 whitespace-pre-wrap break-all text-slate-400">{event.message}</p> : null}
                             </div>
                           ))
                         ) : (
