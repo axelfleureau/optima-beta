@@ -1,5 +1,6 @@
 import jsPDF from "jspdf"
 import type { GeneratedQuoteData } from "@/lib/ai-quote-service"
+import { RIGHELLO_QUOTE_DARK_PNG, RIGHELLO_QUOTE_WHITE_PNG } from "@/lib/righello-pdf-assets"
 
 type QuoteVoice = GeneratedQuoteData["voci"][number]
 
@@ -29,6 +30,22 @@ const mm = {
 const safeNumber = (value: unknown) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+const hexToRgb = (value?: string): PdfColor | null => {
+  const match = value?.trim().match(/^#?([0-9a-f]{6})$/i)
+  if (!match) return null
+  const hex = match[1]
+  return [
+    Number.parseInt(hex.slice(0, 2), 16),
+    Number.parseInt(hex.slice(2, 4), 16),
+    Number.parseInt(hex.slice(4, 6), 16),
+  ] as const
+}
+
+const readableLight = (color: PdfColor) => {
+  const [r, g, b] = color
+  return (r * 299 + g * 587 + b * 114) / 1000 > 170
 }
 
 export const formatQuoteCurrency = (amount: number): string => {
@@ -185,12 +202,28 @@ class RighelloPDFGenerator {
     }
   }
 
-  private brandMark(x: number, y: number, size = 18, color?: readonly [number, number, number]) {
-    this.setColor(color || this.brand.white, "fill")
-    const h = size * 0.14
-    this.doc.roundedRect(x, y, size, h, 0.9, 0.9, "F")
-    this.doc.roundedRect(x, y + size * 0.32, size * 0.58, h, 0.9, 0.9, "F")
-    this.doc.roundedRect(x, y + size * 0.64, size, h, 0.9, 0.9, "F")
+  private image(dataUri: string, x: number, y: number, width: number, height: number) {
+    try {
+      this.doc.addImage(dataUri, "PNG", x, y, width, height, undefined, "FAST")
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private righelloLogo(x: number, y: number, width: number, mode: "light" | "dark" = "light") {
+    const ratio = mode === "light" ? 431 / 1200 : 292 / 1200
+    const height = width * ratio
+    const rendered = this.image(mode === "light" ? RIGHELLO_QUOTE_WHITE_PNG : RIGHELLO_QUOTE_DARK_PNG, x, y, width, height)
+    if (!rendered) {
+      this.text("Righello", x, y + 7, {
+        size: 13,
+        bold: true,
+        color: mode === "light" ? this.brand.white : this.brand.primary,
+        maxWidth: width,
+      })
+    }
+    return height
   }
 
   private text(text: string, x: number, y: number, opts?: { size?: number; bold?: boolean; color?: readonly [number, number, number]; maxWidth?: number; leading?: number }) {
@@ -341,57 +374,133 @@ class RighelloPDFGenerator {
   }
 
   private drawCover(data: GeneratedQuoteData) {
-    this.setColor(this.brand.white, "fill")
-    this.doc.rect(0, 0, this.width, this.height, "F")
-
-    this.setColor(this.brand.primary, "fill")
-    this.doc.rect(0, 0, this.width, 70, "F")
-    this.setColor(this.brand.pink, "fill")
-    this.doc.rect(0, 69.2, this.width, 1.6, "F")
-    this.setColor(this.brand.blue, "fill")
-    this.doc.rect(0, 70.8, 54, 0.7, "F")
-
-    this.brandMark(mm.left, 22, 15, this.brand.pink)
-    this.text("RIGHELLO", mm.left + 21, 29, { size: 14, bold: true, color: this.brand.white, maxWidth: 48 })
-    this.text("DESIGN, TECNOLOGIA E OPERATIONS", mm.left + 21, 37, {
-      size: 6.7,
-      color: [212, 220, 232],
-      maxWidth: 86,
-    })
-
-    this.text("PROPOSTA RIGHELLO", this.width - mm.right - 46, 28, {
-      size: 8,
-      bold: true,
-      color: [212, 220, 232],
-      maxWidth: 46,
-    })
-    this.text("Documento commerciale", this.width - mm.right - 48, 36, {
-      size: 7,
-      color: [174, 187, 205],
-      maxWidth: 48,
-    })
-
+    const palette = data.creativeDirection?.palette
+    const accent = hexToRgb(palette?.positive) || hexToRgb(palette?.signal) || this.brand.pink
+    const secondary = hexToRgb(palette?.highlight) || this.brand.blue
+    const coverBg = hexToRgb(palette?.primary) || [24, 50, 83] as const
+    const bgIsLight = readableLight(coverBg)
+    const textOnCover = bgIsLight ? this.brand.primary : this.brand.white
+    const mutedOnCover = bgIsLight ? this.brand.muted : [214, 224, 238] as const
     const validity = data.preventivo.validitaGiorni || data.condizioni.validityDays || 60
     const development = quoteDevelopmentTotal(data)
     const recurring = quoteRecurringAnnualTotal(data)
     const iva = data.totali.percentualeIva || 22
 
-    this.y = 90
-    this.eyebrow("proposta commerciale")
-    const titleUsed = this.text(data.preventivo.titolo || "Proposta commerciale", mm.left, this.y, {
-      size: 27,
+    this.setColor(coverBg, "fill")
+    this.doc.rect(0, 0, this.width, this.height, "F")
+    this.setColor(accent, "fill")
+    this.doc.rect(0, 0, 60, 8, "F")
+    this.doc.rect(0, this.height - 8, this.width, 8, "F")
+    this.setColor(secondary, "fill")
+    this.doc.rect(0, this.height - 8, 72, 2, "F")
+
+    this.righelloLogo(this.width - mm.right - 48, 18, 46, bgIsLight ? "dark" : "light")
+    this.text("Proposta commerciale", mm.left, 60, {
+      size: 13,
+      bold: true,
+      color: mutedOnCover,
+      maxWidth: this.contentWidth,
+    })
+
+    const titleUsed = this.text(data.preventivo.titolo || "Proposta commerciale", mm.left, 76, {
+      size: 30,
+      bold: true,
+      color: textOnCover,
+      maxWidth: 138,
+      leading: 10,
+    })
+
+    const badgeY = 118 + Math.max(0, titleUsed - 20)
+    this.setColor(accent, "fill")
+    this.doc.roundedRect(mm.left + 43, badgeY, 86, 12, 0, 0, "F")
+    this.text(`Validita proposta: ${validity} giorni`, mm.left + 49, badgeY + 7.6, {
+      size: 8.7,
+      bold: true,
+      color: readableLight(accent) ? this.brand.primary : this.brand.white,
+      maxWidth: 74,
+    })
+
+    const clientPanelY = badgeY + 31
+    this.setColor(this.brand.white, "fill")
+    this.doc.roundedRect(mm.left + 28, clientPanelY, this.contentWidth - 56, 34, 1.8, 1.8, "F")
+    this.text("Per", this.width / 2, clientPanelY + 8, {
+      size: 8.2,
+      color: this.brand.muted,
+      maxWidth: 40,
+    })
+    this.text(data.cliente.nome || "Cliente", this.width / 2 - 54, clientPanelY + 22, {
+      size: 17,
       bold: true,
       color: this.brand.primary,
-      maxWidth: 128,
-      leading: 9.2,
+      maxWidth: 108,
+      leading: 6.3,
     })
-    this.y += titleUsed + 8
+
+    const infoY = clientPanelY + 51
+    const rows: Array<[string, string]> = [
+      ["Cliente", data.cliente.nome || "Da definire"],
+      ["Fornitore", "Righello - wearerighello.com"],
+      ["Documento", data.preventivo.numeroPreventivo || "Proposta Righello"],
+      ["Timeline", data.preventivo.timeline || "Da confermare in kick-off"],
+    ]
+    rows.forEach(([label, value], index) => {
+      const rowY = infoY + index * 9
+      this.setColor([255, 255, 255], "draw")
+      this.doc.setDrawColor(255, 255, 255)
+      this.doc.setLineWidth(0.08)
+      this.doc.line(mm.left + 16, rowY + 5.6, this.width - mm.right - 16, rowY + 5.6)
+      this.text(label, mm.left + 18, rowY + 3.5, { size: 8.8, bold: true, color: mutedOnCover, maxWidth: 48 })
+      this.text(value, mm.left + 62, rowY + 3.5, { size: 8.8, bold: true, color: textOnCover, maxWidth: 98 })
+    })
+
+    const totalY = this.height - 54
+    this.setColor([255, 255, 255], "fill")
+    this.doc.roundedRect(mm.left, totalY, this.contentWidth, 30, 1.8, 1.8, "F")
+    this.text("Totale sviluppo", mm.left + 7, totalY + 9, { size: 8.5, bold: true, color: this.brand.muted, maxWidth: 44 })
+    this.text(formatQuoteCurrency(development), mm.left + 7, totalY + 22, { size: 18, bold: true, color: this.brand.primary, maxWidth: 54 })
+    this.text(`IVA inclusa: ${formatQuoteCurrency(quoteVatIncluded(development, iva))}`, mm.left + 73, totalY + 12, {
+      size: 9,
+      bold: true,
+      color: this.brand.ink,
+      maxWidth: 48,
+    })
+    this.text(`Gestione annua separata: ${formatQuoteCurrency(recurring)}`, mm.left + 73, totalY + 22, {
+      size: 8.4,
+      color: this.brand.muted,
+      maxWidth: 72,
+    })
+    this.textRight("Netto, IVA esclusa", this.width - mm.right - 7, totalY + 22, {
+      size: 8,
+      color: this.brand.muted,
+    })
+
+    this.doc.addPage()
+    this.setColor(this.brand.white, "fill")
+    this.doc.rect(0, 0, this.width, this.height, "F")
+    this.drawInternalHeader()
+    this.y = 30
+    this.righelloLogo(mm.left, 17, 38, "dark")
+    this.textRight("Sintesi proposta", this.width - mm.right, 24, {
+      size: 8,
+      bold: true,
+      color: this.brand.muted,
+    })
+    this.y = 50
+    this.eyebrow("proposta commerciale")
+    const summaryTitleUsed = this.text(data.preventivo.titolo || "Proposta commerciale", mm.left, this.y, {
+      size: 25,
+      bold: true,
+      color: this.brand.primary,
+      maxWidth: 120,
+      leading: 8.8,
+    })
+    this.y += summaryTitleUsed + 8
     const introUsed = this.text(
       data.preventivo.descrizione ||
         `Proposta strutturata per ${data.cliente.nome}: perimetro, costi, servizi ricorrenti e prossimi passi in un documento leggibile.`,
       mm.left,
       this.y,
-      { size: 11, color: this.brand.muted, maxWidth: 137, leading: 5.8 }
+      { size: 11, color: this.brand.muted, maxWidth: 116, leading: 5.8 }
     )
     this.y += introUsed + 16
 
