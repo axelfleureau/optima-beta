@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GlassButton } from "@/components/ui/glass-button"
 import { GlassCard } from "@/components/ui/glass-card"
@@ -194,6 +194,7 @@ const clampBudget = (value: number) => Math.max(MIN_BUDGET, Math.min(MAX_BUDGET,
 
 export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: PromptEnrichmentDialogProps) {
   const { clients, loading: clientsLoading } = useClients()
+  const wasOpenRef = useRef(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [isCompleting, setIsCompleting] = useState(false)
   const [formData, setFormData] = useState<Partial<EnrichedPromptData>>({
@@ -217,12 +218,18 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
     .filter(Boolean)
 
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
+      wasOpenRef.current = true
       setCurrentStep(1)
       setBudgetInputs({
         min: String(formData.budgetRange?.min || DEFAULT_BUDGET_RANGE.min),
         max: String(formData.budgetRange?.max || DEFAULT_BUDGET_RANGE.max),
       })
+      return
+    }
+
+    if (!open) {
+      wasOpenRef.current = false
     }
   }, [open, formData.budgetRange?.min, formData.budgetRange?.max])
 
