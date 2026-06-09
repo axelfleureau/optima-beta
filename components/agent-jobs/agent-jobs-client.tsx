@@ -591,27 +591,25 @@ function getGraphNodeLayout(
     })
     .slice(0, limit)
 
-  const groups = new Map<string, AgenticGraphSnapshot["nodes"]>()
-  for (const node of visibleNodes) {
-    const key = typeOrder.includes(node.nodeType) ? node.nodeType : "other"
-    groups.set(key, [...(groups.get(key) ?? []), node])
-  }
-
   const selectedIndex = visibleNodes.findIndex((node) => node.id === selectedNodeId)
-  const rankedTypes = [...groups.keys()].sort((a, b) => {
-    const aType = typeOrder.includes(a) ? typeOrder.indexOf(a) : typeOrder.length
-    const bType = typeOrder.includes(b) ? typeOrder.indexOf(b) : typeOrder.length
-    return aType - bType
-  })
+  const visibleNodeIds = new Set(visibleNodes.map((node) => node.id))
+  const visibleEdgeInputs = edges.filter((edge) => visibleNodeIds.has(edge.fromNodeId) && visibleNodeIds.has(edge.toNodeId))
 
   const layout = visibleNodes.map((node, index) => {
     const degree = degreeByNode.get(node.id) || 0
-    const typeBoost = node.nodeType === "system" || node.nodeType === "knowledge_base" ? 1.4 : node.nodeType === "graph_engine" ? 1.1 : node.nodeType === "capability" ? 0.8 : 0
+    const typeBoost =
+      node.nodeType === "system" || node.nodeType === "knowledge_base"
+        ? 1.8
+        : node.nodeType === "graph_engine" || node.nodeType === "graph_workspace"
+          ? 1.35
+          : node.nodeType === "capability"
+            ? 0.9
+            : 0
     const selectedBoost = node.id === selectedNodeId ? 1.5 : neighborIds.has(node.id) ? 0.6 : 0
-    const r = Math.max(3.2, Math.min(9.4, 3.2 + Math.sqrt(degree + 1) * 1.22 + typeBoost + selectedBoost))
+    const r = Math.max(2.8, Math.min(8.8, 2.9 + Math.sqrt(degree + 1) * 1.12 + typeBoost + selectedBoost))
 
-    let x = 50
-    let y = 50
+    let x: number
+    let y: number
     const isSelected = node.id === selectedNodeId
     const isNeighbor = neighborIds.has(node.id)
 
@@ -622,39 +620,31 @@ function getGraphNodeLayout(
       } else if (isNeighbor) {
         const neighbors = visibleNodes.filter((item) => neighborIds.has(item.id))
         const neighborIndex = Math.max(0, neighbors.findIndex((item) => item.id === node.id))
-        const angle = (-90 + (360 / Math.max(1, neighbors.length)) * neighborIndex) * (Math.PI / 180)
-        const ring = neighbors.length > 14 ? 28 : 24
-        x = 50 + Math.cos(angle) * ring
-        y = 50 + Math.sin(angle) * ring * 0.82
+        const point = seededGraphPoint(`${node.id}:${neighborIndex}`, 22 + Math.min(10, neighbors.length * 0.42), -92 + (360 / Math.max(1, neighbors.length)) * neighborIndex)
+        x = point.x
+        y = point.y
       } else {
         const outerNodes = visibleNodes.filter((item) => item.id !== selectedNodeId && !neighborIds.has(item.id))
         const outerIndex = Math.max(0, outerNodes.findIndex((item) => item.id === node.id))
-        const angle = (outerIndex * 137.508 - 24) * (Math.PI / 180)
-        const ring = 37 + (outerIndex % 3) * 5
-        x = 50 + Math.cos(angle) * ring
-        y = 50 + Math.sin(angle) * ring * 0.78
+        const point = seededGraphPoint(`${node.id}:${outerIndex}`, 38 + (outerIndex % 4) * 2.5, outerIndex * 137.508 - 24)
+        x = point.x
+        y = point.y
       }
     } else if (index === 0) {
       x = 50
       y = 50
     } else {
-      const groupKey = typeOrder.includes(node.nodeType) ? node.nodeType : "other"
-      const groupNodes = groups.get(groupKey) ?? [node]
-      const groupIndex = Math.max(0, groupNodes.findIndex((item) => item.id === node.id))
-      const typeIndex = Math.max(0, rankedTypes.indexOf(groupKey))
-      const clusterAngle = (-92 + (360 / Math.max(1, rankedTypes.length)) * typeIndex) * (Math.PI / 180)
-      const clusterX = 50 + Math.cos(clusterAngle) * 27
-      const clusterY = 50 + Math.sin(clusterAngle) * 21
-      const localAngle = (groupIndex * 137.508) * (Math.PI / 180)
-      const localRing = 5 + Math.floor(groupIndex / 4) * 6.5
-      x = clusterX + Math.cos(localAngle) * localRing
-      y = clusterY + Math.sin(localAngle) * localRing * 0.82
+      const point = seededGraphPoint(`${node.id}:${index}`, 8 + Math.sqrt(index) * 7.6, index * 137.508 - 90)
+      x = point.x
+      y = point.y
     }
 
     return {
       node,
       x: Math.max(7, Math.min(93, x)),
       y: Math.max(8, Math.min(92, y)),
+      vx: 0,
+      vy: 0,
       r,
       degree,
       isSelected,
@@ -663,7 +653,10 @@ function getGraphNodeLayout(
     }
   })
 
-  for (let pass = 0; pass < 52; pass += 1) {
+  const layoutById = new Map(layout.map((item) => [item.node.id, item]))
+  for (let pass = 0; pass < 118; pass += 1) {
+    const cooling = 1 - pass / 118
+
     for (let i = 0; i < layout.length; i += 1) {
       for (let j = i + 1; j < layout.length; j += 1) {
         const a = layout[i]
@@ -671,28 +664,85 @@ function getGraphNodeLayout(
         const dx = b.x - a.x
         const dy = b.y - a.y
         const distance = Math.max(0.001, Math.hypot(dx, dy))
-        const minDistance = a.r + b.r + 2.8
-        if (distance >= minDistance) continue
-
-        const push = (minDistance - distance) * 0.5
+        const minDistance = a.r + b.r + 4.6
+        const charge = Math.min(10, (minDistance * minDistance) / (distance * 0.9)) * cooling
         const ux = dx / distance
         const uy = dy / distance
-        const aLocked = a.isSelected
-        const bLocked = b.isSelected
 
-        if (!aLocked) {
-          a.x = Math.max(6, Math.min(94, a.x - ux * push * (bLocked ? 1.4 : 1)))
-          a.y = Math.max(7, Math.min(93, a.y - uy * push * (bLocked ? 1.4 : 1)))
+        if (!a.isSelected) {
+          a.vx -= ux * charge * 0.08
+          a.vy -= uy * charge * 0.08
         }
-        if (!bLocked) {
-          b.x = Math.max(6, Math.min(94, b.x + ux * push * (aLocked ? 1.4 : 1)))
-          b.y = Math.max(7, Math.min(93, b.y + uy * push * (aLocked ? 1.4 : 1)))
+        if (!b.isSelected) {
+          b.vx += ux * charge * 0.08
+          b.vy += uy * charge * 0.08
         }
       }
+    }
+
+    for (const edge of visibleEdgeInputs) {
+      const from = layoutById.get(edge.fromNodeId)
+      const to = layoutById.get(edge.toNodeId)
+      if (!from || !to) continue
+      const selectedEdge = Boolean(selectedNodeId && (edge.fromNodeId === selectedNodeId || edge.toNodeId === selectedNodeId))
+      const dx = to.x - from.x
+      const dy = to.y - from.y
+      const distance = Math.max(0.001, Math.hypot(dx, dy))
+      const desiredDistance = selectedEdge ? 20 : Math.max(18, 28 - Math.min(9, Number(edge.weight || 1) * 3))
+      const force = (distance - desiredDistance) * (selectedEdge ? 0.028 : 0.016) * cooling
+      const ux = dx / distance
+      const uy = dy / distance
+      if (!from.isSelected) {
+        from.vx += ux * force
+        from.vy += uy * force
+      }
+      if (!to.isSelected) {
+        to.vx -= ux * force
+        to.vy -= uy * force
+      }
+    }
+
+    for (const item of layout) {
+      if (item.isSelected) {
+        item.x = 50
+        item.y = 50
+        item.vx = 0
+        item.vy = 0
+        continue
+      }
+
+      const gravity = selectedNodeId ? (item.isNeighbor ? 0.006 : 0.002) : 0.004
+      item.vx += (50 - item.x) * gravity * cooling
+      item.vy += (50 - item.y) * gravity * cooling
+      item.vx *= 0.82
+      item.vy *= 0.82
+      item.x = Math.max(6, Math.min(94, item.x + item.vx))
+      item.y = Math.max(7, Math.min(93, item.y + item.vy))
     }
   }
 
   return layout
+}
+
+function hashGraphValue(value: string) {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function seededGraphPoint(seed: string, radius: number, baseAngle: number) {
+  const hash = hashGraphValue(seed)
+  const jitterAngle = ((hash % 41) - 20) * 0.9
+  const jitterRadius = (((hash >>> 8) % 100) / 100 - 0.5) * 5
+  const angle = (baseAngle + jitterAngle) * (Math.PI / 180)
+  const safeRadius = Math.max(4, Math.min(43, radius + jitterRadius))
+  return {
+    x: 50 + Math.cos(angle) * safeRadius,
+    y: 50 + Math.sin(angle) * safeRadius * 0.78,
+  }
 }
 
 function compactGraphLabel(value: string) {
@@ -723,6 +773,7 @@ const GRAPH_MIN_ZOOM = 0.45
 const GRAPH_FIT_ZOOM = 0.62
 const GRAPH_MAX_ZOOM = 2.8
 const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
+const OBSIDIAN_VAULT_URI = "obsidian://open?vault=Optima%20Obsidian%20Vault"
 
 function clampGraphZoom(value: number) {
   return Math.max(GRAPH_MIN_ZOOM, Math.min(GRAPH_MAX_ZOOM, value))
@@ -827,7 +878,7 @@ function GraphMemoryMap({
     <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-white/10 bg-[#050914]/85">
       <div className="grid gap-2 border-b border-white/10 px-3 py-2 sm:flex sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center justify-between gap-2">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mappa grafo</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Vista Obsidian</p>
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 sm:hidden" title={summary}>
             {layout.length}/{totalNodes}
           </span>
@@ -836,6 +887,13 @@ function GraphMemoryMap({
           <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 lg:inline-flex">
             {summary}
           </span>
+          <a
+            href={OBSIDIAN_VAULT_URI}
+            className="inline-flex h-7 items-center rounded-full border border-violet-300/25 bg-violet-300/10 px-2 text-[10px] font-black text-violet-100 transition hover:bg-violet-300/15"
+            title="Apre il vault Obsidian generato da npm run obsidian:graph:export"
+          >
+            Obsidian
+          </a>
           {densityOptions.map((limit) => (
             <button
               key={limit}
@@ -911,7 +969,7 @@ function GraphMemoryMap({
             setZoom((current) => clampGraphZoom(current + (event.deltaY > 0 ? -0.12 : 0.12)))
           }}
         >
-          <svg className="absolute inset-0 h-full w-full" viewBox={viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Mappa dinamica a bolle della graph memory Optima">
+          <svg className="absolute inset-0 h-full w-full" viewBox={viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Vista Obsidian della graph memory Optima">
             <defs>
               <filter id="graphGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="1.8" result="coloredBlur" />
@@ -1009,7 +1067,7 @@ function GraphMemoryMap({
             })}
           </svg>
           <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-lg border border-white/10 bg-[#050914]/80 px-3 py-2 text-[11px] leading-5 text-slate-400 backdrop-blur">
-            <span className="font-bold text-slate-200">Dimensione = centralita.</span> Colore = tipo nodo. Linea = relazione/confidence. Trascina, zooma e tocca un nodo per contesto e azioni.
+            <span className="font-bold text-slate-200">Obsidian view.</span> Pallini = note/nodi, linee = backlink/relazioni, dimensione = centralita. Trascina, zooma e tocca un nodo per aprire il vicinato locale.
             {selectedNodeId ? " Il focus mostra il nodo selezionato e i suoi vicini." : ""}
           </div>
           {selectedLayoutNode ? (
@@ -1061,7 +1119,7 @@ function GraphMemoryMap({
 
       {isPartialMap ? (
         <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
-          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. La vista e progressiva per restare leggibile: aumenta la densita, filtra o seleziona un nodo per investigare il vicinato. Graphify e il motore di estrazione/query; clienti, persone, task, repo e skill restano dati Optima.
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. Questa vista usa un layout force-directed stile Obsidian per esplorare backlink e vicinati locali. Graphify resta il motore di estrazione/query; Obsidian e il workspace visuale; Optima resta la sorgente autoritativa di tenant, permessi e azioni agentiche.
         </div>
       ) : null}
 
