@@ -164,8 +164,8 @@ class RighelloPDFGenerator {
 
   private sectionPage(title: string, eyebrow?: string) {
     this.doc.addPage()
-    this.y = mm.top
     this.drawInternalHeader()
+    this.y = 28
     if (eyebrow) this.eyebrow(eyebrow)
     this.h1(title)
     this.y += 4
@@ -174,30 +174,44 @@ class RighelloPDFGenerator {
   private ensure(space: number) {
     if (this.y + space > this.height - mm.bottom - 12) {
       this.doc.addPage()
-      this.y = mm.top
       this.drawInternalHeader()
+      this.y = 28
     }
   }
 
   private drawInternalHeader() {
     this.setColor(this.brand.primary, "fill")
-    this.doc.rect(0, 0, this.width, 4.2, "F")
+    this.doc.rect(0, 0, this.width, 7.2, "F")
+    this.setColor(this.brand.green, "fill")
+    this.doc.rect(0, 0, 44, 2.8, "F")
     this.setColor(this.brand.pink, "fill")
-    this.doc.rect(0, 4.2, this.width, 0.7, "F")
+    this.doc.rect(0, 7.2, this.width, 0.45, "F")
+  }
+
+  private documentReference(data: GeneratedQuoteData) {
+    const raw = data.preventivo.titolo || data.cliente.nome || "Proposta Righello"
+    const compact = raw
+      .replace(/^Sito Web\s*/i, "")
+      .replace(/\s+/g, " ")
+      .trim()
+    return `Proposta ${compact || "Righello"}`
   }
 
   private footer(data: GeneratedQuoteData) {
     const pages = this.doc.getNumberOfPages()
+    const reference = this.documentReference(data)
     for (let page = 2; page <= pages; page += 1) {
       this.doc.setPage(page)
       this.setColor(this.brand.border, "draw")
       this.doc.setLineWidth(0.2)
       this.doc.line(mm.left, this.height - 16, this.width - mm.right, this.height - 16)
+      this.righelloLogo(mm.left, this.height - 12.2, 15, "dark")
       this.setColor(this.brand.muted)
       this.doc.setFont("helvetica", "normal")
-      this.doc.setFontSize(8)
-      this.doc.text("Righello", mm.left, this.height - 9)
-      this.doc.text(`Proposta ${data.cliente.nome || data.preventivo.titolo}`, mm.left + 20, this.height - 9)
+      this.doc.setFontSize(7.6)
+      this.doc.text("·", mm.left + 18, this.height - 9)
+      const referenceLines = this.doc.splitTextToSize(reference, 96)
+      this.doc.text(referenceLines.slice(0, 1), mm.left + 22, this.height - 9)
       this.doc.text(`Pagina ${page}`, this.width - mm.right, this.height - 9, { align: "right" })
     }
   }
@@ -308,18 +322,18 @@ class RighelloPDFGenerator {
 
       if (this.y + rowHeight > pageBottom) {
         this.doc.addPage()
-        this.y = mm.top
         this.drawInternalHeader()
+        this.y = 28
         drawHeader()
       }
 
-      this.setColor(total ? this.brand.soft : index % 2 === 0 ? this.brand.white : this.brand.soft, "fill")
+      this.setColor(total ? this.brand.primary : index % 2 === 0 ? this.brand.white : this.brand.soft, "fill")
       this.doc.rect(left, this.y, this.contentWidth, rowHeight, "F")
       this.setColor(this.brand.border, "draw")
       this.doc.setLineWidth(0.18)
       this.doc.line(left, this.y + rowHeight, left + this.contentWidth, this.y + rowHeight)
 
-      this.setColor(total ? this.brand.primary : this.brand.ink)
+      this.setColor(total ? this.brand.white : this.brand.ink)
       this.doc.setFont("helvetica", total ? "bold" : "normal")
       this.doc.setFontSize(total ? 10.5 : 9)
       this.doc.text(labelLines, left + 4, this.y + 7)
@@ -478,14 +492,13 @@ class RighelloPDFGenerator {
     this.setColor(this.brand.white, "fill")
     this.doc.rect(0, 0, this.width, this.height, "F")
     this.drawInternalHeader()
-    this.y = 30
-    this.righelloLogo(mm.left, 17, 38, "dark")
-    this.textRight("Sintesi proposta", this.width - mm.right, 24, {
+    this.righelloLogo(mm.left, 14, 26, "dark")
+    this.textRight("Sintesi proposta", this.width - mm.right, 18, {
       size: 8,
       bold: true,
       color: this.brand.muted,
     })
-    this.y = 50
+    this.y = 42
     this.eyebrow("proposta commerciale")
     const summaryTitleUsed = this.text(data.preventivo.titolo || "Proposta commerciale", mm.left, this.y, {
       size: 25,
@@ -800,7 +813,7 @@ class RighelloPDFGenerator {
       checks: [
         "8 sezioni presenti",
         "totali derivati dalle voci",
-        "riepilogo economico presente a pagina 2 e nella sezione finale",
+        "riepilogo economico presente nella sintesi e nella sezione finale",
         "copertina senza data assoluta",
         "condizioni e materiali presenti",
       ],
