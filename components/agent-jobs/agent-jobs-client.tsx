@@ -801,6 +801,7 @@ function GraphMemoryMap({
     startY: number
     startPan: { x: number; y: number }
   } | null>(null)
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
   const layout = useMemo(
     () => getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? [], { limit: nodeLimit, selectedNodeId }),
@@ -811,6 +812,9 @@ function GraphMemoryMap({
   const loadedNodes = graphMemory?.nodes.length ?? layout.length
   const nodePosition = new Map(layout.map((item) => [item.node.id, item]))
   const selectedLayoutNode = selectedNodeId ? nodePosition.get(selectedNodeId) : null
+  const hoveredLayoutNode = hoveredNodeId ? nodePosition.get(hoveredNodeId) : null
+  const focusLayoutNode = selectedLayoutNode ?? hoveredLayoutNode
+  const focusNodeId = selectedNodeId ?? hoveredNodeId
   const visibleEdges = (graphMemory?.edges ?? [])
     .map((edge) => ({
       edge,
@@ -877,42 +881,30 @@ function GraphMemoryMap({
   }
 
   return (
-    <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-violet-300/20 bg-[#0b0914]/95 shadow-[0_0_0_1px_rgba(168,85,247,0.08),0_24px_80px_rgba(88,28,135,0.18)]">
-      <div className="grid gap-3 border-b border-violet-300/15 bg-[#171426]/90 px-3 py-3 sm:flex sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-violet-300/25 bg-violet-300/10">
-              <span className="absolute h-2.5 w-2.5 rounded-full bg-violet-200 shadow-[0_0_16px_rgba(221,214,254,0.7)]" />
-              <span className="absolute left-2 top-2 h-1.5 w-1.5 rounded-full bg-slate-300" />
-              <span className="absolute bottom-2 right-2 h-1.5 w-1.5 rounded-full bg-slate-300" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black uppercase tracking-[0.16em] text-violet-100">Obsidian Graph</p>
-              <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">Vault: Optima Obsidian Vault - global graph / local graph</p>
-            </div>
+    <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-[#2b2f46] bg-[#080a12] shadow-[0_0_0_1px_rgba(124,58,237,0.08),0_24px_90px_rgba(0,0,0,0.38)]">
+      <div className="flex flex-col gap-2 border-b border-white/10 bg-[#0b0d16] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#a78bfa] shadow-[0_0_18px_rgba(167,139,250,0.85)]" />
+          <div className="min-w-0">
+            <p className="truncate text-[12px] font-black uppercase tracking-[0.18em] text-slate-200">Obsidian graph view</p>
+            <p className="truncate text-[10px] font-semibold text-slate-500">{summary}</p>
           </div>
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 sm:hidden" title={summary}>
-            {layout.length}/{totalNodes}
-          </span>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 lg:inline-flex">
-            {summary}
-          </span>
+        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:overflow-visible sm:pb-0">
           <a
             href={OBSIDIAN_VAULT_URI}
-            className="inline-flex h-7 items-center rounded-full border border-violet-300/35 bg-violet-300/15 px-2.5 text-[10px] font-black text-violet-50 transition hover:bg-violet-300/25"
+            className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-200 transition hover:bg-white/10"
             title="Apre il vault Obsidian generato da npm run obsidian:graph:export"
           >
-            Apri Obsidian
+            Apri vault
           </a>
           {densityOptions.map((limit) => (
             <button
               key={limit}
               type="button"
               onClick={() => setNodeLimit(limit)}
-              className={`h-7 rounded-full border px-2 text-[10px] font-black transition ${
-                nodeLimit === limit ? "border-cyan-300/50 bg-cyan-300/15 text-cyan-100" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/10"
+              className={`h-7 shrink-0 rounded-md border px-2 text-[10px] font-bold transition ${
+                nodeLimit === limit ? "border-[#7c3aed] bg-[#7c3aed]/25 text-violet-100" : "border-white/10 bg-white/[0.025] text-slate-500 hover:bg-white/10"
               }`}
             >
               {limit}
@@ -926,10 +918,10 @@ function GraphMemoryMap({
                 setZoom(preset)
                 setPan({ x: 0, y: 0 })
               }}
-              className={`h-7 rounded-full border px-2 text-[10px] font-black transition ${
+              className={`h-7 shrink-0 rounded-md border px-2 text-[10px] font-bold transition ${
                 Math.abs(zoom - preset) < 0.01
-                  ? "border-fuchsia-300/55 bg-fuchsia-300/15 text-fuchsia-100"
-                  : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/10"
+                  ? "border-[#7c3aed] bg-[#7c3aed]/25 text-violet-100"
+                  : "border-white/10 bg-white/[0.025] text-slate-500 hover:bg-white/10"
               }`}
               aria-label={`Imposta zoom grafo al ${Math.round(preset * 100)}%`}
             >
@@ -940,17 +932,17 @@ function GraphMemoryMap({
             type="button"
             variant="outline"
             onClick={() => setZoom((current) => clampGraphZoom(current - 0.15))}
-            className="h-7 w-7 rounded-full border-white/10 bg-transparent p-0 text-slate-200 hover:bg-white/10"
+            className="h-7 w-7 shrink-0 rounded-md border-white/10 bg-transparent p-0 text-slate-300 hover:bg-white/10"
             aria-label="Riduci zoom grafo"
           >
             <Minus className="h-3.5 w-3.5" />
           </Button>
-          <span className="min-w-10 text-center text-[10px] font-black text-slate-400">{Math.round(zoom * 100)}%</span>
+          <span className="min-w-10 shrink-0 text-center text-[10px] font-bold text-slate-500">{Math.round(zoom * 100)}%</span>
           <Button
             type="button"
             variant="outline"
             onClick={() => setZoom((current) => clampGraphZoom(current + 0.15))}
-            className="h-7 w-7 rounded-full border-white/10 bg-transparent p-0 text-slate-200 hover:bg-white/10"
+            className="h-7 w-7 shrink-0 rounded-md border-white/10 bg-transparent p-0 text-slate-300 hover:bg-white/10"
             aria-label="Aumenta zoom grafo"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -959,7 +951,7 @@ function GraphMemoryMap({
             type="button"
             variant="outline"
             onClick={resetGraphView}
-            className="h-7 rounded-full border-white/10 bg-transparent px-2 text-[10px] font-black text-slate-200 hover:bg-white/10"
+            className="h-7 shrink-0 rounded-md border-white/10 bg-transparent px-2 text-[10px] font-bold text-slate-300 hover:bg-white/10"
           >
             <RefreshCw className="mr-1 h-3 w-3" />
             Adatta
@@ -969,7 +961,7 @@ function GraphMemoryMap({
 
       {layout.length ? (
         <div
-          className={`relative h-[430px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_45%,rgba(168,85,247,0.24),transparent_34%),radial-gradient(circle_at_22%_18%,rgba(148,163,184,0.10),transparent_24%),linear-gradient(180deg,#0d1020,#070914_58%,#05060d)] sm:h-[520px] ${
+          className={`relative h-[520px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_48%,rgba(124,58,237,0.18),transparent_30%),radial-gradient(circle_at_70%_35%,rgba(6,182,212,0.08),transparent_24%),linear-gradient(180deg,#090b13,#05060b_62%,#03040a)] sm:h-[640px] ${
             dragState ? "cursor-grabbing" : "cursor-grab"
           }`}
           onPointerDown={handleGraphPointerDown}
@@ -981,9 +973,7 @@ function GraphMemoryMap({
             setZoom((current) => clampGraphZoom(current + (event.deltaY > 0 ? -0.12 : 0.12)))
           }}
         >
-          <div className="pointer-events-none absolute right-4 top-4 z-10 hidden text-5xl font-black uppercase tracking-[0.22em] text-violet-200/[0.055] sm:block">
-            Obsidian
-          </div>
+          <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_center,rgba(255,255,255,0.65)_0,rgba(255,255,255,0.65)_1px,transparent_1.5px)] [background-size:22px_22px]" />
           <svg className="absolute inset-0 h-full w-full" viewBox={viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Vista Obsidian della graph memory Optima">
             <defs>
               <filter id="graphGlow" x="-50%" y="-50%" width="200%" height="200%">
@@ -995,7 +985,7 @@ function GraphMemoryMap({
               </filter>
             </defs>
             {visibleEdges.map(({ edge, from, to }) => {
-              const selectedEdge = selectedNodeId && (edge.fromNodeId === selectedNodeId || edge.toNodeId === selectedNodeId)
+              const selectedEdge = focusNodeId && (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId)
               return (
               <line
                 key={edge.id}
@@ -1003,19 +993,20 @@ function GraphMemoryMap({
                 y1={from.y}
                 x2={to.x}
                 y2={to.y}
-                stroke={graphConfidenceStroke[edge.confidence] ?? "#64748b"}
-                strokeWidth={selectedEdge ? 1.45 : Math.max(0.35, Math.min(1.35, Number(edge.weight || 1) * 0.52))}
-                strokeOpacity={selectedNodeId ? (selectedEdge ? 0.68 : 0.12) : edge.confidence === "ambiguous" ? 0.22 : 0.34}
-                strokeDasharray={edge.confidence === "inferred" ? "3 3" : edge.confidence === "ambiguous" ? "2 4" : undefined}
+                stroke={selectedEdge ? (graphConfidenceStroke[edge.confidence] ?? "#8b5cf6") : "#64748b"}
+                strokeWidth={selectedEdge ? 0.9 : Math.max(0.18, Math.min(0.55, Number(edge.weight || 1) * 0.22))}
+                strokeOpacity={focusNodeId ? (selectedEdge ? 0.56 : 0.055) : edge.confidence === "ambiguous" ? 0.11 : 0.22}
+                strokeDasharray={edge.confidence === "ambiguous" ? "1.2 2.4" : undefined}
               />
               )
             })}
 
             {layout.map(({ node, x, y, r, degree, visual, isSelected, isNeighbor }, index) => {
-              const showLabel = isSelected || isNeighbor || index < 10 || r >= 6.4
-              const isDimmed = Boolean(selectedNodeId && !isSelected && !isNeighbor)
+              const isHovered = hoveredNodeId === node.id
+              const showLabel = isSelected || isHovered || (selectedNodeId && isNeighbor && index < 18)
+              const isDimmed = Boolean(focusNodeId && !isSelected && !isNeighbor && !isHovered)
               const label = compactGraphLabel(node.title)
-              const labelWidth = Math.max(13, Math.min(31, label.length * 1.28 + 5))
+              const obsidianRadius = Math.max(1.6, Math.min(6.8, r * 0.62))
               return (
                 <g
                   key={node.id}
@@ -1023,6 +1014,8 @@ function GraphMemoryMap({
                   tabIndex={0}
                   className="cursor-pointer outline-none"
                   onPointerDown={(event) => event.stopPropagation()}
+                  onPointerEnter={() => setHoveredNodeId(node.id)}
+                  onPointerLeave={() => setHoveredNodeId((current) => (current === node.id ? null : current))}
                   onClick={(event) => {
                     event.stopPropagation()
                     onSelectNode?.(node)
@@ -1035,45 +1028,29 @@ function GraphMemoryMap({
                   }}
                 >
                   <title>{`${node.title} · ${visual.label} · ${degree} collegamenti`}</title>
-                  <circle cx={x} cy={y} r={r + 1.6} fill={visual.fill} opacity={isDimmed ? "0.04" : "0.12"} filter="url(#graphGlow)" />
+                  <circle cx={x} cy={y} r={obsidianRadius + 4.2} fill={visual.fill} opacity={isDimmed ? "0.02" : isSelected || isHovered ? "0.2" : "0.075"} filter="url(#graphGlow)" />
                   <circle
                     cx={x}
                     cy={y}
-                    r={r}
+                    r={obsidianRadius}
                     fill={visual.fill}
-                    stroke={isSelected ? "#ffffff" : isNeighbor ? "#e0f2fe" : visual.stroke}
-                    strokeWidth={isSelected ? "1.25" : isNeighbor ? "0.8" : "0.45"}
-                    opacity={isDimmed ? "0.32" : "0.92"}
+                    stroke={isSelected || isHovered ? "#f8fafc" : isNeighbor ? "#c4b5fd" : visual.stroke}
+                    strokeWidth={isSelected || isHovered ? "0.72" : isNeighbor ? "0.42" : "0.18"}
+                    opacity={isDimmed ? "0.22" : "0.92"}
                   />
-                  <circle cx={x - r * 0.28} cy={y - r * 0.28} r={Math.max(0.8, r * 0.2)} fill="#ffffff" opacity={isDimmed ? "0.36" : "0.86"} />
+                  <circle cx={x - obsidianRadius * 0.28} cy={y - obsidianRadius * 0.28} r={Math.max(0.45, obsidianRadius * 0.22)} fill="#ffffff" opacity={isDimmed ? "0.24" : "0.78"} />
                   {showLabel ? (
                     <>
-                      <rect
-                        x={x - labelWidth / 2}
-                        y={y + r + 1}
-                        width={labelWidth}
-                        height="8.3"
-                        rx="1.8"
-                        fill="#050914"
-                        opacity={isDimmed ? "0.35" : "0.82"}
-                        stroke={isSelected ? "#e0f2fe" : "rgba(255,255,255,0.12)"}
-                        strokeWidth="0.18"
-                      />
                       <text
                         x={x}
-                        y={y + r + 3.2}
+                        y={y + obsidianRadius + 4.2}
                         textAnchor="middle"
-                        className={`${isDimmed ? "fill-slate-500" : "fill-slate-100"} text-[3px] font-black`}
+                        paintOrder="stroke"
+                        stroke="#05060b"
+                        strokeWidth="1.2"
+                        className={`${isDimmed ? "fill-slate-600" : "fill-slate-100"} text-[2.8px] font-semibold`}
                       >
                         {label}
-                      </text>
-                      <text
-                        x={x}
-                        y={y + r + 6.4}
-                        textAnchor="middle"
-                        className={`${isDimmed ? "fill-slate-600" : "fill-slate-400"} text-[2.25px] font-bold uppercase`}
-                      >
-                        {visual.label}
                       </text>
                     </>
                   ) : null}
@@ -1081,34 +1058,33 @@ function GraphMemoryMap({
               )
             })}
           </svg>
-          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-lg border border-violet-300/15 bg-[#0b0914]/86 px-3 py-2 text-[11px] leading-5 text-slate-400 backdrop-blur">
-            <span className="font-bold text-violet-100">Obsidian Graph View.</span> Pallini = note/nodi, linee = backlink/relazioni, dimensione = centralita. Trascina, zooma e tocca un nodo per aprire il vicinato locale.
-            {selectedNodeId ? " Il focus mostra il nodo selezionato e i suoi vicini." : ""}
+          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-md border border-white/10 bg-[#070912]/78 px-3 py-2 text-[11px] leading-5 text-slate-500 backdrop-blur">
+            <span className="font-semibold text-slate-300">Global graph</span> · nodi come note, archi come backlink. Trascina, zooma, passa sopra un nodo o toccalo per il local graph.
           </div>
-          {selectedLayoutNode ? (
-            <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-violet-300/25 bg-[#171426]/92 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-violet-950/20 backdrop-blur sm:max-w-sm">
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-violet-200">Local graph</p>
+          {focusLayoutNode ? (
+            <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-md border border-white/10 bg-[#0b0d16]/92 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-black/30 backdrop-blur sm:max-w-sm">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#a78bfa]">Local graph</p>
               <div className="flex items-start gap-2">
                 <span
                   className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: selectedLayoutNode.visual.fill, border: `1px solid ${selectedLayoutNode.visual.stroke}` }}
+                  style={{ backgroundColor: focusLayoutNode.visual.fill, border: `1px solid ${focusLayoutNode.visual.stroke}` }}
                 />
                 <div className="min-w-0">
-                  <p className="truncate font-black text-white">{selectedLayoutNode.node.title}</p>
+                  <p className="truncate font-black text-white">{focusLayoutNode.node.title}</p>
                   <p className="mt-1 text-[11px] text-slate-400">
-                    {selectedLayoutNode.visual.label} · {selectedLayoutNode.degree} collegamenti · {graphConfidenceCopy[selectedLayoutNode.node.confidence] ?? selectedLayoutNode.node.confidence}
+                    {focusLayoutNode.visual.label} · {focusLayoutNode.degree} backlink · {graphConfidenceCopy[focusLayoutNode.node.confidence] ?? focusLayoutNode.node.confidence}
                   </p>
-                  {selectedLayoutNode.node.summary ? (
-                    <p className="mt-1 line-clamp-2 text-[11px] text-slate-300">{selectedLayoutNode.node.summary}</p>
+                  {focusLayoutNode.node.summary ? (
+                    <p className="mt-1 line-clamp-2 text-[11px] text-slate-300">{focusLayoutNode.node.summary}</p>
                   ) : null}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-violet-300/20 bg-[#171426]/88 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-violet-950/20 backdrop-blur sm:max-w-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-200">Global graph</p>
+            <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-md border border-white/10 bg-[#0b0d16]/88 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-black/30 backdrop-blur sm:max-w-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a78bfa]">Global graph</p>
               <p className="mt-1 text-[11px] text-slate-400">
-                Vista Obsidian del vault Optima. Tocca un nodo per passare al local graph con vicini e backlink.
+                Vista Obsidian del vault Optima. I colori indicano il tipo di nota, la dimensione indica la centralita.
               </p>
             </div>
           )}
