@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -23,6 +24,7 @@ import {
   LogIn,
   LogOut,
   Plus,
+  Undo2,
   Search,
   Trash2,
   UserCheck,
@@ -387,6 +389,7 @@ export default function RapportiniPage() {
 
   const reportDeltaMinutes = (payload?.totals.presenceMinutes || 0) - (payload?.totals.activityMinutes || 0)
   const hasPresence = Boolean(payload?.day?.checkInAt || payload?.day?.status === "closed")
+  const isDayClosed = payload?.day?.status === "closed" && Boolean(payload.day.checkOutAt)
   const completionRatio =
     payload?.totals.presenceMinutes && payload.totals.presenceMinutes > 0
       ? Math.min(100, Math.round((payload.totals.activityMinutes / payload.totals.presenceMinutes) * 100))
@@ -434,6 +437,11 @@ export default function RapportiniPage() {
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.error || "Errore aggiornamento giornata")
     await load()
+  }
+
+  const undoCheckOut = async () => {
+    await mutateDay("undo-check-out")
+    toast.success("Checkout annullato: la giornata è di nuovo aperta")
   }
 
   const handleAddEntry = async () => {
@@ -556,6 +564,70 @@ export default function RapportiniPage() {
             detail={reportDeltaMinutes > 30 ? "Aggiungi attività o nota blocco" : "Rapportino coerente"}
             tone={reportDeltaMinutes > 30 ? "pink" : "green"}
           />
+        </section>
+
+        <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+          <div className={panelClass}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Fine giornata</div>
+                <h2 className="mt-1 text-2xl font-bold text-white">Controllo rapido prima dell'invio</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Entrata, uscita e attività devono raccontare la giornata senza interpretazioni: se manca qualcosa, correggilo qui prima di inviare il rapportino.
+                </p>
+              </div>
+              {isDayClosed && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-10 rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15"
+                  onClick={() => undoCheckOut().catch((err) => toast.error(err.message))}
+                >
+                  <Undo2 className="mr-2 h-4 w-4" />
+                  Annulla checkout
+                </Button>
+              )}
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Entrata</p>
+                <p className="mt-2 text-2xl font-black text-white">{formatTime(payload?.day?.checkInAt)}</p>
+              </div>
+              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Uscita</p>
+                <p className="mt-2 text-2xl font-black text-white">{formatTime(payload?.day?.checkOutAt)}</p>
+              </div>
+              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Task registrate</p>
+                <p className="mt-2 text-2xl font-black text-white">{payload?.entries.length || 0}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={panelClass}>
+            <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-cyan">Metodo Righello</div>
+            <h2 className="mt-1 text-2xl font-bold text-white">Come collegare bene il lavoro</h2>
+            <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-300">
+              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                <p className="font-black text-white">1. Se esiste una task, collega la task.</p>
+                <p className="mt-1 text-slate-400">È il dato migliore: porta con sé progetto, cliente, priorità e checklist.</p>
+              </div>
+              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                <p className="font-black text-white">2. Se non esiste la task, collega almeno il progetto.</p>
+                <p className="mt-1 text-slate-400">Serve per mantenere puliti consuntivi, preventivi e lettura per cliente.</p>
+              </div>
+              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                <p className="font-black text-white">3. Progetti e nuove task si creano dal workspace.</p>
+                <p className="mt-1 text-slate-400">Poi tornano disponibili nel selettore del rapportino senza scrivere due volte la stessa cosa.</p>
+              </div>
+            </div>
+            <Button asChild variant="outline" className="mt-4 min-h-10 rounded-[8px] border-white/10 bg-white/[0.04] text-white hover:bg-white/10">
+              <Link href="/workspace">
+                Apri workspace
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </section>
 
         {payload?.isManager && payload.submittedReports?.length ? (

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const date = normalizeDate(body.date)
     const action = String(body.action || "")
 
-    if (!["check-in", "check-out", "absence", "notes"].includes(action)) {
+    if (!["check-in", "check-out", "undo-check-out", "absence", "notes"].includes(action)) {
       return Response.json({ error: "Azione non valida" }, { status: 400 })
     }
 
@@ -84,6 +84,21 @@ export async function POST(request: NextRequest) {
           )
           .bind(checkOutAt, principal.organizationId, memberId, date)
           .run()
+      } else if (action === "undo-check-out") {
+        if (!existing.check_out_at) {
+          return Response.json({ error: "Nessun checkout da annullare" }, { status: 400 })
+        }
+        await db
+          .prepare(
+            `UPDATE work_days
+             SET check_out_at = NULL,
+                 status = 'open',
+                 absence_reason = NULL,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE organization_id = ? AND member_id = ? AND entry_date = ?`,
+          )
+          .bind(principal.organizationId, memberId, date)
+          .run()
       } else if (action === "absence") {
         await db
           .prepare(
@@ -110,6 +125,10 @@ export async function POST(request: NextRequest) {
       }
     } else {
       const schedule = workScheduleForMember((member as any).weekly_capacity_minutes)
+      if (action === "undo-check-out") {
+        return Response.json({ error: "Nessun checkout da annullare" }, { status: 400 })
+      }
+
       const checkInAt = action === "check-in" ? isoForDateTime(date, body.time, schedule.workStartTime) : action === "check-out" ? isoForDateTime(date, schedule.workStartTime) : null
       const checkOutAt = action === "check-out" ? isoForDateTime(date, body.time) : null
       const status = action === "absence" ? "absent" : action === "check-out" ? "closed" : "open"
