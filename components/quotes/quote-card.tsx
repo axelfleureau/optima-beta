@@ -181,6 +181,20 @@ function getExplicitLineCount(quote: Quote) {
   return (quote.items?.length || 0) + (quote.voci?.length || 0) + (quote.attivita?.length || 0)
 }
 
+function isImportedQuote(quote: Quote) {
+  return Boolean(quote.sourceType || quote.sourceId || quote.sourceSnapshot)
+}
+
+function quoteValuePreview(quote: Quote, hasInferredRows: boolean) {
+  if (hasInferredRows || isImportedQuote(quote)) return "Da verificare"
+  return formatCurrency(quote.total || 0, quote.currency)
+}
+
+function quoteRowValuePreview(quote: Quote, value: number | null, hasInferredRows: boolean) {
+  if (hasInferredRows || isImportedQuote(quote)) return "riservato"
+  return typeof value === "number" ? formatCurrency(value, quote.currency) : "task"
+}
+
 export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending = false }: QuoteCardProps) {
   const effectiveStatus = getEffectiveStatus(quote)
   const statusInfo = statusConfig[effectiveStatus]
@@ -272,8 +286,8 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
         <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4">
           <InfoCell icon={User} label="Cliente" value={quote.clientName || quote.externalClientName || "Da definire"} />
           <InfoCell icon={Calendar} label="Scadenza" value={formatDate(quote.validUntil)} />
-          <InfoCell icon={FileText} label="Voci" value={hasInferredRows ? "3 provvisorie" : String(explicitLineCount)} />
-          <InfoCell icon={CheckCircle} label="Valore" value={formatCurrency(quote.total || 0, quote.currency)} accent />
+          <InfoCell icon={FileText} label="Voci" value={hasInferredRows ? "3 ricostruite" : String(explicitLineCount)} />
+          <InfoCell icon={CheckCircle} label="Valore" value={quoteValuePreview(quote, hasInferredRows)} accent />
         </div>
 
         <div className="mt-4 rounded-[8px] border border-white/10 bg-black/25 p-3">
@@ -289,7 +303,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
                 <div key={`${row.label}-${index}`} className="flex items-center justify-between gap-3 rounded-[8px] bg-white/[0.035] px-3 py-2">
                   <span className="line-clamp-1 text-sm font-semibold text-slate-200">{row.label}</span>
                   <span className="shrink-0 text-sm font-black text-white">
-                    {typeof row.value === "number" ? formatCurrency(row.value, quote.currency) : "task"}
+                    {quoteRowValuePreview(quote, row.value, hasInferredRows)}
                   </span>
                 </div>
               ))

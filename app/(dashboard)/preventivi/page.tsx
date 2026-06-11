@@ -410,8 +410,8 @@ export default function PreventiviPage() {
         <div className="space-y-6 md:space-y-8">
           <section className="relative overflow-hidden rounded-[8px] border border-white/10 bg-[#080d18]/90 shadow-2xl">
             <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_28%,rgba(226,55,133,0.12)_70%,transparent)]" />
-            <div className="relative grid gap-8 p-5 md:grid-cols-[1.05fr_0.95fr] md:p-8 lg:p-10">
-              <div className="flex flex-col justify-between gap-8">
+            <div className="relative grid min-w-0 gap-8 p-5 md:p-8 lg:p-10 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+              <div className="flex min-w-0 flex-col justify-between gap-8">
                 <div className="space-y-5">
                   <Badge className="w-fit rounded-[8px] border border-righello-pink/30 bg-righello-pink/15 px-3 py-1 text-righello-pink">
                     <Sparkles className="mr-2 h-3.5 w-3.5" />
@@ -429,7 +429,7 @@ export default function PreventiviPage() {
                     {righelloServiceLines.map((line) => (
                       <span
                         key={line}
-                        className="rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-300"
+                        className="max-w-full truncate rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-300"
                       >
                         {line}
                       </span>
@@ -454,7 +454,7 @@ export default function PreventiviPage() {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     onClick={() => setShowAIGenerator(true)}
-                    className="h-12 rounded-[8px] bg-righello-pink px-5 text-white shadow-[0_18px_55px_rgba(226,55,133,0.28)] hover:bg-righello-pink-dark"
+                    className="h-12 w-full rounded-[8px] bg-righello-pink px-5 text-white shadow-[0_18px_55px_rgba(226,55,133,0.28)] hover:bg-righello-pink-dark sm:w-auto"
                   >
                     <Sparkles className="mr-2 h-4 w-4" />
                     Genera con AI
@@ -463,7 +463,7 @@ export default function PreventiviPage() {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className="h-12 rounded-[8px] border-white/15 bg-white/5 px-5 text-white hover:bg-white/10"
+                        className="h-12 w-full rounded-[8px] border-white/15 bg-white/5 px-5 text-white hover:bg-white/10 sm:w-auto"
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         Nuovo preventivo
@@ -492,7 +492,7 @@ export default function PreventiviPage() {
                 </div>
               </div>
 
-              <div className="relative min-h-[360px] overflow-hidden rounded-[8px] border border-white/10 bg-black/30 p-4">
+              <div className="relative min-h-[360px] min-w-0 overflow-hidden rounded-[8px] border border-white/10 bg-black/30 p-4">
                 <div className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   Pipeline live
@@ -505,7 +505,11 @@ export default function PreventiviPage() {
                         key={quote.id}
                         className={cn(
                           "rounded-[8px] border border-white/10 bg-[#101827]/90 p-4 shadow-xl",
-                          index === 0 ? "translate-x-0" : index === 1 ? "translate-x-4 opacity-80" : "translate-x-8 opacity-60"
+                          index === 0
+                            ? "translate-x-0"
+                            : index === 1
+                              ? "opacity-80 xl:translate-x-4"
+                              : "opacity-60 xl:translate-x-8"
                         )}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -518,7 +522,7 @@ export default function PreventiviPage() {
                             {formatCurrency(quote.total || 0, quote.currency)}
                           </Badge>
                         </div>
-                        <div className="mt-4 grid grid-cols-3 gap-2">
+                        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           <div className="rounded-[8px] bg-white/[0.04] p-3">
                             <p className="text-xs text-slate-500">Voci</p>
                             <p className="text-lg font-black text-white">{getQuoteLineCount(quote)}</p>
