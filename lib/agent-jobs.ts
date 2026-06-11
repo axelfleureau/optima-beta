@@ -23,6 +23,10 @@ export const AGENT_JOB_TYPES = [
 ] as const
 
 export const AGENT_RUNNER_STATUSES = ["online", "idle", "running", "error", "offline"] as const
+export const AGENT_JOB_TYPES_REQUIRING_REPOSITORY = new Set<AgentJobType>([
+  "codex_patch",
+  "deploy",
+])
 
 export type AgentJobStatus = (typeof AGENT_JOB_STATUSES)[number]
 export type AgentJobType = (typeof AGENT_JOB_TYPES)[number]
@@ -65,6 +69,18 @@ export interface AgentJobArtifact {
   url: string | null
   r2Key: string | null
   metadata: Record<string, unknown>
+  createdAt: string
+}
+
+export interface AgentJobEvent {
+  id: string
+  jobId: string
+  organizationId: string
+  actorMemberId: string | null
+  actorType: string
+  eventType: string
+  message: string
+  payload: Record<string, unknown>
   createdAt: string
 }
 
@@ -166,6 +182,20 @@ export function mapAgentJobArtifactRow(row: any): AgentJobArtifact {
   }
 }
 
+export function mapAgentJobEventRow(row: any): AgentJobEvent {
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    organizationId: row.organization_id,
+    actorMemberId: row.actor_member_id ?? null,
+    actorType: row.actor_type ?? "system",
+    eventType: row.event_type,
+    message: row.message ?? "",
+    payload: parseJsonObject(row.payload_json),
+    createdAt: row.created_at,
+  }
+}
+
 export function mapAgentRunnerHeartbeatRow(row: any): AgentRunnerHeartbeat {
   return {
     id: row.id,
@@ -244,12 +274,14 @@ export async function upsertAgentRunnerHeartbeat(
         last_claim_at = COALESCE(excluded.last_claim_at, agent_runner_heartbeats.last_claim_at),
         last_error_at = CASE
           WHEN excluded.last_error_message IS NOT NULL THEN CURRENT_TIMESTAMP
+          WHEN excluded.status != 'error' THEN NULL
           ELSE agent_runner_heartbeats.last_error_at
         END,
-        last_error_message = COALESCE(
-          excluded.last_error_message,
-          agent_runner_heartbeats.last_error_message
-        ),
+        last_error_message = CASE
+          WHEN excluded.last_error_message IS NOT NULL THEN excluded.last_error_message
+          WHEN excluded.status != 'error' THEN NULL
+          ELSE agent_runner_heartbeats.last_error_message
+        END,
         metadata_json = excluded.metadata_json,
         updated_at = CURRENT_TIMESTAMP`,
     )
@@ -303,6 +335,24 @@ export async function listAgentJobArtifacts(
     .all()
 
   return (rows.results ?? []).map(mapAgentJobArtifactRow)
+}
+
+export async function listAgentJobEvents(
+  db: any,
+  organizationId: string,
+  jobId: string,
+): Promise<AgentJobEvent[]> {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM agent_job_events
+       WHERE organization_id = ? AND job_id = ?
+       ORDER BY created_at DESC
+       LIMIT 80`,
+    )
+    .bind(organizationId, jobId)
+    .all()
+
+  return (rows.results ?? []).map(mapAgentJobEventRow)
 }
 
 export async function appendAgentJobEvent(
@@ -368,6 +418,13 @@ export async function createAgentJob(
   const id = input.id ?? createId("agjob")
   const jobType = normalizeJobType(input.jobType)
   const priority = normalizePriority(input.priority)
+  const repoUrl = input.repoUrl?.trim() || null
+  const repoBranch = input.repoBranch?.trim() || null
+  const workspaceHint = input.workspaceHint?.trim() || null
+
+  if (AGENT_JOB_TYPES_REQUIRING_REPOSITORY.has(jobType) && !repoUrl) {
+    throw new Error("Repository obbligatorio solo per job Codex patch/PR e deploy controllato.")
+  }
 
   await db
     .prepare(
@@ -386,9 +443,9 @@ export async function createAgentJob(
       jobType,
       brief,
       input.contextSummary?.trim() ?? "",
-      input.repoUrl?.trim() || null,
-      input.repoBranch?.trim() || null,
-      input.workspaceHint?.trim() || null,
+      repoUrl,
+      repoBranch,
+      workspaceHint,
       priority,
       stringifyJson(input.input),
       input.contextR2Key ?? null,
@@ -414,9 +471,14 @@ export async function claimNextAgentJob(db: any, runnerId: string): Promise<Agen
     .prepare(
       `SELECT * FROM agent_jobs
        WHERE status = 'queued'
+         AND (
+           assigned_runner = ?
+           OR assigned_runner IN ('codex-vps', 'shared-codex-vps', 'any')
+         )
        ORDER BY priority ASC, created_at ASC
        LIMIT 1`,
     )
+    .bind(runnerId)
     .first()
 
   if (!row) return null

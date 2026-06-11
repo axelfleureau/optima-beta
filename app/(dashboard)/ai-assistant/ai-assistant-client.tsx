@@ -169,10 +169,10 @@ export default function AIAssistantClient() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-gray-50 dark:bg-gray-900">
       {/* Main Container with Professional Grid System */}
-      <div className="container mx-auto px-4 py-4 md:px-6 md:py-8 max-w-7xl">
-        <div className="space-y-6 md:space-y-8">
+      <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 md:px-6 md:py-8">
+        <div className="min-w-0 space-y-6 md:space-y-8">
           {/* Header Section */}
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
@@ -291,7 +291,7 @@ export default function AIAssistantClient() {
                   </Badge>
                 </div>
                 <div className="space-y-2">
-                  {["Memoria conversazioni attiva", "Contesto operativo Óptima", "Modello GPT aggiornato"].map(
+                  {["Memoria conversazioni attiva", "Contesto operativo Óptima", "Canale Telegram predisposto", "Modello GPT aggiornato"].map(
                     (feature, index) => (
                       <div key={index} className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
                         <div
@@ -308,8 +308,8 @@ export default function AIAssistantClient() {
           </div>
 
           {/* Main Chat Interface */}
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
-            <div className="flex h-[calc(100svh-9rem)] min-h-[560px] md:h-[700px]">
+          <div className="min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex min-h-[620px] md:h-[700px]">
               {/* Sidebar */}
               {showSidebar && (
                 <div className="hidden lg:block">
@@ -324,7 +324,7 @@ export default function AIAssistantClient() {
               )}
 
               {/* Chat Area */}
-              <div className="flex-1 flex flex-col">
+              <div className="flex min-w-0 flex-1 flex-col">
                 {loadingHistory ? (
                   <div className="h-full flex items-center justify-center bg-gradient-to-br from-pink-50 to-rose-50 dark:from-gray-800 dark:to-gray-900">
                     <div className="text-center space-y-4">

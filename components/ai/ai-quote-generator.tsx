@@ -73,7 +73,7 @@ interface QuoteFormData {
 
 export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuoteGeneratorProps) {
   const { toast } = useToast()
-  const { userData } = useAuth()
+  const { user, userData } = useAuth()
   const { createQuote } = useQuotes()
   const actionState = useAIActionState('quote-gen')
   const feedback = useAIFeedback()
@@ -142,10 +142,12 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       setEnrichedContext(enrichedData)
 
       actionState.callAI('Generazione preventivo AI...')
+      const authToken = await user?.getIdToken?.()
       const response = await fetch('/api/ai/quote-generation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -438,8 +440,11 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
       />
 
       <Dialog open={open && !enrichmentDialogOpen && step !== 'enrichment'} onOpenChange={handleClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+        <DialogContent
+          stableViewport
+          className="!flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden !p-0 sm:h-[min(900px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)]"
+        >
+          <DialogHeader className="shrink-0 border-b px-4 pb-3 pt-5 sm:px-6 sm:pb-4 sm:pt-6">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-pink-500" />
               Preventivo Generato con AI
@@ -449,7 +454,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-hidden px-4 py-4 sm:px-6">
             {step === 'enrichment' && (
               <div className="flex flex-col items-center justify-center h-full min-h-[300px] max-h-[60vh] space-y-6">
                 <div className="text-center space-y-4">
@@ -496,18 +501,20 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
           )}
 
           {step === 'review' && generatedQuote && (
-            <Tabs defaultValue="overview" className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
-                <TabsTrigger value="overview">Riepilogo</TabsTrigger>
-                <TabsTrigger value="project">Progetto</TabsTrigger>
-                <TabsTrigger value="details">Dettagli</TabsTrigger>
-                <TabsTrigger value="client">Cliente</TabsTrigger>
-                <TabsTrigger value="legal">Legale</TabsTrigger>
-              </TabsList>
+            <Tabs defaultValue="overview" className="flex h-full min-h-0 flex-col">
+              <div className="-mx-1 shrink-0 overflow-x-auto px-1 pb-1 [-webkit-overflow-scrolling:touch]">
+                <TabsList className="grid min-w-[620px] grid-cols-5">
+                  <TabsTrigger value="overview">Riepilogo</TabsTrigger>
+                  <TabsTrigger value="project">Progetto</TabsTrigger>
+                  <TabsTrigger value="details">Dettagli</TabsTrigger>
+                  <TabsTrigger value="client">Cliente</TabsTrigger>
+                  <TabsTrigger value="legal">Legale</TabsTrigger>
+                </TabsList>
+              </div>
 
-              <TabsContent value="overview" className="mt-4 flex-1 min-h-0 overflow-hidden">
+              <TabsContent value="overview" className="mt-4 min-h-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
-                  <div className="space-y-6">
+                  <div className="space-y-6 pb-4">
                     <Card className={editMode.descrizione ? "border-pink-500" : ""}>
                       <CardHeader>
                         <div className="flex items-center justify-between">
@@ -597,15 +604,15 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                       <CardContent>
                         <div className="space-y-3">
                           {generatedQuote.voci.map((voce, index) => (
-                            <div key={index} className="flex justify-between items-start p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
-                              <div className="flex-1">
+                            <div key={index} className="flex min-w-0 items-start justify-between gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
+                              <div className="min-w-0 flex-1">
                                 <h4 className="font-medium">{voce.descrizione}</h4>
                                 <p className="text-sm text-muted-foreground">{voce.categoria}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {voce.quantita} x €{voce.prezzoUnitario.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
                                 </p>
                               </div>
-                              <div className="text-right">
+                              <div className="shrink-0 text-right">
                                 <p className="font-medium">
                                   €{voce.totale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
                                 </p>
@@ -619,9 +626,9 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="details" className="mt-4 flex-1 min-h-0 overflow-hidden">
+              <TabsContent value="details" className="mt-4 min-h-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
-                  <div className="space-y-6">
+                  <div className="space-y-6 pb-4">
                     <Card>
                       <CardHeader>
                         <CardTitle>Condizioni</CardTitle>
@@ -703,14 +710,14 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="client" className="mt-4 flex-1 min-h-0 overflow-hidden">
+              <TabsContent value="client" className="mt-4 min-h-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
                   <Card>
                     <CardHeader>
                       <CardTitle>Informazioni Cliente</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                           <Label className="font-medium">Nome:</Label>
                           <p className="text-sm">{generatedQuote.cliente.nome}</p>
@@ -751,9 +758,9 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="project" className="mt-4 flex-1 min-h-0 overflow-hidden">
+              <TabsContent value="project" className="mt-4 min-h-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
-                  <div className="space-y-6">
+                  <div className="space-y-6 pb-4">
                     {generatedQuote.preventivo.settore && (
                       <Card>
                         <CardHeader>
@@ -971,7 +978,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                               placeholder="Una pagina per riga..."
                             />
                           ) : (
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid gap-2 sm:grid-cols-2">
                               {generatedQuote.sitemap.map((pagina, index) => (
                                 <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded">
                                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -987,9 +994,9 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="legal" className="mt-4 flex-1 min-h-0 overflow-hidden">
+              <TabsContent value="legal" className="mt-4 min-h-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
-                  <div className="space-y-6">
+                  <div className="space-y-6 pb-4">
                     {generatedQuote.sezioniStandard && (
                       <>
                         <Card>
@@ -1030,11 +1037,12 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 </ScrollArea>
               </TabsContent>
 
-              <div className="flex justify-end gap-3 mt-4 pt-4 border-t flex-shrink-0">
+              <div className="-mx-4 mt-3 flex shrink-0 flex-col gap-2 border-t px-4 pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-3 sm:mx-0 sm:flex-row sm:justify-end sm:px-0 sm:pb-0 sm:pt-4">
                 <Button 
                   variant="outline" 
                   onClick={() => { setStep('enrichment'); setEnrichmentDialogOpen(true); }}
                   disabled={isRegenerating}
+                  className="w-full sm:w-auto"
                 >
                   <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
                   Modifica
@@ -1043,7 +1051,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                   variant="outline" 
                   onClick={handleDownloadPDF}
                   disabled={isRegenerating}
-                  className="border-pink-200 text-pink-700 hover:bg-pink-50 disabled:opacity-50"
+                  className="w-full border-pink-200 text-pink-700 hover:bg-pink-50 disabled:opacity-50 sm:w-auto"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Scarica PDF
@@ -1051,7 +1059,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                 <Button 
                   onClick={handleSaveQuote} 
                   disabled={isRegenerating}
-                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 sm:w-auto"
                 >
                   <Save className="w-4 h-4 mr-2" />
                   Salva Preventivo

@@ -43,6 +43,15 @@ La secret deve essere identica sui due lati. Non va committata e non va stampata
 
 ## Installazione
 
+Bootstrap Hostinger con un solo comando, passando la stessa chiave configurata in Cloudflare:
+
+```bash
+AGENT_RUNNER_API_KEY='incolla_la_chiave_configurata_su_cloudflare' \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/axelfleureau/optima-beta/codex/pause-vps-runner/runner/bootstrap-hostinger.sh)"
+```
+
+Installazione manuale:
+
 ```bash
 sudo mkdir -p /srv/optima-agent
 sudo chown -R "$USER":"$USER" /srv/optima-agent
@@ -60,12 +69,15 @@ AGENT_RUNNER_API_KEY=incolla_la_chiave_configurata_su_cloudflare
 RUNNER_ID=hostinger-codex-01
 WORK_ROOT=/srv/optima-agent/jobs
 # Alias supportato: WORKDIR=/srv/optima-agent/jobs
+DISK_GUARD_PATH=/home/hermes/obsidian-righello-vault/12_OneDrive
 POLL_INTERVAL_MS=30000
 MAX_JOB_SECONDS=1800
 RUNNER_MODE=codex
 CODEX_BIN=codex
 CODEX_SANDBOX=workspace-write
 ```
+
+Configura `AGENT_RUNNER_ENABLED=true` nell'ambiente server di Óptima/Cloudflare solo quando vuoi permettere al VPS di reclamare job reali. Con qualsiasi altro valore il polling resta visibile, ma i job non vengono presi in carico. Questa variabile non va nel file env del VPS: il guard vive nell'app.
 
 Permessi:
 
@@ -107,10 +119,12 @@ journalctl -u optima-agent-runner -f
 ## Note operative
 
 - Il runner crea workspace in `/srv/optima-agent/jobs`.
+- Ogni heartbeat invia metriche host best-effort: disco VPS, memoria, dimensione workspace runner e stato della guardia `DISK_GUARD_PATH`.
 - Di default usa sandbox `workspace-write`.
 - Non esegue deploy/commit/push se il brief del job non lo chiede chiaramente.
 - I risultati vengono marcati `needs_review` e devono essere approvati in Óptima.
 - Se il VPS ospita altri servizi, mantieni un solo runner systemd attivo.
+- Se Hermes o altri tool lavorano su asset cloud, non sincronizzare mirror media locali sul VPS: usa link, metadati o download temporanei fuori dal vault.
 
 ## MCP e fasi agentiche
 
@@ -119,6 +133,8 @@ Fase 1: runner Codex semplice. Il VPS non espone porte e fa solo polling verso �
 Fase 2: MCP Óptima esposto da Cloudflare, non dal VPS. In questo modo Codex puo interrogare Óptima tramite strumenti remoti sicuri, mentre Hostinger resta solo un worker.
 
 Fase 3: browser/Chromium/Playwright sul VPS solo per automazioni visuali, scraping controllato o verifica screenshot. Attivarlo solo quando serve davvero.
+
+Fase 4: copiare da Hermes Agent i pattern utili per memoria persistente, skills, MCP host, gateway e tool loop, reimplementandoli come funzioni native Optima. Hermes non deve diventare un servizio collegato al runner: job, permessi, audit e approvazioni restano nel control plane Optima.
 
 ## Dati necessari per installazione gestita
 

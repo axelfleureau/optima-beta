@@ -1,0 +1,13 @@
+ALTER TABLE quotes ADD COLUMN client_email TEXT;
+ALTER TABLE quotes ADD COLUMN external_client_name TEXT;
+ALTER TABLE quotes ADD COLUMN external_client_email TEXT;
+ALTER TABLE quotes ADD COLUMN subtotal_cents INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE quotes ADD COLUMN vat_cents INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE quotes ADD COLUMN vat_rate REAL NOT NULL DEFAULT 22;
+ALTER TABLE quotes ADD COLUMN items_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE quotes ADD COLUMN voices_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE quotes ADD COLUMN objectives_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE quotes ADD COLUMN activities_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE quotes ADD COLUMN brand_materials_json TEXT;
+ALTER TABLE quotes ADD COLUMN terms_conditions TEXT;
+ALTER TABLE quotes ADD COLUMN created_by_member_id TEXT;

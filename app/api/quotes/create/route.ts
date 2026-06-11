@@ -1,59 +1,51 @@
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
-import { NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
-import { verifyFirebaseToken, getUserData, adminDb } from "@/lib/firebase-admin"
-import { db } from "@/lib/firebase"
-import { collection, addDoc, Timestamp } from "firebase/firestore"
-import { validateQuoteClientMode } from "@/types/quote"
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
+import { requireClerkUser } from "@/lib/server-clerk"
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 const quoteItemSchema = z.object({
-  name: z.string().min(1, 'Nome richiesto'),
+  name: z.string().min(1, "Nome richiesto"),
   description: z.string().optional(),
-  quantity: z.number().int().positive('Quantità deve essere positiva'),
-  unitPrice: z.number().positive('Prezzo deve essere positivo'),
-  total: z.number().positive()
+  quantity: z.number().positive("Quantita deve essere positiva"),
+  unitPrice: z.number().nonnegative("Prezzo non valido"),
+  total: z.number().nonnegative("Totale non valido"),
 })
 
 const quoteVoiceSchema = z.object({
-  descrizione: z.string().min(1, 'Descrizione richiesta'),
+  descrizione: z.string().min(1, "Descrizione richiesta"),
   quantita: z.number().positive().default(1),
   prezzoUnitario: z.number().nonnegative().default(0),
   totale: z.number().nonnegative().optional(),
-  categoria: z.enum(['base', 'optional', 'recurring']).optional(),
-  tipo: z.enum(['one_time', 'monthly', 'annual']).optional()
+  categoria: z.enum(["base", "optional", "recurring"]).optional(),
+  tipo: z.enum(["one_time", "monthly", "annual"]).optional(),
 })
 
 const brandMaterialiSchema = z.object({
   brandCoinvolti: z.array(z.string()).optional(),
   brandPrincipale: z.string().optional(),
-  statoLogo: z.enum(['available', 'to_request', 'not_defined']).optional(),
+  statoLogo: z.enum(["available", "to_request", "not_defined"]).optional(),
   noteLogo: z.string().optional(),
   materialiDisponibili: z.string().optional(),
   riferimenti: z.string().optional(),
   materialiDaRichiedere: z.array(z.string()).optional(),
-  domandeAperte: z.array(z.string()).optional()
+  domandeAperte: z.array(z.string()).optional(),
 }).optional()
 
-// DUAL CLIENT MODE: Support both platform clients (clientId) and external clients (name+email)
 const createQuoteSchema = z.object({
-  title: z.string().min(1, 'Titolo richiesto').max(200),
+  title: z.string().min(1, "Titolo richiesto").max(240),
   description: z.string().optional(),
-  
-  // Platform Client fields
   clientId: z.string().optional(),
-  
-  // External Client fields
-  externalClientName: z.string().optional(),
-  externalClientEmail: z.string().email('Email non valida').optional(),
-  
-  // Common fields
   clientName: z.string().optional(),
   clientEmail: z.string().optional(),
-  status: z.enum(['draft', 'sent', 'approved', 'rejected']).optional(),
+  externalClientName: z.string().optional(),
+  externalClientEmail: z.string().email("Email non valida").optional().or(z.literal("")),
+  status: z.enum(["draft", "sent", "in_review", "pending_payment", "approved", "in_progress", "completed", "rejected", "expired"]).optional(),
   currency: z.string().optional(),
-  items: z.array(quoteItemSchema).min(1, 'Almeno un item richiesto'),
-  total: z.number().positive('Importo deve essere positivo').optional(),
+  items: z.array(quoteItemSchema).optional().default([]),
+  total: z.number().nonnegative().optional(),
   subtotale: z.number().nonnegative().optional(),
   iva: z.number().nonnegative().optional(),
   percentualeIva: z.number().nonnegative().optional(),
@@ -62,257 +54,142 @@ const createQuoteSchema = z.object({
   attivita: z.array(z.string()).optional().default([]),
   voci: z.array(quoteVoiceSchema).optional().default([]),
   terminiCondizioni: z.string().optional(),
-  validUntil: z.string().optional()
+  validUntil: z.string().optional(),
 }).refine(
-  (data) => {
-    // Must have EITHER clientId OR (externalClientName + externalClientEmail)
-    const hasPlatformClient = !!data.clientId
-    const hasExternalClient = !!(data.externalClientName && data.externalClientEmail)
-    return hasPlatformClient || hasExternalClient
-  },
-  {
-    message: "Quote must have either clientId (platform client) or externalClientName + externalClientEmail (external client)"
-  }
-).refine(
-  (data) => {
-    // Cannot have BOTH modes
-    const hasPlatformClient = !!data.clientId
-    const hasExternalClient = !!(data.externalClientName && data.externalClientEmail)
-    return !(hasPlatformClient && hasExternalClient)
-  },
-  {
-    message: "Quote cannot have both clientId and external client data. Choose one client mode."
-  }
+  (data) => (data.status || "draft") === "draft" || Boolean(data.clientId || data.externalClientName || data.clientName),
+  { message: "Serve un cliente piattaforma o un nome cliente esterno" },
 )
 
-const stripUndefinedDeep = (value: unknown): unknown => {
-  if (value === undefined) return undefined
-  if (value === null) return null
-  if (value instanceof Date) return value
-  if (typeof value === "object" && value !== null && Object.getPrototypeOf(value) !== Object.prototype && !Array.isArray(value)) {
-    return value
-  }
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => stripUndefinedDeep(item))
-      .filter((item) => item !== undefined)
-  }
-  if (typeof value === "object") {
-    return Object.entries(value as Record<string, unknown>).reduce((acc, [key, item]) => {
-      const cleaned = stripUndefinedDeep(item)
-      if (cleaned !== undefined) {
-        acc[key] = cleaned
-      }
-      return acc
-    }, {} as Record<string, unknown>)
-  }
-  return value
-}
+const toCents = (amount: number | undefined) => Math.round(Number(amount || 0) * 100)
+
+const stringify = (value: unknown) => JSON.stringify(value ?? null)
 
 export async function POST(request: NextRequest) {
   try {
-    // Get Firebase auth token from cookies
-    const authToken = request.cookies.get("firebase-auth-token")?.value
-
-    if (!authToken) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Sessione non valida o scaduta" }, { status: 401 })
     }
 
-    // Verify Firebase token and get authenticated user
-    const decodedToken = await verifyFirebaseToken(authToken)
-    const userData = await getUserData(decodedToken.uid)
-
-    if (!userData) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      )
+    const db = await getCloudflareDb()
+    if (!db) {
+      return Response.json({ error: "Database Cloudflare non disponibile" }, { status: 500 })
     }
 
-    if (userData.isSuspended) {
-      return NextResponse.json(
-        { error: "Account suspended" },
-        { status: 403 }
-      )
-    }
+    const principal = await ensureWorkspacePrincipal(db, user)
+    const body = await request.json().catch(() => null)
+    const data = createQuoteSchema.parse(body)
 
-    const userId = decodedToken.uid
-    const tenantId = userData.tenantId
+    const now = new Date().toISOString()
+    const validUntil = data.validUntil ? new Date(data.validUntil).toISOString() : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+    const quoteId = createId("quote")
+    const currency = data.currency || "EUR"
+    const status = data.status || "draft"
+    const subtotal = data.subtotale ?? data.items.reduce((sum, item) => sum + Number(item.total || 0), 0)
+    const vatRate = data.percentualeIva ?? 22
+    const vat = data.iva ?? Math.round(subtotal * (vatRate / 100) * 100) / 100
+    const total = data.total ?? Math.round((subtotal + vat) * 100) / 100
 
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: "User tenant not found" },
-        { status: 400 }
-      )
-    }
-
-    const body = await request.json()
-    const validatedData = createQuoteSchema.parse(body)
-    const { 
-      title, 
-      description, 
-      clientId, 
-      externalClientName,
-      externalClientEmail,
-      clientName, 
-      clientEmail,
-      status, 
-      currency, 
-      items, 
-      total, 
-      subtotale,
-      iva,
-      percentualeIva,
-      brandMateriali,
-      obiettivi,
-      attivita,
-      voci,
-      terminiCondizioni,
-      validUntil 
-    } = validatedData
-
-    // SECURITY: Use only server-verified tenantId and userId, ignore any client-sent identifiers
-    const now = new Date()
-    
-    // Fetch platform client data if clientId is provided
-    let resolvedClientName = clientName || externalClientName || ""
-    let resolvedClientEmail = clientEmail || externalClientEmail || ""
+    let clientId = data.clientId || null
+    let clientName = data.clientName || data.externalClientName || "Cliente"
+    let clientEmail = data.clientEmail || data.externalClientEmail || ""
 
     if (clientId) {
-      try {
-        const clientDoc = await adminDb!.collection('clients').doc(clientId).get()
-        if (clientDoc.exists) {
-          const clientData = clientDoc.data()
-          resolvedClientName = clientData?.name || clientData?.companyName || resolvedClientName || "N/A"
-          resolvedClientEmail = clientData?.email || resolvedClientEmail || ""
-        } else {
-          console.warn(`⚠️ Platform client ${clientId} not found in Firestore, using fallback name`)
-          resolvedClientName = resolvedClientName || "Cliente Piattaforma"
-        }
-      } catch (error) {
-        console.error(`❌ Failed to fetch platform client ${clientId}:`, error)
-        resolvedClientName = resolvedClientName || "Cliente Piattaforma"
+      const client = await db
+        .prepare(
+          `SELECT id, name, email, company
+           FROM clients
+           WHERE organization_id = ? AND id = ?
+           LIMIT 1`,
+        )
+        .bind(principal.organizationId, clientId)
+        .first()
+
+      if (!client?.id) {
+        return Response.json({ error: "Cliente piattaforma non trovato" }, { status: 404 })
       }
+
+      clientName = String(client.name || client.company || clientName)
+      clientEmail = String(client.email || clientEmail || "")
     }
 
-    const normalizedBrandMateriali = brandMateriali ? {
-      brandCoinvolti: brandMateriali.brandCoinvolti || [],
-      brandPrincipale: brandMateriali.brandPrincipale,
-      statoLogo: brandMateriali.statoLogo,
-      noteLogo: brandMateriali.noteLogo,
-      materialiDisponibili: brandMateriali.materialiDisponibili,
-      riferimenti: brandMateriali.riferimenti,
-      materialiDaRichiedere: brandMateriali.materialiDaRichiedere || [],
-      domandeAperte: brandMateriali.domandeAperte || []
-    } : undefined
-
-    const calculatedSubtotal = subtotale ?? items.reduce((sum, item) => sum + item.total, 0)
-    const vatRate = percentualeIva ?? 22
-    const calculatedVat = iva ?? Math.round(calculatedSubtotal * (vatRate / 100) * 100) / 100
-    const calculatedTotal = total ?? Math.round((calculatedSubtotal + calculatedVat) * 100) / 100
-    const normalizedVoci = voci.length > 0
-      ? voci.map((voce) => ({
-          ...voce,
-          totale: voce.totale ?? Math.round(voce.quantita * voce.prezzoUnitario * 100) / 100
+    const voices = data.voci.length > 0
+      ? data.voci.map((voice) => ({
+          ...voice,
+          totale: voice.totale ?? Math.round(voice.quantita * voice.prezzoUnitario * 100) / 100,
+          categoria: voice.categoria || "base",
+          tipo: voice.tipo || "one_time",
         }))
-      : items.map((item) => ({
+      : data.items.map((item) => ({
           descrizione: item.description || item.name,
           quantita: item.quantity,
           prezzoUnitario: item.unitPrice,
           totale: item.total,
-          categoria: 'base' as const,
-          tipo: 'one_time' as const
+          categoria: "base",
+          tipo: "one_time",
         }))
-    
-    // Build quote object based on client mode
-    const baseQuote = {
-      title,
-      description: description || "",
-      clientName: resolvedClientName,
-      status: status || "draft",
-      currency: currency || "EUR",
-      items,
-      total: calculatedTotal,
-      subtotale: calculatedSubtotal,
-      iva: calculatedVat,
-      percentualeIva: vatRate,
-      brandMateriali: normalizedBrandMateriali,
-      obiettivi,
-      attivita,
-      voci: normalizedVoci,
-      terminiCondizioni,
-      validUntil: validUntil ? new Date(validUntil) : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days default
-      tenantId, // Server-verified only
-      createdBy: userId, // Server-verified only
-      createdAt: now,
-      updatedAt: now,
-    }
 
-    // Add client mode specific fields
-    const newQuote = clientId 
-      ? {
-          ...baseQuote,
-          clientId,
-          clientEmail: resolvedClientEmail
-        }
-      : {
-          ...baseQuote,
-          externalClientName,
-          externalClientEmail,
-          clientEmail: externalClientEmail
-        }
-
-    // Final validation using helper
-    const validation = validateQuoteClientMode(newQuote)
-    if (!validation.valid) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
+    await db
+      .prepare(
+        `INSERT INTO quotes (
+          id, organization_id, client_id, title, description, client_name, client_email,
+          external_client_name, external_client_email, status, currency, total_cents,
+          subtotal_cents, vat_cents, vat_rate, valid_until, items_json, voices_json,
+          objectives_json, activities_json, brand_materials_json, terms_conditions,
+          created_by_member_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-    }
+      .bind(
+        quoteId,
+        principal.organizationId,
+        clientId,
+        data.title,
+        data.description || "",
+        clientName,
+        clientEmail,
+        data.externalClientName || null,
+        data.externalClientEmail || null,
+        status,
+        currency,
+        toCents(total),
+        toCents(subtotal),
+        toCents(vat),
+        vatRate,
+        validUntil,
+        stringify(data.items),
+        stringify(voices),
+        stringify(data.obiettivi),
+        stringify(data.attivita),
+        data.brandMateriali ? stringify(data.brandMateriali) : null,
+        data.terminiCondizioni || null,
+        principal.memberId,
+        now,
+        now,
+      )
+      .run()
 
-    console.log("🔒 Creating quote with server-verified tenant:", tenantId, 
-                clientId ? `(Platform Client: ${clientId})` : `(External Client: ${externalClientName})`)
-
-    // Convert Date fields to Firestore Timestamp before saving
-    const quoteForFirestore = stripUndefinedDeep({
-      ...newQuote,
-      createdAt: Timestamp.fromDate(newQuote.createdAt),
-      updatedAt: Timestamp.fromDate(newQuote.updatedAt),
-      validUntil: Timestamp.fromDate(newQuote.validUntil),
-    }) as Record<string, unknown>
-
-    const docRef = await addDoc(collection(db, "quotes"), quoteForFirestore)
-
-    return NextResponse.json({
-      success: true,
-      id: docRef.id
-    })
-
+    return Response.json({ success: true, id: quoteId })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { 
-          error: 'Dati non validi', 
-          details: error.errors.map(e => ({
-            field: e.path.join('.'),
-            message: e.message
-          }))
+      return Response.json(
+        {
+          error: "Dati non validi",
+          details: error.errors.map((item) => ({
+            field: item.path.join("."),
+            message: item.message,
+          })),
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    console.error("❌ Quote creation API error:", error)
-    return NextResponse.json(
-      { 
+    console.error("Quote creation API error:", error)
+    return Response.json(
+      {
         error: "Errore durante la creazione del preventivo",
-        details: error instanceof Error ? error.message : "Unknown error"
+        details: error instanceof Error ? error.message : "Errore interno",
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

@@ -45,6 +45,8 @@ Verify production readiness with:
 npm run check:production
 ```
 
+The readiness check is stricter than a simple uptime probe. `/api/health` returns `ok=true` when the core app is alive, and also exposes `readiness.agenticReady` for the agentic operating layer: D1 schema, R2 task media binding, runner API key, runner claim guard and MCP metadata. A production release that claims Optima is operating agentically should pass both.
+
 ## Runtime secrets
 
 Do not commit secret values. Set them in Cloudflare with Wrangler:

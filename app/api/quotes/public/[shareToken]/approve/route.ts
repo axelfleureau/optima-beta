@@ -17,13 +17,9 @@ export const dynamic = 'force-dynamic'
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { Timestamp } from "@/lib/firebase-admin-firestore"
-import { adminDb } from "@/lib/firebase-admin"
-import { stripeService } from "@/lib/services/stripe.service"
-import { validateShareToken, isValidEmail, isQuoteExpired, getBaseUrl } from "@/lib/quote-utils"
+import { getCloudflareDb } from "@/lib/cloudflare-db"
+import { validateShareToken, isValidEmail, isQuoteExpired } from "@/lib/quote-utils"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
-import { updateQuoteStatus } from "@/lib/quote-service-server"
-import type { MilestonePaymentContext } from "@/types/payment"
 
 export async function POST(
   request: NextRequest,
@@ -64,34 +60,39 @@ export async function POST(
       )
     }
 
-    // Fetch quote by share token
-    if (!adminDb) {
+    const db = await getCloudflareDb()
+    if (!db) {
       return NextResponse.json(
         { error: 'Errore di configurazione database' },
         { status: 500 }
       )
     }
 
-    const quotesSnapshot = await adminDb
-      .collection('quotes')
-      .where('shareToken', '==', shareToken)
-      .limit(1)
-      .get()
+    const quoteData = await db
+      .prepare(
+        `SELECT q.id, q.organization_id, q.valid_until, q.status
+         FROM external_data_records r
+         JOIN quotes q
+           ON q.organization_id = r.organization_id
+          AND q.id = r.quote_id
+         WHERE r.provider = 'optima'
+           AND r.record_type = 'quote_share'
+           AND r.external_id = ?
+         LIMIT 1`,
+      )
+      .bind(`quote-share-token:${shareToken}`)
+      .first()
 
-    if (quotesSnapshot.empty) {
+    if (!quoteData?.id) {
       return NextResponse.json(
         { error: 'Preventivo non trovato' },
         { status: 404 }
       )
     }
 
-    const quoteDoc = quotesSnapshot.docs[0]
-    const quoteData = quoteDoc.data()
-
     // Validate quote is in correct status
-    // Allow approval if status is "sent", "pending", OR "pending_payment" (retry case)
-    const allowedStatuses = ['sent', 'pending', 'pending_payment']
-    if (!allowedStatuses.includes(quoteData.status)) {
+    const allowedStatuses = ['sent', 'pending', 'pending_payment', 'in_review']
+    if (!allowedStatuses.includes(String(quoteData.status))) {
       return NextResponse.json(
         { 
           error: `Quote status '${quoteData.status}' is not available for approval. Must be 'sent', 'pending', or 'pending_payment'.` 
@@ -100,10 +101,9 @@ export async function POST(
       )
     }
 
-    // Convert Firestore timestamps
-    const validUntil = quoteData.validUntil?.toDate 
-      ? quoteData.validUntil.toDate() 
-      : new Date(quoteData.validUntil)
+    const validUntil = quoteData.valid_until
+      ? new Date(String(quoteData.valid_until))
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
     // Check if expired
     if (isQuoteExpired(validUntil)) {
@@ -113,138 +113,67 @@ export async function POST(
       )
     }
 
-    // DUAL CLIENT MODE: Check if this is a platform client or external client
-    const isPlatformClient = !!quoteData.clientId
-    const isExternalClient = !!(quoteData.externalClientName && quoteData.externalClientEmail)
-
-    if (isExternalClient) {
-      // EXTERNAL CLIENT: No Stripe automation, direct approval
-      console.log(`✅ External client approval (no Stripe): ${quoteData.externalClientName}`)
-      
-      await updateQuoteStatus(quoteDoc.id, quoteData.tenantId, 'approved', {
-        clientEmail: clientEmail,
-        approvedAt: Timestamp.now(),
-        approvedBy: clientName,
-      })
-
-      // Return success without checkout URL (manual payment flow)
-      return NextResponse.json({
-        success: true,
-        approved: true,
-        message: 'Preventivo approvato con successo. Il team ti contatterà per il pagamento.',
-        // No checkoutUrl for external clients
-      })
-    }
-
-    // PLATFORM CLIENT: Full Stripe automation
-    if (!isPlatformClient) {
-      return NextResponse.json(
-        { error: 'Cliente non valido per pagamento automatico' },
-        { status: 400 }
+    await db
+      .prepare(
+        `UPDATE quotes
+         SET status = 'approved',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE organization_id = ? AND id = ?`,
       )
-    }
+      .bind(quoteData.organization_id, quoteData.id)
+      .run()
 
-    console.log(`💳 Platform client payment flow: ${quoteData.clientId}`)
-
-    // Update quote: status → pending_payment (NOT approved yet)
-    // Quote will only be approved after checkout.session.completed webhook
-    await updateQuoteStatus(quoteDoc.id, quoteData.tenantId, 'pending_payment', {
-      clientEmail: clientEmail,
-      pendingApprovalAt: Timestamp.now(),
-      pendingApprovalBy: clientName,
+    const approvalPayload = JSON.stringify({
+      shareToken,
+      quoteId: quoteData.id,
+      approvedByName: clientName,
+      approvedByEmail: clientEmail,
+      approvedAt: new Date().toISOString(),
     })
+    const sourceId = `source_quote_public_${quoteData.organization_id}`
 
-    // Prepare quote data for Stripe
-    const quote = {
-      id: quoteDoc.id,
-      title: quoteData.title || '',
-      clientName: quoteData.clientName || clientName,
-      clientEmail: clientEmail,
-      total: quoteData.total || 0,
-      currency: quoteData.currency || 'EUR',
-      items: quoteData.items || [],
-      status: 'approved' as const,
-      validUntil: validUntil,
-    }
-
-    // Fetch tenant data with defensive coding
-    if (!quoteData.tenantId) {
-      console.error('❌ Missing tenantId in quote data')
-      return NextResponse.json(
-        { error: 'Configurazione preventivo non valida' },
-        { status: 500 }
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO external_data_sources (
+          id, organization_id, provider, source_type, external_id, title, domain, sync_mode, schema_json, allowed_fields_json, redacted_fields_json
+        ) VALUES (?, ?, 'optima', 'system', 'quote_public_sharing', 'Optima public quote sharing', 'quotes', 'manual', '{}', '[]', '[]')`,
       )
-    }
+      .bind(sourceId, quoteData.organization_id)
+      .run()
 
-    let tenantName = 'Righello'
-    try {
-      const tenantDoc = await adminDb.collection('tenants').doc(quoteData.tenantId).get()
-      if (tenantDoc.exists) {
-        const tenantData = tenantDoc.data()
-        tenantName = tenantData?.name || 'Righello'
-      }
-    } catch (error) {
-      console.error('⚠️ Failed to fetch tenant data, using fallback:', error)
-    }
-
-    // Prepare payment context (MilestonePaymentContext - no payment field needed before Stripe session creation)
-    const context: MilestonePaymentContext = {
-      quote: quote as any,
-      tenant: { 
-        id: quoteData.tenantId,
-        name: tenantName
-      },
-    }
-
-    // Determine base URL for redirects
-    const baseUrl = getBaseUrl()
-
-    // Create Stripe Checkout Session based on payment plan
-    const paymentPlan = quoteData.paymentPlan || { type: 'full' }
-    
-    let checkoutResult
-    if (paymentPlan.type === 'deposit_milestone' && paymentPlan.depositPercentage) {
-      // Create deposit checkout
-      checkoutResult = await stripeService.createDepositCheckout(
-        quoteDoc.id,
-        paymentPlan.depositPercentage,
-        context
+    await db
+      .prepare(
+        `INSERT OR REPLACE INTO external_data_records (
+          id, organization_id, source_id, provider, record_type, external_id,
+          title, summary, quote_id, occurred_at, confidence, raw_json, normalized_json
+        ) VALUES (
+          COALESCE(
+            (SELECT id FROM external_data_records WHERE organization_id = ? AND provider = 'optima' AND external_id = ? LIMIT 1),
+            ?
+          ),
+          ?, ?, 'optima', 'quote_approval', ?,
+          ?, ?, ?, CURRENT_TIMESTAMP, 'manual', ?, ?
+        )`,
       )
-    } else {
-      // Create full payment checkout
-      checkoutResult = await stripeService.createCheckoutSession(
-        {
-          quoteId: quoteDoc.id,
-          clientEmail,
-          clientName,
-          successUrl: `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${baseUrl}/quotes/public/${shareToken}?payment_cancelled=true`,
-        },
-        context
+      .bind(
+        quoteData.organization_id,
+        `quote-approval:${shareToken}`,
+        `quote_approval_${shareToken}`,
+        quoteData.organization_id,
+        sourceId,
+        `quote-approval:${shareToken}`,
+        `Approvazione preventivo ${quoteData.id}`,
+        `Preventivo approvato da ${clientName} (${clientEmail}).`,
+        quoteData.id,
+        approvalPayload,
+        approvalPayload,
       )
-    }
+      .run()
 
-    if (!checkoutResult.success) {
-      console.error('Stripe checkout creation failed:', checkoutResult.error)
-      
-      // Rollback: pending_payment → sent
-      await updateQuoteStatus(quoteDoc.id, quoteData.tenantId, 'sent', {
-        pendingApprovalAt: null,
-        pendingApprovalBy: null,
-      })
-
-      return NextResponse.json(
-        { error: 'Errore nella configurazione del pagamento' },
-        { status: 500 }
-      )
-    }
-
-    // Return checkout URL for redirect
-    // Status will become "approved" only via webhook (checkout.session.completed)
     return NextResponse.json({
       success: true,
-      checkoutUrl: checkoutResult.data?.checkoutUrl,
-      checkoutSessionId: checkoutResult.data?.checkoutSessionId,
+      approved: true,
+      message: 'Preventivo approvato con successo. Il team Righello ti contatterà per i prossimi passi.',
     })
   } catch (error) {
     console.error('Error approving quote:', error)

@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
-import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import {
   AlertCircle,
   ArrowUpRight,
@@ -36,7 +35,7 @@ import { QuoteCard } from "@/components/quotes/quote-card"
 import { useQuotes } from "@/hooks/use-quotes"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
-import { db } from "@/lib/firebase"
+import { getRighelloQuoteAreaLabels, RIGHELLO_QUOTE_FLOW_STEPS } from "@/lib/righello-quote-operating-model"
 import { cn } from "@/lib/utils"
 import type { GeneratedQuoteData } from "@/lib/ai-quote-service"
 import type { Quote } from "@/types/quote"
@@ -69,6 +68,8 @@ const statusTabs: Array<{ value: StatusFilter; label: string }> = [
 const finalPositiveStates: Quote["status"][] = ["approved", "in_progress", "completed"]
 const openStates: Quote["status"][] = ["sent", "in_review", "pending_payment"]
 
+const righelloServiceLines = getRighelloQuoteAreaLabels()
+
 function toDate(value: Date | { toDate?: () => Date } | string | number | null | undefined) {
   if (!value) return null
   if (value instanceof Date) return value
@@ -96,7 +97,45 @@ function formatCurrency(amount: number, currency = "EUR") {
 }
 
 function getQuoteLineCount(quote: Quote) {
-  return (quote.items?.length || 0) + (quote.voci?.length || 0) + (quote.attivita?.length || 0)
+  const explicitCount = (quote.items?.length || 0) + (quote.voci?.length || 0) + (quote.attivita?.length || 0)
+  if (explicitCount > 0) return explicitCount
+  return (quote.total || 0) > 0 ? 3 : 0
+}
+
+function inferLegacyQuoteVoices(quote: Quote) {
+  const total = quote.subtotale && quote.subtotale > 0 ? quote.subtotale : quote.total || 0
+  if (total <= 0) return []
+
+  const analysis = Math.round(total * 0.24 * 100) / 100
+  const production = Math.round(total * 0.56 * 100) / 100
+  const delivery = Math.round((total - analysis - production) * 100) / 100
+
+  return [
+    {
+      descrizione: "Analisi, perimetro e coordinamento operativo",
+      quantita: 1,
+      prezzoUnitario: analysis,
+      totale: analysis,
+      categoria: "base" as const,
+      tipo: "one_time" as const,
+    },
+    {
+      descrizione: "Produzione tecnica e implementazione",
+      quantita: 1,
+      prezzoUnitario: production,
+      totale: production,
+      categoria: "base" as const,
+      tipo: "one_time" as const,
+    },
+    {
+      descrizione: "QA, consegna e supporto avvio",
+      quantita: 1,
+      prezzoUnitario: delivery,
+      totale: delivery,
+      categoria: "base" as const,
+      tipo: "one_time" as const,
+    },
+  ]
 }
 
 function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
@@ -105,7 +144,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
   const validityDays = validUntil
     ? Math.max(1, Math.ceil((validUntil.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)))
     : 60
-  const voci =
+  const explicitVoci =
     quote.voci?.map((voce) => ({
       descrizione: voce.descrizione,
       quantita: voce.quantita,
@@ -124,9 +163,11 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
     })) ||
     []
 
-  const subtotale = quote.subtotale ?? voci.reduce((sum, voce) => sum + voce.totale, 0)
+  const voci = explicitVoci.length > 0 ? explicitVoci : inferLegacyQuoteVoices(quote)
+  const inferredSubtotal = voci.reduce((sum, voce) => sum + voce.totale, 0)
+  const subtotale = quote.subtotale && quote.subtotale > 0 ? quote.subtotale : inferredSubtotal || quote.total || 0
   const percentualeIva = quote.percentualeIva ?? 22
-  const iva = quote.iva ?? Math.round(subtotale * (percentualeIva / 100) * 100) / 100
+  const iva = quote.iva && quote.iva > 0 ? quote.iva : Math.round(subtotale * (percentualeIva / 100) * 100) / 100
 
   return {
     cliente: {
@@ -160,13 +201,13 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       subtotale,
       iva,
       percentualeIva,
-      totale: quote.total ?? subtotale + iva,
+      totale: subtotale + iva,
     },
   }
 }
 
 export default function PreventiviPage() {
-  const { quotes, loading, error, getQuoteStats, deleteQuote } = useQuotes()
+  const { quotes, loading, error, getQuoteStats, createQuote, deleteQuote, reloadQuotes } = useQuotes()
   const { userData } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
@@ -242,7 +283,7 @@ export default function PreventiviPage() {
         title: "Nuovo Preventivo",
         description: "",
         clientId: "",
-        clientName: "",
+        clientName: "Cliente da definire",
         clientEmail: "",
         clientMode: "platform" as const,
         status: "draft" as const,
@@ -253,18 +294,16 @@ export default function PreventiviPage() {
         total: 0,
         currency: "EUR",
         validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       }
 
-      const docRef = await addDoc(collection(db, "quotes"), emptyQuote)
+      const quoteId = await createQuote(emptyQuote)
 
       toast({
         title: "Preventivo creato",
         description: "Apro l'editor per completarlo.",
       })
 
-      router.push(`/preventivi/${docRef.id}/edit`)
+      router.push(`/preventivi/${quoteId}/edit`)
     } catch (createError) {
       console.error("Error creating empty quote:", createError)
       toast({
@@ -294,6 +333,8 @@ export default function PreventiviPage() {
       if (payload?.publicUrl) {
         await navigator.clipboard.writeText(payload.publicUrl).catch(() => undefined)
       }
+
+      await reloadQuotes()
 
       toast({
         title: "Preventivo pronto",
@@ -378,11 +419,35 @@ export default function PreventiviPage() {
                   </Badge>
                   <div className="space-y-3">
                     <h1 className="max-w-3xl text-4xl font-black leading-[0.96] tracking-normal text-white md:text-6xl">
-                      Preventivi che sembrano presentazioni, ma governano margine e firma.
+                      Preventivi Righello più puntuali, revisionabili e pronti alla firma.
                     </h1>
                     <p className="max-w-2xl text-base leading-7 text-slate-300 md:text-lg">
-                      Crea offerte leggibili, inviale con link pubblico, monitora stato, valore e scadenze senza perdere il contesto cliente.
+                      Genera proposte con template prezzo controllati, brief guidato, materiali brand, link pubblico e storico operativo.
                     </p>
+                  </div>
+                  <div className="flex max-w-3xl flex-wrap gap-2">
+                    {righelloServiceLines.map((line) => (
+                      <span
+                        key={line}
+                        className="rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-300"
+                      >
+                        {line}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="grid max-w-4xl gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    {RIGHELLO_QUOTE_FLOW_STEPS.map((flowStep, index) => (
+                      <div
+                        key={flowStep.id}
+                        className="rounded-[8px] border border-white/10 bg-black/20 p-3"
+                        title={flowStep.summary}
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">
+                          Step {index + 1}
+                        </p>
+                        <p className="mt-1 text-xs font-bold text-white">{flowStep.label}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

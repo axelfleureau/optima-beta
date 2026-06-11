@@ -11,6 +11,7 @@ import {
   hasAutomaticPresence,
   minutesSinceMidnightFromDate,
   netPresenceMinutes,
+  nonWorkingDayReason,
   normalizeDate,
   timeToMinutes,
   workScheduleForMember,
@@ -27,6 +28,7 @@ function getPresenceStatus(row: any) {
   if (row.day_status === "open" && row.check_in_at) return "present"
   if (row.check_in_at && !row.check_out_at) return "present"
   if (row.check_in_at && row.check_out_at) return "closed"
+  if (shouldTreatAsNonWorkingDay(row, row.entry_date)) return "holiday"
   return "missing"
 }
 
@@ -49,6 +51,19 @@ function shouldAssumePresence(row: any, date?: string | null) {
       !row.day_status &&
       !row.check_in_at &&
       !row.check_out_at,
+  )
+}
+
+function shouldTreatAsNonWorkingDay(row: any, date?: string | null) {
+  const entryDate = typeof date === "string" && date ? date.slice(0, 10) : ""
+  return Boolean(
+    entryDate &&
+      nonWorkingDayReason(entryDate) &&
+      !hasAutomaticPresence(row.role) &&
+      !row.day_status &&
+      !row.check_in_at &&
+      !row.check_out_at &&
+      Number(row.activity_minutes || 0) <= 0,
   )
 }
 
@@ -124,11 +139,26 @@ function mapCalendarDay({
     },
     date,
   )
-  const status = assumedPresence ? "present" : mapCalendarStatus(workDay)
+  const nonWorkingReason = nonWorkingDayReason(date)
+  const explicitWorkSignal = Boolean(workDay?.status || workDay?.check_in_at || workDay?.check_out_at || Number(activity?.activity_minutes || 0) > 0)
+  const holiday =
+    Boolean(nonWorkingReason) && !hasAutomaticPresence(member.role) && !explicitWorkSignal
+  const status = holiday ? "holiday" : assumedPresence ? "present" : mapCalendarStatus(workDay)
   const activityMinutes = Number(activity?.activity_minutes || 0)
   const entryCount = Number(activity?.entry_count || 0)
   const taskMinutes = Number(tasks?.task_minutes || 0)
   const taskCount = Number(tasks?.task_count || 0)
+  const completedTaskMinutes = Number(tasks?.completed_task_minutes || 0)
+  const completedTaskCount = Number(tasks?.completed_task_count || 0)
+  const missingDurationTaskCount = Number(tasks?.missing_duration_task_count || 0)
+  const taskTitles =
+    typeof tasks?.task_titles === "string" && tasks.task_titles
+      ? String(tasks.task_titles)
+          .split("|||")
+          .map((title) => title.trim())
+          .filter(Boolean)
+          .slice(0, 8)
+      : []
   const loadMinutes = Math.max(activityMinutes, taskMinutes)
   const assumedCheckInAt = assumedPresence ? localDateTime(date, schedule.workStartTime) : null
   const checkInAt = workDay?.check_in_at || assumedCheckInAt
@@ -141,9 +171,9 @@ function mapCalendarDay({
   const minutesEarly =
     status === "closed" && checkOutMinute !== null ? Math.max(0, expectedEndMinute - checkOutMinute - PRESENCE_GRACE_MINUTES) : 0
   const loadRatio = schedule.expectedOfficeMinutes > 0 ? loadMinutes / schedule.expectedOfficeMinutes : 0
-  const hasWorkSignal = assumedPresence || status === "present" || status === "closed" || activityMinutes > 0 || taskCount > 0
+  const hasWorkSignal = !holiday && (assumedPresence || status === "present" || status === "closed" || activityMinutes > 0 || taskCount > 0)
   const intensity =
-    status === "absent"
+    status === "absent" || status === "holiday"
       ? 0
       : hasWorkSignal
         ? Math.max(1, Math.min(4, Math.ceil(loadRatio * 4)))
@@ -154,11 +184,15 @@ function mapCalendarDay({
     status,
     checkInAt,
     checkOutAt: workDay?.check_out_at || null,
-    absenceReason: workDay?.absence_reason || "",
+    absenceReason: holiday ? nonWorkingReason || "Festivo" : workDay?.absence_reason || "",
     activityMinutes,
     entryCount,
     taskMinutes,
     taskCount,
+    completedTaskMinutes,
+    completedTaskCount,
+    missingDurationTaskCount,
+    taskTitles,
     loadMinutes,
     intensity,
     minutesLate,
@@ -178,11 +212,11 @@ function operationalAvailability({
   urgentCount: number
   dailyCapacityMinutes: number
 }) {
-  if (status === "absent") {
+  if (status === "absent" || status === "holiday") {
     return {
       status: "not-available",
-      label: "Non disponibile oggi",
-      detail: "Assenza segnata",
+      label: status === "holiday" ? "Festivo" : "Non disponibile oggi",
+      detail: status === "holiday" ? "Giornata non lavorativa salvo rapportino" : "Assenza segnata",
     }
   }
 
@@ -247,8 +281,8 @@ function mapPresenceRow(row: any, upcomingRows: any[] = []) {
   const assumedCheckInAt = assumedPresence ? localDateTime(String(row.entry_date), schedule.workStartTime) : null
   const checkInAt = row.check_in_at || assumedCheckInAt
   const visibleCheckOutAt = status === "present" ? null : row.check_out_at || null
-  const grossPresenceMinutes = assumedPresence ? schedule.dailyCapacityMinutes : currentPresenceMinutes(checkInAt, visibleCheckOutAt)
-  const presenceMinutes = assumedPresence ? schedule.expectedOfficeMinutes : netPresenceMinutes(grossPresenceMinutes, schedule.lunchBreakMinutes)
+  const grossPresenceMinutes = status === "holiday" ? 0 : assumedPresence ? schedule.dailyCapacityMinutes : currentPresenceMinutes(checkInAt, visibleCheckOutAt)
+  const presenceMinutes = status === "holiday" ? 0 : assumedPresence ? schedule.expectedOfficeMinutes : netPresenceMinutes(grossPresenceMinutes, schedule.lunchBreakMinutes)
   const checkInMinute = minutesSinceMidnightFromDate(checkInAt)
   const checkOutMinute = minutesSinceMidnightFromDate(visibleCheckOutAt)
   const expectedStartMinute = timeToMinutes(schedule.workStartTime)
@@ -275,7 +309,7 @@ function mapPresenceRow(row: any, upcomingRows: any[] = []) {
     status,
     checkInAt,
     checkOutAt: visibleCheckOutAt,
-    absenceReason: row.absence_reason || "",
+    absenceReason: status === "holiday" ? nonWorkingDayReason(String(row.entry_date)) || "Festivo" : row.absence_reason || "",
     notes: row.notes || "",
     assumedPresence,
     grossPresenceMinutes,
@@ -410,7 +444,7 @@ export async function GET(request: NextRequest) {
     )
     const self = people.find((person) => person.id === principal.memberId) || null
 
-    const [workDaysResult, activityDaysResult, taskDaysResult] = await Promise.all([
+    const [workDaysResult, activityDaysResult, taskDaysResult, completedTaskDaysResult] = await Promise.all([
       db
         .prepare(
           `SELECT member_id,
@@ -454,7 +488,8 @@ export async function GET(request: NextRequest) {
                     WHEN priority = 'high' THEN 180
                     WHEN priority = 'low' THEN 45
                     ELSE 90
-                  END) AS task_minutes
+                  END) AS task_minutes,
+                  GROUP_CONCAT(title, '|||') AS task_titles
            FROM tasks
            WHERE organization_id = ?
              AND assignee_member_id IS NOT NULL
@@ -465,6 +500,33 @@ export async function GET(request: NextRequest) {
              AND COALESCE(column_id, status) NOT IN ('done', 'completed', 'validation', 'archived', 'archiviato', 'suspended', 'sospeso')
              AND (? = 1 OR assignee_member_id = ?)
            GROUP BY assignee_member_id, substr(due_at, 1, 10)`,
+        )
+        .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
+        .all(),
+      db
+        .prepare(
+          `SELECT assignee_member_id AS member_id,
+                  date(datetime(created_at, '+2 hours')) AS entry_date,
+                  COUNT(*) AS completed_task_count,
+                  SUM(CASE
+                    WHEN actual_minutes IS NOT NULL AND actual_minutes > 0 THEN actual_minutes
+                    ELSE 0
+                  END) AS completed_task_minutes,
+                  SUM(CASE
+                    WHEN actual_minutes IS NULL OR actual_minutes <= 0 THEN 1
+                    ELSE 0
+                  END) AS missing_duration_task_count,
+                  GROUP_CONCAT(title, '|||') AS completed_task_titles
+           FROM tasks
+           WHERE organization_id = ?
+             AND assignee_member_id IS NOT NULL
+             AND created_at IS NOT NULL
+             AND date(datetime(created_at, '+2 hours')) >= date(?)
+             AND date(datetime(created_at, '+2 hours')) <= date(?)
+             AND COALESCE(assignment_status, 'accepted') = 'accepted'
+             AND COALESCE(column_id, status) IN ('done', 'completed', 'validation')
+             AND (? = 1 OR assignee_member_id = ?)
+           GROUP BY assignee_member_id, date(datetime(created_at, '+2 hours'))`,
         )
         .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
         .all(),
@@ -483,6 +545,26 @@ export async function GET(request: NextRequest) {
     const tasksByMemberDate = new Map<string, any>()
     for (const day of (taskDaysResult.results || []) as any[]) {
       tasksByMemberDate.set(calendarKey(String(day.member_id), String(day.entry_date)), day)
+    }
+
+    for (const day of (completedTaskDaysResult.results || []) as any[]) {
+      const key = calendarKey(String(day.member_id), String(day.entry_date))
+      const current = tasksByMemberDate.get(key) || {
+        member_id: day.member_id,
+        entry_date: day.entry_date,
+        task_count: 0,
+        task_minutes: 0,
+        task_titles: "",
+      }
+      tasksByMemberDate.set(key, {
+        ...current,
+        task_count: Number(current.task_count || 0) + Number(day.completed_task_count || 0),
+        task_minutes: Number(current.task_minutes || 0) + Number(day.completed_task_minutes || 0),
+        completed_task_count: Number(day.completed_task_count || 0),
+        completed_task_minutes: Number(day.completed_task_minutes || 0),
+        missing_duration_task_count: Number(day.missing_duration_task_count || 0),
+        task_titles: [current.task_titles, day.completed_task_titles].filter(Boolean).join("|||"),
+      })
     }
 
     const calendarPeople = memberRows.map((member) => ({
@@ -504,7 +586,7 @@ export async function GET(request: NextRequest) {
     const summary = people.reduce(
       (acc, person) => {
         acc.total += 1
-        acc[person.status as "present" | "closed" | "absent" | "missing"] += 1
+        acc[person.status as "present" | "closed" | "absent" | "missing" | "holiday"] += 1
         acc.presenceMinutes += person.presenceMinutes
         acc.activityMinutes += person.activityMinutes
         return acc
@@ -515,6 +597,7 @@ export async function GET(request: NextRequest) {
         closed: 0,
         absent: 0,
         missing: 0,
+        holiday: 0,
         presenceMinutes: 0,
         activityMinutes: 0,
       },

@@ -3,6 +3,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare"
 
 import { AGENT_ADMIN_ROLES, createAgentJob, listAgentJobs } from "@/lib/agent-jobs"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
+import { inferRepositoryForAgentJob } from "@/lib/operational-context"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
@@ -69,10 +70,19 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}))
     const id = `agjob_${crypto.randomUUID().replace(/-/g, "")}`
+    const resolvedRepository = await inferRepositoryForAgentJob(auth.db, auth.principal, {
+      jobType: body.jobType,
+      repoUrl: body.repoUrl,
+      repoBranch: body.repoBranch,
+      workspaceHint: body.workspaceHint,
+      context: body.context,
+      input: body.input,
+    })
     const contextR2Key = await writeContextToR2(auth.principal.organizationId, id, {
       brief: body.brief,
       context: body.context ?? null,
       input: body.input ?? null,
+      repository: resolvedRepository,
       createdAt: new Date().toISOString(),
     })
 
@@ -82,12 +92,15 @@ export async function POST(request: NextRequest) {
       jobType: body.jobType,
       brief: body.brief,
       contextSummary: body.contextSummary,
-      repoUrl: body.repoUrl,
-      repoBranch: body.repoBranch,
-      workspaceHint: body.workspaceHint,
+      repoUrl: resolvedRepository.repoUrl,
+      repoBranch: resolvedRepository.repoBranch,
+      workspaceHint: resolvedRepository.workspaceHint,
       assignedRunner: body.assignedRunner,
       priority: body.priority,
-      input: body.input,
+      input: {
+        ...(body.input && typeof body.input === "object" ? body.input : {}),
+        repository: resolvedRepository,
+      },
       contextR2Key,
     })
 

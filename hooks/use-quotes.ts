@@ -1,8 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import type { Quote } from "@/types/quote"
 
@@ -10,6 +8,10 @@ import type { Quote } from "@/types/quote"
 const safeToDate = (timestamp: any): Date => {
   if (!timestamp) return new Date()
   if (timestamp instanceof Date) return timestamp
+  if (typeof timestamp === "string" || typeof timestamp === "number") {
+    const date = new Date(timestamp)
+    return Number.isNaN(date.getTime()) ? new Date() : date
+  }
   if (timestamp.toDate && typeof timestamp.toDate === "function") {
     try {
       return timestamp.toDate()
@@ -62,16 +64,16 @@ export function useQuotes() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const quotesQuery = useMemo(() => {
-    if (!userData?.tenantId) return null
-    return query(
-      collection(db, "quotes"), 
-      where("tenantId", "==", userData.tenantId)
-    )
-  }, [userData?.tenantId])
+  const getAuthHeaders = useCallback(async () => {
+    const token = await user?.getIdToken?.()
+    const headers: Record<string, string> = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    return headers
+  }, [user])
 
-  useEffect(() => {
-    if (!quotesQuery) {
+  const loadQuotes = useCallback(async () => {
+    if (!userData?.tenantId) {
+      setQuotes([])
       setLoading(false)
       return
     }
@@ -79,87 +81,35 @@ export function useQuotes() {
     setLoading(true)
     setError(null)
 
-    console.log("Setting up real-time listener for tenant:", userData?.tenantId)
-
-    // Setup onSnapshot listener
-    const unsubscribe = onSnapshot(
-      quotesQuery,
-      (snapshot) => {
-        console.log("Real-time update: quotes changed")
-        
-        const quotesData = snapshot.docs.map((doc) => {
-          const data = doc.data()
-          return {
-            id: doc.id,
-            title: data.title || "",
-            description: data.description,
-            
-            // DUAL CLIENT MODE fields
-            clientMode: data.clientMode,
-            clientId: data.clientId,
-            clientName: data.clientName || "",
-            externalClientName: data.externalClientName,
-            externalClientEmail: data.externalClientEmail,
-            
-            status: data.status || "draft",
-            currency: data.currency || "EUR",
-            items: data.items || [],
-            total: data.total || 0,
-            brandMateriali: data.brandMateriali,
-            
-            // Financial breakdown
-            subtotale: data.subtotale,
-            iva: data.iva,
-            percentualeIva: data.percentualeIva,
-            
-            validUntil: safeToDate(data.validUntil),
-            createdAt: safeToDate(data.createdAt),
-            updatedAt: safeToDate(data.updatedAt),
-            tenantId: data.tenantId || "",
-            createdBy: data.createdBy || "",
-            
-            // Public sharing and approval fields
-            shareToken: data.shareToken,
-            sentAt: data.sentAt ? safeToDate(data.sentAt) : undefined,
-            approvedAt: data.approvedAt ? safeToDate(data.approvedAt) : undefined,
-            approvedBy: data.approvedBy,
-            clientEmail: data.clientEmail,
-            
-            // Pending payment approval fields
-            pendingApprovalAt: data.pendingApprovalAt ? safeToDate(data.pendingApprovalAt) : undefined,
-            pendingApprovalBy: data.pendingApprovalBy,
-            
-            // Payment plan
-            paymentPlan: data.paymentPlan,
-            
-            // Editor fields
-            obiettivi: data.obiettivi,
-            attivita: data.attivita,
-            voci: data.voci,
-            terminiCondizioni: data.terminiCondizioni,
-          } as Quote
-        })
-
-        // Sort by creation date (newest first)
-        quotesData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-
-        console.log("Real-time quotes updated:", quotesData.length)
-        setQuotes(quotesData)
-        setLoading(false)
-      },
-      (err) => {
-        console.error("Real-time listener error:", err)
-        setError("Errore nel caricamento real-time dei preventivi")
-        setLoading(false)
+    try {
+      const response = await fetch("/api/quotes", {
+        credentials: "include",
+        headers: await getAuthHeaders(),
+      })
+      const result = await readApiResponse(response)
+      if (!response.ok) {
+        throw new Error(result.error || result.details || "Errore nel caricamento dei preventivi")
       }
-    )
 
-    // Cleanup: unsubscribe on unmount or tenantId change
-    return () => {
-      console.log("Unsubscribing from quotes listener")
-      unsubscribe()
+      const quotesData = ((result.quotes || []) as Quote[]).map((quote) => ({
+        ...quote,
+        validUntil: safeToDate(quote.validUntil),
+        createdAt: safeToDate(quote.createdAt),
+        updatedAt: safeToDate(quote.updatedAt),
+      }))
+      quotesData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      setQuotes(quotesData)
+    } catch (err) {
+      console.error("Error loading quotes:", err)
+      setError(err instanceof Error ? err.message : "Errore nel caricamento dei preventivi")
+    } finally {
+      setLoading(false)
     }
-  }, [quotesQuery, userData?.tenantId])
+  }, [getAuthHeaders, userData?.tenantId])
+
+  useEffect(() => {
+    void loadQuotes()
+  }, [loadQuotes])
 
   const createQuote = useCallback(async (quoteData: Omit<Quote, "id" | "createdAt" | "updatedAt">) => {
     try {
@@ -196,6 +146,7 @@ export function useQuotes() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
         },
         credentials: 'include', // CRITICAL: Send firebase-auth-token cookie
         body: JSON.stringify(payload)
@@ -210,44 +161,30 @@ export function useQuotes() {
         throw new Error(details || result.error || result.message || 'Errore nella creazione del preventivo')
       }
 
+      await loadQuotes()
       return result.id
     } catch (err) {
       console.error("Error creating quote:", err)
       throw new Error(err instanceof Error ? err.message : "Errore nella creazione del preventivo")
     }
-  }, [])
+  }, [getAuthHeaders, loadQuotes])
 
   const updateQuote = useCallback(async (id: string, updates: Partial<Quote>) => {
-    try {
-      const quoteRef = doc(db, "quotes", id)
-      const updateData = {
-        ...updates,
-        updatedAt: Timestamp.now(),
-        validUntil: updates.validUntil ? Timestamp.fromDate(updates.validUntil) : undefined,
-      }
-
-      // Remove undefined values
-      Object.keys(updateData).forEach((key) => {
-        if (updateData[key as keyof typeof updateData] === undefined) {
-          delete updateData[key as keyof typeof updateData]
-        }
-      })
-
-      await updateDoc(quoteRef, updateData)
-    } catch (err) {
-      console.error("Error updating quote:", err)
-      throw new Error("Errore nell'aggiornamento del preventivo")
-    }
+    throw new Error("Modifica preventivo non ancora collegata al backend D1")
   }, [])
 
   const deleteQuote = useCallback(async (id: string) => {
-    try {
-      await deleteDoc(doc(db, "quotes", id))
-    } catch (err) {
-      console.error("Error deleting quote:", err)
-      throw new Error("Errore nell'eliminazione del preventivo")
+    const response = await fetch(`/api/quotes/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: await getAuthHeaders(),
+    })
+    const result = await readApiResponse(response)
+    if (!response.ok) {
+      throw new Error(result.error || result.details || "Errore nell'eliminazione del preventivo")
     }
-  }, [])
+    await loadQuotes()
+  }, [getAuthHeaders, loadQuotes])
 
   const getQuotesByStatus = useCallback((status: Quote["status"]) => {
     return quotes.filter((quote) => quote.status === status)
@@ -274,6 +211,7 @@ export function useQuotes() {
     createQuote,
     updateQuote,
     deleteQuote,
+    reloadQuotes: loadQuotes,
     getQuotesByStatus,
     getQuoteStats,
   }

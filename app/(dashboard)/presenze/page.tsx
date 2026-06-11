@@ -1,6 +1,6 @@
 "use client"
 
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Activity, AlarmClock, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, RefreshCw, Sparkles, TimerOff, UserCheck, Users, X, XCircle } from "lucide-react"
 import { gsap } from "gsap"
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 
-type PresenceStatus = "present" | "closed" | "absent" | "missing"
+type PresenceStatus = "present" | "closed" | "absent" | "missing" | "holiday"
 
 type PersonPresence = {
   id: string
@@ -94,6 +94,10 @@ type PresencePayload = {
         entryCount: number
         taskMinutes: number
         taskCount: number
+        completedTaskMinutes: number
+        completedTaskCount: number
+        missingDurationTaskCount: number
+        taskTitles: string[]
         loadMinutes: number
         intensity: number
         minutesLate: number
@@ -108,6 +112,7 @@ type PresencePayload = {
     closed: number
     absent: number
     missing: number
+    holiday: number
     presenceMinutes: number
     activityMinutes: number
   }
@@ -118,6 +123,11 @@ type CalendarPersonDay = CalendarPerson["days"][number]
 type HeatmapSignalSelection = {
   person: CalendarPerson
   day: CalendarPersonDay
+}
+type HeatmapCellSelection = HeatmapSignalSelection
+type HeatmapDaySelection = {
+  date: string
+  records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>
 }
 
 const pageClass =
@@ -252,6 +262,13 @@ function statusMeta(status: PresenceStatus) {
         className: "border-red-300/25 bg-red-300/12 text-red-200",
         dot: "bg-red-300",
       }
+    case "holiday":
+      return {
+        label: "Festivo",
+        icon: CalendarDays,
+        className: "border-slate-300/20 bg-slate-300/10 text-slate-200",
+        dot: "bg-slate-300",
+      }
     default:
       return {
         label: "Non segnato",
@@ -321,7 +338,9 @@ function dayTimeSignalMeta(day: CalendarPersonDay) {
 
 function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
   if (day.status === "absent") return "border-red-300/75 bg-red-500/75 text-white shadow-[0_0_20px_rgba(248,113,113,0.22)]"
+  if (day.status === "holiday") return "border-slate-300/25 bg-slate-400/16 text-slate-300"
   if (day.status === "missing" && day.intensity === 0) return "border-white/10 bg-white/[0.075] text-slate-500"
+  if (day.missingDurationTaskCount > 0) return "border-amber-300/70 bg-amber-300/20 text-amber-50 shadow-[0_0_18px_rgba(251,191,36,0.18)]"
 
   const intensityClasses = [
     "border-white/12 bg-white/[0.09] text-slate-400",
@@ -338,6 +357,12 @@ function calendarCellSignal(day: PresencePayload["calendar"]["people"][number]["
   if (day.status === "absent") {
     return { label: "Assenza", short: "OFF", Icon: XCircle }
   }
+  if (day.status === "holiday") {
+    return { label: "Festivo", short: "F", Icon: CalendarDays }
+  }
+  if (day.missingDurationTaskCount > 0) {
+    return { label: "Durate mancanti", short: String(day.missingDurationTaskCount), Icon: AlertCircle }
+  }
   if (day.intensity >= 4) return { label: "Sprint", short: day.taskCount > 0 ? String(day.taskCount) : "MAX", Icon: Flame }
   if (day.intensity >= 3) return { label: "Focus", short: day.taskCount > 0 ? String(day.taskCount) : "F", Icon: Activity }
   if (day.intensity >= 2) return { label: "Operativo", short: day.taskCount > 0 ? String(day.taskCount) : "ON", Icon: Activity }
@@ -352,9 +377,11 @@ function calendarDayTitle(person: PresencePayload["calendar"]["people"][number],
     formatDateLabel(day.date),
     `Stato: ${statusMeta(day.status).label}`,
     `Segnale: ${signal.label}`,
-    `Attivita: ${formatMinutes(day.activityMinutes)}`,
-    `Task in scadenza: ${day.taskCount}`,
+    `Time entry registrate: ${formatMinutes(day.activityMinutes)}`,
+    `Task collegate: ${day.taskCount}`,
   ]
+  if (day.completedTaskCount > 0) parts.push(`Task completate/importate: ${day.completedTaskCount}`)
+  if (day.missingDurationTaskCount > 0) parts.push(`Task senza durata: ${day.missingDurationTaskCount}`)
   if (day.signal) parts.push(`Indicatore orario: ${dayTimeSignalLabel(day)}`)
   if (day.checkInAt) parts.push(`Entrata: ${formatTime(day.checkInAt)}`)
   if (day.checkOutAt) parts.push(`Uscita: ${formatTime(day.checkOutAt)}`)
@@ -367,7 +394,7 @@ function calendarDayTitle(person: PresencePayload["calendar"]["people"][number],
 function personMonthStats(person: PresencePayload["calendar"]["people"][number]) {
   return person.days.reduce(
     (acc, day) => {
-      if (day.status === "present" || day.status === "closed") acc.presenceDays += 1
+  if (day.status === "present" || day.status === "closed") acc.presenceDays += 1
       if (day.status === "absent") acc.absenceDays += 1
       if (day.signal) acc.anomalyDays += 1
       acc.taskCount += day.taskCount
@@ -405,15 +432,18 @@ function calendarDayTone(records: Array<{ person: CalendarPerson; day: CalendarP
   const hasAbsence = records.some(({ day }) => day.status === "absent")
   const hasSignal = records.some(({ day }) => day.signal)
   const hasPresence = records.some(({ day }) => day.status === "present" || day.status === "closed")
+  const hasHoliday = records.some(({ day }) => day.status === "holiday")
 
   if (hasAbsence) return "border-red-300/35 bg-red-500/[0.08]"
   if (hasSignal) return "border-amber-300/35 bg-amber-300/[0.08]"
   if (hasPresence) return "border-emerald-300/25 bg-emerald-300/[0.05]"
+  if (hasHoliday) return "border-slate-300/15 bg-slate-300/[0.04]"
   return "border-white/10 bg-white/[0.035]"
 }
 
 function attendanceEventTone(day: CalendarPersonDay) {
   if (day.status === "absent") return "border-red-300/30 bg-red-500/15 text-red-100"
+  if (day.status === "holiday") return "border-slate-300/20 bg-slate-300/10 text-slate-200"
   if (day.signal === "late") return "border-amber-300/35 bg-amber-300/15 text-amber-100"
   if (day.signal === "early-exit") return "border-cyan-300/30 bg-cyan-300/12 text-cyan-100"
   if (day.status === "closed") return "border-slate-300/20 bg-slate-300/10 text-slate-200"
@@ -422,6 +452,7 @@ function attendanceEventTone(day: CalendarPersonDay) {
 
 function attendanceEventLabel(day: CalendarPersonDay) {
   if (day.status === "absent") return day.absenceReason ? `Assente: ${day.absenceReason}` : "Assente"
+  if (day.status === "holiday") return day.absenceReason || "Festivo"
   if (day.signal === "late") return `Ritardo +${formatMinutes(day.minutesLate)}`
   if (day.signal === "early-exit") return `Uscita -${formatMinutes(day.minutesEarly)}`
   if (day.status === "closed") return "Uscito"
@@ -435,11 +466,12 @@ function calendarDaySummary(records: Array<{ person: CalendarPerson; day: Calend
       if (day.status === "present" || day.status === "closed") acc.present += 1
       if (day.status === "absent") acc.absent += 1
       if (day.status === "missing") acc.missing += 1
+      if (day.status === "holiday") acc.holiday += 1
       if (day.signal === "late") acc.late += 1
       if (day.signal === "early-exit") acc.earlyExit += 1
       return acc
     },
-    { present: 0, absent: 0, missing: 0, late: 0, earlyExit: 0 },
+    { present: 0, absent: 0, missing: 0, holiday: 0, late: 0, earlyExit: 0 },
   )
 }
 
@@ -781,6 +813,8 @@ function PresenceCalendarHeatmap({
   const [viewMode, setViewMode] = useState<"heatmap" | "calendar">("heatmap")
   const [compactPeopleColumn, setCompactPeopleColumn] = useState(false)
   const [activeSignal, setActiveSignal] = useState<HeatmapSignalSelection | null>(null)
+  const [activeCell, setActiveCell] = useState<HeatmapCellSelection | null>(null)
+  const [activeDay, setActiveDay] = useState<HeatmapDaySelection | null>(null)
 
   const orderedCalendarPeople = useMemo(() => sortByOperationalRole(calendar.people), [calendar.people])
 
@@ -817,6 +851,39 @@ function PresenceCalendarHeatmap({
     gridTemplateColumns: `${peopleColumnWidth}px repeat(${calendar.days.length}, ${dayCellWidth}px)`,
     minWidth: `${peopleColumnWidth + calendar.days.length * dayCellWidth}px`,
   }
+  const selectedDayRecords = useMemo(
+    () => getCalendarDayRecords(visiblePeople, selectedDate),
+    [visiblePeople, selectedDate],
+  )
+  const openDayDetails = useCallback(
+    (date: string, records?: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) => {
+      const dayRecords = records ?? getCalendarDayRecords(visiblePeople, date)
+      onDateChange(date)
+      setActiveDay({ date, records: dayRecords })
+    },
+    [onDateChange, visiblePeople],
+  )
+  const openCellDetails = useCallback(
+    (selection: HeatmapCellSelection) => {
+      setActiveCell(selection)
+      openDayDetails(selection.day.date)
+    },
+    [openDayDetails],
+  )
+  const activeHeatmapSelection = useMemo(() => {
+    if (
+      activeCell &&
+      activeCell.day.date === selectedDate &&
+      visiblePeople.some((person) => person.id === activeCell.person.id)
+    ) {
+      return activeCell
+    }
+
+    const meaningfulRecord =
+      selectedDayRecords.find(({ day }) => day.taskCount > 0 || day.activityMinutes > 0 || day.signal || day.status === "absent") ??
+      selectedDayRecords[0]
+    return meaningfulRecord ? { person: meaningfulRecord.person, day: meaningfulRecord.day } : null
+  }, [activeCell, selectedDate, selectedDayRecords, visiblePeople])
 
   return (
     <section className={cn(panelClass, "overflow-hidden")}>
@@ -942,12 +1009,13 @@ function PresenceCalendarHeatmap({
       </div>
 
       {viewMode === "calendar" ? (
-        <PresenceMonthCalendar
-          calendar={calendar}
-          people={visiblePeople}
-          selectedDate={selectedDate}
-          onDateChange={onDateChange}
-        />
+          <PresenceMonthCalendar
+            calendar={calendar}
+            people={visiblePeople}
+            selectedDate={selectedDate}
+            onDateChange={onDateChange}
+            onShowDay={openDayDetails}
+          />
       ) : (
         <>
       <div className="space-y-4 p-4 md:hidden">
@@ -998,6 +1066,7 @@ function PresenceCalendarHeatmap({
                       compact={false}
                       onDateChange={onDateChange}
                       onShowSignal={setActiveSignal}
+                      onShowDetails={openCellDetails}
                     />
                   ))}
                 </div>
@@ -1072,6 +1141,7 @@ function PresenceCalendarHeatmap({
                     compact
                     onDateChange={onDateChange}
                     onShowSignal={setActiveSignal}
+                    onShowDetails={openCellDetails}
                   />
                 ))}
               </div>
@@ -1079,6 +1149,13 @@ function PresenceCalendarHeatmap({
           </div>
         </div>
       </div>
+
+      <HeatmapCellContextBanner
+        selection={activeHeatmapSelection}
+        dayRecords={selectedDayRecords}
+        onOpenDay={() => openDayDetails(selectedDate, selectedDayRecords)}
+        onClose={() => setActiveCell(null)}
+      />
 
       <div className="flex flex-wrap items-center gap-4 border-t border-white/10 px-5 py-4 text-xs text-slate-300">
         <span className="font-black uppercase tracking-[0.14em] text-slate-400">Legenda</span>
@@ -1104,6 +1181,7 @@ function PresenceCalendarHeatmap({
         </>
       )}
       <HeatmapSignalDialog selection={activeSignal} onClose={() => setActiveSignal(null)} />
+      <HeatmapDayDialog selection={activeDay} onClose={() => setActiveDay(null)} />
     </section>
   )
 }
@@ -1113,26 +1191,48 @@ function PresenceMonthCalendar({
   people,
   selectedDate,
   onDateChange,
+  onShowDay,
 }: {
   calendar: PresencePayload["calendar"]
   people: CalendarPerson[]
   selectedDate: string
   onDateChange: (date: string) => void
+  onShowDay: (date: string, records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) => void
 }) {
   const cells = useMemo(() => getMonthCalendarCells(calendar.days), [calendar.days])
   const weekdayLabels = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+  const openDay = useCallback(
+    (date: string, records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) => {
+      onDateChange(date)
+      onShowDay(date, records)
+    },
+    [onDateChange, onShowDay],
+  )
+  const handleDayKeyDown = useCallback(
+    (
+      event: KeyboardEvent<HTMLDivElement>,
+      date: string,
+      records: Array<{ person: CalendarPerson; day: CalendarPersonDay }>,
+    ) => {
+      if (event.key !== "Enter" && event.key !== " ") return
+      event.preventDefault()
+      openDay(date, records)
+    },
+    [openDay],
+  )
 
   return (
     <div className="p-4">
       <div className="mb-4 rounded-[8px] border border-white/10 bg-black/20 p-4">
         <h3 className="text-lg font-black text-white">Registro mensile presenze</h3>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-          Lettura HR rapida: ogni giorno evidenzia chi è presente, chi è assente e dove ci sono ritardi o uscite anticipate.
+          Click su un giorno per vedere presenze e task del giorno. Il colore indica stato HR, i badge indicano anomalie orarie o carico.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
           <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">Presente</span>
           <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-amber-100">Ritardo / uscita anticipata</span>
           <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-red-300/30 bg-red-500/10 px-2.5 py-1 text-red-100">Assenza</span>
+          <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-slate-300/20 bg-slate-300/10 px-2.5 py-1 text-slate-200">Festivo non lavorativo</span>
         </div>
       </div>
 
@@ -1144,12 +1244,14 @@ function PresenceMonthCalendar({
           const visibleRecords = importantRecords.length > 0 ? importantRecords : records
 
           return (
-            <button
+            <div
               key={`agenda-${date}`}
-              type="button"
-              onClick={() => onDateChange(date)}
+              role="button"
+              tabIndex={0}
+              onClick={() => openDay(date, records)}
+              onKeyDown={(event) => handleDayKeyDown(event, date, records)}
               className={cn(
-                "w-full rounded-[8px] border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                "w-full cursor-pointer rounded-[8px] border p-4 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                 calendarDayTone(records),
                 date === selectedDate && "border-righello-pink/65 shadow-[0_0_0_1px_rgba(224,64,133,0.35)]",
               )}
@@ -1159,10 +1261,11 @@ function PresenceMonthCalendar({
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-righello-pink">{formatWeekdayShort(date)}</p>
                   <p className="mt-1 text-lg font-black text-white">{formatDateLabel(date)}</p>
                 </div>
-                <div className="grid grid-cols-3 gap-1 text-center text-[11px]">
+                <div className="grid grid-cols-4 gap-1 text-center text-[11px]">
                   <span className="rounded-[6px] border border-emerald-300/20 bg-emerald-300/10 px-2 py-1 text-emerald-100">{summary.present} P</span>
                   <span className="rounded-[6px] border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-amber-100">{summary.late + summary.earlyExit} !</span>
                   <span className="rounded-[6px] border border-red-300/20 bg-red-500/10 px-2 py-1 text-red-100">{summary.absent} A</span>
+                  <span className="rounded-[6px] border border-slate-300/15 bg-slate-300/10 px-2 py-1 text-slate-200">{summary.holiday} F</span>
                 </div>
               </div>
               <div className="mt-3 grid gap-2">
@@ -1182,7 +1285,7 @@ function PresenceMonthCalendar({
                 ))}
                 {visibleRecords.length > 6 && <p className="text-xs font-bold text-slate-400">+{visibleRecords.length - 6} altri record</p>}
               </div>
-            </button>
+            </div>
           )
         })}
       </div>
@@ -1207,12 +1310,14 @@ function PresenceMonthCalendar({
             const visibleRecords = importantRecords.length > 0 ? importantRecords : records
 
             return (
-              <button
+              <div
                 key={date}
-                type="button"
-                onClick={() => onDateChange(date)}
+                role="button"
+                tabIndex={0}
+                onClick={() => openDay(date, records)}
+                onKeyDown={(event) => handleDayKeyDown(event, date, records)}
                 className={cn(
-                  "min-h-[148px] rounded-[8px] border p-3 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                  "min-h-[148px] cursor-pointer rounded-[8px] border p-3 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                   calendarDayTone(records),
                   date === selectedDate && "border-righello-pink/70 shadow-[0_0_0_1px_rgba(224,64,133,0.35)]",
                 )}
@@ -1228,6 +1333,7 @@ function PresenceMonthCalendar({
                       <span className="rounded-[6px] bg-amber-300/14 px-1.5 py-1 text-amber-100">!</span>
                     )}
                     {summary.absent > 0 && <span className="rounded-[6px] bg-red-500/16 px-1.5 py-1 text-red-100">{summary.absent}</span>}
+                    {summary.holiday > 0 && <span className="rounded-[6px] bg-slate-300/12 px-1.5 py-1 text-slate-200">{summary.holiday}F</span>}
                   </div>
                 </div>
                 <div className="mt-3 space-y-1.5">
@@ -1243,7 +1349,7 @@ function PresenceMonthCalendar({
                   {visibleRecords.length === 0 && <p className="text-xs text-slate-500">Nessun dato</p>}
                   {visibleRecords.length > 4 && <p className="text-[11px] font-bold text-slate-400">+{visibleRecords.length - 4} altri</p>}
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
@@ -1259,6 +1365,7 @@ function CalendarHeatmapCell({
   compact,
   onDateChange,
   onShowSignal,
+  onShowDetails,
 }: {
   day: PresencePayload["calendar"]["people"][number]["days"][number]
   person: PresencePayload["calendar"]["people"][number]
@@ -1266,6 +1373,7 @@ function CalendarHeatmapCell({
   compact?: boolean
   onDateChange: (date: string) => void
   onShowSignal?: (selection: HeatmapSignalSelection) => void
+  onShowDetails?: (selection: HeatmapCellSelection) => void
 }) {
   const signal = calendarCellSignal(day)
   const Icon = signal.Icon
@@ -1273,7 +1381,7 @@ function CalendarHeatmapCell({
   const TimeSignalIcon = timeSignal?.Icon
   const handleSelect = () => {
     onDateChange(day.date)
-    if (timeSignal && onShowSignal) onShowSignal({ person, day })
+    onShowDetails?.({ person, day })
   }
 
   if (compact) {
@@ -1343,6 +1451,122 @@ function CalendarHeatmapCell({
   )
 }
 
+function HeatmapCellContextBanner({
+  selection,
+  dayRecords,
+  onOpenDay,
+  onClose,
+}: {
+  selection: HeatmapCellSelection | null
+  dayRecords: Array<{ person: CalendarPerson; day: CalendarPersonDay }>
+  onOpenDay: () => void
+  onClose: () => void
+}) {
+  if (!selection) return null
+
+  const day = selection.day
+  const signal = calendarCellSignal(day)
+  const SignalIcon = signal.Icon
+  const timeSignal = dayTimeSignalMeta(day)
+  const TimeSignalIcon = timeSignal?.Icon || Clock
+  const daySummary = calendarDaySummary(dayRecords)
+  const taskTitles = day.taskTitles || []
+  const contextTone = timeSignal
+    ? timeSignal.tone
+    : day.missingDurationTaskCount > 0
+      ? "border-amber-300/55"
+      : "border-cyan-300/25"
+
+  return (
+    <div className="border-t border-white/10 px-4 py-4">
+      <div className={cn("overflow-hidden rounded-[8px] border bg-[#07101d]/95 text-white shadow-[0_20px_70px_rgba(0,0,0,0.28)]", contextTone)}>
+        <div className="relative border-b border-white/10 p-4">
+          <div className="absolute -right-8 -top-12 h-28 w-28 rounded-full bg-righello-cyan/12 blur-2xl" />
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">Giorno selezionato</p>
+              <h3 className="mt-1 flex min-w-0 items-center gap-2 text-xl font-black text-white">
+                <span className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border", timeSignal?.chipTone ?? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100")}>
+                  {timeSignal ? <TimeSignalIcon className="h-5 w-5" /> : <SignalIcon className="h-5 w-5" />}
+                </span>
+                <span className="min-w-0 truncate">
+                  {selection.person.name} · {formatDateLabel(day.date)}
+                </span>
+              </h3>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onOpenDay}
+                className="h-9 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-black text-cyan-100 hover:bg-cyan-300/15"
+              >
+                Apri giorno
+              </Button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-[8px] border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+                aria-label="Chiudi dettaglio cella"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 p-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Segnale</p>
+              <p className="mt-1 text-base font-black text-white">{timeSignal?.label ?? signal.label}</p>
+              {timeSignal ? <p className="mt-1 text-xs leading-5 text-slate-400">{timeSignal.description}</p> : null}
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Ore e task</p>
+              <p className="mt-1 text-base font-black text-white">
+                {formatMinutes(day.activityMinutes)} · {day.taskCount} task
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">
+                {day.completedTaskCount} completate/importate
+                {day.missingDurationTaskCount > 0 ? ` · ${day.missingDurationTaskCount} senza durata` : ""}
+              </p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs text-slate-500">Team nel giorno</p>
+              <p className="mt-1 text-base font-black text-white">
+                {daySummary.present} presenti · {daySummary.absent} assenti · {daySummary.holiday} festivi
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[8px] border border-white/10 bg-black/20 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Task del giorno</p>
+              <span className="rounded-[7px] border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-black text-slate-300">
+                {taskTitles.length}
+              </span>
+            </div>
+            {taskTitles.length ? (
+              <ul className="mt-3 grid gap-2">
+                {taskTitles.map((title, index) => (
+                  <li key={`${day.date}-${selection.person.id}-${index}`} className="rounded-[7px] border border-white/10 bg-white/[0.035] px-3 py-2 text-sm leading-5 text-slate-100">
+                    {title}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 rounded-[7px] border border-dashed border-white/12 px-3 py-3 text-sm leading-6 text-slate-400">
+                Nessuna task collegata a questa persona nel giorno selezionato.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function HeatmapSignalDialog({
   selection,
   onClose,
@@ -1381,7 +1605,7 @@ function HeatmapSignalDialog({
   const day = selection.day
   const productivityLabel =
     day.activityMinutes > 0 || day.taskCount > 0
-      ? `${formatMinutes(day.activityMinutes)} registrate · ${day.taskCount} task`
+      ? `${formatMinutes(day.activityMinutes)} registrate · ${day.taskCount} task collegate${day.missingDurationTaskCount > 0 ? ` · ${day.missingDurationTaskCount} da consuntivare` : ""}`
       : "Nessuna attività collegata nel giorno"
 
   return (
@@ -1445,6 +1669,112 @@ function HeatmapSignalDialog({
               </p>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function HeatmapDayDialog({
+  selection,
+  onClose,
+}: {
+  selection: HeatmapDaySelection | null
+  onClose: () => void
+}) {
+  if (!selection) return null
+
+  const summary = calendarDaySummary(selection.records)
+  const taskTitles = selection.records.flatMap(({ day }) => day.taskTitles || [])
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end bg-black/55 p-3 backdrop-blur-sm md:items-center md:justify-center">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Dettaglio giornata ${formatDateLabel(selection.date)}`}
+        className="max-h-[86dvh] w-full max-w-3xl overflow-hidden rounded-[8px] border border-white/10 bg-[#070d1a] text-white shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Dettaglio giorno</p>
+            <h3 className="mt-1 text-2xl font-black capitalize text-white">{formatDateLabel(selection.date)}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-[8px] border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+            aria-label="Chiudi dettaglio giorno"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(86dvh-96px)] overflow-y-auto p-5">
+          <div className="grid gap-2 text-sm sm:grid-cols-4">
+            <div className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-3">
+              <p className="text-xs text-slate-400">Presenti</p>
+              <p className="mt-1 text-xl font-black text-emerald-100">{summary.present}</p>
+            </div>
+            <div className="rounded-[8px] border border-red-300/20 bg-red-500/10 p-3">
+              <p className="text-xs text-slate-400">Assenze</p>
+              <p className="mt-1 text-xl font-black text-red-100">{summary.absent}</p>
+            </div>
+            <div className="rounded-[8px] border border-slate-300/15 bg-slate-300/10 p-3">
+              <p className="text-xs text-slate-400">Festivi</p>
+              <p className="mt-1 text-xl font-black text-slate-100">{summary.holiday}</p>
+            </div>
+            <div className="rounded-[8px] border border-amber-300/20 bg-amber-300/10 p-3">
+              <p className="text-xs text-slate-400">Anomalie</p>
+              <p className="mt-1 text-xl font-black text-amber-100">{summary.late + summary.earlyExit}</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            {selection.records.map(({ person, day }) => (
+              <div key={`${person.id}-${day.date}`} className={cn("rounded-[8px] border p-4", attendanceEventTone(day))}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate font-black">{person.name}</p>
+                    <p className="mt-1 text-xs opacity-75">{person.role}</p>
+                  </div>
+                  <span className="w-fit rounded-[7px] border border-white/10 bg-black/15 px-2 py-1 text-xs font-black">
+                    {attendanceEventLabel(day)}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 text-xs sm:grid-cols-4">
+                  <span>Entrata {formatTime(day.checkInAt)}</span>
+                  <span>Uscita {formatTime(day.checkOutAt)}</span>
+                  <span>Attività {formatMinutes(day.activityMinutes)}</span>
+                  <span>Task {day.taskCount}</span>
+                </div>
+                {day.completedTaskCount > 0 ? (
+                  <p className="mt-2 text-xs opacity-75">
+                    {day.completedTaskCount} task completate/importate nel giorno
+                    {day.missingDurationTaskCount > 0 ? ` · ${day.missingDurationTaskCount} senza durata` : ""}
+                  </p>
+                ) : null}
+                {day.taskTitles?.length ? (
+                  <div className="mt-3 border-t border-white/10 pt-3">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] opacity-70">Task del giorno</p>
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {day.taskTitles.map((title, index) => (
+                        <li key={`${title}-${index}`} className="leading-5">
+                          {title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+
+          {!taskTitles.length ? (
+            <p className="mt-4 rounded-[8px] border border-dashed border-white/12 p-4 text-sm text-slate-400">
+              Nessuna task collegata a questa giornata.
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

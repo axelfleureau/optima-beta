@@ -30,7 +30,19 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
   const personalOrganizationId = user.organizationId || `org_${user.id}`
   const email = String(user.email || "").trim()
 
-  const existingMember = await db
+  const preferredMember = await db
+    .prepare(
+      `SELECT m.id, m.organization_id, m.role
+       FROM members m
+       WHERE m.clerk_user_id = ?
+         AND m.organization_id = ?
+       ORDER BY m.created_at ASC
+       LIMIT 1`,
+    )
+    .bind(user.id, personalOrganizationId)
+    .first()
+
+  const existingMember = preferredMember ?? await db
     .prepare(
       `SELECT m.id, m.organization_id, m.role
        FROM members m
@@ -54,7 +66,7 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
            OR clerk_user_id LIKE 'placeholder:%'
          )
        ORDER BY
-         CASE WHEN organization_id = ? THEN 1 ELSE 0 END,
+         CASE WHEN organization_id = ? THEN 0 ELSE 1 END,
          CASE status WHEN 'invited' THEN 0 WHEN 'inactive' THEN 1 WHEN 'active' THEN 2 ELSE 3 END,
          created_at ASC
        LIMIT 1`,

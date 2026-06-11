@@ -2,13 +2,13 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useCallback, useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Send, Bot, User, MessageSquare, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, RefreshCw, AlertTriangle, Database, Network } from "lucide-react"
+import { Loader2, Send, Bot, User, Sparkles, Copy, CheckCircle2, Clock, ThumbsUp, ThumbsDown, AlertTriangle, Database, Network, Radio } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/lib/chat-types"
@@ -34,6 +34,15 @@ interface AIChatProps {
   showWelcome?: boolean
 }
 
+const EMPTY_ASSISTANT_RESPONSE =
+  "Ho ricevuto la richiesta e l'ho salvata nella conversazione, ma il runtime AI non ha restituito testo utile. Optima deve completare automaticamente il passaggio: risposta immediata quando il dato e presente, oppure job agentico revisionabile quando serve ricerca."
+
+function normalizeAssistantContent(content: unknown, role: "user" | "assistant") {
+  const text = String(content || "").trim()
+  if (text) return text
+  return role === "assistant" ? EMPTY_ASSISTANT_RESPONSE : ""
+}
+
 export function AIChat({
   userId,
   sessionId,
@@ -47,9 +56,9 @@ export function AIChat({
   const [isLoading, setIsLoading] = useState(false)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId || null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const [modelName, setModelName] = useState("Modello Óptima")
   const [contextSources, setContextSources] = useState<string[]>([])
+  const [lastInboxSyncAt, setLastInboxSyncAt] = useState<Date | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
@@ -89,7 +98,7 @@ export function AIChat({
         {
           id: "welcome",
           content:
-            "👋 **Ciao, sono l'assistente operativo di Óptima.**\n\nPosso aiutarti a ragionare su:\n\n• **Progetti**, task, priorità e scadenze\n• **Clienti** e stato lavori\n• **Team**, presenza, carico e colli di bottiglia\n• **Preventivi** e prossime azioni commerciali\n• **AI content** quando serve creare copy o idee\n\nQuando i dati sono disponibili, uso il contesto della piattaforma. Quando mancano, te lo dico senza inventare.",
+            "👋 **Ciao, sono l'assistente operativo di Óptima.**\n\nPosso aiutarti a ragionare su:\n\n• **Progetti**, task, priorità e scadenze\n• **Clienti** e stato lavori\n• **Team**, presenza, carico e colli di bottiglia\n• **Preventivi** e prossime azioni commerciali\n• **Graph memory**, nodi aziendali, Hermes e know-how\n\nQuando i dati sono disponibili, uso il contesto della piattaforma e del grafo. Per salvare conoscenza nel grafo puoi scrivere: `salva nel grafo: tipo=client; titolo=...; sommario=...; tag=...`.",
           role: "assistant",
           timestamp: new Date(),
         },
@@ -103,6 +112,66 @@ export function AIChat({
   useEffect(() => {
     setCurrentSessionId(sessionId || null)
   }, [sessionId])
+
+  const hydrateSessionMessages = useCallback(
+    async () => {
+      if (!currentSessionId || currentSessionId.startsWith("temp_") || isLoading) return
+
+      try {
+        const response = await fetch(`/api/ai/chat/sessions/${currentSessionId}`, {
+          credentials: "include",
+          cache: "no-store",
+        })
+        if (!response.ok) return
+
+        const payload = await response.json()
+        const nextMessages: Message[] = (payload.messages || [])
+          .filter((message: any) => message.role === "user" || message.role === "assistant")
+          .map((message: any) => ({
+            id: String(message.id),
+            content: normalizeAssistantContent(message.content, message.role),
+            role: message.role,
+            timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+            canRegenerate: message.role === "assistant",
+          }))
+
+        if (!nextMessages.length) return
+
+        setMessages((current) => {
+          const currentSignature = current
+            .filter((message) => message.id !== "welcome" && !message.isStreaming)
+            .map((message) => `${message.id}:${message.content.length}`)
+            .join("|")
+          const nextSignature = nextMessages.map((message) => `${message.id}:${message.content.length}`).join("|")
+          return currentSignature === nextSignature ? current : nextMessages
+        })
+        setLastInboxSyncAt(new Date())
+      } catch (error) {
+        console.warn("Agentic inbox sync skipped:", error)
+      }
+    },
+    [currentSessionId, isLoading],
+  )
+
+  useEffect(() => {
+    if (!currentSessionId || currentSessionId.startsWith("temp_")) return
+
+    let cancelled = false
+    const sync = () => {
+      if (cancelled || document.visibilityState === "hidden") return
+      void hydrateSessionMessages()
+    }
+    const interval = window.setInterval(sync, 12000)
+    const handleFocus = () => sync()
+    window.addEventListener("focus", handleFocus)
+    sync()
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [currentSessionId, hydrateSessionMessages])
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading || !userId) {
@@ -164,6 +233,8 @@ export function AIChat({
 
       try {
         let buffer = ""
+        let receivedAssistantContent = false
+        let doneReceived = false
 
         const handleSsePayload = (jsonStr: string) => {
           if (!jsonStr) return
@@ -191,6 +262,9 @@ export function AIChat({
           }
 
           if (data.content) {
+            if (String(data.content).trim()) {
+              receivedAssistantContent = true
+            }
             setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.id === assistantMessageId) {
@@ -204,8 +278,19 @@ export function AIChat({
 
           if (data.done) {
             console.log("🏁 Stream marked as done")
+            doneReceived = true
             setMessages((prev) =>
-              prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, isStreaming: false, canRegenerate: true } : msg)),
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? {
+                      ...msg,
+                      content: receivedAssistantContent || msg.content.trim() ? msg.content : EMPTY_ASSISTANT_RESPONSE,
+                      isStreaming: false,
+                      canRegenerate: true,
+                      error: !receivedAssistantContent && !msg.content.trim(),
+                    }
+                  : msg,
+              ),
             )
 
             if (onMessageSent) {
@@ -242,6 +327,22 @@ export function AIChat({
 
         if (buffer.startsWith("data: ")) {
           handleSsePayload(buffer.slice(6).trim())
+        }
+
+        if (!doneReceived) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? {
+                    ...msg,
+                    content: msg.content.trim() ? msg.content : EMPTY_ASSISTANT_RESPONSE,
+                    isStreaming: false,
+                    canRegenerate: true,
+                    error: !msg.content.trim(),
+                  }
+                : msg,
+            ),
+          )
         }
       } finally {
         reader.releaseLock()
@@ -311,112 +412,6 @@ export function AIChat({
     }
   }
 
-  const regenerateResponse = async (messageId: string) => {
-    try {
-      setRegeneratingId(messageId)
-      
-      // Find the user message that preceded this assistant message
-      const messageIndex = messages.findIndex(msg => msg.id === messageId)
-      if (messageIndex === -1 || messageIndex === 0) return
-      
-      const userMessage = messages[messageIndex - 1]
-      if (userMessage.role !== 'user') return
-
-      // Mark the current message as regenerating
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, isStreaming: true, content: "" } : msg
-        )
-      )
-
-      // Call API to regenerate with same user message
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage.content,
-          userId: userId,
-          sessionId: currentSessionId,
-          regenerate: true,
-        }),
-      })
-
-      if (!response.ok || !response.body) {
-        throw new Error(`Errore API: ${response.status}`)
-      }
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-
-      let buffer = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() || ""
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const jsonStr = line.slice(6).trim()
-            if (jsonStr) {
-              try {
-                const data = JSON.parse(jsonStr)
-                if (data.model) setModelName(String(data.model))
-                if (Array.isArray(data.contextSources)) setContextSources(data.contextSources.map(String))
-                if (data.error) throw new Error(data.error)
-                if (data.content) {
-                  setMessages((prev) =>
-                    prev.map((msg) => {
-                      if (msg.id === messageId) {
-                        const newContent = (msg.content || "") + data.content
-                        return { ...msg, content: newContent }
-                      }
-                      return msg
-                    })
-                  )
-                }
-              } catch (parseError) {
-                console.error("❌ Error parsing SSE data:", parseError, "Line:", line)
-                throw parseError
-              }
-            }
-          }
-        }
-      }
-
-      // Mark streaming as complete
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId
-            ? { ...msg, isStreaming: false, canRegenerate: true }
-            : msg
-        )
-      )
-
-      toast({
-        description: "🔄 Risposta rigenerata con successo",
-      })
-
-    } catch (error) {
-      console.error("Failed to regenerate response:", error)
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, error: true, isStreaming: false } : msg
-        )
-      )
-      toast({
-        title: "Errore",
-        description: "Errore nella rigenerazione della risposta",
-        variant: "destructive",
-      })
-    } finally {
-      setRegeneratingId(null)
-    }
-  }
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -438,7 +433,11 @@ export function AIChat({
 
   const formatMessage = (content: string) => {
     if (!content || content.trim() === "") {
-      return <span className="text-gray-400 italic">Contenuto vuoto</span>
+      return (
+        <span className="block rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-amber-100">
+          {EMPTY_ASSISTANT_RESPONSE}
+        </span>
+      )
     }
 
     const lines = content.split("\n")
@@ -499,7 +498,7 @@ export function AIChat({
           <div key={i} className="flex items-start gap-3 mb-2 ml-4">
             <div className="w-1.5 h-1.5 bg-pink-500 rounded-full mt-2 flex-shrink-0"></div>
             <span
-              className="text-gray-700 dark:text-gray-300 leading-relaxed"
+              className="min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300"
               dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
@@ -518,7 +517,7 @@ export function AIChat({
           <div key={i} className="flex items-start gap-3 mb-2 ml-4">
             <div className="w-1.5 h-1.5 bg-rose-500 rounded-full mt-2 flex-shrink-0"></div>
             <span
-              className="text-gray-700 dark:text-gray-300 leading-relaxed"
+              className="min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300"
               dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
@@ -540,7 +539,7 @@ export function AIChat({
               {number}
             </div>
             <span
-              className="text-gray-700 dark:text-gray-300 leading-relaxed"
+              className="min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300"
               dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedText) }}
             />
           </div>,
@@ -553,7 +552,7 @@ export function AIChat({
         const code = line.replace(/```/g, "").trim()
         elements.push(
           <div key={i} className="my-3">
-            <code className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm font-mono text-gray-800 dark:text-gray-200 block">
+            <code className="block max-w-full overflow-x-auto rounded-lg bg-gray-100 px-3 py-2 font-mono text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">
               {code}
             </code>
           </div>,
@@ -572,7 +571,7 @@ export function AIChat({
           .replace(/\*(.*?)\*/g, "<em class='italic'>$1</em>")
 
         elements.push(
-          <p key={i} className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed">
+          <p key={i} className="mb-3 min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300">
             <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedLine) }} />
           </p>,
         )
@@ -585,17 +584,17 @@ export function AIChat({
         .replace(/\*(.*?)\*/g, "<em class='italic'>$1</em>")
 
       elements.push(
-        <p key={i} className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p key={i} className="mb-3 min-w-0 break-words text-gray-700 leading-relaxed [overflow-wrap:anywhere] dark:text-gray-300">
           <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(processedLine) }} />
         </p>,
       )
     }
 
-    return <div className="space-y-1">{elements}</div>
+    return <div className="min-w-0 max-w-full space-y-1 break-words [overflow-wrap:anywhere] [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_pre]:max-w-full [&_pre]:overflow-x-auto">{elements}</div>
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-pink-200 bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 shadow-lg dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
+    <div className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg border border-pink-200 bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 shadow-lg dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-pink-200 dark:border-gray-700 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -610,9 +609,11 @@ export function AIChat({
             </div>
             <div className="min-w-0">
               <h3 className="truncate font-semibold text-gray-900 dark:text-white">Assistente AI Optima</h3>
-              <p className="flex items-center gap-1 truncate text-sm text-gray-500 dark:text-gray-400">
-                <Sparkles className="h-3 w-3 text-pink-500" />
-                Assistente operativo • Memoria e contesto piattaforma
+              <p className="flex min-w-0 items-start gap-1 text-sm leading-5 text-gray-500 dark:text-gray-400">
+                <Sparkles className="mt-1 h-3 w-3 shrink-0 text-pink-500" />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  Assistente operativo • Memoria, grafo e contesto piattaforma
+                </span>
               </p>
             </div>
           </div>
@@ -620,19 +621,27 @@ export function AIChat({
             variant="secondary"
             className="bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300 shadow-sm"
           >
-            <MessageSquare className="h-3 w-3 mr-1" />
-            Chat Attiva
+            <Radio className="h-3 w-3 mr-1" />
+            Inbox agentica
           </Badge>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-pink-100 bg-pink-50/70 px-3 py-2 text-xs text-pink-900 dark:border-pink-900/40 dark:bg-pink-950/20 dark:text-pink-100 sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex min-w-0 items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+              Scrivi una richiesta: Optima risponde se il dato e nel contesto, altrimenti prepara automaticamente un lavoro agentico revisionabile.
+            </span>
+          </span>
         </div>
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-        <div className="space-y-6">
+      <ScrollArea className="min-h-0 flex-1 overflow-x-hidden p-3 sm:p-4" ref={scrollAreaRef}>
+        <div className="min-w-0 space-y-6">
           {messages.map((message, index) => (
             <div
               key={message.id}
-              className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}
+              className={cn("flex min-w-0 gap-2 sm:gap-3", message.role === "user" ? "justify-end" : "justify-start")}
             >
               {message.role === "assistant" && (
                 <Avatar className="h-8 w-8 bg-gradient-to-r from-pink-500 to-rose-600 flex-shrink-0 shadow-sm">
@@ -644,24 +653,24 @@ export function AIChat({
 
               <div
                 className={cn(
-              "max-w-[85%] min-w-0 rounded-2xl px-4 py-3 shadow-sm",
+                  "max-w-[calc(100%-2.5rem)] min-w-0 overflow-hidden rounded-2xl px-3 py-3 shadow-sm sm:max-w-[85%] sm:px-4",
                   message.role === "user"
                     ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white ml-auto shadow-md"
                     : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700",
                 )}
               >
-                <div className="text-sm">
+                <div className="min-w-0 text-sm">
                   {message.isStreaming ? (
-                    <div className="flex items-center gap-2">
-                      <span>{message.content || "Sto pensando..."}</span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 break-words [overflow-wrap:anywhere]">{message.content || "Sto pensando..."}</span>
                       <Loader2 className="h-4 w-4 animate-spin text-pink-500" />
                     </div>
                   ) : (
-                    <div>{formatMessage(message.content)}</div>
+                    <div className="min-w-0 max-w-full overflow-hidden">{formatMessage(message.content)}</div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="mt-3 flex min-w-0 items-center justify-between gap-2 border-t border-gray-100 pt-2 dark:border-gray-700">
                   <div
                     className={cn(
                       "text-xs flex items-center gap-1",
@@ -673,7 +682,7 @@ export function AIChat({
                   </div>
 
                   {message.role === "assistant" && !message.isStreaming && message.content && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                       {/* Copy button */}
                       <Button
                         variant="ghost"
@@ -717,22 +726,6 @@ export function AIChat({
                         </Button>
                       </div>
 
-                      {/* Regenerate button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700 ml-1"
-                        onClick={() => regenerateResponse(message.id)}
-                        disabled={regeneratingId === message.id}
-                        title="Rigenera risposta"
-                      >
-                        {regeneratingId === message.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3" />
-                        )}
-                      </Button>
-
                       {/* Error indicator */}
                       {message.error && (
                         <div className="flex items-center gap-1 ml-1 text-red-500" title="Errore nella generazione">
@@ -758,41 +751,47 @@ export function AIChat({
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-800 border-t border-pink-200 dark:border-gray-700 p-3 sm:p-4">
-        <div className="flex gap-2 sm:gap-3 items-end">
-          <div className="flex-1 relative">
+        <div className="grid min-w-0 max-w-full gap-2 sm:flex sm:items-end sm:gap-3">
+          <div className="relative min-w-0 sm:flex-1">
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Scrivi il tuo messaggio... (Premi Invio per inviare)"
+              placeholder="Scrivi una richiesta operativa... l'AI puo rispondere subito o in differita"
               disabled={isLoading}
-              className="min-h-[44px] max-h-32 resize-none border-gray-300 dark:border-gray-600 focus:border-pink-500 dark:focus:border-pink-400 rounded-xl shadow-sm"
+              className="min-h-[44px] max-h-32 max-w-full resize-none rounded-xl border-gray-300 shadow-sm focus:border-pink-500 dark:border-gray-600 dark:focus:border-pink-400"
               rows={1}
             />
           </div>
           <Button
             onClick={sendMessage}
             disabled={isLoading || !input.trim()}
-            className="h-11 w-11 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 shadow-lg"
+            className="h-11 w-full rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 font-black text-white shadow-lg hover:from-pink-600 hover:to-rose-700 sm:w-11 sm:p-0"
             size="sm"
           >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin sm:mr-0" /> : <Send className="mr-2 h-4 w-4 sm:mr-0" />}
+            <span className="sm:sr-only">Invia</span>
           </Button>
         </div>
 
         <div className="mt-2 flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
-          <span className="flex min-w-0 items-center gap-2 truncate">
+          <span className="flex min-w-0 max-w-full items-center gap-2">
             <Network className="h-3 w-3 flex-shrink-0 text-pink-500" />
-            <span className="truncate">{modelName} • memoria conversazioni • contesto operativo</span>
+            <span className="truncate">{modelName} • memoria conversazioni • inbox agentica</span>
           </span>
           {contextSources.length > 0 && (
-            <span className="flex min-w-0 items-center gap-1 truncate">
+            <span className="flex min-w-0 max-w-full items-center gap-1">
               <Database className="h-3 w-3 flex-shrink-0 text-cyan-400" />
               <span className="truncate">{contextSources.join(", ")}</span>
             </span>
           )}
-          {currentSessionId && <span>Sessione: {currentSessionId.slice(-8)}</span>}
+          {currentSessionId && (
+            <span className="min-w-0 max-w-full truncate">
+              Sessione: {currentSessionId.slice(-8)}
+              {lastInboxSyncAt ? ` · sync ${lastInboxSyncAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+            </span>
+          )}
         </div>
       </div>
     </div>

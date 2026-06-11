@@ -1,18 +1,26 @@
 export const dynamic = "force-dynamic"
 
 import type { NextRequest } from "next/server"
-import { streamText } from "ai"
+import { generateText } from "ai"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requireClerkUser } from "@/lib/server-clerk"
-import { OPENAI_CHAT_MODEL } from "@/lib/ai/models"
+import { OPENAI_CHAT_MODEL, OPENAI_FAST_MODEL } from "@/lib/ai/models"
 import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
+import { buildOperationalContextSnapshot } from "@/lib/operational-context"
+import { listAgenticGraphNodes, upsertAgenticGraphNode, type AgenticGraphConfidence } from "@/lib/agentic-graph"
+import { AGENT_ADMIN_ROLES } from "@/lib/agent-jobs"
 import { ensureWorkspacePrincipal, type WorkspacePrincipal } from "@/lib/workspace-db"
 
 type StoredMemory = {
   key: string
   value: string
   source: string
+}
+
+type ChatGenerationMessage = {
+  role: "system" | "user" | "assistant"
+  content: string
 }
 
 const SYSTEM_PROMPT = `Sei l'assistente AI operativo di Óptima, il sistema interno di Righello per progetti, clienti, task, persone, preventivi, presenza e controllo aziendale.
@@ -25,7 +33,9 @@ Comportamento:
 - Quando l'utente chiede analisi aziendale, ragiona su carico, ritardi, capacità, ownership, finestre temporali e responsabilità.
 - Quando l'utente chiede contenuti, mantieni qualità da studio creativo Righello: preciso, premium, non generico.
 - Integrazioni media disponibili in Óptima: Magnific Nano Banana Pro per immagini e Kling 2.6 Pro per video. Se l'utente chiede generazione visual/video, aiuta a scrivere un prompt pronto per il pannello Media Studio.
-- Se proponi integrazioni, distingui tra integrazione già disponibile in Óptima e integrazione consigliata da costruire.`
+- Se proponi integrazioni, distingui tra integrazione già disponibile in Óptima e integrazione consigliata da costruire.
+- Quando il contesto include GRAPH MEMORY, usala come memoria aziendale a grafo: cita source/confidence quando serve e non trasformare nodi ambigui in verità operative.
+- Se l'utente chiede di salvare conoscenza nel grafo, spiegagli il formato operativo: "salva nel grafo: tipo=client; titolo=...; sommario=...; tag=..." oppure usa la pagina Agenti > Stack.`
 
 function estimateTokens(input: string) {
   return Math.ceil(input.length / 4)
@@ -34,6 +44,13 @@ function estimateTokens(input: string) {
 function compact(value: unknown, limit = 600) {
   return String(value || "")
     .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, limit)
+}
+
+function cleanGeneratedText(value: unknown, limit = 6000) {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
     .trim()
     .slice(0, limit)
 }
@@ -57,6 +74,488 @@ async function safeAll(db: any, sql: string, params: unknown[] = []) {
   } catch (error) {
     console.warn("AI context query skipped:", error)
     return []
+  }
+}
+
+function formatCurrencyCents(value: unknown, currency = "EUR") {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: currency || "EUR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0) / 100)
+}
+
+function buildLikeWhere(columns: string[], terms: string[]) {
+  const clauses: string[] = []
+  const params: string[] = []
+
+  for (const term of terms) {
+    for (const column of columns) {
+      clauses.push(`lower(COALESCE(${column}, '')) LIKE ?`)
+      params.push(`%${term}%`)
+    }
+  }
+
+  return {
+    where: clauses.join(" OR "),
+    params,
+  }
+}
+
+function sqlPlaceholders(values: unknown[]) {
+  return values.map(() => "?").join(", ")
+}
+
+function extractBusinessLookupTerms(message: string) {
+  const stop = new Set([
+    "quanto",
+    "quanta",
+    "quanti",
+    "quante",
+    "pagato",
+    "pagata",
+    "pagati",
+    "pagate",
+    "speso",
+    "spesa",
+    "costo",
+    "costa",
+    "costato",
+    "fattura",
+    "fatture",
+    "preventivo",
+    "preventivi",
+    "cliente",
+    "clienti",
+    "sito",
+    "app",
+    "lavoro",
+    "progetto",
+    "progetti",
+    "dimmi",
+    "sapere",
+    "vorrei",
+  ])
+
+  return Array.from(
+    new Set(
+      compact(message, 420)
+        .toLowerCase()
+        .replace(/[^a-z0-9àèéìòù\s-]/gi, " ")
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 4 && !stop.has(term)),
+    ),
+  ).slice(0, 5)
+}
+
+function hasFinancialIntent(message: string) {
+  return /\b(pagat[oaie]?|spes[oa]?|cost[oa]|preventiv[oi]?|fattur[ae]?|incassat[oaie]?|saldo|acconto|budget)\b/i.test(message)
+}
+
+function buildNoDataBusinessFallback(message: string, factsText: string) {
+  const financial = hasFinancialIntent(message)
+  if (!financial || !factsText) {
+    return [
+      "Ho salvato la richiesta e ho interrogato il contesto operativo disponibile.",
+      "Non ho trovato un dato abbastanza solido per rispondere in modo affidabile. Posso trasformare questa richiesta in un job agentico revisionabile per fare una verifica piu profonda su repo, documenti e fonti collegate.",
+    ].join("\n\n")
+  }
+
+  return [
+    "Non trovo in Optima un importo pagato o incassato collegato a questa richiesta.",
+    "",
+    factsText,
+    "",
+    "Quindi non posso rispondere con una cifra senza inventarla. Per renderlo operativo bisogna collegare a Optima almeno una di queste fonti: preventivo accettato, fattura/pagamento, consuntivo ore fatturabile o documento amministrativo del cliente.",
+  ].join("\n")
+}
+
+function buildImmediateOperationalFallback(message: string, contextSources: string[], businessFallback?: string) {
+  if (businessFallback) return businessFallback
+
+  const normalized = compact(message, 320).toLowerCase()
+  const sources = contextSources.length ? contextSources.join(", ") : "contesto base Optima"
+
+  if (/\b(ora|adesso).*\b(sa|sapere|sai)\b|\blo sa\b/.test(normalized)) {
+    return [
+      "Sì: la richiesta è salvata e viene gestita con il contesto operativo disponibile in Optima.",
+      `Fonti viste in questa sessione: ${sources}.`,
+      "Se manca un dato specifico, non lo invento: lo trasformo in import, job agentico o nodo verificabile del grafo.",
+    ].join("\n")
+  }
+
+  if (/\b(dovresti|devi|fai tu|mica io|tutto tu)\b/.test(normalized)) {
+    return [
+      "Hai ragione: il flusso deve lavorare per te, non chiederti di inseguire la risposta.",
+      "Ho salvato la richiesta nella conversazione. Quando l'azione richiede ricerca, import o modifica dati, Optima deve trasformarla in job revisionabile; quando il dato è già nel contesto, deve rispondere subito.",
+      `Contesto disponibile ora: ${sources}.`,
+    ].join("\n")
+  }
+
+  return [
+    "Ho preso in carico la richiesta e l'ho salvata nella conversazione.",
+    "In questo passaggio il modello non ha restituito testo utile, quindi non invento una risposta. Uso il contesto disponibile per rispondere subito quando il dato è presente; altrimenti la richiesta va trasformata automaticamente in job agentico revisionabile.",
+    `Contesto disponibile: ${sources}.`,
+  ].join("\n")
+}
+
+function uniqueModels(values: string[]) {
+  return Array.from(new Set(values.map((value) => compact(value, 80)).filter(Boolean)))
+}
+
+async function generateOperationalAnswer(openai: Awaited<ReturnType<typeof createRuntimeOpenAI>>, messages: ChatGenerationMessage[]) {
+  const candidates = uniqueModels([OPENAI_CHAT_MODEL, OPENAI_FAST_MODEL, "gpt-4.1-mini", "gpt-4o-mini"])
+  const promptMessages = [
+    ...messages,
+    {
+      role: "system" as const,
+      content:
+        "Rispondi con testo utile. Se il dato manca, indica esattamente quale fonte manca e quale azione operativa creare. Non chiedere all'utente di rileggere, rigenerare o riprovare.",
+    },
+  ]
+  const errors: string[] = []
+
+  for (const model of candidates) {
+    try {
+      const result = await generateText({
+        model: openai.responses(model),
+        messages: promptMessages,
+        maxTokens: 1100,
+      })
+      const text = cleanGeneratedText(result.text)
+      if (text) return { text, model: `${model} · responses` }
+      errors.push(`${model}/responses: empty`)
+    } catch (error) {
+      errors.push(`${model}/responses: ${error instanceof Error ? error.message : String(error)}`)
+      console.warn("OpenAI Responses chat generation failed:", { model, error })
+    }
+
+    try {
+      const result = await generateText({
+        model: openai.chat(model),
+        messages: promptMessages,
+        maxTokens: 1100,
+      })
+      const text = cleanGeneratedText(result.text)
+      if (text) return { text, model: `${model} · chat` }
+      errors.push(`${model}/chat: empty`)
+    } catch (error) {
+      errors.push(`${model}/chat: ${error instanceof Error ? error.message : String(error)}`)
+      console.warn("OpenAI Chat chat generation failed:", { model, error })
+    }
+  }
+
+  console.error("AI chat returned no useful model output after all fallbacks:", errors.slice(0, 8))
+  return { text: "", model: candidates[0] || OPENAI_CHAT_MODEL }
+}
+
+function enqueueSse(controller: ReadableStreamDefaultController, payload: unknown) {
+  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`))
+}
+
+function enqueueTextInChunks(controller: ReadableStreamDefaultController, text: string) {
+  const chunkSize = 900
+  for (let index = 0; index < text.length; index += chunkSize) {
+    enqueueSse(controller, { content: text.slice(index, index + chunkSize) })
+  }
+}
+
+async function buildQuestionScopedBusinessFacts(db: any, principal: WorkspacePrincipal, message: string) {
+  if (!db) return { text: "", sources: [] as string[], fallbackText: "" }
+
+  const terms = extractBusinessLookupTerms(message)
+  if (!terms.length) return { text: "", sources: [] as string[], fallbackText: "" }
+
+  const isManager = ["super-admin", "admin", "direzione", "capo-reparto"].includes(principal.role)
+  const sources = new Set<string>()
+  const clientLike = buildLikeWhere(["c.name", "c.company", "c.email", "c.notes"], terms)
+  const clients = await safeAll(
+    db,
+    `SELECT c.id, c.name, c.company, c.status, c.email, c.notes
+     FROM clients c
+     WHERE c.organization_id = ?
+       AND (${clientLike.where})
+     ORDER BY c.updated_at DESC
+     LIMIT 6`,
+    [principal.organizationId, ...clientLike.params],
+  )
+  if (clients.length) sources.add("clients")
+
+  const clientIds = clients.map((client: any) => String(client.id)).filter(Boolean)
+  const projectLike = buildLikeWhere(["p.name"], terms)
+  const projectConditions = [projectLike.where]
+  const projectParams: unknown[] = [principal.organizationId, ...projectLike.params]
+  if (clientIds.length) {
+    projectConditions.push(`p.client_id IN (${sqlPlaceholders(clientIds)})`)
+    projectParams.push(...clientIds)
+  }
+  const projects = await safeAll(
+    db,
+    `SELECT p.id, p.name, p.status, p.budget_cents, p.client_id, c.name AS client_name, p.updated_at
+     FROM projects p
+     LEFT JOIN clients c ON c.id = p.client_id AND c.organization_id = p.organization_id
+     WHERE p.organization_id = ?
+       AND (${projectConditions.join(" OR ")})
+     ORDER BY p.updated_at DESC
+     LIMIT 8`,
+    projectParams,
+  )
+  if (projects.length) sources.add("projects")
+
+  const projectIds = projects.map((project: any) => String(project.id)).filter(Boolean)
+  const quoteLike = buildLikeWhere(["q.title", "q.client_name", "q.description"], terms)
+  const quoteConditions = [quoteLike.where]
+  const quoteParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...quoteLike.params]
+  if (clientIds.length) {
+    quoteConditions.push(`q.client_id IN (${sqlPlaceholders(clientIds)})`)
+    quoteParams.push(...clientIds)
+  }
+  const quotes = await safeAll(
+    db,
+    `SELECT q.id, q.title, q.status, q.currency, q.total_cents, q.client_id, q.client_name, q.description, q.updated_at
+     FROM quotes q
+     WHERE q.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = q.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = q.client_id OR vtp.client_id = q.client_id)
+         )
+       )
+       AND (${quoteConditions.join(" OR ")})
+     ORDER BY q.updated_at DESC
+     LIMIT 8`,
+    quoteParams,
+  )
+  if (quotes.length) sources.add("quotes")
+
+  const externalLike = buildLikeWhere(["er.title", "er.summary", "er.normalized_json"], terms)
+  const externalConditions = [externalLike.where]
+  const externalParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...externalLike.params]
+  if (clientIds.length) {
+    externalConditions.push(`er.client_id IN (${sqlPlaceholders(clientIds)})`)
+    externalParams.push(...clientIds)
+  }
+  if (projectIds.length) {
+    externalConditions.push(`er.project_id IN (${sqlPlaceholders(projectIds)})`)
+    externalParams.push(...projectIds)
+  }
+  const externalRecords = await safeAll(
+    db,
+    `SELECT er.id, er.record_type, er.title, er.summary, er.amount_cents, er.currency,
+            er.confidence, er.provider, er.external_url, er.quote_id, er.client_id, c.name AS client_name
+     FROM external_data_records er
+     LEFT JOIN clients c ON c.id = er.client_id AND c.organization_id = er.organization_id
+     WHERE er.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = er.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = er.client_id OR vtp.client_id = er.client_id)
+         )
+       )
+       AND (${externalConditions.join(" OR ")})
+     ORDER BY er.updated_at DESC
+     LIMIT 10`,
+    externalParams,
+  )
+  if (externalRecords.length) sources.add("external_data_records")
+
+  const interactionLike = buildLikeWhere(["ci.title", "ci.summary"], terms)
+  const interactionConditions = [interactionLike.where]
+  const interactionParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...interactionLike.params]
+  if (clientIds.length) {
+    interactionConditions.push(`ci.client_id IN (${sqlPlaceholders(clientIds)})`)
+    interactionParams.push(...clientIds)
+  }
+  if (projectIds.length) {
+    interactionConditions.push(`ci.project_id IN (${sqlPlaceholders(projectIds)})`)
+    interactionParams.push(...projectIds)
+  }
+  const interactions = await safeAll(
+    db,
+    `SELECT ci.id, ci.title, ci.summary, ci.interaction_type, ci.status, ci.occurred_at,
+            ci.source_type, ci.source_url, c.name AS client_name, p.name AS project_name
+     FROM client_interactions ci
+     LEFT JOIN clients c ON c.id = ci.client_id AND c.organization_id = ci.organization_id
+     LEFT JOIN projects p ON p.id = ci.project_id AND p.organization_id = ci.organization_id
+     WHERE ci.organization_id = ?
+       AND (
+         ? = 1
+         OR EXISTS (
+           SELECT 1
+           FROM tasks vt
+           LEFT JOIN projects vtp ON vtp.id = vt.project_id AND vtp.organization_id = vt.organization_id
+           WHERE vt.organization_id = ci.organization_id
+             AND vt.assignee_member_id = ?
+             AND (vt.client_id = ci.client_id OR vtp.client_id = ci.client_id)
+         )
+       )
+       AND (${interactionConditions.join(" OR ")})
+     ORDER BY ci.occurred_at DESC, ci.updated_at DESC
+     LIMIT 8`,
+    interactionParams,
+  )
+  if (interactions.length) sources.add("client_interactions")
+
+  const taskLike = buildLikeWhere(["t.title", "t.description", "t.rich_description", "t.client_name"], terms)
+  const taskConditions = [taskLike.where]
+  const taskParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId, ...taskLike.params]
+  if (clientIds.length) {
+    taskConditions.push(`t.client_id IN (${sqlPlaceholders(clientIds)})`)
+    taskParams.push(...clientIds)
+  }
+  if (projectIds.length) {
+    taskConditions.push(`t.project_id IN (${sqlPlaceholders(projectIds)})`)
+    taskParams.push(...projectIds)
+  }
+  const tasks = await safeAll(
+    db,
+    `SELECT t.id, t.title, t.status, t.column_id, t.actual_minutes, t.estimated_minutes, t.client_name, p.name AS project_name, t.updated_at
+     FROM tasks t
+     LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+     WHERE t.organization_id = ?
+       AND (? = 1 OR t.assignee_member_id = ?)
+       AND (${taskConditions.join(" OR ")})
+     ORDER BY t.updated_at DESC
+     LIMIT 12`,
+    taskParams,
+  )
+  if (tasks.length) sources.add("tasks")
+
+  const timeConditions: string[] = []
+  const timeParams: unknown[] = [principal.organizationId, isManager ? 1 : 0, principal.memberId]
+  if (clientIds.length) {
+    timeConditions.push(`te.client_id IN (${sqlPlaceholders(clientIds)})`)
+    timeParams.push(...clientIds)
+  }
+  if (projectIds.length) {
+    timeConditions.push(`te.project_id IN (${sqlPlaceholders(projectIds)})`)
+    timeParams.push(...projectIds)
+  }
+  const timeEntries = timeConditions.length
+    ? await safeAll(
+        db,
+        `SELECT COUNT(*) AS entry_count,
+                SUM(te.minutes) AS total_minutes,
+                SUM(CASE WHEN te.billable = 1 THEN te.minutes ELSE 0 END) AS billable_minutes,
+                MAX(te.entry_date) AS last_entry_date
+         FROM time_entries te
+         WHERE te.organization_id = ?
+           AND (? = 1 OR te.member_id = ?)
+           AND (${timeConditions.join(" OR ")})`,
+        timeParams,
+      )
+    : []
+  if (Number(timeEntries[0]?.entry_count || 0) > 0) sources.add("time_entries")
+
+  if (!clients.length && !projects.length && !quotes.length && !tasks.length && Number(timeEntries[0]?.entry_count || 0) === 0) {
+    return { text: "", sources: [] as string[], fallbackText: "" }
+  }
+
+  const lines = [
+    "LOOKUP MIRATO SULLA DOMANDA",
+    `Termini riconosciuti: ${terms.join(", ")}`,
+    "Usa questi dati come fonte prioritaria per la risposta. Se manca un importo pagato/incassato, dichiaralo esplicitamente.",
+  ]
+
+  if (clients.length) {
+    lines.push(
+      "",
+      "Clienti trovati:",
+      ...clients.map(
+        (client: any) =>
+          `- ${compact(client.name, 90)} | azienda ${compact(client.company || "-", 90)} | stato ${compact(client.status, 30)} | note ${compact(client.notes || "-", 180)}`,
+      ),
+    )
+  }
+
+  if (projects.length) {
+    lines.push(
+      "",
+      "Progetti trovati:",
+      ...projects.map(
+        (project: any) =>
+          `- ${compact(project.name, 100)} | cliente ${compact(project.client_name || "-", 90)} | stato ${compact(project.status, 40)} | budget ${formatCurrencyCents(project.budget_cents, "EUR")} | aggiornato ${formatDate(project.updated_at)}`,
+      ),
+    )
+  }
+
+  if (quotes.length) {
+    lines.push(
+      "",
+      "Preventivi trovati:",
+      ...quotes.map(
+        (quote: any) =>
+          `- ${compact(quote.title, 110)} | cliente ${compact(quote.client_name || "-", 90)} | stato ${compact(quote.status, 40)} | totale ${formatCurrencyCents(quote.total_cents, String(quote.currency || "EUR"))} | aggiornato ${formatDate(quote.updated_at)} | descrizione ${compact(quote.description || "-", 160)}`,
+      ),
+    )
+  } else if (hasFinancialIntent(message)) {
+    lines.push("", "Preventivi trovati: nessuno collegato ai termini/clienti rilevati.")
+  }
+
+  if (externalRecords.length) {
+    lines.push(
+      "",
+      "Fonti importate trovate:",
+      ...externalRecords.map((record: any) => {
+        const amount = record.amount_cents ? ` | importo ${formatCurrencyCents(record.amount_cents, record.currency || "EUR")}` : ""
+        const client = record.client_name ? ` | cliente ${compact(record.client_name, 80)}` : ""
+        return `- ${compact(record.title, 120)} | tipo ${compact(record.record_type, 30)}${client}${amount} | fonte ${compact(record.provider, 30)} | confidence ${compact(record.confidence, 30)} | ${compact(record.summary || "-", 180)}`
+      }),
+    )
+  } else if (hasFinancialIntent(message)) {
+    lines.push("", "Fonti importate trovate: nessuna fonte esterna collegata ai termini rilevati.")
+  }
+
+  if (interactions.length) {
+    lines.push(
+      "",
+      "Call/incontri/note cliente:",
+      ...interactions.map(
+        (interaction: any) =>
+          `- ${compact(interaction.title, 120)} | tipo ${compact(interaction.interaction_type, 30)} | cliente ${compact(interaction.client_name || "-", 80)} | progetto ${compact(interaction.project_name || "-", 80)} | data ${formatDate(interaction.occurred_at)} | ${compact(interaction.summary || "-", 160)}`,
+      ),
+    )
+  }
+
+  const entryCount = Number(timeEntries[0]?.entry_count || 0)
+  if (entryCount > 0) {
+    const totalMinutes = Number(timeEntries[0]?.total_minutes || 0)
+    const billableMinutes = Number(timeEntries[0]?.billable_minutes || 0)
+    lines.push(
+      "",
+      `Consuntivi trovati: ${entryCount} righe, ${Math.round(totalMinutes / 60)}h totali, ${Math.round(billableMinutes / 60)}h fatturabili, ultimo ${formatDate(timeEntries[0]?.last_entry_date)}.`,
+    )
+  } else if (hasFinancialIntent(message)) {
+    lines.push("", "Consuntivi trovati: nessuna time entry collegata ai termini/clienti rilevati.")
+  }
+
+  if (tasks.length) {
+    lines.push(
+      "",
+      "Task rilevanti:",
+      ...tasks.slice(0, 6).map(
+        (task: any) =>
+          `- ${compact(task.title, 120)} | stato ${compact(task.column_id || task.status, 40)} | cliente ${compact(task.client_name || "-", 80)} | progetto ${compact(task.project_name || "-", 80)} | consuntivo task ${Math.round(Number(task.actual_minutes || 0) / 60)}h`,
+      ),
+    )
+  }
+
+  const factsText = lines.join("\n").slice(0, 5000)
+  return {
+    text: factsText,
+    sources: Array.from(sources),
+    fallbackText: buildNoDataBusinessFallback(message, factsText),
   }
 }
 
@@ -181,6 +680,102 @@ async function saveExtractedMemories(db: any, organizationId: string, memberId: 
     )
   } catch (error) {
     console.warn("Assistant memory save skipped:", error)
+  }
+}
+
+function redactGraphMemoryText(value: string, limit = 1200) {
+  return compact(value, limit)
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
+    .replace(/\bsk-[A-Za-z0-9_-]{12,}\b/g, "[REDACTED_API_KEY]")
+    .replace(/\b(api[_\s-]?key|token|password|secret)\s*[:=]\s*\S+/gi, "$1=[REDACTED]")
+}
+
+function parseGraphMemoryCommand(message: string) {
+  const trimmed = message.trim()
+  const match = trimmed.match(/^(?:salva|inserisci|aggiungi|memorizza)\s+(?:nel|nella|in)\s+(?:grafo|graph memory|memoria)(?::|\s+-\s+|\s+)([\s\S]+)$/i)
+  if (!match) return null
+
+  const rawBody = match[1].trim()
+  if (!rawBody) return null
+
+  const fields: Record<string, string> = {}
+  for (const part of rawBody.split(";")) {
+    const [rawKey, ...rawValue] = part.split("=")
+    const key = rawKey?.trim().toLowerCase()
+    const value = rawValue.join("=").trim()
+    if (key && value) fields[key] = value
+  }
+
+  const fallbackTitle = rawBody.split(/[.\n]/)[0]?.trim().slice(0, 120) || "Memoria manuale"
+  const title = fields.titolo || fields.title || fallbackTitle
+  const summary = fields.sommario || fields.summary || fields.descrizione || fields.description || rawBody
+  const nodeType = fields.tipo || fields.type || "knowledge_base"
+  const sourceType = fields.sorgente || fields.source || "manual"
+  const confidenceValue = fields.confidence || fields.fiducia || "manual"
+  const confidence: AgenticGraphConfidence =
+    confidenceValue === "extracted" || confidenceValue === "inferred" || confidenceValue === "ambiguous" || confidenceValue === "manual"
+      ? confidenceValue
+      : "manual"
+  const tags = (fields.tag || fields.tags || "chat,manual")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 12)
+
+  return {
+    nodeType: redactGraphMemoryText(nodeType, 60).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase() || "knowledge_base",
+    title: redactGraphMemoryText(title, 160),
+    summary: redactGraphMemoryText(summary, 1200),
+    sourceType: redactGraphMemoryText(sourceType, 80).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase() || "manual",
+    sourceUrl: fields.url || fields.sourceurl || null,
+    confidence,
+    tags,
+  }
+}
+
+function extractGraphSearchTerms(message: string) {
+  const stop = new Set(["questo", "quello", "della", "delle", "degli", "grafo", "graph", "memory", "salva", "inserisci", "aggiungi", "optima"])
+  return Array.from(
+    new Set(
+      compact(message, 320)
+        .toLowerCase()
+        .replace(/[^a-z0-9àèéìòù\s-]/gi, " ")
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 4 && !stop.has(term)),
+    ),
+  ).slice(0, 4)
+}
+
+async function buildGraphContext(db: any, principal: WorkspacePrincipal, message: string) {
+  if (!db) return { text: "", sources: [] as string[] }
+
+  const terms = extractGraphSearchTerms(message)
+  const byId = new Map<string, Awaited<ReturnType<typeof listAgenticGraphNodes>>[number]>()
+
+  for (const term of terms) {
+    const nodes = await listAgenticGraphNodes(db, principal, { query: term, limit: 5 })
+    for (const node of nodes) byId.set(node.id, node)
+  }
+
+  if (byId.size < 4) {
+    const recent = await listAgenticGraphNodes(db, principal, { limit: 8 })
+    for (const node of recent) byId.set(node.id, node)
+  }
+
+  const nodes = Array.from(byId.values()).slice(0, 10)
+  if (!nodes.length) return { text: "", sources: [] }
+
+  return {
+    text: [
+      "GRAPH MEMORY ÓPTIMA",
+      "Questi nodi sono contesto aziendale tenant-scoped. Usa confidence/source; non inventare relazioni mancanti.",
+      ...nodes.map(
+        (node) =>
+          `- ${node.title} | tipo ${node.nodeType} | source ${node.sourceType} | confidence ${node.confidence} | ${compact(node.summary, 260)}`,
+      ),
+    ].join("\n"),
+    sources: ["agentic_graph"],
   }
 }
 
@@ -493,12 +1088,79 @@ export async function POST(request: NextRequest) {
     const conversationHistory = await getConversationHistory(db, currentSessionId, principal.organizationId, principal.memberId)
     const sessionMemory = await getSessionMemory(db, currentSessionId, principal.organizationId, principal.memberId)
     const storedMemories = await getStoredMemories(db, principal.organizationId, principal.memberId)
-    const operationalContext = await buildOperationalContext(db, principal)
+    const operationalContext = await buildOperationalContextSnapshot(db, principal)
+    const graphContext = await buildGraphContext(db, principal, message)
+    const businessFacts = await buildQuestionScopedBusinessFacts(db, principal, message)
 
     await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "user", message)
     await saveExtractedMemories(db, principal.organizationId, principal.memberId, message)
 
-    const messages = [
+    const graphMemoryCommand = parseGraphMemoryCommand(message)
+    if (graphMemoryCommand) {
+      const encoder = new TextEncoder()
+      let assistantText = ""
+
+      if (!AGENT_ADMIN_ROLES.has(principal.role)) {
+        assistantText = "Non posso scrivere nella graph memory da questo account. Serve un ruolo direzione/admin. Posso comunque aiutarti a preparare il testo da far approvare."
+      } else {
+        const node = await upsertAgenticGraphNode(db, principal, {
+          nodeType: graphMemoryCommand.nodeType,
+          title: graphMemoryCommand.title,
+          summary: graphMemoryCommand.summary,
+          sourceType: graphMemoryCommand.sourceType,
+          sourceUrl: graphMemoryCommand.sourceUrl,
+          confidence: graphMemoryCommand.confidence,
+          tags: graphMemoryCommand.tags,
+          properties: {
+            insertedFrom: "ai-assistant-chat-command",
+            conversationId: currentSessionId,
+            manualReview: true,
+          },
+        })
+
+        assistantText = [
+          `Ho salvato il nodo nella graph memory: **${node?.title || graphMemoryCommand.title}**.`,
+          `Tipo: ${node?.nodeType || graphMemoryCommand.nodeType}. Source: ${node?.sourceType || graphMemoryCommand.sourceType}. Confidence: ${node?.confidence || graphMemoryCommand.confidence}.`,
+          "L'ho marcato come inserimento manuale/review: le relazioni con clienti, task, repo o skill vanno aggiunte dal dettaglio nodo o tramite un job agentico.",
+        ].join("\n")
+      }
+
+      await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "assistant", assistantText)
+      await updateSessionMemory(
+        db,
+        currentSessionId,
+        principal.organizationId,
+        principal.memberId,
+        sessionMemory,
+        message,
+        assistantText,
+        ["agentic_graph", "chat"],
+      )
+
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ sessionId: currentSessionId, model: "graph-memory-command", contextSources: ["agentic_graph", "chat"] })}\n\n`,
+            ),
+          )
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: assistantText })}\n\n`))
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`))
+          controller.close()
+        },
+      })
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        },
+      })
+    }
+
+    const contextSources = Array.from(new Set([...operationalContext.sources, ...graphContext.sources, ...businessFacts.sources]))
+
+    const messages: ChatGenerationMessage[] = [
       { role: "system" as const, content: SYSTEM_PROMPT },
       {
         role: "system" as const,
@@ -508,6 +1170,8 @@ export async function POST(request: NextRequest) {
             ? `MEMORIE UTENTE/ORGANIZZAZIONE:\n${storedMemories.map((memory) => `- ${memory.key}: ${memory.value}`).join("\n")}`
             : "",
           operationalContext.text,
+          businessFacts.text,
+          graphContext.text,
         ]
           .filter(Boolean)
           .join("\n\n"),
@@ -519,30 +1183,18 @@ export async function POST(request: NextRequest) {
     const fullPrompt = JSON.stringify(messages)
     const estimatedInputTokens = estimateTokens(fullPrompt)
     const openai = await createRuntimeOpenAI()
-    const result = streamText({
-      model: openai(OPENAI_CHAT_MODEL),
-      messages,
-      maxTokens: 1000,
-      temperature: 0.7,
-    })
-
     let fullText = ""
+    let usedModel = OPENAI_CHAT_MODEL
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          controller.enqueue(
-            new TextEncoder().encode(
-              `data: ${JSON.stringify({ sessionId: currentSessionId, model: OPENAI_CHAT_MODEL, contextSources: operationalContext.sources })}\n\n`,
-            ),
-          )
+          const generated = await generateOperationalAnswer(openai, messages)
+          usedModel = generated.model
+          fullText = cleanGeneratedText(generated.text) || businessFacts.fallbackText || buildImmediateOperationalFallback(message, contextSources)
 
-          for await (const delta of result.textStream) {
-            if (delta) {
-              fullText += delta
-              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ content: delta })}\n\n`))
-            }
-          }
+          enqueueSse(controller, { sessionId: currentSessionId, model: usedModel, contextSources })
+          enqueueTextInChunks(controller, fullText)
 
           await saveMessage(db, currentSessionId, principal.organizationId, principal.memberId, "assistant", fullText)
           await updateSessionMemory(
@@ -553,7 +1205,7 @@ export async function POST(request: NextRequest) {
             sessionMemory,
             message,
             fullText,
-            operationalContext.sources,
+            contextSources,
           )
 
           if (db) {
@@ -564,22 +1216,18 @@ export async function POST(request: NextRequest) {
                   `INSERT INTO ai_usage (id, organization_id, member_id, feature, model, input_tokens, output_tokens)
                    VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 )
-                .bind(createId("ai"), principal.organizationId, principal.memberId, "chat", OPENAI_CHAT_MODEL, estimatedInputTokens, outputTokens)
+                .bind(createId("ai"), principal.organizationId, principal.memberId, "chat", usedModel, estimatedInputTokens, outputTokens)
                 .run()
             } catch (error) {
               console.error("Error logging chat usage:", error)
             }
           }
 
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`))
+          enqueueSse(controller, { done: true })
           controller.close()
         } catch (error) {
           const err = error as Error
-          controller.enqueue(
-            new TextEncoder().encode(
-              `data: ${JSON.stringify({ error: "Errore durante la generazione della risposta: " + err.message })}\n\n`,
-            ),
-          )
+          enqueueSse(controller, { error: "Errore durante la generazione della risposta: " + err.message })
           controller.close()
         }
       },

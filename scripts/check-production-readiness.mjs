@@ -69,6 +69,54 @@ async function main() {
     // Ignore, recorded below.
   }
   record("health endpoint ready", health.response.status === 200 && healthJson?.ok === true, healthJson ? JSON.stringify(healthJson.checks) : `status ${health.response.status}`)
+  record(
+    "agentic readiness ready",
+    healthJson?.readiness?.agenticReady === true,
+    healthJson?.readiness ? JSON.stringify(healthJson.readiness) : "missing readiness block",
+  )
+  record(
+    "agent runner claim enabled",
+    healthJson?.checks?.agentRunnerClaimEnabled === true,
+    `status=${healthJson?.checks?.agentRunnerStatus ?? "unknown"}`,
+  )
+  record(
+    "agent runner API key configured",
+    healthJson?.checks?.agentRunnerApiKeyConfigured === true,
+    healthJson?.checks?.agentRunnerApiKeyConfigured ? "configured" : "missing",
+  )
+  record(
+    "agentic D1 schema complete",
+    healthJson?.checks?.requiredTables?.ok === true,
+    healthJson?.checks?.requiredTables
+      ? `${healthJson.checks.requiredTables.present}/${healthJson.checks.requiredTables.expected} tables`
+      : "missing table status",
+  )
+  record(
+    "task media R2 binding configured",
+    healthJson?.checks?.taskMediaBucketConfigured === true,
+    healthJson?.checks?.taskMediaBucketConfigured ? "TASK_MEDIA available" : "TASK_MEDIA missing",
+  )
+  record(
+    "MCP authorization configured",
+    healthJson?.checks?.mcpAuthorizationConfigured === true,
+    healthJson?.checks?.mcpAuthorizationConfigured
+      ? `mode=${healthJson?.checks?.mcpAuthorizationMode ?? "unknown"}`
+      : "set OPTIMA_MCP_SERVICE_TOKEN or OAuth/JWT MCP env",
+  )
+
+  const protectedResource = await fetchText("/.well-known/oauth-protected-resource")
+  record(
+    "MCP protected resource metadata",
+    protectedResource.response.status === 200 && protectedResource.text.includes("mcp"),
+    `status ${protectedResource.response.status}`,
+  )
+
+  const authServer = await fetchText("/.well-known/oauth-authorization-server")
+  record(
+    "MCP authorization metadata",
+    authServer.response.status === 200 && authServer.text.includes("token_endpoint"),
+    `status ${authServer.response.status}`,
+  )
 
   for (const hostname of ["clerk.appbeta.wearerighello.com", "accounts.appbeta.wearerighello.com"]) {
     const result = await dnsExists(hostname)

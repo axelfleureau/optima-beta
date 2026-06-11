@@ -7,7 +7,7 @@ import os from "node:os"
 import path from "node:path"
 
 const args = new Set(process.argv.slice(2))
-const RUNNER_VERSION = "0.2.0"
+const RUNNER_VERSION = "0.3.0"
 
 if (args.has("--help") || args.has("-h")) {
   console.log(`Optima Agent Runner
@@ -23,6 +23,7 @@ Environment:
   RUNNER_LABEL            Hostinger Codex Runner
   WORK_ROOT               /srv/optima-agent/jobs
   WORKDIR                 alias supported for WORK_ROOT
+  DISK_GUARD_PATH         optional path protected from accidental local media mirrors
   POLL_INTERVAL_MS        30000
   MAX_JOB_SECONDS         1800
   RUNNER_MODE             codex | dry-run
@@ -30,6 +31,7 @@ Environment:
   CODEX_MODEL             optional model override
   CODEX_SANDBOX           workspace-write | danger-full-access
   CODEX_BYPASS_SANDBOX    1 to pass --dangerously-bypass-approvals-and-sandbox
+  GITHUB_TOKEN             optional read-only token for GitHub enrichment
 `)
   process.exit(0)
 }
@@ -40,6 +42,7 @@ const config = {
   runnerId: env("RUNNER_ID", `hostinger-codex-${os.hostname()}`).slice(0, 80),
   runnerLabel: env("RUNNER_LABEL", os.hostname()).slice(0, 120),
   workRoot: env("WORK_ROOT", env("WORKDIR", "/srv/optima-agent/jobs")),
+  diskGuardPath: env("DISK_GUARD_PATH", "/home/hermes/obsidian-righello-vault/12_OneDrive"),
   pollIntervalMs: numberEnv("POLL_INTERVAL_MS", 30_000),
   maxJobSeconds: numberEnv("MAX_JOB_SECONDS", 1_800),
   runnerMode: args.has("--dry-run") ? "dry-run" : env("RUNNER_MODE", "codex"),
@@ -47,6 +50,7 @@ const config = {
   codexModel: env("CODEX_MODEL", ""),
   codexSandbox: env("CODEX_SANDBOX", "workspace-write"),
   codexBypass: env("CODEX_BYPASS_SANDBOX", "0") === "1",
+  githubToken: env("GITHUB_TOKEN", ""),
   once: args.has("--once"),
 }
 
@@ -104,6 +108,10 @@ async function shutdown(signal) {
 }
 
 async function sendHeartbeat(status, metadata = {}, errorMessage = null) {
+  const hostMetrics = await collectHostMetrics().catch((error) => ({
+    metricsError: error instanceof Error ? error.message : String(error),
+  }))
+
   await api("/api/agent-jobs/runner/heartbeat", {
     method: "POST",
     body: {
@@ -113,11 +121,118 @@ async function sendHeartbeat(status, metadata = {}, errorMessage = null) {
       version: RUNNER_VERSION,
       errorMessage,
       metadata: {
+        host: hostMetrics,
         ...metadata,
         label: config.runnerLabel,
         once: config.once,
       },
     },
+  })
+}
+
+async function collectHostMetrics() {
+  const [rootDisk, workRootDisk, workRootSize, guardPathSize, guardTimer] = await Promise.all([
+    diskUsage("/"),
+    diskUsage(config.workRoot),
+    directorySize(config.workRoot),
+    config.diskGuardPath ? directorySize(config.diskGuardPath) : Promise.resolve(null),
+    systemdActive("optima-onedrive-mirror-guard.timer"),
+  ])
+
+  return {
+    hostname: os.hostname(),
+    platform: os.platform(),
+    arch: os.arch(),
+    uptimeSec: Math.round(os.uptime()),
+    loadavg: os.loadavg().map((value) => Number(value.toFixed(2))),
+    memory: {
+      totalBytes: os.totalmem(),
+      freeBytes: os.freemem(),
+      usedPercent: Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 100),
+    },
+    storage: {
+      root: rootDisk,
+      workRoot: workRootDisk,
+      workRootSize,
+    },
+    guard: config.diskGuardPath
+      ? {
+          path: config.diskGuardPath,
+          size: guardPathSize,
+          timerActive: guardTimer,
+        }
+      : null,
+    sampledAt: new Date().toISOString(),
+  }
+}
+
+async function diskUsage(targetPath) {
+  const output = await commandOutput("df", ["-Pk", targetPath], 2_000).catch(() => "")
+  const line = output.trim().split("\n").slice(1).find(Boolean)
+  if (!line) return null
+  const parts = line.trim().split(/\s+/)
+  if (parts.length < 6) return null
+  const totalKb = Number(parts[1])
+  const usedKb = Number(parts[2])
+  const availableKb = Number(parts[3])
+  const usedPercent = Number(parts[4]?.replace("%", ""))
+  return {
+    path: targetPath,
+    filesystem: parts[0],
+    totalBytes: Number.isFinite(totalKb) ? totalKb * 1024 : null,
+    usedBytes: Number.isFinite(usedKb) ? usedKb * 1024 : null,
+    availableBytes: Number.isFinite(availableKb) ? availableKb * 1024 : null,
+    usedPercent: Number.isFinite(usedPercent) ? usedPercent : null,
+    mount: parts.slice(5).join(" "),
+  }
+}
+
+async function directorySize(targetPath) {
+  if (!targetPath || !existsSync(targetPath)) return null
+  const output = await commandOutput("du", ["-sk", targetPath], 2_000).catch(() => "")
+  const sizeKb = Number(output.trim().split(/\s+/)[0])
+  return {
+    path: targetPath,
+    bytes: Number.isFinite(sizeKb) ? sizeKb * 1024 : null,
+  }
+}
+
+async function systemdActive(unit) {
+  const output = await commandOutput("systemctl", ["is-active", unit], 2_000).catch(() => "")
+  const status = output.trim()
+  if (!status) return null
+  return status === "active"
+}
+
+function commandOutput(command, commandArgs, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, commandArgs, {
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+    let stdout = ""
+    let stderr = ""
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM")
+      reject(new Error(`${command} timed out`))
+    }, timeoutMs)
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString()
+    })
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString()
+    })
+    child.on("error", (error) => {
+      clearTimeout(timeout)
+      reject(error)
+    })
+    child.on("close", (code) => {
+      clearTimeout(timeout)
+      if (code === 0) {
+        resolve(stdout)
+      } else {
+        reject(new Error(stderr.trim() || `${command} exited ${code}`))
+      }
+    })
   })
 }
 
@@ -144,7 +259,8 @@ async function processJob(job) {
   await sendHeartbeat("running", { event: "job.started", jobId: job.id, title: job.title }).catch(() => {})
 
   const repoDir = await prepareWorkspace(job, jobDir)
-  const prompt = buildPrompt(job, jobDir, repoDir)
+  const externalContext = await collectExternalContext(job, jobDir)
+  const prompt = buildPrompt(job, jobDir, repoDir, externalContext)
   const promptPath = path.join(jobDir, "prompt.md")
   const stdoutPath = path.join(jobDir, "codex.stdout.log")
   const stderrPath = path.join(jobDir, "codex.stderr.log")
@@ -152,12 +268,17 @@ async function processJob(job) {
   await writeFile(promptPath, prompt, "utf8")
 
   let runResult
-  if (config.runnerMode === "dry-run") {
-    const summary = `Dry-run completato per job ${job.id}. Workspace preparato in ${jobDir}.`
-    await writeFile(resultPath, `${summary}\n\nPrompt salvato in ${promptPath}\n`, "utf8")
-    runResult = { exitCode: 0, stdout: summary, stderr: "" }
-  } else {
-    runResult = await runCodex({ prompt, cwd: repoDir, resultPath, stdoutPath, stderrPath })
+  const stopHeartbeat = startRunningHeartbeat(job)
+  try {
+    if (config.runnerMode === "dry-run") {
+      const summary = `Dry-run completato per job ${job.id}. Workspace preparato in ${jobDir}.`
+      await writeFile(resultPath, `${summary}\n\nPrompt salvato in ${promptPath}\n`, "utf8")
+      runResult = { exitCode: 0, stdout: summary, stderr: "" }
+    } else {
+      runResult = await runCodex({ prompt, cwd: repoDir, resultPath, stdoutPath, stderrPath })
+    }
+  } finally {
+    stopHeartbeat()
   }
 
   const resultText = await readOptional(resultPath)
@@ -208,6 +329,142 @@ async function processJob(job) {
     { event: success ? "job.completed" : "job.failed", jobId: job.id },
     success ? null : summary,
   ).catch(() => {})
+}
+
+function startRunningHeartbeat(job) {
+  const interval = setInterval(() => {
+    void sendHeartbeat("running", {
+      event: "job.heartbeat",
+      jobId: job.id,
+      title: job.title,
+    }).catch((error) => {
+      log("warn", `Unable to send running heartbeat: ${error.message}`)
+    })
+  }, Math.max(30_000, Math.min(config.pollIntervalMs, 60_000)))
+
+  interval.unref?.()
+  return () => clearInterval(interval)
+}
+
+async function collectExternalContext(job, jobDir) {
+  if (job.jobType !== "task_update") return null
+
+  const input = job.input && typeof job.input === "object" ? job.input : {}
+  const githubUser = typeof input.githubUser === "string" ? input.githubUser.trim() : ""
+  if (!githubUser) return null
+
+  const since = typeof input.since === "string" ? input.since : null
+  const context = {
+    source: "runner-github-prefetch",
+    generatedAt: new Date().toISOString(),
+    githubUser,
+    since,
+    rateLimit: null,
+    events: [],
+    commits: [],
+    errors: [],
+  }
+
+  try {
+    const events = []
+    for (let page = 1; page <= 3; page += 1) {
+      const batch = await githubJson(`/users/${encodeURIComponent(githubUser)}/events/public?per_page=100&page=${page}`)
+      if (!Array.isArray(batch) || batch.length === 0) break
+      events.push(...batch)
+      if (batch.length < 100) break
+    }
+
+    const sinceMs = since ? Date.parse(since) : NaN
+    const filteredEvents = Number.isFinite(sinceMs)
+      ? events.filter((event) => Date.parse(event?.created_at || "") >= sinceMs)
+      : events
+
+    context.events = filteredEvents.slice(0, 120).map(summarizeGithubEvent)
+
+    const repos = Array.from(
+      new Set(
+        filteredEvents
+          .map((event) => event?.repo?.name)
+          .filter((name) => typeof name === "string" && name.includes("/")),
+      ),
+    ).slice(0, 12)
+
+    for (const repo of repos) {
+      try {
+        const query = new URLSearchParams()
+        query.set("author", githubUser)
+        query.set("per_page", "50")
+        if (since) query.set("since", since)
+        const commits = await githubJson(`/repos/${repo}/commits?${query.toString()}`)
+        if (Array.isArray(commits)) {
+          context.commits.push(
+            ...commits.slice(0, 50).map((commit) => ({
+              repo,
+              sha: String(commit?.sha || "").slice(0, 12),
+              date: commit?.commit?.author?.date || commit?.commit?.committer?.date || null,
+              message: String(commit?.commit?.message || "").split("\n")[0].slice(0, 240),
+              url: commit?.html_url || null,
+            })),
+          )
+        }
+      } catch (error) {
+        context.errors.push({
+          repo,
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+  } catch (error) {
+    context.errors.push({
+      source: "github-events",
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  const contextPath = path.join(jobDir, "github-context.json")
+  await writeJson(contextPath, context)
+  return {
+    path: contextPath,
+    data: context,
+  }
+}
+
+async function githubJson(pathname) {
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  }
+  if (config.githubToken) headers.Authorization = `Bearer ${config.githubToken}`
+
+  const response = await fetch(`https://api.github.com${pathname}`, { headers })
+  const rateLimit = response.headers.get("x-ratelimit-remaining")
+  if (!response.ok) {
+    const text = await response.text().catch(() => "")
+    throw new Error(`GitHub ${response.status} on ${pathname}: ${text.slice(0, 180)}`)
+  }
+
+  const json = await response.json()
+  return Object.assign(json, { __rateLimitRemaining: rateLimit })
+}
+
+function summarizeGithubEvent(event) {
+  const payload = event?.payload || {}
+  return {
+    id: event?.id || null,
+    type: event?.type || null,
+    repo: event?.repo?.name || null,
+    createdAt: event?.created_at || null,
+    action: payload.action || null,
+    ref: payload.ref || null,
+    size: payload.size || null,
+    commits: Array.isArray(payload.commits)
+      ? payload.commits.slice(0, 20).map((commit) => ({
+          sha: String(commit.sha || "").slice(0, 12),
+          message: String(commit.message || "").split("\n")[0].slice(0, 240),
+          url: commit.url || null,
+        }))
+      : [],
+  }
 }
 
 async function prepareWorkspace(job, jobDir) {
@@ -294,12 +551,15 @@ async function runCommand(command, commandArgs, options = {}) {
   })
 }
 
-function buildPrompt(job, jobDir, repoDir) {
+function buildPrompt(job, jobDir, repoDir, externalContext) {
   const input = JSON.stringify(job.input ?? {}, null, 2)
   const context = job.contextSummary ? `\n## Contesto\n${job.contextSummary}\n` : ""
   const repo = job.repoUrl
     ? `\n## Repository\n- URL: ${job.repoUrl}\n- Branch: ${job.repoBranch || "default"}\n- Workspace: ${repoDir}\n`
     : "\n## Repository\nNessun repository indicato. Produci un report operativo nel workspace del job.\n"
+  const external = externalContext
+    ? `\n## Contesto esterno raccolto dal runner\nFile: ${externalContext.path}\n\n\`\`\`json\n${JSON.stringify(externalContext.data, null, 2)}\n\`\`\`\n`
+    : ""
 
   return `Sei il runner agentico di Óptima per Righello.
 
@@ -313,6 +573,7 @@ Lavora in modo controllato e produci output revisionabile da un admin.
 - Runner: ${config.runnerId}
 - Directory job: ${jobDir}
 ${repo}${context}
+${external}
 ## Brief operativo
 ${job.brief}
 

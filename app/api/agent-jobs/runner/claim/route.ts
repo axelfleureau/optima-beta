@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server"
 
+import { getAgentRunnerControlState } from "@/lib/agent-runner-control"
 import { claimNextAgentJob, upsertAgentRunnerHeartbeat } from "@/lib/agent-jobs"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
       event: "claim.poll",
       label: typeof body.label === "string" ? body.label.slice(0, 120) : null,
     }
+    const runnerControl = getAgentRunnerControlState()
 
     await upsertAgentRunnerHeartbeat(db, {
       runnerId,
@@ -42,6 +44,23 @@ export async function POST(request: NextRequest) {
       version: body.version,
       metadata: runnerMeta,
     }).catch((error) => console.warn("Unable to record runner poll:", error))
+
+    if (!runnerControl.enabled) {
+      await upsertAgentRunnerHeartbeat(db, {
+        runnerId,
+        status: "idle",
+        mode: body.mode,
+        version: body.version,
+        metadata: {
+          ...runnerMeta,
+          event: "claim.suspended",
+          suspended: true,
+          reason: runnerControl.reason,
+        },
+      }).catch((error) => console.warn("Unable to record suspended runner poll:", error))
+
+      return Response.json({ job: null, suspended: true, runnerControl })
+    }
 
     const job = await claimNextAgentJob(db, runnerId)
 
@@ -58,7 +77,7 @@ export async function POST(request: NextRequest) {
       },
     }).catch((error) => console.warn("Unable to record runner claim:", error))
 
-    return Response.json({ job })
+    return Response.json({ job, suspended: false, runnerControl })
   } catch (error) {
     console.error("Error claiming agent job:", error)
     return Response.json({ error: "Errore nel claim del job agentico." }, { status: 500 })

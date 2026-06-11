@@ -1,4 +1,5 @@
 import { AgentJobsClient } from "@/components/agent-jobs/agent-jobs-client"
+import { getAgentRunnerControlState } from "@/lib/agent-runner-control"
 import { AGENT_ADMIN_ROLES, listAgentJobs, listAgentRunnerHeartbeats } from "@/lib/agent-jobs"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
@@ -7,7 +8,7 @@ import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 export const dynamic = "force-dynamic"
 
 const pageClass =
-  "h-[calc(100svh-73px)] overflow-y-auto overscroll-contain bg-[#050914] text-slate-100 md:h-auto md:min-h-screen md:overflow-visible"
+  "h-[calc(100svh-73px)] overflow-x-hidden overflow-y-auto overscroll-contain bg-[#050914] text-slate-100 md:h-auto md:min-h-screen md:overflow-visible"
 
 export default async function AgentiPage() {
   const user = await requireClerkUser()
@@ -60,18 +61,22 @@ export default async function AgentiPage() {
 
   return (
     <div className={pageClass}>
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 md:py-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-5 sm:gap-6 sm:px-6 md:py-8">
         <header className="max-w-4xl">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-righello-pink">Óptima AI Ops</p>
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-righello-pink">Optima Agentic OS</p>
           <h1 className="mt-3 text-3xl font-black leading-tight text-white md:text-5xl">
-            Base operativa agentica.
+            Control room agentica.
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-400 md:text-lg">
-            Crea job per Codex Runner, preventivi strutturati, patch, report e task update. Óptima orchestra, il VPS esegue in sandbox, la direzione approva.
+            Trasforma richieste operative in job revisionabili: Optima risolve grafo, repository, subagenti e runtime; il runner VPS esegue in sandbox e la direzione decide cosa approvare.
           </p>
         </header>
 
-        <AgentJobsClient initialJobs={jobs} initialRunners={runners} />
+        <AgentJobsClient
+          initialJobs={jobs}
+          initialRunners={runners}
+          initialRunnerControl={getAgentRunnerControlState()}
+        />
       </main>
     </div>
   )
