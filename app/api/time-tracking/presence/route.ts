@@ -444,7 +444,7 @@ export async function GET(request: NextRequest) {
     )
     const self = people.find((person) => person.id === principal.memberId) || null
 
-    const [workDaysResult, activityDaysResult, taskDaysResult, completedTaskDaysResult] = await Promise.all([
+    const [workDaysResult, activityDaysResult, taskDaysResult, trackedTaskDaysResult, completedTaskDaysResult] = await Promise.all([
       db
         .prepare(
           `SELECT member_id,
@@ -505,6 +505,35 @@ export async function GET(request: NextRequest) {
         .all(),
       db
         .prepare(
+          `SELECT member_id,
+                  entry_date,
+                  COUNT(*) AS tracked_task_count,
+                  SUM(minutes) AS tracked_task_minutes,
+                  GROUP_CONCAT(title, '|||') AS tracked_task_titles
+           FROM (
+             SELECT te.member_id,
+                    te.entry_date,
+                    te.task_id,
+                    SUM(te.minutes) AS minutes,
+                    COALESCE(NULLIF(t.title, ''), NULLIF(te.note, ''), te.task_id) AS title
+             FROM time_entries te
+             LEFT JOIN tasks t
+               ON t.id = te.task_id
+              AND t.organization_id = te.organization_id
+             WHERE te.organization_id = ?
+               AND te.task_id IS NOT NULL
+               AND te.task_id <> ''
+               AND te.entry_date >= ?
+               AND te.entry_date <= ?
+               AND (? = 1 OR te.member_id = ?)
+             GROUP BY te.member_id, te.entry_date, te.task_id
+           )
+           GROUP BY member_id, entry_date`,
+        )
+        .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
+        .all(),
+      db
+        .prepare(
           `SELECT assignee_member_id AS member_id,
                   date(datetime(created_at, '+2 hours')) AS entry_date,
                   COUNT(*) AS completed_task_count,
@@ -545,6 +574,23 @@ export async function GET(request: NextRequest) {
     const tasksByMemberDate = new Map<string, any>()
     for (const day of (taskDaysResult.results || []) as any[]) {
       tasksByMemberDate.set(calendarKey(String(day.member_id), String(day.entry_date)), day)
+    }
+
+    for (const day of (trackedTaskDaysResult.results || []) as any[]) {
+      const key = calendarKey(String(day.member_id), String(day.entry_date))
+      const current = tasksByMemberDate.get(key) || {
+        member_id: day.member_id,
+        entry_date: day.entry_date,
+        task_count: 0,
+        task_minutes: 0,
+        task_titles: "",
+      }
+      tasksByMemberDate.set(key, {
+        ...current,
+        task_count: Number(current.task_count || 0) + Number(day.tracked_task_count || 0),
+        task_minutes: Number(current.task_minutes || 0) + Number(day.tracked_task_minutes || 0),
+        task_titles: [current.task_titles, day.tracked_task_titles].filter(Boolean).join("|||"),
+      })
     }
 
     for (const day of (completedTaskDaysResult.results || []) as any[]) {

@@ -10,6 +10,7 @@ files=(
   "scripts/fix-axel-workload-2026-06-06.sql"
   "scripts/fix-axel-current-day-cap-and-june4-2026.sql"
   "scripts/seed-axel-github-2026-06-06-to-11.sql"
+  "scripts/fix-axel-github-2026-06-06-to-11-distribution.sql"
   "scripts/mark-fatin-absent-2026-06-10.sql"
 )
 
