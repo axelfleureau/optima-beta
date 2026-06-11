@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 
 type PresenceStatus = "present" | "closed" | "absent" | "missing" | "holiday"
+type PresenceMutationAction = "check-in" | "check-out" | "undo-check-out" | "absence"
 
 type PersonPresence = {
   id: string
@@ -557,7 +558,7 @@ export default function PresenzePage() {
     if (self?.expectedCheckOutTime && self.status !== "present") setCheckOutTime(self.expectedCheckOutTime)
   }, [self?.expectedCheckOutTime, self?.status, self?.workStartTime])
 
-  const mutateSelf = async (action: "check-in" | "check-out" | "absence", time?: string) => {
+  const mutateSelf = async (action: PresenceMutationAction, time?: string) => {
     const response = await fetch("/api/time-tracking/check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -575,7 +576,7 @@ export default function PresenzePage() {
 
   const mutateMemberDay = async (
     memberId: string,
-    action: "check-in" | "check-out" | "absence",
+    action: PresenceMutationAction,
     options: { date?: string; time?: string; reason?: string } = {},
   ) => {
     const response = await fetch("/api/time-tracking/check", {
@@ -685,7 +686,7 @@ export default function PresenzePage() {
                 </div>
               </div>
 
-              <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <Button
                   className="min-h-12 min-w-0 rounded-[8px] bg-righello-pink text-white hover:bg-righello-pink-dark"
                   onClick={() => mutateSelf("check-in", checkInTime).then(() => toast.success("Check-in registrato")).catch((err) => toast.error(err.message))}
@@ -700,6 +701,15 @@ export default function PresenzePage() {
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   Check-out
+                </Button>
+                <Button
+                  variant="outline"
+                  className="min-h-12 min-w-0 rounded-[8px] border-amber-300/25 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 disabled:opacity-40"
+                  disabled={!self?.checkOutAt}
+                  onClick={() => mutateSelf("undo-check-out").then(() => toast.success("Check-out annullato")).catch((err) => toast.error(err.message))}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Annulla uscita
                 </Button>
                 <Button
                   variant="outline"
@@ -852,7 +862,7 @@ function PresenceCalendarHeatmap({
   onDateChange: (date: string) => void
   onMutateMemberDay: (
     memberId: string,
-    action: "check-in" | "check-out" | "absence",
+    action: PresenceMutationAction,
     options?: { date?: string; time?: string; reason?: string },
   ) => Promise<void>
 }) {
@@ -981,7 +991,7 @@ function PresenceCalendarHeatmap({
               : "Vista personale: direzione e admin possono consultarla nel calendario team."}
             {" "}
             {viewMode === "heatmap"
-              ? "Ogni giorno mostra l'intensità operativa; eventuali anomalie orarie restano indicatori secondari aggregabili."
+              ? "Click sulla data: vista aggregata del giorno. Click sulla cella persona: dettaglio e correzione della giornata di quel lavoratore."
               : "La vista calendario legge il mese come registro: presenti, assenti, ritardi e uscite anticipate."}
           </p>
           <div className="mt-4 grid w-full max-w-md grid-cols-2 rounded-[8px] border border-white/10 bg-black/30 p-1 text-sm">
@@ -1312,7 +1322,7 @@ function PresenceMonthCalendar({
       <div className="mb-4 rounded-[8px] border border-white/10 bg-black/20 p-4">
         <h3 className="text-lg font-black text-white">Registro mensile presenze</h3>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-          Click su un giorno per vedere presenze e task del giorno. Il colore indica stato HR, i badge indicano anomalie orarie o carico.
+          Qui il click apre il dettaglio aggregato del giorno. Per correggere una singola persona usa la heatmap e seleziona la cella persona-giorno.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
           <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">Presente</span>
@@ -1554,7 +1564,7 @@ function HeatmapCellContextBanner({
   isManager: boolean
   onMutateMemberDay: (
     memberId: string,
-    action: "check-in" | "check-out" | "absence",
+    action: PresenceMutationAction,
     options?: { date?: string; time?: string; reason?: string },
   ) => Promise<void>
   onOpenDay: () => void
@@ -1562,7 +1572,7 @@ function HeatmapCellContextBanner({
 }) {
   const [adminCheckInTime, setAdminCheckInTime] = useState("09:00")
   const [adminCheckOutTime, setAdminCheckOutTime] = useState("18:00")
-  const [adminSavingAction, setAdminSavingAction] = useState<"check-in" | "check-out" | "absence" | null>(null)
+  const [adminSavingAction, setAdminSavingAction] = useState<PresenceMutationAction | null>(null)
 
   useEffect(() => {
     if (!selection) return
@@ -1584,7 +1594,7 @@ function HeatmapCellContextBanner({
     : day.missingDurationTaskCount > 0
       ? "border-amber-300/55"
       : "border-cyan-300/25"
-  const mutateSelectedDay = async (action: "check-in" | "check-out" | "absence", time?: string) => {
+  const mutateSelectedDay = async (action: PresenceMutationAction, time?: string) => {
     setAdminSavingAction(action)
     try {
       await onMutateMemberDay(selection.person.id, action, {
@@ -1595,7 +1605,9 @@ function HeatmapCellContextBanner({
       toast.success(
         action === "absence"
           ? `${selection.person.name} segnata assente il ${formatDateLabel(day.date)}`
-          : `Giornata aggiornata per ${selection.person.name}`,
+          : action === "undo-check-out"
+            ? `Uscita annullata per ${selection.person.name}`
+            : `Giornata aggiornata per ${selection.person.name}`,
       )
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Errore aggiornamento giornata")
@@ -1611,7 +1623,7 @@ function HeatmapCellContextBanner({
           <div className="absolute -right-8 -top-12 h-28 w-28 rounded-full bg-righello-cyan/12 blur-2xl" />
           <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">Giorno selezionato</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">Cella persona-giorno</p>
               <h3 className="mt-1 flex min-w-0 items-center gap-2 text-xl font-black text-white">
                 <span className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border", timeSignal?.chipTone ?? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100")}>
                   {timeSignal ? <TimeSignalIcon className="h-5 w-5" /> : <SignalIcon className="h-5 w-5" />}
@@ -1673,8 +1685,12 @@ function HeatmapCellContextBanner({
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-righello-cyan">Correggi giornata</p>
                   <p className="mt-1 text-xs leading-5 text-slate-400">
-                    Direzione/admin può correggere presenze passate per la persona e il giorno selezionato.
+                    Queste azioni modificano solo la giornata di {selection.person.name}. Usa “Apri giorno” per la vista aggregata del team.
                   </p>
+                </div>
+                <div className="rounded-[8px] border border-white/10 bg-black/20 px-3 py-2 text-xs">
+                  <p className="text-slate-500">Stato attuale</p>
+                  <p className="mt-0.5 font-black text-white">{attendanceEventLabel(day)}</p>
                 </div>
                 <Button
                   type="button"
@@ -1721,6 +1737,21 @@ function HeatmapCellContextBanner({
                 >
                   {adminSavingAction === "check-out" ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : <LogOut className="mr-2 h-3.5 w-3.5" />}
                   Salva uscita
+                </Button>
+              </div>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs leading-5 text-slate-400">
+                  Entrata e uscita salvate qui aggiornano heatmap, calendario e rapportini al prossimo refresh automatico.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => mutateSelectedDay("undo-check-out")}
+                  disabled={adminSavingAction !== null || !day.checkOutAt}
+                  className="min-h-10 shrink-0 rounded-[8px] border-amber-300/25 bg-amber-300/10 px-3 text-xs font-black text-amber-100 hover:bg-amber-300/15 disabled:opacity-40"
+                >
+                  {adminSavingAction === "undo-check-out" ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-2 h-3.5 w-3.5" />}
+                  Annulla uscita
                 </Button>
               </div>
             </div>
