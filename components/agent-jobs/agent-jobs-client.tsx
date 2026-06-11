@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   Bot,
@@ -792,16 +792,33 @@ function GraphMemoryMap({
   filtered?: boolean
   onSelectNode?: (node: AgenticGraphNode) => void
 }) {
+  type CanvasNode = ReturnType<typeof getGraphNodeLayout>[number] & {
+    stableX: number
+    stableY: number
+  }
+  type CanvasDragState =
+    | {
+        mode: "pan"
+        pointerId: number
+        startX: number
+        startY: number
+        startPan: { x: number; y: number }
+      }
+    | {
+        mode: "node"
+        pointerId: number
+        nodeId: string
+      }
+
   const [nodeLimit, setNodeLimit] = useState(48)
   const [zoom, setZoom] = useState(GRAPH_FIT_ZOOM)
   const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [dragState, setDragState] = useState<{
-    pointerId: number
-    startX: number
-    startY: number
-    startPan: { x: number; y: number }
-  } | null>(null)
+  const [dragState, setDragState] = useState<CanvasDragState | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const simNodesRef = useRef<CanvasNode[]>([])
+  const dragRef = useRef<CanvasDragState | null>(null)
+  const lastTapRef = useRef<{ nodeId: string | null; x: number; y: number; time: number } | null>(null)
 
   const layout = useMemo(
     () => getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? [], { limit: nodeLimit, selectedNodeId }),
@@ -835,9 +852,6 @@ function GraphMemoryMap({
     })
     .slice(0, Math.max(18, Math.min(360, nodeLimit * 4)))
   const isPartialMap = totalNodes > layout.length || totalEdges > visibleEdges.length
-  const featuredEdges = visibleEdges.slice(0, 4)
-  const viewSize = 100 / zoom
-  const viewBox = `${(100 - viewSize) / 2 + pan.x} ${(100 - viewSize) / 2 + pan.y} ${viewSize} ${viewSize}`
   const densityOptions = [24, 48, 96, 160, 240].filter((limit) => limit <= Math.max(240, loadedNodes || 0))
   const summary = graphMapSummary({
     visibleNodes: layout.length,
@@ -848,6 +862,252 @@ function GraphMemoryMap({
     filtered,
   })
 
+  useEffect(() => {
+    const previousNodes = new Map(simNodesRef.current.map((node) => [node.node.id, node]))
+    simNodesRef.current = layout.map((node) => {
+      const previous = previousNodes.get(node.node.id)
+      return {
+        ...node,
+        x: previous?.x ?? node.x,
+        y: previous?.y ?? node.y,
+        vx: previous?.vx ?? 0,
+        vy: previous?.vy ?? 0,
+        stableX: node.x,
+        stableY: node.y,
+      }
+    })
+  }, [layout])
+
+  useEffect(() => {
+    dragRef.current = dragState
+  }, [dragState])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !layout.length) return
+    const graphCanvas = canvas
+
+    let frame = 0
+    let disposed = false
+
+    function resizeCanvas(context: CanvasRenderingContext2D) {
+      const rect = graphCanvas.getBoundingClientRect()
+      const dpr = Math.min(2, window.devicePixelRatio || 1)
+      const width = Math.max(1, Math.floor(rect.width))
+      const height = Math.max(1, Math.floor(rect.height))
+      const targetWidth = Math.floor(width * dpr)
+      const targetHeight = Math.floor(height * dpr)
+      if (graphCanvas.width !== targetWidth || graphCanvas.height !== targetHeight) {
+        graphCanvas.width = targetWidth
+        graphCanvas.height = targetHeight
+      }
+      context.setTransform(dpr, 0, 0, dpr, 0, 0)
+      return { width, height }
+    }
+
+    function project(width: number, height: number, x: number, y: number) {
+      const scale = (Math.min(width, height) * 0.9 * zoom) / 100
+      return {
+        x: width / 2 + (x - 50 - pan.x) * scale,
+        y: height / 2 + (y - 50 - pan.y) * scale,
+        scale,
+      }
+    }
+
+    function tick() {
+      if (disposed) return
+      const context = graphCanvas.getContext("2d")
+      if (!context) return
+
+      const nodes = simNodesRef.current
+      const nodeById = new Map(nodes.map((node) => [node.node.id, node]))
+      const alpha = dragRef.current?.mode === "node" ? 0.48 : 0.24
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const a = nodes[i]
+          const b = nodes[j]
+          const dx = b.x - a.x
+          const dy = b.y - a.y
+          const distance = Math.max(0.08, Math.hypot(dx, dy))
+          const minDistance = Math.max(4.5, a.r * 0.62 + b.r * 0.62 + 2.4)
+          const push = Math.min(0.11, (minDistance * minDistance) / (distance * distance * 25)) * alpha
+          const ux = dx / distance
+          const uy = dy / distance
+          if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === a.node.id)) {
+            a.vx -= ux * push
+            a.vy -= uy * push
+          }
+          if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === b.node.id)) {
+            b.vx += ux * push
+            b.vy += uy * push
+          }
+        }
+      }
+
+      for (const { edge } of visibleEdges) {
+        const from = nodeById.get(edge.fromNodeId)
+        const to = nodeById.get(edge.toNodeId)
+        if (!from || !to) continue
+        const dx = to.x - from.x
+        const dy = to.y - from.y
+        const distance = Math.max(0.08, Math.hypot(dx, dy))
+        const selectedEdge = focusNodeId && (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId)
+        const desired = selectedEdge ? 12 : Math.max(9, 19 - Math.min(7, Number(edge.weight || 1) * 2.2))
+        const pull = (distance - desired) * (selectedEdge ? 0.006 : 0.0038) * alpha
+        const ux = dx / distance
+        const uy = dy / distance
+        if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === from.node.id)) {
+          from.vx += ux * pull
+          from.vy += uy * pull
+        }
+        if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === to.node.id)) {
+          to.vx -= ux * pull
+          to.vy -= uy * pull
+        }
+      }
+
+      for (const node of nodes) {
+        if (dragRef.current?.mode === "node" && dragRef.current.nodeId === node.node.id) continue
+        const anchorStrength = selectedNodeId ? (node.node.id === selectedNodeId ? 0.055 : node.isNeighbor ? 0.012 : 0.003) : 0.004
+        node.vx += (node.stableX - node.x) * anchorStrength * alpha
+        node.vy += (node.stableY - node.y) * anchorStrength * alpha
+        node.vx += (50 - node.x) * 0.0009
+        node.vy += (50 - node.y) * 0.0009
+        node.vx *= 0.88
+        node.vy *= 0.88
+        node.x = Math.max(3, Math.min(97, node.x + node.vx))
+        node.y = Math.max(4, Math.min(96, node.y + node.vy))
+      }
+
+      const { width, height } = resizeCanvas(context)
+      context.clearRect(0, 0, width, height)
+
+      const gradient = context.createRadialGradient(width * 0.5, height * 0.48, 0, width * 0.5, height * 0.5, Math.max(width, height) * 0.6)
+      gradient.addColorStop(0, "rgba(88, 28, 135, 0.28)")
+      gradient.addColorStop(0.38, "rgba(15, 23, 42, 0.18)")
+      gradient.addColorStop(1, "rgba(2, 6, 23, 0)")
+      context.fillStyle = gradient
+      context.fillRect(0, 0, width, height)
+
+      context.save()
+      context.globalAlpha = 0.12
+      context.fillStyle = "#cbd5e1"
+      const dotStep = Math.max(18, 22 * zoom)
+      for (let x = ((-pan.x * 4) % dotStep) - dotStep; x < width + dotStep; x += dotStep) {
+        for (let y = ((-pan.y * 4) % dotStep) - dotStep; y < height + dotStep; y += dotStep) {
+          context.beginPath()
+          context.arc(x, y, 0.75, 0, Math.PI * 2)
+          context.fill()
+        }
+      }
+      context.restore()
+
+      context.save()
+      context.globalCompositeOperation = "lighter"
+      for (const { edge } of visibleEdges) {
+        const from = nodeById.get(edge.fromNodeId)
+        const to = nodeById.get(edge.toNodeId)
+        if (!from || !to) continue
+        const selectedEdge = focusNodeId && (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId)
+        const a = project(width, height, from.x, from.y)
+        const b = project(width, height, to.x, to.y)
+        context.beginPath()
+        context.moveTo(a.x, a.y)
+        context.lineTo(b.x, b.y)
+        context.strokeStyle = selectedEdge ? (graphConfidenceStroke[edge.confidence] ?? "#a78bfa") : "rgba(148, 163, 184, 0.55)"
+        context.globalAlpha = focusNodeId ? (selectedEdge ? 0.42 : 0.035) : edge.confidence === "ambiguous" ? 0.07 : 0.16
+        context.lineWidth = selectedEdge ? 1.25 : Math.max(0.32, Math.min(0.9, Number(edge.weight || 1) * 0.26 * zoom))
+        context.stroke()
+      }
+      context.restore()
+
+      const sortedNodes = [...nodes].sort((a, b) => a.r - b.r)
+      for (const node of sortedNodes) {
+        const point = project(width, height, node.x, node.y)
+        const isHovered = hoveredNodeId === node.node.id
+        const isFocused = selectedNodeId === node.node.id || isHovered
+        const isDimmed = Boolean(focusNodeId && !isFocused && !node.isNeighbor)
+        const radius = Math.max(3.3, Math.min(15, node.r * 1.18 * zoom))
+        context.save()
+        context.globalAlpha = isDimmed ? 0.18 : 1
+        context.shadowColor = node.visual.fill
+        context.shadowBlur = isFocused ? 24 : node.isNeighbor ? 14 : 8
+        context.beginPath()
+        context.arc(point.x, point.y, radius + (isFocused ? 5 : 2), 0, Math.PI * 2)
+        context.fillStyle = `${node.visual.fill}22`
+        context.fill()
+        context.shadowBlur = isFocused ? 16 : 8
+        context.beginPath()
+        context.arc(point.x, point.y, radius, 0, Math.PI * 2)
+        context.fillStyle = node.visual.fill
+        context.fill()
+        context.lineWidth = isFocused ? 1.8 : node.isNeighbor ? 1.05 : 0.65
+        context.strokeStyle = isFocused ? "#f8fafc" : node.isNeighbor ? "#ddd6fe" : node.visual.stroke
+        context.stroke()
+        context.shadowBlur = 0
+        context.beginPath()
+        context.arc(point.x - radius * 0.26, point.y - radius * 0.28, Math.max(1.4, radius * 0.22), 0, Math.PI * 2)
+        context.fillStyle = "rgba(255,255,255,0.78)"
+        context.fill()
+
+        const shouldLabel = isFocused || (selectedNodeId && node.isNeighbor && radius > 5.5)
+        if (shouldLabel) {
+          const label = compactGraphLabel(node.node.title)
+          context.font = "700 11px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+          context.textAlign = "center"
+          context.textBaseline = "top"
+          context.lineWidth = 4
+          context.strokeStyle = "rgba(3, 7, 18, 0.92)"
+          context.strokeText(label, point.x, point.y + radius + 6)
+          context.fillStyle = isDimmed ? "#64748b" : "#f8fafc"
+          context.fillText(label, point.x, point.y + radius + 6)
+        }
+        context.restore()
+      }
+
+      frame = window.requestAnimationFrame(tick)
+    }
+
+    frame = window.requestAnimationFrame(tick)
+    return () => {
+      disposed = true
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [focusNodeId, hoveredNodeId, layout.length, pan.x, pan.y, selectedNodeId, visibleEdges, zoom])
+
+  function canvasToWorld(event: React.PointerEvent<HTMLDivElement>) {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    const width = Math.max(1, rect.width)
+    const height = Math.max(1, rect.height)
+    const scale = (Math.min(width, height) * 0.9 * zoom) / 100
+    return {
+      x: (event.clientX - rect.left - width / 2) / scale + 50 + pan.x,
+      y: (event.clientY - rect.top - height / 2) / scale + 50 + pan.y,
+      scale,
+      width,
+      height,
+    }
+  }
+
+  function findCanvasNode(event: React.PointerEvent<HTMLDivElement>) {
+    const world = canvasToWorld(event)
+    if (!world) return null
+    let nearest: CanvasNode | null = null
+    let nearestDistance = Infinity
+    for (const node of simNodesRef.current) {
+      const distance = Math.hypot(node.x - world.x, node.y - world.y)
+      const radius = Math.max(2.8, node.r * 0.92) / Math.max(0.55, zoom)
+      if (distance < radius + 2.4 && distance < nearestDistance) {
+        nearest = node
+        nearestDistance = distance
+      }
+    }
+    return nearest
+  }
+
   function resetGraphView() {
     setZoom(GRAPH_FIT_ZOOM)
     setPan({ x: 0, y: 0 })
@@ -856,20 +1116,38 @@ function GraphMemoryMap({
   function handleGraphPointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return
     event.currentTarget.setPointerCapture(event.pointerId)
-    setDragState({
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startPan: pan,
-    })
+    const hit = findCanvasNode(event)
+    if (hit) {
+      setHoveredNodeId(hit.node.id)
+      setDragState({ mode: "node", pointerId: event.pointerId, nodeId: hit.node.id })
+      lastTapRef.current = { nodeId: hit.node.id, x: event.clientX, y: event.clientY, time: Date.now() }
+      return
+    }
+    setDragState({ mode: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startPan: pan })
   }
 
   function handleGraphPointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!dragState || dragState.pointerId !== event.pointerId) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    const nextViewSize = 100 / zoom
-    const dx = (event.clientX - dragState.startX) * (nextViewSize / Math.max(1, rect.width))
-    const dy = (event.clientY - dragState.startY) * (nextViewSize / Math.max(1, rect.height))
+    if (!dragState) {
+      handleGraphPointerHover(event)
+      return
+    }
+    if (dragState.pointerId !== event.pointerId) return
+    if (dragState.mode === "node") {
+      const world = canvasToWorld(event)
+      if (!world) return
+      const node = simNodesRef.current.find((item) => item.node.id === dragState.nodeId)
+      if (!node) return
+      node.x = Math.max(3, Math.min(97, world.x))
+      node.y = Math.max(4, Math.min(96, world.y))
+      node.vx = 0
+      node.vy = 0
+      return
+    }
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const dx = (event.clientX - dragState.startX) * (100 / zoom / Math.max(1, rect.width))
+    const dy = (event.clientY - dragState.startY) * (100 / zoom / Math.max(1, rect.height))
     setPan({
       x: Math.max(-45, Math.min(45, dragState.startPan.x - dx)),
       y: Math.max(-45, Math.min(45, dragState.startPan.y - dy)),
@@ -877,7 +1155,21 @@ function GraphMemoryMap({
   }
 
   function handleGraphPointerUp(event: React.PointerEvent<HTMLDivElement>) {
-    if (dragState?.pointerId === event.pointerId) setDragState(null)
+    if (dragState?.pointerId !== event.pointerId) return
+    if (dragState.mode === "node") {
+      const tap = lastTapRef.current
+      if (tap && tap.nodeId === dragState.nodeId && Math.hypot(event.clientX - tap.x, event.clientY - tap.y) < 8 && Date.now() - tap.time < 350) {
+        const node = simNodesRef.current.find((item) => item.node.id === dragState.nodeId)
+        if (node) onSelectNode?.(node.node)
+      }
+    }
+    setDragState(null)
+  }
+
+  function handleGraphPointerHover(event: React.PointerEvent<HTMLDivElement>) {
+    if (dragState) return
+    const hit = findCanvasNode(event)
+    setHoveredNodeId((current) => (current === hit?.node.id ? current : hit?.node.id ?? null))
   }
 
   return (
@@ -968,98 +1260,18 @@ function GraphMemoryMap({
           onPointerMove={handleGraphPointerMove}
           onPointerUp={handleGraphPointerUp}
           onPointerCancel={handleGraphPointerUp}
+          onPointerOver={handleGraphPointerHover}
+          onPointerLeave={() => {
+            if (!dragState) setHoveredNodeId(null)
+          }}
           onWheel={(event) => {
             event.preventDefault()
             setZoom((current) => clampGraphZoom(current + (event.deltaY > 0 ? -0.12 : 0.12)))
           }}
         >
-          <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_center,rgba(255,255,255,0.65)_0,rgba(255,255,255,0.65)_1px,transparent_1.5px)] [background-size:22px_22px]" />
-          <svg className="absolute inset-0 h-full w-full" viewBox={viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Vista Obsidian della graph memory Optima">
-            <defs>
-              <filter id="graphGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="1.8" result="coloredBlur" />
-                <feMerge>
-                  <feMergeNode in="coloredBlur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-            {visibleEdges.map(({ edge, from, to }) => {
-              const selectedEdge = focusNodeId && (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId)
-              return (
-              <line
-                key={edge.id}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                stroke={selectedEdge ? (graphConfidenceStroke[edge.confidence] ?? "#8b5cf6") : "#64748b"}
-                strokeWidth={selectedEdge ? 0.9 : Math.max(0.18, Math.min(0.55, Number(edge.weight || 1) * 0.22))}
-                strokeOpacity={focusNodeId ? (selectedEdge ? 0.56 : 0.055) : edge.confidence === "ambiguous" ? 0.11 : 0.22}
-                strokeDasharray={edge.confidence === "ambiguous" ? "1.2 2.4" : undefined}
-              />
-              )
-            })}
-
-            {layout.map(({ node, x, y, r, degree, visual, isSelected, isNeighbor }, index) => {
-              const isHovered = hoveredNodeId === node.id
-              const showLabel = isSelected || isHovered || (selectedNodeId && isNeighbor && index < 18)
-              const isDimmed = Boolean(focusNodeId && !isSelected && !isNeighbor && !isHovered)
-              const label = compactGraphLabel(node.title)
-              const obsidianRadius = Math.max(1.6, Math.min(6.8, r * 0.62))
-              return (
-                <g
-                  key={node.id}
-                  role="button"
-                  tabIndex={0}
-                  className="cursor-pointer outline-none"
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onPointerEnter={() => setHoveredNodeId(node.id)}
-                  onPointerLeave={() => setHoveredNodeId((current) => (current === node.id ? null : current))}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onSelectNode?.(node)
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault()
-                      onSelectNode?.(node)
-                    }
-                  }}
-                >
-                  <title>{`${node.title} · ${visual.label} · ${degree} collegamenti`}</title>
-                  <circle cx={x} cy={y} r={obsidianRadius + 4.2} fill={visual.fill} opacity={isDimmed ? "0.02" : isSelected || isHovered ? "0.2" : "0.075"} filter="url(#graphGlow)" />
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={obsidianRadius}
-                    fill={visual.fill}
-                    stroke={isSelected || isHovered ? "#f8fafc" : isNeighbor ? "#c4b5fd" : visual.stroke}
-                    strokeWidth={isSelected || isHovered ? "0.72" : isNeighbor ? "0.42" : "0.18"}
-                    opacity={isDimmed ? "0.22" : "0.92"}
-                  />
-                  <circle cx={x - obsidianRadius * 0.28} cy={y - obsidianRadius * 0.28} r={Math.max(0.45, obsidianRadius * 0.22)} fill="#ffffff" opacity={isDimmed ? "0.24" : "0.78"} />
-                  {showLabel ? (
-                    <>
-                      <text
-                        x={x}
-                        y={y + obsidianRadius + 4.2}
-                        textAnchor="middle"
-                        paintOrder="stroke"
-                        stroke="#05060b"
-                        strokeWidth="1.2"
-                        className={`${isDimmed ? "fill-slate-600" : "fill-slate-100"} text-[2.8px] font-semibold`}
-                      >
-                        {label}
-                      </text>
-                    </>
-                  ) : null}
-                </g>
-              )
-            })}
-          </svg>
+          <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-label="Vista dinamica tipo Obsidian della graph memory Optima" />
           <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-md border border-white/10 bg-[#070912]/78 px-3 py-2 text-[11px] leading-5 text-slate-500 backdrop-blur">
-            <span className="font-semibold text-slate-300">Global graph</span> · nodi come note, archi come backlink. Trascina, zooma, passa sopra un nodo o toccalo per il local graph.
+            <span className="font-semibold text-slate-300">Global graph</span> · canvas fisica stile Obsidian: trascina i nodi, zooma e muoviti nella mappa.
           </div>
           {focusLayoutNode ? (
             <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-md border border-white/10 bg-[#0b0d16]/92 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-black/30 backdrop-blur sm:max-w-sm">
@@ -1095,47 +1307,32 @@ function GraphMemoryMap({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
-        {Object.entries(graphNodeTypeVisual).map(([type, visual]) => (
-          <span key={type} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: visual.fill, border: `1px solid ${visual.stroke}` }} />
-            {visual.label}
-          </span>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
-        {Object.entries(graphConfidenceCopy).map(([confidence, label]) => (
-          <span key={confidence} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: graphConfidenceStroke[confidence] ?? "#64748b" }}
-            />
-            {label}
-          </span>
-        ))}
-      </div>
+      <details className="border-t border-white/10 px-3 py-2">
+        <summary className="cursor-pointer select-none text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+          Legenda grafo
+        </summary>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {Object.entries(graphNodeTypeVisual).map(([type, visual]) => (
+            <span key={type} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: visual.fill, border: `1px solid ${visual.stroke}` }} />
+              {visual.label}
+            </span>
+          ))}
+          {Object.entries(graphConfidenceCopy).map(([confidence, label]) => (
+            <span key={confidence} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: graphConfidenceStroke[confidence] ?? "#64748b" }}
+              />
+              {label}
+            </span>
+          ))}
+        </div>
+      </details>
 
       {isPartialMap ? (
         <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
-          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. Questa vista usa un layout force-directed stile Obsidian per esplorare backlink e vicinati locali. Graphify resta il motore di estrazione/query; Obsidian e il workspace visuale; Optima resta la sorgente autoritativa di tenant, permessi e azioni agentiche.
-        </div>
-      ) : null}
-
-      {featuredEdges.length ? (
-        <div className="grid gap-1.5 border-t border-white/10 p-3">
-          {featuredEdges.map(({ edge, from, to }) => (
-            <div key={`label-${edge.id}`} className="flex min-w-0 items-center gap-2 text-[11px] text-slate-400">
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: graphConfidenceStroke[edge.confidence] ?? "#64748b" }}
-              />
-              <span className="min-w-0 truncate">
-                <span className="font-bold text-slate-200">{from.node.title}</span> → {to.node.title}
-              </span>
-              <span className="shrink-0 rounded-full border border-white/10 px-1.5 py-0.5 text-[10px]">{edge.edgeType}</span>
-            </div>
-          ))}
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. In app usiamo una canvas force-directed ispirata alla Graph View di Obsidian; il bottone "Apri vault" apre Obsidian vero sul vault esportato.
         </div>
       ) : null}
     </div>
