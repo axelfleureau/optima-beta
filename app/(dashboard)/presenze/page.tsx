@@ -1,6 +1,6 @@
 "use client"
 
-import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type CSSProperties, type KeyboardEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Activity, AlarmClock, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, RefreshCw, Sparkles, TimerOff, UserCheck, Users, X, XCircle } from "lucide-react"
 import { gsap } from "gsap"
@@ -953,8 +953,8 @@ function PresenceCalendarHeatmap({
   )
   const openCellDetails = useCallback(
     (selection: HeatmapCellSelection) => {
-      setActiveCell(selection)
       setActiveDay(null)
+      setActiveCell(selection)
       setActiveSignal(null)
       onDateChange(selection.day.date)
     },
@@ -1163,7 +1163,6 @@ function PresenceCalendarHeatmap({
                       selected={day.date === selectedDate}
                       active={activeCell?.person.id === person.id && activeCell.day.date === day.date}
                       compact={false}
-                      onDateChange={onDateChange}
                       onShowSignal={setActiveSignal}
                       onShowDetails={openCellDetails}
                     />
@@ -1242,7 +1241,6 @@ function PresenceCalendarHeatmap({
                     selected={day.date === selectedDate}
                     active={activeCell?.person.id === person.id && activeCell.day.date === day.date}
                     compact
-                    onDateChange={onDateChange}
                     onShowSignal={setActiveSignal}
                     onShowDetails={openCellDetails}
                   />
@@ -1474,7 +1472,6 @@ function CalendarHeatmapCell({
   selected,
   active,
   compact,
-  onDateChange,
   onShowSignal,
   onShowDetails,
 }: {
@@ -1483,7 +1480,6 @@ function CalendarHeatmapCell({
   selected: boolean
   active?: boolean
   compact?: boolean
-  onDateChange: (date: string) => void
   onShowSignal?: (selection: HeatmapSignalSelection) => void
   onShowDetails?: (selection: HeatmapCellSelection) => void
 }) {
@@ -1491,8 +1487,9 @@ function CalendarHeatmapCell({
   const Icon = signal.Icon
   const timeSignal = dayTimeSignalMeta(day)
   const TimeSignalIcon = timeSignal?.Icon
-  const handleSelect = () => {
-    onDateChange(day.date)
+  const handleSelect = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
     onShowDetails?.({ person, day })
   }
 
