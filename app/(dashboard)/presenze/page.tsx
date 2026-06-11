@@ -938,7 +938,14 @@ function PresenceCalendarHeatmap({
   const openCellDetails = useCallback(
     (selection: HeatmapCellSelection) => {
       setActiveCell(selection)
-      openDayDetails(selection.day.date)
+      onDateChange(selection.day.date)
+    },
+    [onDateChange],
+  )
+  const openHeatmapDayDetails = useCallback(
+    (date: string) => {
+      setActiveCell(null)
+      openDayDetails(date)
     },
     [openDayDetails],
   )
@@ -1135,6 +1142,7 @@ function PresenceCalendarHeatmap({
                       day={day}
                       person={person}
                       selected={day.date === selectedDate}
+                      active={activeCell?.person.id === person.id && activeCell.day.date === day.date}
                       compact={false}
                       onDateChange={onDateChange}
                       onShowSignal={setActiveSignal}
@@ -1171,16 +1179,19 @@ function PresenceCalendarHeatmap({
               </Button>
             </div>
             {calendar.days.map((day) => (
-              <div
+              <button
+                type="button"
                 key={day}
+                onClick={() => openHeatmapDayDetails(day)}
+                aria-label={`Apri dettaglio giorno ${formatDateLabel(day)}`}
                 className={cn(
-                  "rounded-[7px] px-1 pb-2 pt-1 text-center",
+                  "rounded-[7px] px-1 pb-2 pt-1 text-center transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                   day === selectedDate && "bg-righello-pink/15 ring-1 ring-righello-pink/35",
                 )}
               >
                 <p className="text-[13px] font-black leading-none text-slate-100">{formatDayNumber(day)}</p>
                 <p className="mt-1 text-[10px] font-bold uppercase leading-none text-slate-500">{formatWeekdayShort(day)}</p>
-              </div>
+              </button>
             ))}
 
             {visiblePeople.map((person) => (
@@ -1210,6 +1221,7 @@ function PresenceCalendarHeatmap({
                     day={day}
                     person={person}
                     selected={day.date === selectedDate}
+                    active={activeCell?.person.id === person.id && activeCell.day.date === day.date}
                     compact
                     onDateChange={onDateChange}
                     onShowSignal={setActiveSignal}
@@ -1436,6 +1448,7 @@ function CalendarHeatmapCell({
   day,
   person,
   selected,
+  active,
   compact,
   onDateChange,
   onShowSignal,
@@ -1444,6 +1457,7 @@ function CalendarHeatmapCell({
   day: PresencePayload["calendar"]["people"][number]["days"][number]
   person: PresencePayload["calendar"]["people"][number]
   selected: boolean
+  active?: boolean
   compact?: boolean
   onDateChange: (date: string) => void
   onShowSignal?: (selection: HeatmapSignalSelection) => void
@@ -1470,6 +1484,7 @@ function CalendarHeatmapCell({
           calendarCellClass(day),
           timeSignal && day.status !== "absent" && timeSignal.cellTone,
           selected && "outline outline-2 outline-offset-1 outline-righello-pink/70",
+          active && "z-20 scale-[1.06] ring-2 ring-righello-cyan/80",
         )}
       >
         {timeSignal && day.status !== "absent" && TimeSignalIcon && (
@@ -1502,6 +1517,7 @@ function CalendarHeatmapCell({
         calendarCellClass(day),
         timeSignal && day.status !== "absent" && timeSignal.cellTone,
         selected && "outline outline-2 outline-offset-2 outline-righello-pink",
+        active && "scale-[1.03] ring-2 ring-righello-cyan/80",
       )}
     >
       <span className="absolute left-1.5 top-1.5 text-[10px] font-black leading-none opacity-70">{formatDayNumber(day.date)}</span>
