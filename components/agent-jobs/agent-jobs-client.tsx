@@ -608,7 +608,7 @@ function getGraphNodeLayout(
             ? 0.9
             : 0
     const selectedBoost = node.id === selectedNodeId ? 1.5 : neighborIds.has(node.id) ? 0.6 : 0
-    const r = Math.max(2.8, Math.min(8.8, 2.9 + Math.sqrt(degree + 1) * 1.12 + typeBoost + selectedBoost))
+    const r = Math.max(0.75, Math.min(4.8, 0.95 + Math.sqrt(degree + 1) * 0.42 + typeBoost * 0.42 + selectedBoost * 0.34))
 
     let x: number
     let y: number
@@ -622,13 +622,13 @@ function getGraphNodeLayout(
       } else if (isNeighbor) {
         const neighbors = visibleNodes.filter((item) => neighborIds.has(item.id))
         const neighborIndex = Math.max(0, neighbors.findIndex((item) => item.id === node.id))
-        const point = seededGraphPoint(`${node.id}:${neighborIndex}`, 22 + Math.min(10, neighbors.length * 0.42), -92 + (360 / Math.max(1, neighbors.length)) * neighborIndex)
+        const point = seededGraphPoint(`${node.id}:${neighborIndex}`, 12 + Math.min(17, neighbors.length * 0.34), -92 + (360 / Math.max(1, neighbors.length)) * neighborIndex)
         x = point.x
         y = point.y
       } else {
         const outerNodes = visibleNodes.filter((item) => item.id !== selectedNodeId && !neighborIds.has(item.id))
         const outerIndex = Math.max(0, outerNodes.findIndex((item) => item.id === node.id))
-        const point = seededGraphPoint(`${node.id}:${outerIndex}`, 38 + (outerIndex % 4) * 2.5, outerIndex * 137.508 - 24)
+        const point = seededGraphPoint(`${node.id}:${outerIndex}`, 26 + (outerIndex % 9) * 2.7, outerIndex * 137.508 - 24)
         x = point.x
         y = point.y
       }
@@ -636,7 +636,7 @@ function getGraphNodeLayout(
       x = 50
       y = 50
     } else {
-      const point = seededGraphPoint(`${node.id}:${index}`, 8 + Math.sqrt(index) * 7.6, index * 137.508 - 90)
+      const point = seededGraphPoint(`${node.id}:${index}`, 5 + Math.sqrt(index) * 4.9, index * 137.508 - 90)
       x = point.x
       y = point.y
     }
@@ -666,8 +666,8 @@ function getGraphNodeLayout(
         const dx = b.x - a.x
         const dy = b.y - a.y
         const distance = Math.max(0.001, Math.hypot(dx, dy))
-        const minDistance = a.r + b.r + 4.6
-        const charge = Math.min(10, (minDistance * minDistance) / (distance * 0.9)) * cooling
+        const minDistance = a.r + b.r + 1.6
+        const charge = Math.min(4.8, (minDistance * minDistance) / (distance * 1.55)) * cooling
         const ux = dx / distance
         const uy = dy / distance
 
@@ -690,8 +690,8 @@ function getGraphNodeLayout(
       const dx = to.x - from.x
       const dy = to.y - from.y
       const distance = Math.max(0.001, Math.hypot(dx, dy))
-      const desiredDistance = selectedEdge ? 20 : Math.max(18, 28 - Math.min(9, Number(edge.weight || 1) * 3))
-      const force = (distance - desiredDistance) * (selectedEdge ? 0.028 : 0.016) * cooling
+      const desiredDistance = selectedEdge ? 12 : Math.max(8, 17 - Math.min(6, Number(edge.weight || 1) * 2))
+      const force = (distance - desiredDistance) * (selectedEdge ? 0.023 : 0.012) * cooling
       const ux = dx / distance
       const uy = dy / distance
       if (!from.isSelected) {
@@ -810,7 +810,7 @@ function GraphMemoryMap({
         nodeId: string
       }
 
-  const [nodeLimit, setNodeLimit] = useState(48)
+  const [nodeLimit, setNodeLimit] = useState(160)
   const [zoom, setZoom] = useState(GRAPH_FIT_ZOOM)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragState, setDragState] = useState<CanvasDragState | null>(null)
@@ -852,7 +852,7 @@ function GraphMemoryMap({
     })
     .slice(0, Math.max(18, Math.min(360, nodeLimit * 4)))
   const isPartialMap = totalNodes > layout.length || totalEdges > visibleEdges.length
-  const densityOptions = [24, 48, 96, 160, 240].filter((limit) => limit <= Math.max(240, loadedNodes || 0))
+  const densityOptions = [48, 96, 160, 240].filter((limit) => limit <= Math.max(240, loadedNodes || 0))
   const summary = graphMapSummary({
     visibleNodes: layout.length,
     loadedNodes,
@@ -921,7 +921,7 @@ function GraphMemoryMap({
 
       const nodes = simNodesRef.current
       const nodeById = new Map(nodes.map((node) => [node.node.id, node]))
-      const alpha = dragRef.current?.mode === "node" ? 0.48 : 0.24
+      const alpha = dragRef.current?.mode === "node" ? 0.4 : 0.18
 
       for (let i = 0; i < nodes.length; i += 1) {
         for (let j = i + 1; j < nodes.length; j += 1) {
@@ -930,8 +930,8 @@ function GraphMemoryMap({
           const dx = b.x - a.x
           const dy = b.y - a.y
           const distance = Math.max(0.08, Math.hypot(dx, dy))
-          const minDistance = Math.max(4.5, a.r * 0.62 + b.r * 0.62 + 2.4)
-          const push = Math.min(0.11, (minDistance * minDistance) / (distance * distance * 25)) * alpha
+          const minDistance = Math.max(1.8, a.r * 0.48 + b.r * 0.48 + 1.1)
+          const push = Math.min(0.045, (minDistance * minDistance) / (distance * distance * 34)) * alpha
           const ux = dx / distance
           const uy = dy / distance
           if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === a.node.id)) {
@@ -953,8 +953,8 @@ function GraphMemoryMap({
         const dy = to.y - from.y
         const distance = Math.max(0.08, Math.hypot(dx, dy))
         const selectedEdge = focusNodeId && (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId)
-        const desired = selectedEdge ? 12 : Math.max(9, 19 - Math.min(7, Number(edge.weight || 1) * 2.2))
-        const pull = (distance - desired) * (selectedEdge ? 0.006 : 0.0038) * alpha
+        const desired = selectedEdge ? 8 : Math.max(5.5, 11 - Math.min(4, Number(edge.weight || 1) * 1.4))
+        const pull = (distance - desired) * (selectedEdge ? 0.004 : 0.0024) * alpha
         const ux = dx / distance
         const uy = dy / distance
         if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === from.node.id)) {
@@ -1015,9 +1015,9 @@ function GraphMemoryMap({
         context.beginPath()
         context.moveTo(a.x, a.y)
         context.lineTo(b.x, b.y)
-        context.strokeStyle = selectedEdge ? (graphConfidenceStroke[edge.confidence] ?? "#a78bfa") : "rgba(148, 163, 184, 0.55)"
-        context.globalAlpha = focusNodeId ? (selectedEdge ? 0.42 : 0.035) : edge.confidence === "ambiguous" ? 0.07 : 0.16
-        context.lineWidth = selectedEdge ? 1.25 : Math.max(0.32, Math.min(0.9, Number(edge.weight || 1) * 0.26 * zoom))
+        context.strokeStyle = selectedEdge ? (graphConfidenceStroke[edge.confidence] ?? "#a78bfa") : "rgba(148, 163, 184, 0.48)"
+        context.globalAlpha = focusNodeId ? (selectedEdge ? 0.36 : 0.025) : edge.confidence === "ambiguous" ? 0.045 : 0.105
+        context.lineWidth = selectedEdge ? 0.72 : Math.max(0.18, Math.min(0.52, Number(edge.weight || 1) * 0.16 * zoom))
         context.stroke()
       }
       context.restore()
@@ -1028,33 +1028,33 @@ function GraphMemoryMap({
         const isHovered = hoveredNodeId === node.node.id
         const isFocused = selectedNodeId === node.node.id || isHovered
         const isDimmed = Boolean(focusNodeId && !isFocused && !node.isNeighbor)
-        const radius = Math.max(3.3, Math.min(15, node.r * 1.18 * zoom))
+        const radius = Math.max(isFocused ? 2.8 : 1.35, Math.min(isFocused ? 7.5 : 4.2, node.r * 0.74 * zoom))
         context.save()
         context.globalAlpha = isDimmed ? 0.18 : 1
         context.shadowColor = node.visual.fill
-        context.shadowBlur = isFocused ? 24 : node.isNeighbor ? 14 : 8
+        context.shadowBlur = isFocused ? 18 : node.isNeighbor ? 8 : 3
         context.beginPath()
-        context.arc(point.x, point.y, radius + (isFocused ? 5 : 2), 0, Math.PI * 2)
-        context.fillStyle = `${node.visual.fill}22`
+        context.arc(point.x, point.y, radius + (isFocused ? 3.4 : 0.9), 0, Math.PI * 2)
+        context.fillStyle = `${node.visual.fill}${isFocused ? "2f" : "14"}`
         context.fill()
-        context.shadowBlur = isFocused ? 16 : 8
+        context.shadowBlur = isFocused ? 12 : 3
         context.beginPath()
         context.arc(point.x, point.y, radius, 0, Math.PI * 2)
         context.fillStyle = node.visual.fill
         context.fill()
-        context.lineWidth = isFocused ? 1.8 : node.isNeighbor ? 1.05 : 0.65
+        context.lineWidth = isFocused ? 1.25 : node.isNeighbor ? 0.55 : 0.32
         context.strokeStyle = isFocused ? "#f8fafc" : node.isNeighbor ? "#ddd6fe" : node.visual.stroke
         context.stroke()
         context.shadowBlur = 0
         context.beginPath()
-        context.arc(point.x - radius * 0.26, point.y - radius * 0.28, Math.max(1.4, radius * 0.22), 0, Math.PI * 2)
-        context.fillStyle = "rgba(255,255,255,0.78)"
+        context.arc(point.x - radius * 0.26, point.y - radius * 0.28, Math.max(0.55, radius * 0.2), 0, Math.PI * 2)
+        context.fillStyle = "rgba(255,255,255,0.72)"
         context.fill()
 
-        const shouldLabel = isFocused || (selectedNodeId && node.isNeighbor && radius > 5.5)
+        const shouldLabel = isFocused
         if (shouldLabel) {
           const label = compactGraphLabel(node.node.title)
-          context.font = "700 11px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+          context.font = "600 10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
           context.textAlign = "center"
           context.textBaseline = "top"
           context.lineWidth = 4
@@ -1178,7 +1178,7 @@ function GraphMemoryMap({
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#a78bfa] shadow-[0_0_18px_rgba(167,139,250,0.85)]" />
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-black uppercase tracking-[0.18em] text-slate-200">Obsidian graph view</p>
+            <p className="truncate text-[12px] font-black uppercase tracking-[0.18em] text-slate-200">Anteprima grafo Optima</p>
             <p className="truncate text-[10px] font-semibold text-slate-500">{summary}</p>
           </div>
         </div>
@@ -1186,9 +1186,9 @@ function GraphMemoryMap({
           <a
             href={OBSIDIAN_VAULT_URI}
             className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-200 transition hover:bg-white/10"
-            title="Apre il vault Obsidian generato da npm run obsidian:graph:export"
+            title="Apre il vault in Obsidian: questa e la vista Obsidian reale, non una ricostruzione web."
           >
-            Apri vault
+            Apri Obsidian
           </a>
           {densityOptions.map((limit) => (
             <button
@@ -1253,7 +1253,7 @@ function GraphMemoryMap({
 
       {layout.length ? (
         <div
-          className={`relative h-[520px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_48%,rgba(124,58,237,0.18),transparent_30%),radial-gradient(circle_at_70%_35%,rgba(6,182,212,0.08),transparent_24%),linear-gradient(180deg,#090b13,#05060b_62%,#03040a)] sm:h-[640px] ${
+          className={`relative h-[560px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_46%,rgba(30,41,59,0.52),transparent_34%),radial-gradient(circle_at_52%_48%,rgba(124,58,237,0.16),transparent_28%),linear-gradient(180deg,#05070d,#03050a_62%,#020309)] sm:h-[680px] ${
             dragState ? "cursor-grabbing" : "cursor-grab"
           }`}
           onPointerDown={handleGraphPointerDown}
@@ -1269,9 +1269,9 @@ function GraphMemoryMap({
             setZoom((current) => clampGraphZoom(current + (event.deltaY > 0 ? -0.12 : 0.12)))
           }}
         >
-          <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-label="Vista dinamica tipo Obsidian della graph memory Optima" />
-          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-md border border-white/10 bg-[#070912]/78 px-3 py-2 text-[11px] leading-5 text-slate-500 backdrop-blur">
-            <span className="font-semibold text-slate-300">Global graph</span> · canvas fisica stile Obsidian: trascina i nodi, zooma e muoviti nella mappa.
+          <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-label="Anteprima dinamica della graph memory Optima" />
+          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-md border border-white/10 bg-[#070912]/72 px-3 py-2 text-[11px] leading-5 text-slate-500 backdrop-blur">
+            <span className="font-semibold text-slate-300">Anteprima Optima</span> · per la vista esatta usa Apri Obsidian; qui puoi solo ispezionare rapidamente il grafo in app.
           </div>
           {focusLayoutNode ? (
             <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-md border border-white/10 bg-[#0b0d16]/92 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-black/30 backdrop-blur sm:max-w-sm">
@@ -1296,7 +1296,7 @@ function GraphMemoryMap({
             <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-md border border-white/10 bg-[#0b0d16]/88 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-black/30 backdrop-blur sm:max-w-sm">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a78bfa]">Global graph</p>
               <p className="mt-1 text-[11px] text-slate-400">
-                Vista Obsidian del vault Optima. I colori indicano il tipo di nota, la dimensione indica la centralita.
+                Preview interna della graph memory. La vista Obsidian reale si apre dal vault esportato.
               </p>
             </div>
           )}
@@ -1332,7 +1332,7 @@ function GraphMemoryMap({
 
       {isPartialMap ? (
         <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
-          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. In app usiamo una canvas force-directed ispirata alla Graph View di Obsidian; il bottone "Apri vault" apre Obsidian vero sul vault esportato.
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. La vista esatta di Obsidian non viene ricreata qui: si apre con "Apri Obsidian" sul vault esportato.
         </div>
       ) : null}
     </div>
@@ -3274,6 +3274,39 @@ export function AgentJobsClient({
                       ? `${visibleGraphNodes.length} nodi trovati`
                       : "Vista centrale del grafo operativo"}
                 </span>
+              </div>
+
+              <div className="mt-3 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_20%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Obsidian reale</p>
+                    <h3 className="mt-1 text-lg font-black text-white">Apri la Graph View nativa</h3>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                      La vista esatta di Obsidian non viene ricreata in React: Optima esporta un vault Markdown con wikilink e lo apre nell'app Obsidian, dove hai la mappa sinaptica nativa, drag, zoom, filtri, gruppi e forze originali.
+                    </p>
+                  </div>
+                  <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 sm:w-auto">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={createObsidianVaultJob}
+                      disabled={setupAction === "stack-setup:obsidian-vault"}
+                      className="h-10 rounded-lg border-violet-300/25 bg-violet-300/10 px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
+                    >
+                      {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
+                      Aggiorna vault
+                    </Button>
+                    <a
+                      href={OBSIDIAN_VAULT_URI}
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white transition hover:bg-violet-300/30"
+                    >
+                      Apri Obsidian
+                    </a>
+                  </div>
+                </div>
+                <p className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-400">
+                  Anteprima sotto = controllo rapido dentro Optima. Graph View esatta = Obsidian aperto dal vault esportato.
+                </p>
               </div>
 
               <GraphMemoryMap
