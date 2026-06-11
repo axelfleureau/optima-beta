@@ -63,6 +63,25 @@ function tagsFor(filename, content) {
   return Array.from(tags).slice(0, 16)
 }
 
+function tagsForCatalogEntry(entry) {
+  const tags = new Set(["codex-knowhow", "development-knowhow"])
+  if (entry.type) tags.add(String(entry.type))
+  if (entry.category) tags.add(String(entry.category))
+  if (entry.origin) tags.add(String(entry.origin))
+  for (const part of String(entry.title || entry.id || "").toLowerCase().split(/[^a-z0-9]+/)) {
+    if (part.length > 2) tags.add(part)
+  }
+  return Array.from(tags).slice(0, 16)
+}
+
+function catalogSourceId(entry) {
+  return String(entry.id || entry.link || entry.path)
+}
+
+function catalogSourceType(entry) {
+  return entry.type === "skill-installata" ? "codex_skill_catalog" : "codex_knowhow_catalog"
+}
+
 function nodeUpsert({ id, nodeType, title, summary, sourceType, sourceId, tags, properties }) {
   return `INSERT INTO agentic_graph_nodes (
   id, organization_id, node_type, title, summary, source_type, source_id,
@@ -114,18 +133,32 @@ function collectKnowledgeFiles(dir, prefix = "") {
   })
 }
 
-const files = collectKnowledgeFiles(knowhowDir).sort((a, b) => a.localeCompare(b))
+const catalogPath = join(knowhowDir, "CATALOGO-KNOWHOW.json")
+const catalogEntries = JSON.parse(readFileSync(catalogPath, "utf8"))
+if (!Array.isArray(catalogEntries)) {
+  throw new Error(`Invalid know-how catalog: ${catalogPath}`)
+}
 
-const removeOrphanKnowhowEdges = `DELETE FROM agentic_graph_edges
+const files = collectKnowledgeFiles(knowhowDir).sort((a, b) => a.localeCompare(b))
+const fileSet = new Set(files)
+const currentSourceKeys = [
+  "codex_knowhow:development-knowhow-index",
+  ...catalogEntries.map((entry) => `${catalogSourceType(entry)}:${catalogSourceId(entry)}`),
+]
+const currentSourceKeysSql = currentSourceKeys.map(sql).join(", ")
+
+const removeKnownKnowhowEdges = `DELETE FROM agentic_graph_edges
 WHERE organization_id = ${sql(organizationId)}
-  AND id LIKE 'agedge_knowhow_%'
-  AND (
-    from_node_id NOT IN (SELECT id FROM agentic_graph_nodes WHERE organization_id = ${sql(organizationId)})
-    OR to_node_id NOT IN (SELECT id FROM agentic_graph_nodes WHERE organization_id = ${sql(organizationId)})
-  );`
+  AND id LIKE 'agedge_knowhow_%';`
+
+const removeStaleKnowhowNodes = `DELETE FROM agentic_graph_nodes
+WHERE organization_id = ${sql(organizationId)}
+  AND id LIKE 'agnode_knowhow_%'
+  AND (source_type || ':' || source_id) NOT IN (${currentSourceKeysSql});`
 
 const statements = [
-  removeOrphanKnowhowEdges,
+  removeKnownKnowhowEdges,
+  removeStaleKnowhowNodes,
   nodeUpsert({
     id: rootNodeId,
     nodeType: "knowledge_base",
@@ -138,52 +171,62 @@ const statements = [
     properties: {
       directory: knowhowDir,
       fileCount: files.length,
-      syncPolicy: "index_titles_summaries_headings_no_secrets",
+      catalogCount: catalogEntries.length,
+      syncPolicy: "catalog_entries_plus_markdown_enrichment_no_secrets",
     },
   }),
 ]
 
-for (const file of files) {
-  const fullPath = join(knowhowDir, file)
-  const stat = statSync(fullPath)
-  if (!stat.isFile()) continue
-  const content = readFileSync(fullPath, "utf8")
-  const nodeId = `agnode_knowhow_${hashId(`${organizationId}:${file}`)}`
-  const title = titleFromMarkdown(file, content)
+for (const entry of catalogEntries) {
+  const link = String(entry.link || "")
+  const sourceId = catalogSourceId(entry)
+  const relativePath = link && !link.startsWith("/") ? link : null
+  const fullPath = relativePath ? join(knowhowDir, relativePath) : String(entry.path || "")
+  const hasLocalMarkdown = relativePath && fileSet.has(relativePath)
+  const content = hasLocalMarkdown ? readFileSync(fullPath, "utf8") : ""
+  const stat = hasLocalMarkdown ? statSync(fullPath) : null
+  const nodeType = entry.type === "skill-installata" ? "codex_skill" : "development_knowhow"
+  const sourceType = catalogSourceType(entry)
+  const nodeId = `agnode_knowhow_${hashId(`${organizationId}:${sourceId}`)}`
+  const title = String(entry.title || (content ? titleFromMarkdown(fullPath, content) : sourceId))
+  const summary = content ? summarize(content) : String(entry.description || "").slice(0, 700)
   statements.push(
     nodeUpsert({
       id: nodeId,
-      nodeType: "development_knowhow",
+      nodeType,
       title,
-      summary: summarize(content),
-      sourceType: "codex_knowhow",
-      sourceId: file,
-      tags: tagsFor(file, content),
+      summary,
+      sourceType,
+      sourceId,
+      tags: content ? tagsFor(relativePath || sourceId, content) : tagsForCatalogEntry(entry),
       properties: {
-        fileName: file,
-        relativePath: file,
+        catalogId: entry.id,
+        catalogType: entry.type,
+        category: entry.category,
+        origin: entry.origin,
+        link: entry.link,
+        fileName: relativePath || basename(String(entry.path || sourceId)),
+        relativePath,
         filePath: fullPath,
-        headings: headings(content),
-        bytes: stat.size,
-        modifiedAt: stat.mtime.toISOString(),
+        headings: content ? headings(content) : [],
+        bytes: stat?.size ?? null,
+        modifiedAt: stat?.mtime.toISOString() ?? null,
       },
     }),
   )
   statements.push(
     edgeUpsertBySource({
-      id: `agedge_knowhow_${hashId(`${organizationId}:index:${file}`)}`,
+      id: `agedge_knowhow_${hashId(`${organizationId}:index:${sourceId}`)}`,
       fromSourceType: "codex_knowhow",
       fromSourceId: "development-knowhow-index",
-      toSourceType: "codex_knowhow",
-      toSourceId: file,
+      toSourceType: sourceType,
+      toSourceId: sourceId,
       edgeType: "indexes_knowhow",
       weight: 1,
-      properties: { fileName: file },
+      properties: { catalogId: entry.id, category: entry.category, sourceType },
     }),
   )
 }
-
-statements.push(removeOrphanKnowhowEdges)
 
 const tempDir = mkdtempSync(join(tmpdir(), "optima-knowhow-"))
 const sqlPath = join(tempDir, "sync-knowhow.sql")
@@ -191,7 +234,9 @@ writeFileSync(sqlPath, `${statements.join("\n\n")}\n`, "utf8")
 
 try {
   if (dryRun) {
-    console.log(`Dry run: would sync ${files.length} know-how graph records into ${database}/${environment}.`)
+    console.log(
+      `Dry run: would sync ${catalogEntries.length + 1} know-how graph nodes and ${catalogEntries.length} index edges into ${database}/${environment}.`,
+    )
   } else {
     execFileSync("npx", ["wrangler", "d1", "execute", database, "--env", environment, "--remote", "--file", sqlPath], {
       stdio: "inherit",
