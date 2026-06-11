@@ -203,6 +203,11 @@ function formatTime(value?: string | null) {
   return new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
 }
 
+function timeInputValue(value?: string | null, fallback = "") {
+  if (!value) return fallback
+  return formatTime(value)
+}
+
 function formatDateLabel(value: string) {
   return new Intl.DateTimeFormat("it-IT", {
     weekday: "long",
@@ -564,15 +569,29 @@ export default function PresenzePage() {
   }
 
   const mutateMemberAbsence = async (memberId: string, memberName: string) => {
+    await mutateMemberDay(memberId, "absence", { reason: "Assenza" })
+    toast.success(`${memberName} segnata assente`)
+  }
+
+  const mutateMemberDay = async (
+    memberId: string,
+    action: "check-in" | "check-out" | "absence",
+    options: { date?: string; time?: string; reason?: string } = {},
+  ) => {
     const response = await fetch("/api/time-tracking/check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "absence", date, memberId, reason: "Assenza" }),
+      body: JSON.stringify({
+        action,
+        date: options.date || date,
+        memberId,
+        time: options.time,
+        reason: options.reason || "Assenza",
+      }),
     })
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.error || "Errore aggiornamento presenza")
     await load("refresh")
-    toast.success(`${memberName} segnata assente`)
   }
 
   if (loading && !payload) {
@@ -755,6 +774,7 @@ export default function PresenzePage() {
             isManager={payload.isManager}
             selectedDate={date}
             onDateChange={setDate}
+            onMutateMemberDay={mutateMemberDay}
           />
         )}
 
@@ -824,11 +844,17 @@ function PresenceCalendarHeatmap({
   isManager,
   selectedDate,
   onDateChange,
+  onMutateMemberDay,
 }: {
   calendar: PresencePayload["calendar"]
   isManager: boolean
   selectedDate: string
   onDateChange: (date: string) => void
+  onMutateMemberDay: (
+    memberId: string,
+    action: "check-in" | "check-out" | "absence",
+    options?: { date?: string; time?: string; reason?: string },
+  ) => Promise<void>
 }) {
   const [personFilter, setPersonFilter] = useState("all")
   const [viewMode, setViewMode] = useState<"heatmap" | "calendar">("heatmap")
@@ -1199,6 +1225,8 @@ function PresenceCalendarHeatmap({
       <HeatmapCellContextBanner
         selection={activeHeatmapSelection}
         dayRecords={selectedDayRecords}
+        isManager={isManager}
+        onMutateMemberDay={onMutateMemberDay}
         onOpenDay={() => openDayDetails(selectedDate, selectedDayRecords)}
         onClose={() => setActiveCell(null)}
       />
@@ -1500,14 +1528,32 @@ function CalendarHeatmapCell({
 function HeatmapCellContextBanner({
   selection,
   dayRecords,
+  isManager,
+  onMutateMemberDay,
   onOpenDay,
   onClose,
 }: {
   selection: HeatmapCellSelection | null
   dayRecords: Array<{ person: CalendarPerson; day: CalendarPersonDay }>
+  isManager: boolean
+  onMutateMemberDay: (
+    memberId: string,
+    action: "check-in" | "check-out" | "absence",
+    options?: { date?: string; time?: string; reason?: string },
+  ) => Promise<void>
   onOpenDay: () => void
   onClose: () => void
 }) {
+  const [adminCheckInTime, setAdminCheckInTime] = useState("09:00")
+  const [adminCheckOutTime, setAdminCheckOutTime] = useState("18:00")
+  const [adminSavingAction, setAdminSavingAction] = useState<"check-in" | "check-out" | "absence" | null>(null)
+
+  useEffect(() => {
+    if (!selection) return
+    setAdminCheckInTime(timeInputValue(selection.day.checkInAt, "09:00"))
+    setAdminCheckOutTime(timeInputValue(selection.day.checkOutAt, "18:00"))
+  }, [selection])
+
   if (!selection) return null
 
   const day = selection.day
@@ -1522,6 +1568,25 @@ function HeatmapCellContextBanner({
     : day.missingDurationTaskCount > 0
       ? "border-amber-300/55"
       : "border-cyan-300/25"
+  const mutateSelectedDay = async (action: "check-in" | "check-out" | "absence", time?: string) => {
+    setAdminSavingAction(action)
+    try {
+      await onMutateMemberDay(selection.person.id, action, {
+        date: day.date,
+        time,
+        reason: "Assenza",
+      })
+      toast.success(
+        action === "absence"
+          ? `${selection.person.name} segnata assente il ${formatDateLabel(day.date)}`
+          : `Giornata aggiornata per ${selection.person.name}`,
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Errore aggiornamento giornata")
+    } finally {
+      setAdminSavingAction(null)
+    }
+  }
 
   return (
     <div className="border-t border-white/10 px-4 py-4">
@@ -1585,6 +1650,65 @@ function HeatmapCellContextBanner({
               </p>
             </div>
           </div>
+
+          {isManager && (
+            <div className="rounded-[8px] border border-righello-cyan/20 bg-righello-cyan/10 p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-righello-cyan">Correggi giornata</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    Direzione/admin può correggere presenze passate per la persona e il giorno selezionato.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => mutateSelectedDay("absence")}
+                  disabled={adminSavingAction !== null}
+                  className="min-h-10 shrink-0 rounded-[8px] border-red-300/30 bg-red-500/10 px-3 text-xs font-black text-red-100 hover:bg-red-500/15"
+                >
+                  {adminSavingAction === "absence" ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : <XCircle className="mr-2 h-3.5 w-3.5" />}
+                  Segna assente
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto]">
+                <Input
+                  type="time"
+                  value={adminCheckInTime}
+                  onChange={(event) => setAdminCheckInTime(event.target.value)}
+                  className={cn("h-10 rounded-[8px]", nativeDateTimeInputClass)}
+                  aria-label="Entrata amministrativa"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => mutateSelectedDay("check-in", adminCheckInTime)}
+                  disabled={adminSavingAction !== null}
+                  className="min-h-10 rounded-[8px] border-emerald-300/25 bg-emerald-300/10 px-3 text-xs font-black text-emerald-100 hover:bg-emerald-300/15"
+                >
+                  {adminSavingAction === "check-in" ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : <LogIn className="mr-2 h-3.5 w-3.5" />}
+                  Salva entrata
+                </Button>
+                <Input
+                  type="time"
+                  value={adminCheckOutTime}
+                  onChange={(event) => setAdminCheckOutTime(event.target.value)}
+                  className={cn("h-10 rounded-[8px]", nativeDateTimeInputClass)}
+                  aria-label="Uscita amministrativa"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => mutateSelectedDay("check-out", adminCheckOutTime)}
+                  disabled={adminSavingAction !== null}
+                  className="min-h-10 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-black text-cyan-100 hover:bg-cyan-300/15"
+                >
+                  {adminSavingAction === "check-out" ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : <LogOut className="mr-2 h-3.5 w-3.5" />}
+                  Salva uscita
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-[8px] border border-white/10 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-3">
