@@ -292,6 +292,7 @@ const PAGE_GUIDES: PageGuide[] = [
   {
     id: "clienti",
     path: "/clienti",
+    allowSubpaths: true,
     eyebrow: "Portfolio clienti",
     title: "Qui tieni ordinati clienti, prospect e valore operativo.",
     summary:
@@ -313,7 +314,171 @@ const PAGE_GUIDES: PageGuide[] = [
     ],
     actions: [
       { label: "Cerca cliente", prompt: "Cerca un cliente e mostrami lo stato operativo" },
+      { label: "Crea follow-up", prompt: "Crea una task di follow-up per il cliente aperto o indicato" },
       { label: "Apri workspace", href: "/workspace" },
+    ],
+  },
+  {
+    id: "agenti",
+    path: "/agenti",
+    eyebrow: "Sistema agentico",
+    title: "Qui governi runner, grafo, provider e job revisionabili.",
+    summary:
+      "La pagina agenti e il control plane dell'OS: crea job, controlla heartbeat del VPS, verifica MCP/provider e usa il grafo come memoria aziendale.",
+    role: "leadership",
+    steps: [
+      {
+        title: "Parti dallo stato runner",
+        body: "Se il runner e offline o sospeso, i job restano fermi. Controlla heartbeat, coda e stato prima di aspettarti output.",
+      },
+      {
+        title: "Crea job revisionabili",
+        body: "Le richieste operative complesse devono diventare job con output, artefatti e review room. La direzione approva o rimanda modifiche.",
+      },
+      {
+        title: "Usa grafo e provider",
+        body: "MCP, provider AI, sorgenti Hermes/Notion/know-how e graph memory devono alimentare decisioni e azioni, non restare solo configurazioni statiche.",
+      },
+    ],
+    actions: [
+      { label: "Crea job agentico", prompt: "Crea un job agentico revisionabile per questa esigenza operativa" },
+      { label: "Diagnostica runner", prompt: "Controlla stato runner, heartbeat, coda e prossime azioni per sbloccare AI Ops" },
+      { label: "Sincronizza grafo", prompt: "Prepara un job per sincronizzare know-how, Notion, clienti e sorgenti nel grafo operativo" },
+    ],
+  },
+  {
+    id: "campagne",
+    path: "/campagne",
+    eyebrow: "Marketing operativo",
+    title: "Qui trasformi obiettivi cliente in campagne eseguibili.",
+    summary:
+      "Campagne deve collegare cliente, obiettivo, canali, asset, calendario editoriale e task di produzione.",
+    steps: [
+      {
+        title: "Definisci obiettivo",
+        body: "Ogni campagna deve avere risultato atteso, pubblico, canali e vincoli. Senza questi dati diventa solo una lista di contenuti.",
+      },
+      {
+        title: "Collega asset e calendario",
+        body: "Post, visual, video, newsletter e landing devono rientrare nel piano editoriale o nel workspace, non restare scollegati.",
+      },
+      {
+        title: "Trasforma in task",
+        body: "La parte agentica deve spezzare la campagna in produzione, review, pubblicazione e misurazione.",
+      },
+    ],
+    actions: [
+      { label: "Pianifica campagna", prompt: "Pianifica una campagna per un cliente con canali, asset, task e calendario" },
+      { label: "Crea contenuti", prompt: "Crea una scaletta di contenuti editoriali per la campagna selezionata" },
+      { label: "Apri calendario", href: "/calendario-editoriale" },
+    ],
+  },
+  {
+    id: "importa-task",
+    path: "/importa-task",
+    eyebrow: "Import operativo",
+    title: "Qui trasformi report e attivita esterne in task Optima.",
+    summary:
+      "Importa task serve a evitare duplicati: legge report operativi, Github o consuntivi e propone task collegate a cliente, progetto e data.",
+    steps: [
+      {
+        title: "Incolla la fonte",
+        body: "Usa report GitHub, rapportini sintetici o liste operative. Optima deve riconoscere cliente, progetto, repository e periodo.",
+      },
+      {
+        title: "Controlla duplicati",
+        body: "Prima di inserire, verifica task gia presenti e ore stimate. L'import deve arricchire, non duplicare.",
+      },
+      {
+        title: "Collega al grafo",
+        body: "Quando la fonte introduce conoscenza riutilizzabile, salvala anche come nodo verificabile della graph memory.",
+      },
+    ],
+    actions: [
+      { label: "Importa report", prompt: "Importa questo report operativo creando task senza duplicati e collegandole a cliente e progetto" },
+      { label: "Controlla duplicati", prompt: "Confronta le attivita incollate con le task esistenti e segnala duplicati o ore mancanti" },
+      { label: "Apri workspace", href: "/workspace" },
+    ],
+  },
+  {
+    id: "settings",
+    path: "/settings",
+    eyebrow: "Configurazione tenant",
+    title: "Qui rendi Optima configurabile e sicura per l'azienda.",
+    summary:
+      "Settings deve governare identita, email, billing, permessi e integrazioni con una logica multi-tenant chiara.",
+    role: "leadership",
+    steps: [
+      {
+        title: "Verifica tenant e ruoli",
+        body: "Ogni configurazione deve essere tenant-scoped: utenti, clienti, segreti e provider non devono contaminarsi tra organizzazioni.",
+      },
+      {
+        title: "Controlla canali email",
+        body: "Inviti, preventivi e riepiloghi rapportini dipendono da email configurate bene e auditabili.",
+      },
+      {
+        title: "Trasforma setup in job",
+        body: "Quando manca una configurazione tecnica, crea un job setup revisionabile invece di lasciare pulsanti non operativi.",
+      },
+    ],
+    actions: [
+      { label: "Audit configurazione", prompt: "Esegui un audit della configurazione tenant, email, ruoli e integrazioni mancanti" },
+      { label: "Crea job setup", prompt: "Crea un job agentico per configurare il setup mancante in modo verificabile" },
+    ],
+  },
+  {
+    id: "super-admin",
+    path: "/super-admin",
+    allowSubpaths: true,
+    eyebrow: "Super admin",
+    title: "Qui controlli tenant, agenzie, token e integrita piattaforma.",
+    summary:
+      "Questa sezione deve restare amministrativa: audit, cleanup, utilizzo AI e configurazioni globali vanno tracciati con prudenza.",
+    role: "leadership",
+    steps: [
+      {
+        title: "Leggi uso e limiti",
+        body: "Token AI, tenant, agenzie e stato database aiutano a capire se Optima sta lavorando in modo sostenibile.",
+      },
+      {
+        title: "Non fare azioni cieche",
+        body: "Cleanup e modifiche globali devono essere revisionabili: prima report, poi approvazione, poi intervento.",
+      },
+      {
+        title: "Crea audit agentico",
+        body: "Per problemi trasversali usa AI Ops: produce evidenze, query e piano di correzione senza cambiare dati al buio.",
+      },
+    ],
+    actions: [
+      { label: "Audit piattaforma", prompt: "Crea un audit super-admin su tenant, token AI, database e rischi operativi" },
+      { label: "Crea job cleanup", prompt: "Prepara un job agentico di cleanup database con output revisionabile e nessuna modifica distruttiva automatica" },
+    ],
+  },
+  {
+    id: "client-workspace",
+    path: "/client-workspace",
+    eyebrow: "Portale cliente",
+    title: "Qui il cliente deve vedere solo cio che e utile e autorizzato.",
+    summary:
+      "Il client workspace deve esporre avanzamento, materiali, richieste e approvazioni senza rivelare dati interni di Righello.",
+    steps: [
+      {
+        title: "Mostra stato leggibile",
+        body: "Il cliente deve capire consegne, richieste aperte e prossime decisioni senza leggere il kanban interno.",
+      },
+      {
+        title: "Mantieni confini chiari",
+        body: "Commenti interni, costi, persone e dati di altri clienti non devono entrare nel portale.",
+      },
+      {
+        title: "Usa AI come supporto",
+        body: "Le azioni agentiche devono preparare sintesi e richieste cliente, ma restare tracciabili in Optima.",
+      },
+    ],
+    actions: [
+      { label: "Sintesi cliente", prompt: "Prepara una sintesi cliente sicura dello stato progetto senza dati interni" },
+      { label: "Crea richiesta", prompt: "Crea una richiesta cliente da trasformare in task interna" },
     ],
   },
   {
@@ -346,6 +511,7 @@ const PAGE_GUIDES: PageGuide[] = [
 
 function normalizePath(pathname: string) {
   if (pathname.startsWith("/dashboard/ai-assistant")) return "/ai-assistant"
+  if (pathname.startsWith("/dashboard/settings")) return "/settings"
   return pathname
 }
 
