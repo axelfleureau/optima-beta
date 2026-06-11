@@ -344,12 +344,15 @@ function dayTimeSignalMeta(day: CalendarPersonDay) {
 
 function calendarCellClass(day: PresencePayload["calendar"]["people"][number]["days"][number]) {
   if (day.status === "absent") return "border-red-300/75 bg-red-500/75 text-white shadow-[0_0_20px_rgba(248,113,113,0.22)]"
-  if (day.status === "holiday") return "border-slate-300/25 bg-slate-400/16 text-slate-300"
-  if (day.status === "missing" && day.intensity === 0) return "border-white/10 bg-white/[0.075] text-slate-500"
+  if (day.status === "holiday") return "border-slate-300/30 bg-slate-400/10 text-slate-300 opacity-75 [background-image:repeating-linear-gradient(135deg,rgba(148,163,184,0.11)_0,rgba(148,163,184,0.11)_6px,transparent_6px,transparent_12px)]"
+  if (day.status === "missing" && day.intensity === 0) return "border-white/10 bg-white/[0.055] text-slate-500"
   if (day.missingDurationTaskCount > 0) return "border-amber-300/70 bg-amber-300/20 text-amber-50 shadow-[0_0_18px_rgba(251,191,36,0.18)]"
+  if ((day.status === "present" || day.status === "closed") && day.intensity === 0) {
+    return "border-blue-300/45 bg-blue-400/18 text-blue-50 shadow-[0_0_16px_rgba(96,165,250,0.12)]"
+  }
 
   const intensityClasses = [
-    "border-white/12 bg-white/[0.09] text-slate-400",
+    "border-blue-300/45 bg-blue-400/18 text-blue-50 shadow-[0_0_16px_rgba(96,165,250,0.12)]",
     "border-emerald-300/40 bg-emerald-400/34 text-emerald-50",
     "border-teal-300/55 bg-teal-400/52 text-white shadow-[0_0_15px_rgba(45,212,191,0.16)]",
     "border-cyan-300/70 bg-cyan-400/72 text-[#03131d] shadow-[0_0_20px_rgba(34,211,238,0.22)]",
@@ -369,11 +372,14 @@ function calendarCellSignal(day: PresencePayload["calendar"]["people"][number]["
   if (day.missingDurationTaskCount > 0) {
     return { label: "Durate mancanti", short: String(day.missingDurationTaskCount), Icon: AlertCircle }
   }
+  if ((day.status === "present" || day.status === "closed") && day.intensity === 0) {
+    return { label: "Da consuntivare", short: "0", Icon: AlertCircle }
+  }
   if (day.intensity >= 4) return { label: "Sprint", short: day.taskCount > 0 ? String(day.taskCount) : "MAX", Icon: Flame }
   if (day.intensity >= 3) return { label: "Focus", short: day.taskCount > 0 ? String(day.taskCount) : "F", Icon: Activity }
   if (day.intensity >= 2) return { label: "Operativo", short: day.taskCount > 0 ? String(day.taskCount) : "ON", Icon: Activity }
-  if (day.intensity >= 1) return { label: "Leggero", short: day.taskCount > 0 ? String(day.taskCount) : "", Icon: UserCheck }
-  return { label: "Vuoto", short: "-", Icon: Minus }
+  if (day.intensity >= 1) return { label: "Bassa attività", short: day.taskCount > 0 ? String(day.taskCount) : "LOW", Icon: UserCheck }
+  return { label: "Non segnato", short: "-", Icon: Minus }
 }
 
 function calendarDayTitle(person: PresencePayload["calendar"]["people"][number], day: PresencePayload["calendar"]["people"][number]["days"][number]) {
@@ -1257,14 +1263,19 @@ function PresenceCalendarHeatmap({
         <span className="font-black uppercase tracking-[0.14em] text-slate-400">Legenda</span>
         <span className="inline-flex items-center gap-2">
           <span className="flex items-center gap-1">
-            <span className="h-4 w-4 rounded-[5px] border border-white/10 bg-white/[0.09]" />
+            <span className="h-4 w-4 rounded-[5px] border border-blue-300/45 bg-blue-400/18" />
             <span className="h-4 w-4 rounded-[5px] border border-emerald-300/35 bg-emerald-400/30" />
             <span className="h-4 w-4 rounded-[5px] border border-teal-300/45 bg-teal-400/45" />
             <span className="h-4 w-4 rounded-[5px] border border-cyan-300/60 bg-cyan-400/62" />
             <span className="h-4 w-4 rounded-[5px] border border-righello-pink/75 bg-righello-pink/78" />
           </span>
-          <span>leggero · operativo · focus · sprint</span>
+          <span>da consuntivare · bassa attività · operativo · focus · sprint</span>
         </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-4 w-4 rounded-[5px] border border-slate-300/30 bg-slate-400/10 [background-image:repeating-linear-gradient(135deg,rgba(148,163,184,0.22)_0,rgba(148,163,184,0.22)_4px,transparent_4px,transparent_8px)]" />
+          festivo
+        </span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-white/10 bg-white/[0.055]" /> non segnato</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded-[5px] border border-red-300/70 bg-red-500/70" /> assenza</span>
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-flex h-4 w-7 items-center justify-center rounded-[5px] border border-amber-200/70 bg-amber-300 text-[9px] font-black text-[#171106]">
