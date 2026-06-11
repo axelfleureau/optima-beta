@@ -294,6 +294,36 @@ interface AgenticProductionReadiness {
   gaps: AgenticReadinessGap[]
 }
 
+interface SelfImprovementSnapshot {
+  generatedAt: string
+  windowDays: number
+  score: number
+  summary: string
+  signals: Array<{
+    id: string
+    label: string
+    severity: "critical" | "high" | "medium" | "low"
+    count: number
+    detail: string
+  }>
+  metrics: {
+    aiCalls: number
+    aiTokens: number
+    negativeFeedback: number
+    failedJobs: number
+    reviewJobs: number
+    staleQueuedJobs: number
+    recentTasks: number
+    recentQuotes: number
+  }
+  recommendedJob: {
+    title: string
+    contextSummary: string
+    brief: string
+    priority: number
+  }
+}
+
 const initialForm = {
   title: "",
   jobType: "task_update",
@@ -1450,6 +1480,8 @@ export function AgentJobsClient({
   const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
   const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
   const [productionReadiness, setProductionReadiness] = useState<AgenticProductionReadiness | null>(null)
+  const [selfImprovement, setSelfImprovement] = useState<SelfImprovementSnapshot | null>(null)
+  const [isCreatingSelfImprovement, setIsCreatingSelfImprovement] = useState(false)
   const [isSeedingGraph, setIsSeedingGraph] = useState(false)
   const [graphQuery, setGraphQuery] = useState("")
   const [graphNodeTypeFilter, setGraphNodeTypeFilter] = useState("")
@@ -1505,6 +1537,22 @@ export function AgentJobsClient({
       })
       .catch(() => {
         if (active) setProductionReadiness(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/agentic-improvements", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data) setSelfImprovement(data)
+      })
+      .catch(() => {
+        if (active) setSelfImprovement(null)
       })
 
     return () => {
@@ -1959,6 +2007,30 @@ export function AgentJobsClient({
     })
   }
 
+  async function createSelfImprovementJob() {
+    try {
+      setIsCreatingSelfImprovement(true)
+      setError(null)
+      const response = await fetch("/api/agentic-improvements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: selfImprovement?.windowDays ?? 7 }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Errore creazione auto-miglioramento")
+      setSelfImprovement(data)
+      if (data.job) {
+        setJobs((current) => (current.some((job) => job.id === data.job.id) ? current : [data.job, ...current]))
+        setJobFilter("active")
+        setMobilePanel("jobs")
+      }
+    } catch (err: any) {
+      setError(err?.message ?? "Errore creazione auto-miglioramento")
+    } finally {
+      setIsCreatingSelfImprovement(false)
+    }
+  }
+
   async function loadGraphNode(node: AgenticGraphNode) {
     setSelectedGraphNodeId(node.id)
     setGraphNodeDetail(null)
@@ -2252,6 +2324,17 @@ export function AgentJobsClient({
       busyKey: "graph:seed",
       onClick: seedGraphReferences,
       complete: graphReady,
+    },
+    {
+      title: "Auto-miglioramento",
+      detail: selfImprovement ? `${selfImprovement.score}/100` : "analisi uso",
+      body:
+        selfImprovement?.summary ??
+        "Legge usage, feedback, job agentici e workspace per creare un job Codex revisionabile.",
+      action: "Crea job",
+      busyKey: "self-improvement:create",
+      onClick: createSelfImprovementJob,
+      complete: Boolean(selfImprovement && selfImprovement.signals.length === 0),
     },
     {
       title: "Obsidian Vault",
@@ -3373,10 +3456,60 @@ export function AgentJobsClient({
               ) : graphHasActiveFilter && !isSearchingGraph ? (
                 <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15]/70 p-3 text-sm text-slate-400">
                   Nessun nodo trovato con questi filtri.
-                </div>
-              ) : null}
+            </div>
+          ) : null}
 
-              <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-white">Auto-miglioramento controllato</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  {selfImprovement?.summary ??
+                    "Optima puo leggere dati d'uso, feedback, job falliti e superfici attive per proporre patch Codex revisionabili."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={createSelfImprovementJob}
+                disabled={isCreatingSelfImprovement}
+                className="h-9 w-full shrink-0 rounded-lg border-emerald-300/25 bg-emerald-300/10 px-3 text-xs font-bold text-emerald-50 hover:bg-emerald-300/15 sm:w-auto"
+              >
+                {isCreatingSelfImprovement ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
+                Crea job Codex
+              </Button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                ["Score", selfImprovement?.score ?? "--"],
+                ["Feedback -", selfImprovement?.metrics.negativeFeedback ?? "--"],
+                ["Job falliti", selfImprovement?.metrics.failedJobs ?? "--"],
+                ["AI calls", selfImprovement?.metrics.aiCalls ?? "--"],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2">
+                  <p className="truncate text-[11px] text-slate-500">{label}</p>
+                  <p className="mt-1 text-lg font-black text-white">{value}</p>
+                </div>
+              ))}
+            </div>
+            {selfImprovement?.signals.length ? (
+              <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                {selfImprovement.signals.slice(0, 4).map((signal) => (
+                  <div key={signal.id} className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 truncate text-sm font-black text-white">{signal.label}</p>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${readinessSeverityTone[signal.severity]}`}>
+                        {signal.severity}
+                      </span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{signal.detail}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
                 {graphTypes.length ? (
                   graphTypes.map(([type, count]) => (
                     <span key={type} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
