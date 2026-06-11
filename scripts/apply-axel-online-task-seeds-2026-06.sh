@@ -3,11 +3,6 @@ set -euo pipefail
 
 DB_NAME="${OPTIMA_D1_DATABASE_NAME:-optima-beta-production-db}"
 
-if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
-  echo "Missing CLOUDFLARE_API_TOKEN. Export a Cloudflare API token with D1 edit access before running." >&2
-  exit 1
-fi
-
 files=(
   "scripts/seed-axel-github-2026-06-04-to-06.sql"
   "scripts/fix-axel-github-duration-2026-06-05.sql"
