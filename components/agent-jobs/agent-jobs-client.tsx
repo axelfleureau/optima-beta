@@ -877,10 +877,20 @@ function GraphMemoryMap({
   }
 
   return (
-    <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-white/10 bg-[#050914]/85">
-      <div className="grid gap-2 border-b border-white/10 px-3 py-2 sm:flex sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Vista Obsidian</p>
+    <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-violet-300/20 bg-[#0b0914]/95 shadow-[0_0_0_1px_rgba(168,85,247,0.08),0_24px_80px_rgba(88,28,135,0.18)]">
+      <div className="grid gap-3 border-b border-violet-300/15 bg-[#171426]/90 px-3 py-3 sm:flex sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-violet-300/25 bg-violet-300/10">
+              <span className="absolute h-2.5 w-2.5 rounded-full bg-violet-200 shadow-[0_0_16px_rgba(221,214,254,0.7)]" />
+              <span className="absolute left-2 top-2 h-1.5 w-1.5 rounded-full bg-slate-300" />
+              <span className="absolute bottom-2 right-2 h-1.5 w-1.5 rounded-full bg-slate-300" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black uppercase tracking-[0.16em] text-violet-100">Obsidian Graph</p>
+              <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">Vault: Optima Obsidian Vault - global graph / local graph</p>
+            </div>
+          </div>
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 sm:hidden" title={summary}>
             {layout.length}/{totalNodes}
           </span>
@@ -891,10 +901,10 @@ function GraphMemoryMap({
           </span>
           <a
             href={OBSIDIAN_VAULT_URI}
-            className="inline-flex h-7 items-center rounded-full border border-violet-300/25 bg-violet-300/10 px-2 text-[10px] font-black text-violet-100 transition hover:bg-violet-300/15"
+            className="inline-flex h-7 items-center rounded-full border border-violet-300/35 bg-violet-300/15 px-2.5 text-[10px] font-black text-violet-50 transition hover:bg-violet-300/25"
             title="Apre il vault Obsidian generato da npm run obsidian:graph:export"
           >
-            Obsidian
+            Apri Obsidian
           </a>
           {densityOptions.map((limit) => (
             <button
@@ -959,7 +969,7 @@ function GraphMemoryMap({
 
       {layout.length ? (
         <div
-          className={`relative h-[390px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.10),transparent_48%),linear-gradient(180deg,rgba(15,23,42,0.12),rgba(2,6,23,0.72))] sm:h-[460px] ${
+          className={`relative h-[430px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_45%,rgba(168,85,247,0.24),transparent_34%),radial-gradient(circle_at_22%_18%,rgba(148,163,184,0.10),transparent_24%),linear-gradient(180deg,#0d1020,#070914_58%,#05060d)] sm:h-[520px] ${
             dragState ? "cursor-grabbing" : "cursor-grab"
           }`}
           onPointerDown={handleGraphPointerDown}
@@ -971,6 +981,9 @@ function GraphMemoryMap({
             setZoom((current) => clampGraphZoom(current + (event.deltaY > 0 ? -0.12 : 0.12)))
           }}
         >
+          <div className="pointer-events-none absolute right-4 top-4 z-10 hidden text-5xl font-black uppercase tracking-[0.22em] text-violet-200/[0.055] sm:block">
+            Obsidian
+          </div>
           <svg className="absolute inset-0 h-full w-full" viewBox={viewBox} preserveAspectRatio="xMidYMid meet" aria-label="Vista Obsidian della graph memory Optima">
             <defs>
               <filter id="graphGlow" x="-50%" y="-50%" width="200%" height="200%">
@@ -1068,12 +1081,13 @@ function GraphMemoryMap({
               )
             })}
           </svg>
-          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-lg border border-white/10 bg-[#050914]/80 px-3 py-2 text-[11px] leading-5 text-slate-400 backdrop-blur">
-            <span className="font-bold text-slate-200">Obsidian view.</span> Pallini = note/nodi, linee = backlink/relazioni, dimensione = centralita. Trascina, zooma e tocca un nodo per aprire il vicinato locale.
+          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-lg border border-violet-300/15 bg-[#0b0914]/86 px-3 py-2 text-[11px] leading-5 text-slate-400 backdrop-blur">
+            <span className="font-bold text-violet-100">Obsidian Graph View.</span> Pallini = note/nodi, linee = backlink/relazioni, dimensione = centralita. Trascina, zooma e tocca un nodo per aprire il vicinato locale.
             {selectedNodeId ? " Il focus mostra il nodo selezionato e i suoi vicini." : ""}
           </div>
           {selectedLayoutNode ? (
-            <div className="pointer-events-none absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-lg border border-cyan-300/20 bg-[#050914]/88 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-cyan-950/20 backdrop-blur sm:max-w-sm">
+            <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-violet-300/25 bg-[#171426]/92 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-violet-950/20 backdrop-blur sm:max-w-sm">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-violet-200">Local graph</p>
               <div className="flex items-start gap-2">
                 <span
                   className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
@@ -1090,7 +1104,14 @@ function GraphMemoryMap({
                 </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-violet-300/20 bg-[#171426]/88 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-violet-950/20 backdrop-blur sm:max-w-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-200">Global graph</p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Vista Obsidian del vault Optima. Tocca un nodo per passare al local graph con vicini e backlink.
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="p-4 text-sm leading-6 text-slate-500">
