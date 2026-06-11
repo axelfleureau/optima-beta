@@ -1765,6 +1765,27 @@ export function AgentJobsClient({
     })
   }
 
+  async function createObsidianVaultJob() {
+    await createCapabilitySetupJob({
+      actionKey: "stack-setup:obsidian-vault",
+      title: "Aggiorna Obsidian Vault da graph memory Optima",
+      contextSummary: "Obsidian Vault / Graph memory",
+      brief: [
+        "Prepara ed esegui in modo revisionabile l'aggiornamento del vault Obsidian di Optima dalla graph memory aziendale.",
+        "Usa lo script scripts/export-agentic-graph-obsidian-vault.mjs e produci un report con numero di note, archi, sorgenti escluse e percorso del vault.",
+        "Il vault target e /Users/axel/Documents/Optima Obsidian Vault. Non importare allegati pesanti, video, credenziali, token o dump integrali di conversazioni.",
+        "Le note Obsidian possono rientrare in Optima solo come obsidian_note revisionate: frontmatter chiaro, source_id stabile, summary breve, tag e confidence. Nessuna scrittura automatica su dati business senza review.",
+        "Output richiesto: comando esatto, eventuale patch necessaria, health check del vault, istruzioni per aprire Obsidian e piano per importare note revisionate nel grafo.",
+      ].join("\n\n"),
+      metadata: {
+        setupKind: "obsidian-vault",
+        exportScript: "scripts/export-agentic-graph-obsidian-vault.mjs",
+        vaultDir: "/Users/axel/Documents/Optima Obsidian Vault",
+        sourcePolicy: "markdown_frontmatter_index_only_no_binary_assets_no_secrets",
+      },
+    })
+  }
+
   async function loadGraphNode(node: AgenticGraphNode) {
     setSelectedGraphNodeId(node.id)
     setGraphNodeDetail(null)
@@ -2058,6 +2079,15 @@ export function AgentJobsClient({
       busyKey: "graph:seed",
       onClick: seedGraphReferences,
       complete: graphReady,
+    },
+    {
+      title: "Obsidian Vault",
+      detail: `${Number(graphMemory?.stats.byType?.graph_workspace ?? 0)} workspace`,
+      body: "Esporta il grafo Optima in un vault Obsidian con note, wikilink, backlink e frontmatter revisionabile.",
+      action: "Job vault",
+      busyKey: "stack-setup:obsidian-vault",
+      onClick: createObsidianVaultJob,
+      complete: Number(graphMemory?.stats.byType?.graph_workspace ?? 0) > 0 || Number(graphMemory?.stats.byType?.obsidian_note ?? 0) > 0,
     },
     {
       title: "Dati Hermes Righello",
@@ -2847,6 +2877,47 @@ export function AgentJobsClient({
                       Graphify fornisce pipeline e MCP query del grafo; Optima conserva nodi, archi, tenant, permessi, review e dati aziendali.
                     </p>
                   </div>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-lg border border-violet-300/20 bg-violet-300/[0.06] p-3">
+                <div className="flex flex-col gap-3 min-[560px]:flex-row min-[560px]:items-start min-[560px]:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white">Obsidian come workspace visuale del grafo</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-300">
+                      Optima resta sorgente autoritativa. Obsidian serve per esplorare e curare note/backlink; il rientro in Optima avviene solo con note revisionate.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 min-[420px]:grid-cols-2 min-[560px]:shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={createObsidianVaultJob}
+                      disabled={setupAction === "stack-setup:obsidian-vault"}
+                      className="h-9 rounded-lg border-violet-300/25 bg-violet-300/10 px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
+                    >
+                      {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
+                      Aggiorna vault
+                    </Button>
+                    <a
+                      href={OBSIDIAN_VAULT_URI}
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 transition hover:bg-violet-300/15"
+                    >
+                      Apri Obsidian
+                    </a>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {[
+                    ["Workspace", Number(graphMemory?.stats.byType?.graph_workspace ?? 0)],
+                    ["Note", Number(graphMemory?.stats.byType?.obsidian_note ?? 0)],
+                    ["Know-how", knowhowNodeCount],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-violet-300/15 bg-[#0b0914]/70 p-2">
+                      <p className="truncate text-[11px] text-slate-500">{label}</p>
+                      <p className="mt-1 text-lg font-black text-white">{value}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
