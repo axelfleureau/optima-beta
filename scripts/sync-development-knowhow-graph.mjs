@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { basename, join } from "node:path"
+import { basename, extname, join } from "node:path"
 
 const knowhowDir =
   process.env.KNOWHOW_DIR || "/Users/axel/Documents/Codex/development/knowhow"
@@ -82,6 +82,18 @@ function catalogSourceType(entry) {
   return entry.type === "skill-installata" ? "codex_skill_catalog" : "codex_knowhow_catalog"
 }
 
+function fileSourceId(relativePath) {
+  return `development/knowhow/${relativePath}`
+}
+
+function normalizeCatalogLink(entry) {
+  const link = String(entry.link || "")
+  if (link && !link.startsWith("/") && !link.startsWith("http://") && !link.startsWith("https://")) return link
+  const path = String(entry.path || "")
+  if (path.startsWith(knowhowDir)) return path.slice(knowhowDir.length + 1)
+  return null
+}
+
 function nodeUpsert({ id, nodeType, title, summary, sourceType, sourceId, tags, properties }) {
   return `INSERT INTO agentic_graph_nodes (
   id, organization_id, node_type, title, summary, source_type, source_id,
@@ -123,12 +135,13 @@ ON CONFLICT(organization_id, from_node_id, to_node_id, edge_type) DO UPDATE SET
 }
 
 function collectKnowledgeFiles(dir, prefix = "") {
+  const includedExtensions = new Set([".md", ".txt", ".json", ".csv", ".yaml", ".yml"])
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     if (entry.name.startsWith(".") || entry.name === "node_modules") return []
     const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name
     const fullPath = join(dir, entry.name)
     if (entry.isDirectory()) return collectKnowledgeFiles(fullPath, relativePath)
-    if (entry.isFile() && (entry.name.endsWith(".md") || relativePath === "llms.txt")) return [relativePath]
+    if (entry.isFile() && includedExtensions.has(extname(entry.name).toLowerCase())) return [relativePath]
     return []
   })
 }
@@ -144,6 +157,7 @@ const fileSet = new Set(files)
 const currentSourceKeys = [
   "codex_knowhow:development-knowhow-index",
   ...catalogEntries.map((entry) => `${catalogSourceType(entry)}:${catalogSourceId(entry)}`),
+  ...files.map((relativePath) => `codex_knowhow_file:${fileSourceId(relativePath)}`),
 ]
 const currentSourceKeysSql = currentSourceKeys.map(sql).join(", ")
 
@@ -172,15 +186,56 @@ const statements = [
       directory: knowhowDir,
       fileCount: files.length,
       catalogCount: catalogEntries.length,
-      syncPolicy: "catalog_entries_plus_markdown_enrichment_no_secrets",
+      syncPolicy: "catalog_entries_plus_all_knowhow_files_no_secrets",
     },
   }),
 ]
 
+for (const relativePath of files) {
+  const fullPath = join(knowhowDir, relativePath)
+  const content = readFileSync(fullPath, "utf8")
+  const stat = statSync(fullPath)
+  const sourceId = fileSourceId(relativePath)
+  const extension = extname(relativePath).toLowerCase()
+  const isMarkdownLike = extension === ".md" || extension === ".txt"
+  statements.push(
+    nodeUpsert({
+      id: `agnode_knowhow_${hashId(`${organizationId}:file:${sourceId}`)}`,
+      nodeType: "knowledge_file",
+      title: isMarkdownLike ? titleFromMarkdown(fullPath, content) : relativePath,
+      summary: isMarkdownLike
+        ? summarize(content)
+        : `File strutturato del knowhow globale Codex/Righello: ${relativePath}.`,
+      sourceType: "codex_knowhow_file",
+      sourceId,
+      tags: isMarkdownLike ? tagsFor(relativePath, content) : ["codex-knowhow", "development-knowhow", extension.slice(1)],
+      properties: {
+        relativePath,
+        filePath: fullPath,
+        extension,
+        headings: isMarkdownLike ? headings(content) : [],
+        bytes: stat.size,
+        modifiedAt: stat.mtime.toISOString(),
+      },
+    }),
+  )
+  statements.push(
+    edgeUpsertBySource({
+      id: `agedge_knowhow_${hashId(`${organizationId}:index:file:${sourceId}`)}`,
+      fromSourceType: "codex_knowhow",
+      fromSourceId: "development-knowhow-index",
+      toSourceType: "codex_knowhow_file",
+      toSourceId: sourceId,
+      edgeType: "indexes_knowhow_file",
+      weight: 0.8,
+      properties: { relativePath },
+    }),
+  )
+}
+
 for (const entry of catalogEntries) {
-  const link = String(entry.link || "")
   const sourceId = catalogSourceId(entry)
-  const relativePath = link && !link.startsWith("/") ? link : null
+  const relativePath = normalizeCatalogLink(entry)
   const fullPath = relativePath ? join(knowhowDir, relativePath) : String(entry.path || "")
   const hasLocalMarkdown = relativePath && fileSet.has(relativePath)
   const content = hasLocalMarkdown ? readFileSync(fullPath, "utf8") : ""
@@ -226,6 +281,20 @@ for (const entry of catalogEntries) {
       properties: { catalogId: entry.id, category: entry.category, sourceType },
     }),
   )
+  if (relativePath && fileSet.has(relativePath)) {
+    statements.push(
+      edgeUpsertBySource({
+        id: `agedge_knowhow_${hashId(`${organizationId}:catalog:file:${sourceId}:${relativePath}`)}`,
+        fromSourceType: sourceType,
+        fromSourceId: sourceId,
+        toSourceType: "codex_knowhow_file",
+        toSourceId: fileSourceId(relativePath),
+        edgeType: "documented_by_file",
+        weight: 0.9,
+        properties: { catalogId: entry.id, relativePath },
+      }),
+    )
+  }
 }
 
 const tempDir = mkdtempSync(join(tmpdir(), "optima-knowhow-"))
@@ -235,13 +304,13 @@ writeFileSync(sqlPath, `${statements.join("\n\n")}\n`, "utf8")
 try {
   if (dryRun) {
     console.log(
-      `Dry run: would sync ${catalogEntries.length + 1} know-how graph nodes and ${catalogEntries.length} index edges into ${database}/${environment}.`,
+      `Dry run: would sync ${catalogEntries.length} catalog entries, ${files.length} files and 1 root node into ${database}/${environment}.`,
     )
   } else {
     execFileSync("npx", ["wrangler", "d1", "execute", database, "--env", environment, "--remote", "--file", sqlPath], {
       stdio: "inherit",
     })
-    console.log(`Synced ${files.length} know-how notes into ${database}/${environment}.`)
+    console.log(`Synced ${catalogEntries.length} catalog entries and ${files.length} know-how files into ${database}/${environment}.`)
   }
 } finally {
   rmSync(tempDir, { recursive: true, force: true })
