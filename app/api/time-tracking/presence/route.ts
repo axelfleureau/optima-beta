@@ -617,9 +617,23 @@ export async function GET(request: NextRequest) {
         people: calendarPeople,
       },
       summary,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0, must-revalidate",
+        Pragma: "no-cache",
+      },
     })
   } catch (error) {
     console.error("Presence GET error:", error)
-    return Response.json({ error: "Errore nel caricamento presenze" }, { status: 500 })
+    return Response.json(
+      { error: "Errore nel caricamento presenze" },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, max-age=0, must-revalidate",
+          Pragma: "no-cache",
+        },
+      },
+    )
   }
 }

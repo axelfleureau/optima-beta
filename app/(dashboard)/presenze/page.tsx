@@ -490,7 +490,13 @@ export default function PresenzePage() {
     setError("")
 
     try {
-      const response = await fetch(`/api/time-tracking/presence?date=${date}`, { cache: "no-store" })
+      const params = new URLSearchParams({ date, t: String(Date.now()) })
+      const response = await fetch(`/api/time-tracking/presence?${params.toString()}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || "Errore nel caricamento presenze")
       setPayload(data)
@@ -507,8 +513,23 @@ export default function PresenzePage() {
   }, [load])
 
   useEffect(() => {
-    const interval = window.setInterval(() => load("refresh"), 30000)
+    const interval = window.setInterval(() => load("refresh"), 10000)
     return () => window.clearInterval(interval)
+  }, [load])
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void load("refresh")
+    }
+    const refreshOnFocus = () => void load("refresh")
+
+    document.addEventListener("visibilitychange", refreshWhenVisible)
+    window.addEventListener("focus", refreshOnFocus)
+
+    return () => {
+      document.removeEventListener("visibilitychange", refreshWhenVisible)
+      window.removeEventListener("focus", refreshOnFocus)
+    }
   }, [load])
 
   const self = payload?.self || null
@@ -855,6 +876,31 @@ function PresenceCalendarHeatmap({
     () => getCalendarDayRecords(visiblePeople, selectedDate),
     [visiblePeople, selectedDate],
   )
+
+  useEffect(() => {
+    setActiveSignal((current) => {
+      if (!current) return null
+      const person = visiblePeople.find((item) => item.id === current.person.id)
+      const day = person?.days.find((item) => item.date === current.day.date)
+      if (!person || !day || !day.signal) return null
+      return { person, day }
+    })
+
+    setActiveCell((current) => {
+      if (!current) return null
+      const person = visiblePeople.find((item) => item.id === current.person.id)
+      const day = person?.days.find((item) => item.date === current.day.date)
+      if (!person || !day) return null
+      return { person, day }
+    })
+
+    setActiveDay((current) => {
+      if (!current) return null
+      const records = getCalendarDayRecords(visiblePeople, current.date)
+      return records.length > 0 ? { date: current.date, records } : null
+    })
+  }, [visiblePeople])
+
   const openDayDetails = useCallback(
     (date: string, records?: Array<{ person: CalendarPerson; day: CalendarPersonDay }>) => {
       const dayRecords = records ?? getCalendarDayRecords(visiblePeople, date)
