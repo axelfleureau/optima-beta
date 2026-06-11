@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import type { Task, TaskComment, SubItem } from "@/lib/types"
+import { notifyOperationalDataChanged, useLiveRefresh } from "@/hooks/use-live-refresh"
 
 type CreateTaskInput = {
   title: string
@@ -124,6 +125,7 @@ export function useWorkspaceData() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const hasLoadedRef = useRef(false)
 
   const refreshTasks = useCallback(async () => {
     if (authLoading) return
@@ -134,7 +136,7 @@ export function useWorkspaceData() {
       return
     }
 
-    setLoading(true)
+    setLoading(!hasLoadedRef.current)
     setError(null)
 
     try {
@@ -148,6 +150,7 @@ export function useWorkspaceData() {
       console.error("Error loading workspace tasks:", err)
       setError(err instanceof Error ? err.message : "Errore nel caricamento delle task")
     } finally {
+      hasLoadedRef.current = true
       setLoading(false)
     }
   }, [authLoading, user, userData?.tenantId])
@@ -155,6 +158,11 @@ export function useWorkspaceData() {
   useEffect(() => {
     refreshTasks()
   }, [refreshTasks])
+
+  useLiveRefresh(refreshTasks, {
+    enabled: Boolean(user && userData?.tenantId && !authLoading),
+    intervalMs: 15000,
+  })
 
   const createTask = async (task: CreateTaskInput) => {
     try {
@@ -170,6 +178,7 @@ export function useWorkspaceData() {
       const payload = await parseTaskResponse(response)
       const createdTask = normalizeTask(payload.task)
       setTasks((current) => [createdTask, ...current])
+      notifyOperationalDataChanged()
       return createdTask
     } catch (err) {
       console.error("Error creating task:", err)
@@ -192,6 +201,7 @@ export function useWorkspaceData() {
       const payload = await parseTaskResponse(response)
       const updatedTask = normalizeTask(payload.task)
       setTasks((current) => current.map((task) => (task.id === taskId ? updatedTask : task)))
+      notifyOperationalDataChanged()
     } catch (err) {
       console.error("Error updating task:", err)
       setError(err instanceof Error ? err.message : "Errore durante l'aggiornamento della task")
@@ -217,6 +227,7 @@ export function useWorkspaceData() {
       const payload = await parseTaskResponse(response)
       const updatedTask = normalizeTask(payload.task)
       setTasks((current) => current.map((task) => (task.id === taskId ? updatedTask : task)))
+      notifyOperationalDataChanged()
       return updatedTask
     } catch (err) {
       console.error("Error uploading task attachments:", err)
@@ -235,6 +246,7 @@ export function useWorkspaceData() {
       const payload = await parseTaskResponse(response)
       const updatedTask = normalizeTask(payload.task)
       setTasks((current) => current.map((task) => (task.id === taskId ? updatedTask : task)))
+      notifyOperationalDataChanged()
       return updatedTask
     } catch (err) {
       console.error("Error deleting task attachment:", err)
@@ -255,6 +267,7 @@ export function useWorkspaceData() {
       })
 
       await parseTaskResponse(response)
+      notifyOperationalDataChanged()
     } catch (err) {
       console.error("Error deleting task:", err)
       setTasks(previousTasks)
@@ -287,6 +300,7 @@ export function useWorkspaceData() {
       const payload = await parseTaskResponse(response)
       const updatedTask = normalizeTask(payload.task)
       setTasks((current) => current.map((task) => (task.id === taskId ? updatedTask : task)))
+      notifyOperationalDataChanged()
     } catch (err) {
       console.error("Error moving task:", err)
       setTasks(previousTasks)

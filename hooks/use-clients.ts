@@ -1,14 +1,16 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import type { Client } from "@/lib/types"
+import { useLiveRefresh } from "@/hooks/use-live-refresh"
 
 export function useClients() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { userData, loading: authLoading } = useAuth()
+  const hasLoadedRef = useRef(false)
 
   const refreshClients = useCallback(async () => {
     if (authLoading) return
@@ -19,7 +21,7 @@ export function useClients() {
       return
     }
 
-    setLoading(true)
+    setLoading(!hasLoadedRef.current)
     setError(null)
 
     try {
@@ -44,6 +46,7 @@ export function useClients() {
       setError(err instanceof Error ? err.message : "Errore nel caricamento dei clienti")
       setClients([])
     } finally {
+      hasLoadedRef.current = true
       setLoading(false)
     }
   }, [authLoading, userData?.tenantId])
@@ -51,6 +54,11 @@ export function useClients() {
   useEffect(() => {
     refreshClients()
   }, [refreshClients])
+
+  useLiveRefresh(refreshClients, {
+    enabled: Boolean(userData?.tenantId && !authLoading),
+    intervalMs: 30000,
+  })
 
   return {
     clients,

@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import type { Project } from "@/lib/types"
+import { notifyOperationalDataChanged, useLiveRefresh } from "@/hooks/use-live-refresh"
 
 type ProjectInput = {
   name: string
@@ -41,6 +42,7 @@ export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const hasLoadedRef = useRef(false)
 
   const refreshProjects = useCallback(async () => {
     if (authLoading) return
@@ -51,7 +53,7 @@ export function useProjects() {
       return
     }
 
-    setLoading(true)
+    setLoading(!hasLoadedRef.current)
     setError(null)
 
     try {
@@ -66,6 +68,7 @@ export function useProjects() {
       setError(err instanceof Error ? err.message : "Errore nel caricamento dei progetti")
       setProjects([])
     } finally {
+      hasLoadedRef.current = true
       setLoading(false)
     }
   }, [authLoading, user, userData?.tenantId])
@@ -73,6 +76,11 @@ export function useProjects() {
   useEffect(() => {
     refreshProjects()
   }, [refreshProjects])
+
+  useLiveRefresh(refreshProjects, {
+    enabled: Boolean(user && userData?.tenantId && !authLoading),
+    intervalMs: 30000,
+  })
 
   const createProject = async (project: ProjectInput) => {
     try {
@@ -88,6 +96,7 @@ export function useProjects() {
       const payload = await parseProjectResponse(response)
       const createdProject = normalizeProject(payload.project)
       setProjects((current) => [createdProject, ...current])
+      notifyOperationalDataChanged()
       return createdProject
     } catch (err) {
       console.error("Error creating project:", err)
@@ -110,6 +119,7 @@ export function useProjects() {
       const payload = await parseProjectResponse(response)
       const updatedProject = normalizeProject(payload.project)
       setProjects((current) => current.map((project) => (project.id === projectId ? updatedProject : project)))
+      notifyOperationalDataChanged()
       return updatedProject
     } catch (err) {
       console.error("Error updating project:", err)

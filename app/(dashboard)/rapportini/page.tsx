@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { notifyOperationalDataChanged, useLiveRefresh } from "@/hooks/use-live-refresh"
 import {
   AlertTriangle,
   Building2,
@@ -263,6 +264,7 @@ export default function RapportiniPage() {
   const [activity, setActivity] = useState("")
   const [minutes, setMinutes] = useState("60")
   const [notes, setNotes] = useState("")
+  const hasLoadedRef = useRef(false)
 
   const shiftDate = (days: number) => {
     const [year, month, day] = date.split("-").map(Number)
@@ -272,7 +274,7 @@ export default function RapportiniPage() {
   }
 
   const load = useCallback(async () => {
-    setLoading(true)
+    setLoading(!hasLoadedRef.current)
     setError("")
 
     const params = new URLSearchParams({ date })
@@ -291,6 +293,7 @@ export default function RapportiniPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore nel caricamento rapportino")
     } finally {
+      hasLoadedRef.current = true
       setLoading(false)
     }
   }, [date, selectedMemberId])
@@ -298,6 +301,11 @@ export default function RapportiniPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useLiveRefresh(load, {
+    enabled: Boolean(payload || !loading),
+    intervalMs: 15000,
+  })
 
   const targetOptions = useMemo<TargetOption[]>(() => {
     if (!payload) return []
@@ -437,6 +445,7 @@ export default function RapportiniPage() {
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.error || "Errore aggiornamento giornata")
     await load()
+    notifyOperationalDataChanged()
   }
 
   const undoCheckOut = async () => {
@@ -470,6 +479,7 @@ export default function RapportiniPage() {
     setSelectedTarget("")
     setSelectedClientId("")
     await load()
+    notifyOperationalDataChanged()
   }
 
   const handleDeleteEntry = async (id: string) => {
@@ -477,6 +487,7 @@ export default function RapportiniPage() {
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.error || "Errore rimozione attività")
     await load()
+    notifyOperationalDataChanged()
   }
 
   const handleSubmitReport = async () => {
@@ -488,6 +499,7 @@ export default function RapportiniPage() {
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.error || "Errore invio rapportino")
     await load()
+    notifyOperationalDataChanged()
     toast.success(data.emailSent ? "Rapportino inviato e riepilogo email spedito" : "Rapportino inviato per revisione")
   }
 

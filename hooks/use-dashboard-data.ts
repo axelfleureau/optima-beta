@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
+import { useLiveRefresh } from "@/hooks/use-live-refresh"
 
 interface DashboardStats {
   totalClients: number
@@ -43,6 +44,7 @@ export function useDashboardData() {
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const hasLoadedRef = useRef(false)
 
   const fetchDashboardData = useCallback(async () => {
     if (authLoading) return
@@ -55,7 +57,7 @@ export function useDashboardData() {
     }
 
     try {
-      setLoading(true)
+      setLoading(!hasLoadedRef.current)
       setError(null)
 
       const response = await fetch("/api/dashboard", {
@@ -79,6 +81,7 @@ export function useDashboardData() {
       console.error("Error fetching dashboard data:", err)
       setError("Errore nel caricamento dei dati della dashboard")
     } finally {
+      hasLoadedRef.current = true
       setLoading(false)
     }
   }, [authLoading, user?.uid])
@@ -86,6 +89,11 @@ export function useDashboardData() {
   useEffect(() => {
     fetchDashboardData()
   }, [fetchDashboardData, userData?.tenantId])
+
+  useLiveRefresh(fetchDashboardData, {
+    enabled: Boolean(user?.uid && !authLoading),
+    intervalMs: 30000,
+  })
 
   return {
     stats,
