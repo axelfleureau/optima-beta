@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "node scripts/run-with-wrangler-vars.mjs production -- next build",
     "cf:build": "node scripts/run-with-wrangler-vars.mjs -- opennextjs-cloudflare build",
     "cf:deploy": "node scripts/run-with-wrangler-vars.mjs -- opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf:deploy:staging": "node scripts/run-with-wrangler-vars.mjs staging -- opennextjs-cloudflare build && opennextjs-cloudflare deploy --env staging",
