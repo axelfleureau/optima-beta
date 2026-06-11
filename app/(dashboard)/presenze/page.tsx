@@ -954,6 +954,8 @@ function PresenceCalendarHeatmap({
   const openCellDetails = useCallback(
     (selection: HeatmapCellSelection) => {
       setActiveCell(selection)
+      setActiveDay(null)
+      setActiveSignal(null)
       onDateChange(selection.day.date)
     },
     [onDateChange],
@@ -961,6 +963,7 @@ function PresenceCalendarHeatmap({
   const openHeatmapDayDetails = useCallback(
     (date: string) => {
       setActiveCell(null)
+      setActiveSignal(null)
       openDayDetails(date)
     },
     [openDayDetails],
