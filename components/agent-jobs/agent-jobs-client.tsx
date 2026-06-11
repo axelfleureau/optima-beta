@@ -324,6 +324,44 @@ interface SelfImprovementSnapshot {
   }
 }
 
+interface AgenticRecoverySnapshot {
+  generatedAt: string
+  score: number
+  headline: string
+  nextAction: string
+  metrics: {
+    graphNodes: number
+    graphEdges: number
+    knowhowNodes: number
+    providerConfigured: number
+    providerTotal: number
+    connectorConfigured: number
+    connectorTotal: number
+    subagents: number
+    readyRuntimeHosts: number
+    runtimeHosts: number
+    readinessScore: number
+    selfImprovementScore: number | null
+    recoveryJobActive: boolean
+  }
+  phases: Array<{
+    id: string
+    label: string
+    status: "healthy" | "recovering" | "blocked"
+    severity: "critical" | "high" | "medium" | "low"
+    score: number
+    current: string
+    target: string
+    actions: string[]
+  }>
+  recommendedJob: {
+    title: string
+    contextSummary: string
+    brief: string
+    priority: number
+  }
+}
+
 const initialForm = {
   title: "",
   jobType: "task_update",
@@ -1482,7 +1520,9 @@ export function AgentJobsClient({
   const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
   const [productionReadiness, setProductionReadiness] = useState<AgenticProductionReadiness | null>(null)
   const [selfImprovement, setSelfImprovement] = useState<SelfImprovementSnapshot | null>(null)
+  const [agenticRecovery, setAgenticRecovery] = useState<AgenticRecoverySnapshot | null>(null)
   const [isCreatingSelfImprovement, setIsCreatingSelfImprovement] = useState(false)
+  const [isCreatingAgenticRecovery, setIsCreatingAgenticRecovery] = useState(false)
   const [isSeedingGraph, setIsSeedingGraph] = useState(false)
   const [graphQuery, setGraphQuery] = useState("")
   const [graphNodeTypeFilter, setGraphNodeTypeFilter] = useState("")
@@ -1554,6 +1594,22 @@ export function AgentJobsClient({
       })
       .catch(() => {
         if (active) setSelfImprovement(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/agentic-recovery", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data) setAgenticRecovery(data)
+      })
+      .catch(() => {
+        if (active) setAgenticRecovery(null)
       })
 
     return () => {
@@ -2032,6 +2088,29 @@ export function AgentJobsClient({
     }
   }
 
+  async function createAgenticRecoveryJob() {
+    try {
+      setIsCreatingAgenticRecovery(true)
+      setError(null)
+      const response = await fetch("/api/agentic-recovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Errore creazione recovery agentico")
+      setAgenticRecovery(data)
+      if (data.job) {
+        setJobs((current) => (current.some((job) => job.id === data.job.id) ? current : [data.job, ...current]))
+        setJobFilter("active")
+        setMobilePanel("jobs")
+      }
+    } catch (err: any) {
+      setError(err?.message ?? "Errore creazione recovery agentico")
+    } finally {
+      setIsCreatingAgenticRecovery(false)
+    }
+  }
+
   async function loadGraphNode(node: AgenticGraphNode) {
     setSelectedGraphNodeId(node.id)
     setGraphNodeDetail(null)
@@ -2340,6 +2419,17 @@ export function AgentJobsClient({
       busyKey: "self-improvement:create",
       onClick: createSelfImprovementJob,
       complete: Boolean(selfImprovement && selfImprovement.signals.length === 0),
+    },
+    {
+      title: "Recovery agentico",
+      detail: agenticRecovery ? `${agenticRecovery.score}/100` : "da valutare",
+      body:
+        agenticRecovery?.headline ??
+        "Ricompone runner, MCP/OAuth, grafo, runtime, Obsidian e superfici aziendali in un piano Codex unico.",
+      action: agenticRecovery?.metrics.recoveryJobActive ? "Apri coda" : "Crea recovery",
+      busyKey: "agentic-recovery:create",
+      onClick: createAgenticRecoveryJob,
+      complete: Boolean(agenticRecovery && agenticRecovery.score >= 85),
     },
     {
       title: "Obsidian Vault",
@@ -2717,6 +2807,74 @@ export function AgentJobsClient({
           ))}
         </div>
 
+        <div className="mt-4 rounded-lg border border-fuchsia-300/20 bg-[radial-gradient(circle_at_16%_0%,rgba(219,39,119,0.18),transparent_34%),linear-gradient(135deg,rgba(31,11,28,0.86),rgba(7,9,18,0.96))] p-3 sm:p-4">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-righello-pink">Recovery agentico</p>
+              <h3 className="mt-1 text-lg font-black text-white">Anima agentica Optima</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                {agenticRecovery?.headline ??
+                  "Ricostruisce in un unico quadro runner, MCP/OAuth, Graphify, Obsidian, runtime AI, subagenti e funzioni aziendali."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={createAgenticRecoveryJob}
+              disabled={isCreatingAgenticRecovery}
+              className="h-11 w-full shrink-0 rounded-lg border-righello-pink/25 bg-righello-pink/15 px-3 text-xs font-black text-white hover:bg-righello-pink/25 sm:w-auto"
+            >
+              {isCreatingAgenticRecovery ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
+              {agenticRecovery?.metrics.recoveryJobActive ? "Recovery in coda" : "Crea recovery Codex"}
+            </Button>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
+            {[
+              ["Recovery", agenticRecovery?.score ?? "--", "/100"],
+              ["Readiness", agenticRecovery?.metrics.readinessScore ?? "--", "/100"],
+              ["Grafo", agenticRecovery?.metrics.graphNodes ?? graphMemory?.stats.nodes ?? "--", "nodi"],
+              ["Scibile", agenticRecovery?.metrics.knowhowNodes ?? knowhowNodeCount, "nodi"],
+              ["MCP", agenticRecovery ? `${agenticRecovery.metrics.connectorConfigured}/${agenticRecovery.metrics.connectorTotal}` : "--", "connector"],
+            ].map(([label, value, detail]) => (
+              <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+                <p className="mt-1 truncate text-xl font-black text-white">{value}</p>
+                <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>
+              </div>
+            ))}
+          </div>
+          {agenticRecovery?.nextAction ? (
+            <div className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 text-slate-300">
+              <span className="font-black text-white">Prossimo recupero: </span>
+              {agenticRecovery.nextAction}
+            </div>
+          ) : null}
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {(agenticRecovery?.phases ?? []).slice(0, 4).map((phase) => (
+              <div key={phase.id} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-white">{phase.label}</p>
+                    <p className={`mt-1 text-xs font-black ${readinessSeverityTone[phase.severity]}`}>{phase.score}/100</p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                      phase.status === "healthy"
+                        ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                        : phase.status === "recovering"
+                          ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+                          : "border-red-300/25 bg-red-300/10 text-red-100"
+                    }`}
+                  >
+                    {phase.status === "healthy" ? "ok" : phase.status === "recovering" ? "recovery" : "blocco"}
+                  </span>
+                </div>
+                <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{phase.current}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="mt-4 rounded-lg border border-righello-pink/20 bg-righello-pink/[0.055] p-3 sm:p-4">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -2818,7 +2976,14 @@ export function AgentJobsClient({
 
           <div className="mt-3 grid gap-2 lg:grid-cols-5">
             {operationalActions.map((item) => {
-              const busy = item.busyKey === "graph:seed" ? isSeedingGraph : capabilityAction === item.busyKey || setupAction === item.busyKey
+              const busy =
+                item.busyKey === "graph:seed"
+                  ? isSeedingGraph
+                  : item.busyKey === "self-improvement:create"
+                    ? isCreatingSelfImprovement
+                    : item.busyKey === "agentic-recovery:create"
+                      ? isCreatingAgenticRecovery
+                      : capabilityAction === item.busyKey || setupAction === item.busyKey
               return (
                 <div key={item.title} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
                   <div className="flex items-start justify-between gap-2">
