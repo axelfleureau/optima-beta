@@ -2391,7 +2391,7 @@ export function AgentJobsClient({
           className={mobileTabClass("stack")}
         >
           <Network className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 truncate">Stack</span>
+          <span className="min-w-0 truncate">Grafo</span>
         </Button>
       </div>
 
@@ -2582,6 +2582,36 @@ export function AgentJobsClient({
           <span className="w-fit max-w-full rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">
             multi-tenant
           </span>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Vault Obsidian</p>
+              <h3 className="mt-1 text-lg font-black text-white">Graph View nativa</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Percorso vault: <span className="font-bold text-violet-50">/Users/axel/Documents/Optima Obsidian Vault</span>. Aprilo in Obsidian per vedere la mappa sinaptica reale.
+              </p>
+            </div>
+            <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={createObsidianVaultJob}
+                disabled={setupAction === "stack-setup:obsidian-vault"}
+                className="h-11 rounded-lg border-violet-300/25 bg-violet-300/10 px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
+              >
+                {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
+                Aggiorna vault
+              </Button>
+              <a
+                href={OBSIDIAN_VAULT_URI}
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-violet-300/25 bg-violet-300/25 px-3 text-xs font-black text-white transition hover:bg-violet-300/35"
+              >
+                Apri vault Obsidian
+              </a>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
