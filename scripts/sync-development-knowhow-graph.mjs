@@ -11,6 +11,7 @@ const knowhowDir =
 const organizationId = process.env.OPTIMA_ORGANIZATION_ID || "org_demo_righello"
 const database = process.env.OPTIMA_D1_DATABASE || "optima-beta-production-db"
 const environment = process.env.OPTIMA_CF_ENV || "production"
+const dryRun = process.argv.includes("--dry-run") || process.env.DRY_RUN === "true"
 const rootNodeId = `agnode_knowhow_${hashId(`${organizationId}:development-knowhow-index`)}`
 
 function hashId(value) {
@@ -29,7 +30,7 @@ function json(value) {
 function titleFromMarkdown(filename, content) {
   const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim()
   if (heading) return heading
-  return basename(filename, ".md").replaceAll("-", " ").replace(/\b\w/g, (char) => char.toUpperCase())
+  return basename(filename, ".md").replace(/\.(txt|md)$/i, "").replaceAll("-", " ").replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 function summarize(content) {
@@ -102,9 +103,18 @@ ON CONFLICT(organization_id, from_node_id, to_node_id, edge_type) DO UPDATE SET
   updated_at = CURRENT_TIMESTAMP;`
 }
 
-const files = readdirSync(knowhowDir)
-  .filter((file) => file.endsWith(".md"))
-  .sort((a, b) => a.localeCompare(b))
+function collectKnowledgeFiles(dir, prefix = "") {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.name.startsWith(".") || entry.name === "node_modules") return []
+    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name
+    const fullPath = join(dir, entry.name)
+    if (entry.isDirectory()) return collectKnowledgeFiles(fullPath, relativePath)
+    if (entry.isFile() && (entry.name.endsWith(".md") || relativePath === "llms.txt")) return [relativePath]
+    return []
+  })
+}
+
+const files = collectKnowledgeFiles(knowhowDir).sort((a, b) => a.localeCompare(b))
 
 const removeOrphanKnowhowEdges = `DELETE FROM agentic_graph_edges
 WHERE organization_id = ${sql(organizationId)}
@@ -151,6 +161,7 @@ for (const file of files) {
       tags: tagsFor(file, content),
       properties: {
         fileName: file,
+        relativePath: file,
         filePath: fullPath,
         headings: headings(content),
         bytes: stat.size,
@@ -179,12 +190,14 @@ const sqlPath = join(tempDir, "sync-knowhow.sql")
 writeFileSync(sqlPath, `${statements.join("\n\n")}\n`, "utf8")
 
 try {
-  execFileSync(
-    "npx",
-    ["wrangler", "d1", "execute", database, "--env", environment, "--remote", "--file", sqlPath],
-    { stdio: "inherit" },
-  )
-  console.log(`Synced ${files.length} know-how notes into ${database}/${environment}.`)
+  if (dryRun) {
+    console.log(`Dry run: would sync ${files.length} know-how graph records into ${database}/${environment}.`)
+  } else {
+    execFileSync("npx", ["wrangler", "d1", "execute", database, "--env", environment, "--remote", "--file", sqlPath], {
+      stdio: "inherit",
+    })
+    console.log(`Synced ${files.length} know-how notes into ${database}/${environment}.`)
+  }
 } finally {
   rmSync(tempDir, { recursive: true, force: true })
 }

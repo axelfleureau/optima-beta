@@ -15,7 +15,7 @@ const paths = {
   skill: "/Users/axel/.codex/skills/portopiccolo-avantio-guesty-sync/SKILL.md",
   locations: "/Users/axel/.codex/skills/portopiccolo-avantio-guesty-sync/references/locations.md",
   openaiYaml: "/Users/axel/.codex/skills/portopiccolo-avantio-guesty-sync/agents/openai.yaml",
-  knowhow: "/Users/axel/Documents/Codex/development/knowhow/avantio-guesty-sync.md",
+  knowhow: "/Users/axel/Documents/Codex/development/knowhow/03-product-admin-security/avantio-guesty-sync.md",
   knowhowIndex: "/Users/axel/Documents/Codex/development/knowhow/INDEX.md",
   dossier: "/Users/axel/Documents/Codex/2026-06-05/ciao/outputs/portopiccolo-apartments-full-operational-context.md",
   repoSync: "/Users/axel/Documents/Codex/2026-05-20/clona-questo-progetto-e-iniziamo-a/tools/avantio-guesty-sync",
