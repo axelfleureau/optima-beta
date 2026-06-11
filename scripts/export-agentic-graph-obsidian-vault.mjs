@@ -9,7 +9,7 @@ const database = process.env.OPTIMA_D1_DATABASE || "optima-beta-production-db"
 const environment = process.env.OPTIMA_CF_ENV || "production"
 const outputDir = process.env.OBSIDIAN_VAULT_DIR || "/Users/axel/Documents/Optima Obsidian Vault"
 const snapshotPath = process.env.OPTIMA_GRAPH_JSON || ""
-const limit = Number(process.env.OPTIMA_OBSIDIAN_NODE_LIMIT || 300)
+const limit = Number(process.env.OPTIMA_OBSIDIAN_NODE_LIMIT || 1000)
 
 function parseArgs() {
   const args = new Map()

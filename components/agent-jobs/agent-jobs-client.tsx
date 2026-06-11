@@ -805,7 +805,8 @@ const GRAPH_MIN_ZOOM = 0.45
 const GRAPH_FIT_ZOOM = 0.62
 const GRAPH_MAX_ZOOM = 2.8
 const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
-const OBSIDIAN_VAULT_URI = "obsidian://open?vault=Optima%20Obsidian%20Vault"
+const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault/Optima Graph Memory.md"
+const OBSIDIAN_VAULT_URI = `obsidian://open?path=${encodeURIComponent(OBSIDIAN_VAULT_PATH)}`
 
 function clampGraphZoom(value: number) {
   return Math.max(GRAPH_MIN_ZOOM, Math.min(GRAPH_MAX_ZOOM, value))
@@ -2245,7 +2246,11 @@ export function AgentJobsClient({
   const recommendedSubagentConfiguredCount = recommendedSubagents.filter((template) =>
     capabilities?.subagents.some((subagent) => subagent.slug === template.slug),
   ).length
-  const knowhowNodeCount = Number(graphMemory?.stats.byType?.development_knowhow ?? 0)
+  const knowhowCatalogNodeCount = Number(graphMemory?.stats.byType?.development_knowhow ?? 0)
+  const knowhowFileNodeCount = Number(graphMemory?.stats.byType?.knowledge_file ?? 0)
+  const codexSkillNodeCount = Number(graphMemory?.stats.byType?.codex_skill ?? 0)
+  const knowledgeBaseNodeCount = Number(graphMemory?.stats.byType?.knowledge_base ?? 0)
+  const knowhowNodeCount = knowhowCatalogNodeCount + knowhowFileNodeCount + codexSkillNodeCount + knowledgeBaseNodeCount
   const graphReady = Boolean(graphMemory?.stats.nodes)
   const filteredJobs = jobs.filter((job) => {
     if (jobFilter === "all") return true
@@ -2673,7 +2678,7 @@ export function AgentJobsClient({
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Vault Obsidian</p>
               <h3 className="mt-1 text-lg font-black text-white">Graph View nativa</h3>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Percorso vault: <span className="font-bold text-violet-50">/Users/axel/Documents/Optima Obsidian Vault</span>. Aprilo in Obsidian per vedere la mappa sinaptica reale.
+                Percorso vault: <span className="font-bold text-violet-50">/Users/axel/Documents/Optima Obsidian Vault</span>. Il link apre il file indice locale se Obsidian e il vault sono disponibili su questo dispositivo.
               </p>
             </div>
             <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 sm:w-auto">
@@ -2702,7 +2707,7 @@ export function AgentJobsClient({
             ["Policy provider", configuredProviderCount, `${capabilities?.providerCatalog.length ?? 0} catalogo`],
             ["Runtime ready", readyRuntimeCount, `${capabilities?.modelRuntime?.hosts.length ?? 0} host`],
             ["Subagenti", capabilities?.subagents.length ?? 0, "tenant"],
-            ["Know-how", knowhowNodeCount, "nodi"],
+            ["Scibile", knowhowNodeCount, `${knowhowFileNodeCount} file · ${knowhowCatalogNodeCount} note · ${codexSkillNodeCount} skill`],
           ].map(([label, value, detail]) => (
             <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3">
               <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
