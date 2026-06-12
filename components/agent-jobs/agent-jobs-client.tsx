@@ -596,6 +596,22 @@ function installLabel(state: string) {
   return installStateCopy[state] ?? state
 }
 
+function providerSetupHint(provider: AgenticCapabilities["providerCatalog"][number]) {
+  if (provider.authMethod === "runner_env") {
+    return "Configura env sul VPS runner e su Cloudflare quando serve. Poi crea un job health-check: se heartbeat, Codex CLI e secret sono ok, Optima puo usarlo."
+  }
+  if (provider.authMethod === "local_install") {
+    return "Installa il runtime/CLI nella macchina runner autorizzata. Optima deve solo vedere policy e health check, non password o token in chiaro."
+  }
+  if (provider.authMethod === "api_key_secret") {
+    return "Crea la API key dal provider, salvala come secret_ref/secret Cloudflare o tenant vault, poi fai verificare a Optima endpoint, modello e quota."
+  }
+  if (provider.authMethod === "none") {
+    return "Non richiede segreti: va attivato con policy tenant e prova di esecuzione locale."
+  }
+  return "Usa installazione guidata, salva solo secret_ref e verifica con health check prima di dichiararlo operativo."
+}
+
 function runtimeTone(state: string) {
   return runtimeStatusTone[state] ?? runtimeStatusTone.reference_only
 }
@@ -2874,8 +2890,11 @@ export function AgentJobsClient({
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Vault Obsidian</p>
               <h3 className="mt-1 text-lg font-black text-white">Graph View nativa</h3>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Vault locale: <span className="font-bold text-violet-50">{OBSIDIAN_VAULT_PATH}</span>. Da Mac apre dashboard, indice e graph view native di Obsidian; da mobile resta una policy/azione di export.
+                Vault locale Mac: <span className="font-bold text-violet-50">{OBSIDIAN_VAULT_PATH}</span>. Da iPhone usa il grafo interno; Dashboard e Indice funzionano solo se il vault Obsidian e aperto sul Mac o sincronizzato anche su questo dispositivo.
               </p>
+              <div className="mt-3 rounded-lg border border-violet-200/15 bg-black/20 px-3 py-2 text-xs leading-5 text-violet-100">
+                Operazione corretta: dal Mac premi Aggiorna vault, apri Obsidian e seleziona il vault "{OBSIDIAN_VAULT_NAME}". Da mobile resta su Grafo interno, oppure sincronizza il vault con Obsidian Sync/iCloud e registralo nell'app Obsidian.
+              </div>
             </div>
             <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 lg:grid-cols-4 sm:w-auto">
               <Button
@@ -2902,7 +2921,7 @@ export function AgentJobsClient({
                 onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
                 className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
               >
-                Dashboard
+                Dashboard Mac
               </Button>
               <Button
                 type="button"
@@ -2910,7 +2929,7 @@ export function AgentJobsClient({
                 onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian")}
                 className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
               >
-                Indice grafo
+                Indice Mac
               </Button>
             </div>
           </div>
@@ -3249,6 +3268,12 @@ export function AgentJobsClient({
                   </p>
                 </div>
               </div>
+              <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-amber-50">
+                <p className="font-black text-amber-100">Come si configura davvero</p>
+                <p className="mt-1">
+                  Il pulsante non inserisce token: crea una checklist/job revisionabile. La configurazione reale si fa salvando secret/env nel runtime autorizzato, poi eseguendo un health check. Per GitHub la policy owner resta in Impostazioni e deve essere autorizzata da Axel.
+                </p>
+              </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {(capabilities?.providerCatalog ?? []).map((provider) => {
                   const installation = providerInstallationsById.get(provider.id)
@@ -3269,6 +3294,9 @@ export function AgentJobsClient({
                       </div>
                       <p className="mt-2 truncate text-xs font-bold text-cyan-100">{provider.defaultModel}</p>
                       <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{provider.tenantUse}</p>
+                      <p className="mt-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-[11px] leading-5 text-slate-300">
+                        {providerSetupHint(provider)}
+                      </p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {provider.requiredSecrets.length ? (
                           provider.requiredSecrets.slice(0, 2).map((secret) => (
@@ -3291,7 +3319,7 @@ export function AgentJobsClient({
                         className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                       >
                         {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
-                        Crea job setup
+                        Prepara setup
                       </Button>
                     </div>
                   )
