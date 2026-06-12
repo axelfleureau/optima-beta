@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import {
   AlertTriangle,
   Bot,
@@ -846,8 +847,16 @@ const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
 const OBSIDIAN_VAULT_NAME = "Optima Obsidian Vault"
 const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault"
 const OBSIDIAN_VAULT_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}`
-const OBSIDIAN_GRAPH_INDEX_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent("Optima Graph Memory")}`
-const OBSIDIAN_AGENTIC_DASHBOARD_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent("Dashboards/Agentic OS")}`
+const OBSIDIAN_GRAPH_INDEX_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent("Optima Graph Memory.md")}`
+const OBSIDIAN_AGENTIC_DASHBOARD_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent("Dashboards/Agentic OS.md")}`
+
+function openObsidianUri(uri: string, label: string) {
+  if (typeof window === "undefined") return
+  window.location.href = uri
+  window.setTimeout(() => {
+    toast.info(`${label}: se non si apre, Obsidian non ha il vault registrato su questo dispositivo. Usa Aggiorna vault dal Mac, poi aprilo dall'app Obsidian.`)
+  }, 900)
+}
 
 function clampGraphZoom(value: number) {
   return Math.max(GRAPH_MIN_ZOOM, Math.min(GRAPH_MAX_ZOOM, value))
@@ -1255,13 +1264,14 @@ function GraphMemoryMap({
           </div>
         </div>
         <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:overflow-visible sm:pb-0">
-          <a
-            href={OBSIDIAN_AGENTIC_DASHBOARD_URI}
+          <button
+            type="button"
+            onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
             className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-200 transition hover:bg-white/10"
             title="Apre la dashboard Agentic OS nel vault Obsidian locale."
           >
             Obsidian OS
-          </a>
+          </button>
           {densityOptions.map((limit) => (
             <button
               key={limit}
@@ -2805,7 +2815,7 @@ export function AgentJobsClient({
                 Vault locale: <span className="font-bold text-violet-50">{OBSIDIAN_VAULT_PATH}</span>. Da Mac apre dashboard, indice e graph view native di Obsidian; da mobile resta una policy/azione di export.
               </p>
             </div>
-            <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-3 sm:w-auto">
+            <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 lg:grid-cols-4 sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
@@ -2816,18 +2826,30 @@ export function AgentJobsClient({
                 {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
                 Aggiorna vault
               </Button>
-              <a
-                href={OBSIDIAN_AGENTIC_DASHBOARD_URI}
-                className="inline-flex h-11 items-center justify-center rounded-lg border border-violet-300/25 bg-violet-300/25 px-3 text-xs font-black text-white transition hover:bg-violet-300/35"
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStackSection("graph")}
+                className="h-11 rounded-lg border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white hover:bg-violet-300/30"
+              >
+                Grafo interno
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
+                className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
               >
                 Dashboard
-              </a>
-              <a
-                href={OBSIDIAN_GRAPH_INDEX_URI}
-                className="inline-flex h-11 items-center justify-center rounded-lg border border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 transition hover:bg-violet-300/20"
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian")}
+                className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
               >
                 Indice grafo
-              </a>
+              </Button>
             </div>
           </div>
         </div>
@@ -3424,18 +3446,22 @@ export function AgentJobsClient({
                       {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
                       Aggiorna vault
                     </Button>
-                    <a
-                      href={OBSIDIAN_AGENTIC_DASHBOARD_URI}
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 transition hover:bg-violet-300/15"
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
+                      className="h-9 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
                     >
                       Dashboard
-                    </a>
-                    <a
-                      href={OBSIDIAN_GRAPH_INDEX_URI}
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 transition hover:bg-violet-300/15"
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian")}
+                      className="h-9 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
                     >
                       Indice
-                    </a>
+                    </Button>
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2">
@@ -3654,18 +3680,22 @@ export function AgentJobsClient({
                       {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
                       Aggiorna vault
                     </Button>
-                    <a
-                      href={OBSIDIAN_VAULT_URI}
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white transition hover:bg-violet-300/30"
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openObsidianUri(OBSIDIAN_VAULT_URI, "Vault Obsidian")}
+                      className="h-10 rounded-lg border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white hover:bg-violet-300/30"
                     >
                       Apri vault
-                    </a>
-                    <a
-                      href={OBSIDIAN_AGENTIC_DASHBOARD_URI}
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white transition hover:bg-violet-300/30"
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
+                      className="h-10 rounded-lg border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white hover:bg-violet-300/30"
                     >
                       Dashboard OS
-                    </a>
+                    </Button>
                   </div>
                 </div>
                 <p className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-400">
