@@ -1515,6 +1515,7 @@ export function AgentJobsClient({
   const [isLoadingReview, setIsLoadingReview] = useState(false)
   const [revisionMessage, setRevisionMessage] = useState("")
   const [mobilePanel, setMobilePanel] = useState<"jobs" | "create" | "stack">("jobs")
+  const [stackSection, setStackSection] = useState<"overview" | "providers" | "graph" | "sources">("overview")
   const [jobFilter, setJobFilter] = useState<JobFilter>("active")
   const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
   const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
@@ -2541,6 +2542,13 @@ export function AgentJobsClient({
       mobilePanel === panel ? "bg-righello-pink text-white" : "text-slate-300 hover:bg-white/10"
     }`
 
+  const stackSectionClass = (section: typeof stackSection) =>
+    `h-10 min-w-0 rounded-md px-3 text-xs font-black transition ${
+      stackSection === section
+        ? "border border-cyan-300/35 bg-cyan-300/15 text-cyan-50 shadow-lg shadow-cyan-950/20"
+        : "border border-white/10 bg-[#060a15] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"
+    }`
+
   return (
     <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
       <div className="sticky top-0 z-20 grid min-w-0 grid-cols-3 gap-1 rounded-lg border border-white/10 bg-[#080d19]/95 p-1 shadow-lg shadow-black/20 backdrop-blur lg:hidden">
@@ -2762,6 +2770,22 @@ export function AgentJobsClient({
           </span>
         </div>
 
+        <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <button type="button" onClick={() => setStackSection("overview")} className={stackSectionClass("overview")}>
+            Sintesi
+          </button>
+          <button type="button" onClick={() => setStackSection("providers")} className={stackSectionClass("providers")}>
+            Provider e MCP
+          </button>
+          <button type="button" onClick={() => setStackSection("graph")} className={stackSectionClass("graph")}>
+            Grafo
+          </button>
+          <button type="button" onClick={() => setStackSection("sources")} className={stackSectionClass("sources")}>
+            Sorgenti
+          </button>
+        </div>
+
+        <div className={stackSection === "overview" ? "grid gap-4" : "hidden"}>
         <div className="mt-4 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -3051,9 +3075,19 @@ export function AgentJobsClient({
             </div>
           ) : null}
         </div>
+        </div>
 
-        <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div
+          className={`mt-4 grid min-w-0 gap-4 ${
+            stackSection === "overview"
+              ? "hidden"
+              : stackSection === "providers"
+                ? "lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"
+                : "lg:grid-cols-1"
+          }`}
+        >
           <div className="grid min-w-0 gap-3">
+            <div className={stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"}>
             <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -3288,7 +3322,9 @@ export function AgentJobsClient({
               </div>
             </div>
 
-            <div className="min-w-0 rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.055] p-3 sm:p-4">
+            </div>
+
+            <div className={stackSection === "graph" ? "min-w-0 rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.055] p-3 sm:p-4" : "hidden"}>
               <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
                 <div className="min-w-0">
                   <p className="font-black text-white">Graph memory aziendale</p>
@@ -3693,7 +3729,8 @@ export function AgentJobsClient({
             </div>
           </div>
 
-          <div className="grid min-w-0 gap-3">
+          <div className={stackSection === "graph" ? "hidden" : "grid min-w-0 gap-3"}>
+            <div className={stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"}>
             <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
                 <div className="min-w-0">
@@ -3819,8 +3856,9 @@ export function AgentJobsClient({
                 })}
               </div>
             </div>
+            </div>
 
-            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+            <div className={stackSection === "sources" ? "min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4" : "hidden"}>
               <p className="font-black text-white">Sorgenti agentiche</p>
               <p className="mt-1 text-sm leading-6 text-slate-400">
                 Pattern e know-how che alimentano il grafo senza saturare il prompt.
