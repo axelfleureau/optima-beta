@@ -2549,6 +2549,13 @@ export function AgentJobsClient({
         : "border border-white/10 bg-[#060a15] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"
     }`
 
+  const approvalCreatesPublishJob = (job: AgentJob) =>
+    Boolean(
+      job.repoUrl &&
+        !job.input?.approvalFollowUpJobId &&
+        (job.jobType === "codex_patch" || (job.jobType === "deploy" && job.input?.approvalStage !== "execution")),
+    )
+
   return (
     <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
       <div className="sticky top-0 z-20 grid min-w-0 grid-cols-3 gap-1 rounded-lg border border-white/10 bg-[#080d19]/95 p-1 shadow-lg shadow-black/20 backdrop-blur lg:hidden">
@@ -4114,7 +4121,11 @@ export function AgentJobsClient({
                     <h3 className="mt-3 text-base font-black leading-snug text-white sm:text-lg">{job.title}</h3>
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-400">{job.brief}</p>
                     {job.status === "needs_review" ? (
-                      <p className="mt-2 text-xs font-bold text-righello-pink">Esito pronto: apri la review room per approvare o chiedere modifiche.</p>
+                      <p className="mt-2 text-xs font-bold text-righello-pink">
+                        {approvalCreatesPublishJob(job)
+                          ? "Esito pronto: se approvi come owner GitHub autorizzato crei il job GitHub/deploy controllato."
+                          : "Esito pronto: apri la review room per approvare o chiedere modifiche."}
+                      </p>
                     ) : null}
                   </div>
                   <div className="grid grid-cols-2 gap-2 min-[520px]:flex sm:justify-end">
@@ -4140,7 +4151,7 @@ export function AgentJobsClient({
                           className="rounded-lg bg-emerald-500 text-white hover:bg-emerald-400"
                         >
                           <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                          Approva
+                          {approvalCreatesPublishJob(job) ? "Approva e pubblica" : "Approva"}
                         </Button>
                         <Button
                           type="button"
@@ -4361,6 +4372,11 @@ export function AgentJobsClient({
                   </div>
                   <h3 className="mt-3 break-words text-lg font-black leading-tight sm:text-xl">{activeReviewJob.title}</h3>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-400">{activeReviewJob.brief}</p>
+                  {activeReviewJob.status === "needs_review" && approvalCreatesPublishJob(activeReviewJob) ? (
+                    <div className="mt-3 rounded-lg border border-emerald-300/25 bg-emerald-300/[0.08] p-3 text-sm leading-6 text-emerald-50">
+                      Se l'approvante e owner GitHub autorizzato, Optima crea automaticamente un job successivo di pubblicazione: applicazione output approvato, commit, push GitHub e deploy Cloudflare solo se build e controlli passano. Gli altri ruoli possono approvare l'esito, ma non usare GitHub di Axel.
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -4405,7 +4421,7 @@ export function AgentJobsClient({
                               className="rounded-lg bg-emerald-500 text-white hover:bg-emerald-400"
                             >
                               <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                              Approva
+                              {approvalCreatesPublishJob(activeReviewJob) ? "Approva e pubblica" : "Approva"}
                             </Button>
                             <Button
                               type="button"

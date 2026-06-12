@@ -65,7 +65,7 @@ const CONNECTORS: ConnectorSpec[] = [
     graphUse: ["repository_links", "agent_jobs", "progetti", "task", "audit"],
     requiredEnv: ["GITHUB_TOKEN"],
     optionalEnv: ["GITHUB_APP_ID", "GITHUB_INSTALLATION_ID"],
-    notes: "GitHub non e il centro del gestionale: e il grafo codice collegato al grafo aziendale.",
+    notes: "Connector owner-scoped: l'account GitHub aziendale personale di Axel non e condiviso. Commit, push e deploy richiedono owner GitHub esplicito.",
   },
   {
     id: "notion",

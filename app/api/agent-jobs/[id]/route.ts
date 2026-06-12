@@ -3,10 +3,13 @@ import { NextRequest } from "next/server"
 import {
   AGENT_ADMIN_ROLES,
   appendAgentJobEvent,
+  createAgentJob,
+  type AgentJob,
   getAgentJob,
   listAgentJobArtifacts,
   listAgentJobEvents,
 } from "@/lib/agent-jobs"
+import { githubOwnerPolicySummary, isGitHubOwnerPrincipal } from "@/lib/agentic-owner-policy"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
@@ -27,6 +30,38 @@ async function getPrincipal() {
   }
 
   return { db, principal }
+}
+
+function shouldCreateApprovedPublishJob(job: AgentJob, canUseGitHubOwner: boolean) {
+  if (!canUseGitHubOwner) return false
+  if (!job.repoUrl) return false
+  if (job.input?.approvalFollowUpJobId) return false
+  if (job.jobType === "codex_patch") return true
+  if (job.jobType === "deploy" && job.input?.approvalStage !== "execution") return true
+  return false
+}
+
+function approvedPublishBrief(job: AgentJob) {
+  return [
+    `La direzione ha approvato il risultato del job ${job.id}: "${job.title}".`,
+    "",
+    "Obiettivo: collegare l'approvazione a GitHub e deploy in modo controllato.",
+    "",
+    "Azioni richieste:",
+    "- recupera output, artefatti, report e result_r2_key del job approvato;",
+    "- verifica lo stato git del repository e applica solo patch/istruzioni effettivamente presenti nell'output approvato;",
+    "- esegui controlli minimi: git diff, install/build/test disponibili e health check essenziali;",
+    "- crea commit descrittivo, push su GitHub e deploy Cloudflare production quando il lavoro riguarda Optima ed e sicuro;",
+    "- se l'output approvato non contiene patch applicabile o il repository non e coerente, non inventare modifiche: torna in review con errore operativo chiaro;",
+    "- registra nel risultato commit, branch, deploy/version id, comandi eseguiti, warning e rollback plan.",
+    "",
+    "Guardrail:",
+    `- ${githubOwnerPolicySummary()}`,
+    "- non fare force push;",
+    "- non modificare segreti o file non pertinenti;",
+    "- non deployare se build o controlli falliscono;",
+    "- mantieni ogni azione tracciabile e tenant-scoped.",
+  ].join("\n")
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
@@ -65,14 +100,48 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         return Response.json({ error: "Puoi approvare solo job in revisione." }, { status: 409 })
       }
 
+      const canUseGitHubOwner = isGitHubOwnerPrincipal(auth.principal)
+      let followUpJobId: string | null = null
+      if (shouldCreateApprovedPublishJob(job, canUseGitHubOwner)) {
+        const followUp = await createAgentJob(auth.db, auth.principal, {
+          title: `Pubblica output approvato: ${job.title}`.slice(0, 140),
+          jobType: "deploy",
+          priority: Math.min(job.priority, 2),
+          repoUrl: job.repoUrl,
+          repoBranch: job.repoBranch ?? "main",
+          workspaceHint: job.workspaceHint,
+          contextSummary: `Approvazione direzione -> GitHub/deploy per ${job.title}`,
+          brief: approvedPublishBrief(job),
+          input: {
+            approvalStage: "execution",
+            parentJobId: job.id,
+            parentJobType: job.jobType,
+            parentResultR2Key: job.resultR2Key,
+            approvalRequestedByMemberId: auth.principal.memberId,
+            approvalRequestedAt: new Date().toISOString(),
+            requiredActions: ["apply-approved-output", "commit", "push", "deploy-if-safe", "return-audit"],
+            githubOwnerPolicy: githubOwnerPolicySummary(),
+          },
+        })
+        followUpJobId = followUp.id
+      }
+
+      const nextInput = followUpJobId
+        ? {
+            ...job.input,
+            approvalFollowUpJobId: followUpJobId,
+            approvalFollowUpKind: "github_deploy",
+          }
+        : job.input
+
       await auth.db
         .prepare(
           `UPDATE agent_jobs
-           SET status = 'approved', approved_by_member_id = ?, approved_at = CURRENT_TIMESTAMP,
+           SET status = 'approved', approved_by_member_id = ?, approved_at = CURRENT_TIMESTAMP, input_json = ?,
                updated_at = CURRENT_TIMESTAMP
            WHERE organization_id = ? AND id = ?`,
         )
-        .bind(auth.principal.memberId, auth.principal.organizationId, id)
+        .bind(auth.principal.memberId, JSON.stringify(nextInput), auth.principal.organizationId, id)
         .run()
 
       await appendAgentJobEvent(auth.db, {
@@ -81,7 +150,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         actorMemberId: auth.principal.memberId,
         actorType: "user",
         eventType: "job.approved",
-        message: body.message ?? "Risultato approvato dalla direzione.",
+        message: followUpJobId
+          ? body.message ?? `Risultato approvato: creato job di pubblicazione ${followUpJobId}.`
+          : !canUseGitHubOwner && shouldCreateApprovedPublishJob(job, true)
+            ? body.message ?? "Risultato approvato, ma nessun job GitHub/deploy creato: l'approvante non è owner GitHub autorizzato."
+          : body.message ?? "Risultato approvato dalla direzione.",
+        payload: followUpJobId
+          ? { followUpJobId, followUpKind: "github_deploy", githubOwnerPolicy: githubOwnerPolicySummary() }
+          : !canUseGitHubOwner && shouldCreateApprovedPublishJob(job, true)
+            ? { followUpBlocked: true, reason: "approver_not_github_owner", githubOwnerPolicy: githubOwnerPolicySummary() }
+            : undefined,
       })
     } else if (action === "reject") {
       if (!["needs_review", "failed"].includes(job.status)) {
