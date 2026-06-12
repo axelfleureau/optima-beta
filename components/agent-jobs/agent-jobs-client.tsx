@@ -1542,6 +1542,7 @@ export function AgentJobsClient({
   const [mobilePanel, setMobilePanel] = useState<"jobs" | "create" | "stack">("jobs")
   const [stackSection, setStackSection] = useState<"overview" | "providers" | "graph" | "sources">("overview")
   const [jobFilter, setJobFilter] = useState<JobFilter>("active")
+  const [lastControlPlaneRefreshAt, setLastControlPlaneRefreshAt] = useState(() => new Date().toISOString())
   const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
   const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
   const [productionReadiness, setProductionReadiness] = useState<AgenticProductionReadiness | null>(null)
@@ -1780,7 +1781,21 @@ export function AgentJobsClient({
       })
       .catch(() => null)
     await Promise.all([refreshJobs(), refreshRunners(), readinessRequest])
+    setLastControlPlaneRefreshAt(new Date().toISOString())
   }
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return
+      refreshControlPlane().catch((err) => {
+        console.warn("Agent control plane auto-refresh failed:", err)
+      })
+    }, 20_000)
+
+    return () => window.clearInterval(interval)
+    // refreshControlPlane intentionally uses current component state setters only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function mutateCapabilities(body: Record<string, unknown>, actionKey: string) {
     try {
@@ -2382,13 +2397,39 @@ export function AgentJobsClient({
           ? "Job in coda: il runner li prendera in polling"
           : "Job in coda ma claim sospeso lato server"
         : "Nessun blocco operativo nella coda"
-  const jobFilters: Array<{ key: JobFilter; label: string; count: number }> = [
-    { key: "active", label: "Attivi", count: stats.active },
-    { key: "review", label: "Review", count: stats.review + stats.failed },
-    { key: "running", label: "Run", count: stats.queued + stats.running },
-    { key: "done", label: "Storico", count: stats.done },
-    { key: "all", label: "Tutti", count: jobs.length },
+  const jobFilters: Array<{ key: JobFilter; label: string; count: number; helper: string }> = [
+    {
+      key: "active",
+      label: "Aperti",
+      count: stats.active,
+      helper: "Tutti i job non chiusi: in coda, in esecuzione, in review o in errore.",
+    },
+    {
+      key: "review",
+      label: "Review",
+      count: stats.review + stats.failed,
+      helper: "Output da approvare, respingere o rimandare al runner con istruzioni precise.",
+    },
+    {
+      key: "running",
+      label: "Coda/Run",
+      count: stats.queued + stats.running,
+      helper: "Solo job operativi: quelli in coda e quelli effettivamente presi dal runner.",
+    },
+    {
+      key: "done",
+      label: "Storico",
+      count: stats.done,
+      helper: "Job chiusi: approvati, respinti, annullati o completati.",
+    },
+    {
+      key: "all",
+      label: "Tutti",
+      count: jobs.length,
+      helper: "Vista completa della coda, utile per audit e diagnosi.",
+    },
   ]
+  const selectedJobFilter = jobFilters.find((filter) => filter.key === jobFilter) ?? jobFilters[0]
   const operationalActions = [
     {
       title: "Tenant OS",
@@ -4050,23 +4091,25 @@ export function AgentJobsClient({
 
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {[
-            ["Attivi", stats.active],
-            ["Runner", stats.running],
-            ["Da decidere", stats.review + stats.failed],
-            [
-              "Stato VPS",
-              runnerControl.enabled
+            { label: "Aperti", value: stats.active, detail: "non chiusi" },
+            { label: "In run", value: stats.running, detail: `${stats.queued} in coda` },
+            { label: "Da decidere", value: stats.review + stats.failed, detail: `${stats.failed} errori` },
+            {
+              label: "Stato VPS",
+              value: runnerControl.enabled
                 ? runnerHealth.isOnline
                   ? "Online"
                   : runnerHealth.tone === "stale"
                     ? "Stale"
                     : "Offline"
                 : "Sospeso",
-            ],
-          ].map(([label, value]) => (
+              detail: runnerHealth.latest?.lastSeenAt ? formatRelativeTime(runnerHealth.latest.lastSeenAt) : "heartbeat",
+            },
+          ].map(({ label, value, detail }) => (
             <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-2.5 sm:p-3">
               <p className="truncate text-[11px] text-slate-500 sm:text-xs">{label}</p>
               <p className="mt-1 truncate text-base font-black text-white sm:text-xl">{value}</p>
+              <p className="mt-1 truncate text-[11px] text-slate-500">{detail}</p>
             </div>
           ))}
         </div>
@@ -4204,11 +4247,13 @@ export function AgentJobsClient({
 
         <div className="mt-5 grid gap-2">
           <div className="grid grid-cols-5 gap-1 rounded-lg border border-white/10 bg-[#060a15] p-1">
-            {jobFilters.map(({ key, label, count }) => (
+            {jobFilters.map(({ key, label, count, helper }) => (
               <button
                 key={key}
                 type="button"
                 aria-pressed={jobFilter === key}
+                aria-label={`${label}: ${helper}`}
+                title={helper}
                 onClick={() => setJobFilter(key)}
                 className={`min-w-0 rounded-md px-1.5 py-2 text-center text-[11px] font-black transition min-[420px]:text-xs ${
                   jobFilter === key ? "bg-righello-pink text-white" : "text-slate-400 hover:bg-white/10 hover:text-white"
@@ -4218,6 +4263,14 @@ export function AgentJobsClient({
                 <span className="mt-0.5 block text-[10px] opacity-75">{count}</span>
               </button>
             ))}
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/[0.025] p-3 text-xs leading-5 text-slate-400">
+            <p>
+              <span className="font-black text-white">{selectedJobFilter.label}</span>: {selectedJobFilter.helper}
+            </p>
+            <p className="mt-1 text-slate-500">
+              Monitor: {stats.queued} in coda · {stats.running} in esecuzione · {stats.review} in review · {stats.failed} errori · {stats.done} chiusi · sync {formatRelativeTime(lastControlPlaneRefreshAt)}.
+            </p>
           </div>
         </div>
 
