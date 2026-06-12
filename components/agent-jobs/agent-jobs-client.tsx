@@ -106,6 +106,9 @@ interface AgenticCapabilities {
     authMethod: string
     scopes: string[]
     secretRef: string | null
+    oauthSubject?: string | null
+    lastHealthAt?: string | null
+    lastHealthStatus?: string | null
     updatedAt: string
   }>
   modelRuntime: {
@@ -291,6 +294,15 @@ interface AgenticProductionReadiness {
     score: number
     headline: string
     nextCriticalAction: string
+  }
+  metrics?: {
+    mcpAuthMode?: string
+    mcpAuthorizationConfigured?: boolean
+    mcpOAuthAuthorizationCodeConfigured?: boolean
+    mcpJwtBearerConfigured?: boolean
+    mcpServiceTokenConfigured?: boolean
+    connectorConfiguredCount?: number
+    connectorTotalCount?: number
   }
   gaps: AgenticReadinessGap[]
 }
@@ -2332,6 +2344,15 @@ export function AgentJobsClient({
   const operationalMcpConnectors = (capabilities?.mcpConnectorCatalog ?? []).filter((connector) => connector.id !== "hermes-agent")
   const configuredConnectorCount =
     capabilities?.connectorInstallations.filter((item) => item.connectorId !== "hermes-agent" && item.installState !== "not_installed").length ?? 0
+  const verifiedExternalConnectorCount =
+    capabilities?.connectorInstallations.filter((item) =>
+      item.connectorId !== "hermes-agent" &&
+      (item.installState === "configured" || item.installState === "healthy") &&
+      Boolean(item.secretRef || item.oauthSubject || item.lastHealthStatus === "ok"),
+    ).length ?? 0
+  const mcpAuthMode = productionReadiness?.metrics?.mcpAuthMode ?? "unknown"
+  const mcpOAuthConfigured = Boolean(productionReadiness?.metrics?.mcpOAuthAuthorizationCodeConfigured)
+  const mcpServiceTokenConfigured = Boolean(productionReadiness?.metrics?.mcpServiceTokenConfigured)
   const priorityProviderConfiguredCount =
     capabilities?.providerInstallations.filter((item) => priorityProviderIds.includes(item.providerId) && item.installState !== "not_installed").length ?? 0
   const priorityConnectorConfiguredCount =
@@ -3143,6 +3164,41 @@ export function AgentJobsClient({
         >
           <div className="grid min-w-0 gap-3">
             <div className={stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"}>
+            <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-3 sm:p-4">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-cyan-50">Stato reale MCP</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">
+                    Il server MCP di Optima risponde per automazioni interne, ma i connector esterni non sono OAuth-installati finche non esiste un soggetto OAuth, un secret_ref o un health check reale.
+                  </p>
+                </div>
+                <span className={`w-fit shrink-0 rounded-full border px-2.5 py-1 text-xs font-black ${
+                  mcpOAuthConfigured
+                    ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                    : mcpServiceTokenConfigured
+                      ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+                      : "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                }`}>
+                  {mcpOAuthConfigured ? "OAuth utente attivo" : mcpServiceTokenConfigured ? "service token" : "setup richiesto"}
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {[
+                  ["Auth MCP", mcpAuthMode, mcpOAuthConfigured ? "OAuth/PKCE configurato" : "non e OAuth utente"],
+                  ["Connector verificati", `${verifiedExternalConnectorCount}/${operationalMcpConnectors.length}`, "GitHub, Notion, Cloudflare, SendGrid..."],
+                  ["Setup salvati", `${configuredConnectorCount}/${operationalMcpConnectors.length}`, "include guide/policy non ancora operative"],
+                ].map(([label, value, detail]) => (
+                  <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                    <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+                    <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-300">
+                Nota operativa: io ho predisposto catalogo, tabelle, policy, service-token runtime e job di setup. Non ho configurato OAuth GitHub/Notion/Cloudflare al posto tuo: quello deve passare da installazione guidata o secret_ref approvato da Axel.
+              </p>
+            </div>
             <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
