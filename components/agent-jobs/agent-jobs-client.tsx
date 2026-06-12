@@ -2850,11 +2850,11 @@ export function AgentJobsClient({
         <div className="mt-4 rounded-lg border border-fuchsia-300/20 bg-[radial-gradient(circle_at_16%_0%,rgba(219,39,119,0.18),transparent_34%),linear-gradient(135deg,rgba(31,11,28,0.86),rgba(7,9,18,0.96))] p-3 sm:p-4">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-righello-pink">Recovery agentico</p>
-              <h3 className="mt-1 text-lg font-black text-white">Anima agentica Optima</h3>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-righello-pink">Autonomia agentica</p>
+              <h3 className="mt-1 text-lg font-black text-white">Cosa impedisce a Optima di lavorare da sola</h3>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 {agenticRecovery?.headline ??
-                  "Ricostruisce in un unico quadro runner, MCP/OAuth, Graphify, Obsidian, runtime AI, subagenti e funzioni aziendali."}
+                  "Diagnostica runner, MCP/OAuth, Graphify, Obsidian, runtime AI, subagenti e pagine core per capire cosa manca prima di affidare lavoro produttivo a Optima."}
               </p>
             </div>
             <Button
@@ -2865,12 +2865,12 @@ export function AgentJobsClient({
               className="h-11 w-full shrink-0 rounded-lg border-righello-pink/25 bg-righello-pink/15 px-3 text-xs font-black text-white hover:bg-righello-pink/25 sm:w-auto"
             >
               {isCreatingAgenticRecovery ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
-              {agenticRecovery?.metrics.recoveryJobActive ? "Recovery in coda" : "Crea recovery Codex"}
+              {agenticRecovery?.metrics.recoveryJobActive ? "Job recovery in coda" : "Crea job di recupero"}
             </Button>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
             {[
-              ["Recovery", agenticRecovery?.score ?? "--", "/100"],
+              ["Autonomia", agenticRecovery?.score ?? "--", "/100"],
               ["Readiness", agenticRecovery?.metrics.readinessScore ?? "--", "/100"],
               ["Grafo", agenticRecovery?.metrics.graphNodes ?? graphMemory?.stats.nodes ?? "--", "nodi"],
               ["Scibile", agenticRecovery?.metrics.knowhowNodes ?? knowhowNodeCount, "nodi"],
@@ -2885,7 +2885,7 @@ export function AgentJobsClient({
           </div>
           {agenticRecovery?.nextAction ? (
             <div className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 text-slate-300">
-              <span className="font-black text-white">Prossimo recupero: </span>
+              <span className="font-black text-white">Prossima azione concreta: </span>
               {agenticRecovery.nextAction}
             </div>
           ) : null}
@@ -2906,10 +2906,14 @@ export function AgentJobsClient({
                           : "border-red-300/25 bg-red-300/10 text-red-100"
                     }`}
                   >
-                    {phase.status === "healthy" ? "ok" : phase.status === "recovering" ? "recovery" : "blocco"}
+                    {phase.status === "healthy" ? "ok" : phase.status === "recovering" ? "da completare" : "da sbloccare"}
                   </span>
                 </div>
-                <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{phase.current}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-400">{phase.current}</p>
+                <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-xs leading-5 text-slate-300">
+                  <span className="font-black text-white">Per arrivare al 90%: </span>
+                  {phase.actions[0]}
+                </p>
               </div>
             ))}
           </div>

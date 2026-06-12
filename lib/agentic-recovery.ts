@@ -216,8 +216,8 @@ export function buildAgenticRecoverySnapshot(input: {
     score,
     headline:
       score >= 80
-        ? "Anima agentica recuperata in modo operativo: resta da consolidare produzione e installazioni."
-        : "Anima agentica in recovery: esiste il motore, ma serve chiudere runner, OAuth, runtime e azioni contestuali.",
+        ? "Autonomia agentica quasi operativa: restano da consolidare installazioni, deploy controllato e workflow core."
+        : "Autonomia agentica parziale: runner, grafo e subagenti esistono, ma OAuth, runtime e azioni contestuali non sono ancora chiusi.",
     nextAction: nextPhase?.actions[0] ?? "Mantenere osservabilita e review umana.",
     metrics: {
       graphNodes: input.graph.stats.nodes,
