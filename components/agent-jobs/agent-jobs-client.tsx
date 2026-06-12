@@ -2943,8 +2943,8 @@ export function AgentJobsClient({
               [
                 ["Pronti", productionReadiness.summary.readyCount, "ready"],
                 ["Parziali", productionReadiness.summary.partialCount, "partial"],
-                ["Bloccati", productionReadiness.summary.blockedCount, "blocked"],
-                ["Mancanti", productionReadiness.summary.missingCount, "missing"],
+                ["Da sbloccare", productionReadiness.summary.blockedCount, "blocked"],
+                ["Da configurare", productionReadiness.summary.missingCount, "missing"],
               ].map(([label, count, status]) => (
                 <span
                   key={String(label)}
@@ -2983,7 +2983,20 @@ export function AgentJobsClient({
                       {readinessStatusCopy[gap.status]}
                     </span>
                   </div>
-                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{gap.current}</p>
+                  <div className="mt-2 space-y-2 text-xs leading-5 text-slate-400">
+                    <p>
+                      <span className="font-black text-slate-200">Ora: </span>
+                      {gap.current}
+                    </p>
+                    <p>
+                      <span className="font-black text-slate-200">Target: </span>
+                      {gap.target}
+                    </p>
+                    <p className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-slate-300">
+                      <span className="font-black text-white">Prossimo passo: </span>
+                      {gap.nextActions[0]}
+                    </p>
+                  </div>
                   <Button
                     type="button"
                     size="sm"

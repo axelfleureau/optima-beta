@@ -135,13 +135,13 @@ export function buildAgenticProductionReadinessSnapshot(
       id: "notion-import",
       area: "Knowledge Graph",
       label: "Import dati Notion Righello",
-      status: "blocked",
-      severity: "high",
+      status: "partial",
+      severity: "medium",
       current:
-        "Il connettore Notion SQL disponibile in Codex fallisce con notion-query-data-sources not found; Optima usa al momento search/fetch e nodi D1 redatti manualmente.",
-      target: "Importer Optima-side idempotente, allowlistato e redatto per RIG_CLIENTI/RIG_WORK, con dry-run e report scarti.",
+        "Il canale SQL Notion non e' affidabile in questa installazione, ma Optima ha gia' un percorso operativo con search/fetch, import D1 redatto e nodi grafo verificabili.",
+      target: "Importer Optima-side idempotente, allowlistato e redatto per clienti, lavori, preventivi, call e case study, con dry-run e report scarti.",
       nextActions: [
-        "Usare Notion OAuth/API token dentro Optima o connector corretto quando disponibile.",
+        "Sostituire il fallback manuale con un importer Optima-side su Notion OAuth/API token o connector corretto quando disponibile.",
         "Importare solo indice operativo: clienti, lavori, preventivi, relazioni e source_id; niente credenziali o allegati pesanti.",
         "Collegare l'import al grafo con confidence extracted/inferred/ambiguous.",
       ],
