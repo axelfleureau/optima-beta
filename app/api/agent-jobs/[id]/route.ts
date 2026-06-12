@@ -9,7 +9,11 @@ import {
   listAgentJobArtifacts,
   listAgentJobEvents,
 } from "@/lib/agent-jobs"
-import { githubOwnerPolicySummary, isGitHubOwnerPrincipal } from "@/lib/agentic-owner-policy"
+import {
+  canUseGitHubOwnerCapability,
+  githubOwnerPolicySummary,
+  type GitHubOwnerPolicy,
+} from "@/lib/agentic-owner-policy"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
@@ -41,7 +45,7 @@ function shouldCreateApprovedPublishJob(job: AgentJob, canUseGitHubOwner: boolea
   return false
 }
 
-function approvedPublishBrief(job: AgentJob) {
+function approvedPublishBrief(job: AgentJob, policy: GitHubOwnerPolicy) {
   return [
     `La direzione ha approvato il risultato del job ${job.id}: "${job.title}".`,
     "",
@@ -56,7 +60,7 @@ function approvedPublishBrief(job: AgentJob) {
     "- registra nel risultato commit, branch, deploy/version id, comandi eseguiti, warning e rollback plan.",
     "",
     "Guardrail:",
-    `- ${githubOwnerPolicySummary()}`,
+    `- ${githubOwnerPolicySummary(policy)}`,
     "- non fare force push;",
     "- non modificare segreti o file non pertinenti;",
     "- non deployare se build o controlli falliscono;",
@@ -100,7 +104,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         return Response.json({ error: "Puoi approvare solo job in revisione." }, { status: 409 })
       }
 
-      const canUseGitHubOwner = isGitHubOwnerPrincipal(auth.principal)
+      const githubCapability = await canUseGitHubOwnerCapability(auth.db, auth.principal, job.repoUrl)
+      const githubPublishBlockedReason =
+        githubCapability.allowed && !githubCapability.policy.deployEnabled
+          ? "deploy_disabled_by_policy"
+          : githubCapability.reason
+      const canUseGitHubOwner = githubCapability.allowed && githubCapability.policy.deployEnabled
       let followUpJobId: string | null = null
       if (shouldCreateApprovedPublishJob(job, canUseGitHubOwner)) {
         const followUp = await createAgentJob(auth.db, auth.principal, {
@@ -111,7 +120,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           repoBranch: job.repoBranch ?? "main",
           workspaceHint: job.workspaceHint,
           contextSummary: `Approvazione direzione -> GitHub/deploy per ${job.title}`,
-          brief: approvedPublishBrief(job),
+          brief: approvedPublishBrief(job, githubCapability.policy),
           input: {
             approvalStage: "execution",
             parentJobId: job.id,
@@ -120,7 +129,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             approvalRequestedByMemberId: auth.principal.memberId,
             approvalRequestedAt: new Date().toISOString(),
             requiredActions: ["apply-approved-output", "commit", "push", "deploy-if-safe", "return-audit"],
-            githubOwnerPolicy: githubOwnerPolicySummary(),
+            githubOwnerPolicy: githubOwnerPolicySummary(githubCapability.policy),
           },
         })
         followUpJobId = followUp.id
@@ -153,12 +162,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         message: followUpJobId
           ? body.message ?? `Risultato approvato: creato job di pubblicazione ${followUpJobId}.`
           : !canUseGitHubOwner && shouldCreateApprovedPublishJob(job, true)
-            ? body.message ?? "Risultato approvato, ma nessun job GitHub/deploy creato: l'approvante non è owner GitHub autorizzato."
+            ? body.message ?? `Risultato approvato, ma nessun job GitHub/deploy creato: ${githubPublishBlockedReason}.`
           : body.message ?? "Risultato approvato dalla direzione.",
         payload: followUpJobId
-          ? { followUpJobId, followUpKind: "github_deploy", githubOwnerPolicy: githubOwnerPolicySummary() }
+          ? { followUpJobId, followUpKind: "github_deploy", githubOwnerPolicy: githubOwnerPolicySummary(githubCapability.policy) }
           : !canUseGitHubOwner && shouldCreateApprovedPublishJob(job, true)
-            ? { followUpBlocked: true, reason: "approver_not_github_owner", githubOwnerPolicy: githubOwnerPolicySummary() }
+            ? {
+                followUpBlocked: true,
+                reason: githubPublishBlockedReason,
+                githubOwnerPolicy: githubOwnerPolicySummary(githubCapability.policy),
+              }
             : undefined,
       })
     } else if (action === "reject") {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,11 @@ import {
   Sparkles,
   Save,
   CheckCircle,
+  Github,
+  GitBranch,
+  Lock,
+  RefreshCw,
+  Rocket,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
@@ -38,6 +43,247 @@ const integrationCardClass =
   "flex items-center justify-between rounded-lg border border-white/10 bg-[#0b1321]/80 p-4 transition-colors hover:border-cyan-300/35 hover:bg-[#101c2d]"
 const outlineActionClass =
   "border-white/15 bg-white/[0.03] text-slate-100 hover:border-cyan-300/40 hover:bg-cyan-300/10 hover:text-white"
+
+type GitHubPolicy = {
+  ownerEmails: string[]
+  allowedRepositoryPatterns: string[]
+  commitPushEnabled: boolean
+  deployEnabled: boolean
+  connectorInstallState: string
+  oauthSubject: string | null
+  updatedAt: string | null
+}
+
+type GitHubPolicyResponse = {
+  policy: GitHubPolicy
+  canEdit: boolean
+  currentUserEmail: string
+}
+
+function listToTextarea(value: string[]) {
+  return value.join("\n")
+}
+
+function textareaToList(value: string) {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function AgenticGitHubPolicyCard() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [canEdit, setCanEdit] = useState(false)
+  const [currentUserEmail, setCurrentUserEmail] = useState("")
+  const [policy, setPolicy] = useState<GitHubPolicy | null>(null)
+  const [ownerEmails, setOwnerEmails] = useState("")
+  const [repoPatterns, setRepoPatterns] = useState("")
+  const [commitPushEnabled, setCommitPushEnabled] = useState(true)
+  const [deployEnabled, setDeployEnabled] = useState(true)
+
+  async function loadPolicy() {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch("/api/settings/agentic-github", { cache: "no-store" })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || "Policy GitHub non caricata.")
+
+      const payload = data as GitHubPolicyResponse
+      setPolicy(payload.policy)
+      setCanEdit(payload.canEdit)
+      setCurrentUserEmail(payload.currentUserEmail)
+      setOwnerEmails(listToTextarea(payload.policy.ownerEmails))
+      setRepoPatterns(listToTextarea(payload.policy.allowedRepositoryPatterns))
+      setCommitPushEnabled(payload.policy.commitPushEnabled)
+      setDeployEnabled(payload.policy.deployEnabled)
+    } catch (loadError: any) {
+      setError(loadError?.message || "Errore caricamento policy GitHub.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPolicy()
+  }, [])
+
+  async function savePolicy() {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const response = await fetch("/api/settings/agentic-github", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ownerEmails: textareaToList(ownerEmails),
+          allowedRepositoryPatterns: textareaToList(repoPatterns),
+          commitPushEnabled,
+          deployEnabled,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || "Policy GitHub non salvata.")
+
+      const payload = data as GitHubPolicyResponse
+      setPolicy(payload.policy)
+      setCanEdit(payload.canEdit)
+      setOwnerEmails(listToTextarea(payload.policy.ownerEmails))
+      setRepoPatterns(listToTextarea(payload.policy.allowedRepositoryPatterns))
+      setCommitPushEnabled(payload.policy.commitPushEnabled)
+      setDeployEnabled(payload.policy.deployEnabled)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (saveError: any) {
+      setError(saveError?.message || "Errore salvataggio policy GitHub.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-cyan-300/20 bg-[#0b1321]/90 p-5 shadow-[0_20px_70px_rgba(34,211,238,0.08)]">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg border border-white/10 bg-white/[0.06] p-2">
+              <Github className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-white">GitHub MCP owner-scoped</h4>
+              <p className="max-w-3xl text-sm text-slate-400">
+                Le repo aziendali sono accessibili al sistema agentico, ma commit, push e deploy con l'account GitHub di Axel
+                restano una capability personale dell'owner tecnico.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge className="border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+              {policy?.connectorInstallState || "loading"}
+            </Badge>
+            <Badge className="border border-pink-300/20 bg-pink-400/10 text-pink-100">
+              solo owner GitHub
+            </Badge>
+            {policy?.oauthSubject && (
+              <Badge className="border border-white/10 bg-white/[0.05] text-slate-200">
+                {policy.oauthSubject}
+              </Badge>
+            )}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className={outlineActionClass}
+          onClick={loadPolicy}
+          disabled={loading || saving}
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Aggiorna
+        </Button>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <div className="space-y-2">
+          <Label htmlFor="github-owner-emails" className="flex items-center gap-2 text-slate-200">
+            <Lock className="h-4 w-4 text-pink-300" />
+            Email owner abilitate
+          </Label>
+          <Textarea
+            id="github-owner-emails"
+            value={ownerEmails}
+            onChange={(event) => setOwnerEmails(event.target.value)}
+            disabled={!canEdit || loading}
+            className={`${fieldClass} min-h-[118px]`}
+            placeholder="axel@wearerighello.com"
+          />
+          <p className="text-xs text-slate-500">
+            Utente corrente: {currentUserEmail || "non disponibile"}. Gli altri ruoli possono proporre/revisionare, non usare il tuo GitHub.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="github-repo-patterns" className="flex items-center gap-2 text-slate-200">
+            <GitBranch className="h-4 w-4 text-cyan-200" />
+            Repository aziendali in scope
+          </Label>
+          <Textarea
+            id="github-repo-patterns"
+            value={repoPatterns}
+            onChange={(event) => setRepoPatterns(event.target.value)}
+            disabled={!canEdit || loading}
+            className={`${fieldClass} min-h-[118px]`}
+            placeholder="axelfleureau/*"
+          />
+          <p className="text-xs text-slate-500">
+            Accetta pattern come `axelfleureau/*` o URL GitHub specifici. I repo fuori scope non generano job publish/deploy.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#070d18]/80 p-4">
+          <div className="space-y-1">
+            <Label className="text-sm font-medium text-slate-200">Commit e push</Label>
+            <p className="text-xs text-slate-500">Permette al job approvato di pubblicare su GitHub.</p>
+          </div>
+          <Switch checked={commitPushEnabled} onCheckedChange={setCommitPushEnabled} disabled={!canEdit || loading} />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#070d18]/80 p-4">
+          <div className="space-y-1">
+            <Label className="flex items-center gap-2 text-sm font-medium text-slate-200">
+              <Rocket className="h-4 w-4 text-emerald-300" />
+              Deploy dopo approvazione
+            </Label>
+            <p className="text-xs text-slate-500">Crea il job di deploy solo quando approva l'owner GitHub autorizzato.</p>
+          </div>
+          <Switch checked={deployEnabled} onCheckedChange={setDeployEnabled} disabled={!canEdit || loading} />
+        </div>
+      </div>
+
+      {(error || saved || !canEdit) && (
+        <div className="mt-4">
+          {error && (
+            <Alert className="border-red-400/25 bg-red-500/[0.12] text-red-100">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {saved && (
+            <Alert className="border-emerald-400/25 bg-emerald-400/[0.12] text-emerald-100">
+              <CheckCircle className="h-4 w-4 text-emerald-300" />
+              <AlertDescription>Policy GitHub salvata.</AlertDescription>
+            </Alert>
+          )}
+          {!canEdit && !loading && !error && (
+            <Alert className="border-amber-300/25 bg-amber-300/[0.1] text-amber-100">
+              <AlertDescription>
+                Vista in sola lettura: solo l'owner GitHub configurato può cambiare questa policy.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-500">
+          Nessun token viene salvato qui: Optima conserva solo policy, scope, stato MCP e riferimento protetto.
+        </p>
+        <Button
+          type="button"
+          onClick={savePolicy}
+          disabled={!canEdit || loading || saving}
+          className="rounded-lg bg-[#e14483] text-white shadow-[0_14px_42px_rgba(225,68,131,0.22)] hover:bg-[#f05296]"
+        >
+          {saving ? "Salvataggio..." : "Salva policy GitHub"}
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const { userData } = useAuth()
@@ -357,6 +603,8 @@ export default function SettingsPage() {
                   <CardDescription className="text-slate-400">Connetti servizi esterni alla piattaforma</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
+                  <AgenticGitHubPolicyCard />
+
                   <div className="grid gap-4">
                     <div className={integrationCardClass}>
                       <div className="flex items-center gap-3">
