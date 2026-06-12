@@ -158,8 +158,10 @@ const nodes = Array.isArray(snapshot.nodes) ? snapshot.nodes : []
 const edges = Array.isArray(snapshot.edges) ? snapshot.edges : []
 
 rmSync(vaultDir, { recursive: true, force: true })
+mkdirSync(join(vaultDir, "Dashboards"), { recursive: true })
 mkdirSync(join(vaultDir, "Nodes"), { recursive: true })
 mkdirSync(join(vaultDir, "Sources"), { recursive: true })
+mkdirSync(join(vaultDir, "Inbox"), { recursive: true })
 writeObsidianConfig(vaultDir)
 
 const usedNames = new Set()
@@ -170,6 +172,8 @@ for (const node of nodes) {
 }
 
 const linksByNode = new Map()
+const nodesByType = new Map()
+const nodesBySource = new Map()
 for (const edge of edges) {
   if (!fileByNodeId.has(edge.fromNodeId) || !fileByNodeId.has(edge.toNodeId)) continue
   const fromLinks = linksByNode.get(edge.fromNodeId) ?? []
@@ -178,6 +182,15 @@ for (const edge of edges) {
   const toLinks = linksByNode.get(edge.toNodeId) ?? []
   toLinks.push({ direction: "in", edge, otherId: edge.fromNodeId })
   linksByNode.set(edge.toNodeId, toLinks)
+}
+
+for (const node of nodes) {
+  const byType = nodesByType.get(node.nodeType) ?? []
+  byType.push(node)
+  nodesByType.set(node.nodeType, byType)
+  const bySource = nodesBySource.get(node.sourceType) ?? []
+  bySource.push(node)
+  nodesBySource.set(node.sourceType, bySource)
 }
 
 for (const node of nodes) {
@@ -199,6 +212,16 @@ for (const node of nodes) {
     `# ${markdownEscape(node.title)}`,
     "",
     node.summary ? markdownEscape(node.summary) : "_Nessun sommario disponibile._",
+    "",
+    "## Tag grafo",
+    "",
+    [
+      "#optima",
+      `#optima/type/${slugify(node.nodeType)}`,
+      `#optima/source/${slugify(node.sourceType)}`,
+      `#optima/confidence/${slugify(node.confidence)}`,
+      ...(Array.isArray(node.tags) ? node.tags.slice(0, 8).map((tag) => `#tag/${slugify(tag)}`) : []),
+    ].join(" "),
     "",
     "## Collegamenti",
     "",
@@ -260,12 +283,92 @@ writeFileSync(
 )
 
 writeFileSync(
+  join(vaultDir, "Dashboards", "Agentic OS.md"),
+  [
+    "---",
+    'type: "dashboard"',
+    'source_type: "optima"',
+    `optima_organization_id: ${yamlString(organizationId)}`,
+    "---",
+    "",
+    "# Agentic OS",
+    "",
+    "Dashboard operativa del vault Obsidian di Optima.",
+    "",
+    "## Apertura rapida",
+    "",
+    "- [[Optima Graph Memory]]",
+    "- [[Sources/README|Fonti e policy]]",
+    "- [[Inbox/README|Inbox note revisionabili]]",
+    "",
+    "## Gruppi principali",
+    "",
+    [...nodesByType.entries()]
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 20)
+      .map(([type, group]) => `- #optima/type/${slugify(type)} - ${group.length} nodi`)
+      .join("\n"),
+    "",
+    "## Sorgenti principali",
+    "",
+    [...nodesBySource.entries()]
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 20)
+      .map(([source, group]) => `- #optima/source/${slugify(source)} - ${group.length} nodi`)
+      .join("\n"),
+  ].join("\n"),
+  "utf8",
+)
+
+for (const [sourceType, sourceNodes] of [...nodesBySource.entries()].sort((a, b) => b[1].length - a[1].length)) {
+  writeFileSync(
+    join(vaultDir, "Sources", `${slugify(sourceType)}.md`),
+    [
+      "---",
+      'type: "source-index"',
+      `source_type: ${yamlString(sourceType)}`,
+      `optima_organization_id: ${yamlString(organizationId)}`,
+      "---",
+      "",
+      `# Sorgente: ${markdownEscape(sourceType)}`,
+      "",
+      `${sourceNodes.length} nodi collegati a questa sorgente.`,
+      "",
+      ...sourceNodes
+        .slice(0, 250)
+        .map((node) => {
+          const file = fileByNodeId.get(node.id)
+          return file ? `- [[${basename(file, ".md")}]] - ${node.nodeType} - ${node.confidence}` : null
+        })
+        .filter(Boolean),
+    ].join("\n"),
+    "utf8",
+  )
+}
+
+writeFileSync(
   join(vaultDir, "Sources", "README.md"),
   [
     "# Fonti",
     "",
     "Questa cartella puo contenere note redatte sulle sorgenti importate in Optima.",
     "Per importare conoscenza da Obsidian verso Optima usare solo note revisionate, frontmatter chiaro e nessun allegato pesante.",
+  ].join("\n"),
+  "utf8",
+)
+
+writeFileSync(
+  join(vaultDir, "Inbox", "README.md"),
+  [
+    "# Inbox note revisionabili",
+    "",
+    "Usa questa cartella per scrivere note curate manualmente in Obsidian.",
+    "",
+    "Regola operativa:",
+    "- ogni nota che deve rientrare in Optima deve avere frontmatter chiaro;",
+    "- niente segreti, token, allegati pesanti o dump integrali;",
+    "- il rientro nel grafo Optima deve passare da review o job agentico tracciato;",
+    "- Obsidian e workspace umano, Optima resta sorgente autoritativa.",
   ].join("\n"),
   "utf8",
 )

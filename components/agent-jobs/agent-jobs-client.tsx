@@ -843,8 +843,11 @@ const GRAPH_MIN_ZOOM = 0.45
 const GRAPH_FIT_ZOOM = 0.62
 const GRAPH_MAX_ZOOM = 2.8
 const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
-const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault/Optima Graph Memory.md"
-const OBSIDIAN_VAULT_URI = `obsidian://open?path=${encodeURIComponent(OBSIDIAN_VAULT_PATH)}`
+const OBSIDIAN_VAULT_NAME = "Optima Obsidian Vault"
+const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault"
+const OBSIDIAN_VAULT_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}`
+const OBSIDIAN_GRAPH_INDEX_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent("Optima Graph Memory")}`
+const OBSIDIAN_AGENTIC_DASHBOARD_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent("Dashboards/Agentic OS")}`
 
 function clampGraphZoom(value: number) {
   return Math.max(GRAPH_MIN_ZOOM, Math.min(GRAPH_MAX_ZOOM, value))
@@ -1253,11 +1256,11 @@ function GraphMemoryMap({
         </div>
         <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:overflow-visible sm:pb-0">
           <a
-            href={OBSIDIAN_VAULT_URI}
+            href={OBSIDIAN_AGENTIC_DASHBOARD_URI}
             className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-200 transition hover:bg-white/10"
-            title="Apre il vault in Obsidian: questa e la vista Obsidian reale, non una ricostruzione web."
+            title="Apre la dashboard Agentic OS nel vault Obsidian locale."
           >
-            Apri Obsidian
+            Obsidian OS
           </a>
           {densityOptions.map((limit) => (
             <button
@@ -2799,10 +2802,10 @@ export function AgentJobsClient({
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Vault Obsidian</p>
               <h3 className="mt-1 text-lg font-black text-white">Graph View nativa</h3>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Percorso vault: <span className="font-bold text-violet-50">/Users/axel/Documents/Optima Obsidian Vault</span>. Il link apre il file indice locale se Obsidian e il vault sono disponibili su questo dispositivo.
+                Vault locale: <span className="font-bold text-violet-50">{OBSIDIAN_VAULT_PATH}</span>. Da Mac apre dashboard, indice e graph view native di Obsidian; da mobile resta una policy/azione di export.
               </p>
             </div>
-            <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 sm:w-auto">
+            <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-3 sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
@@ -2814,10 +2817,16 @@ export function AgentJobsClient({
                 Aggiorna vault
               </Button>
               <a
-                href={OBSIDIAN_VAULT_URI}
+                href={OBSIDIAN_AGENTIC_DASHBOARD_URI}
                 className="inline-flex h-11 items-center justify-center rounded-lg border border-violet-300/25 bg-violet-300/25 px-3 text-xs font-black text-white transition hover:bg-violet-300/35"
               >
-                Apri vault Obsidian
+                Dashboard
+              </a>
+              <a
+                href={OBSIDIAN_GRAPH_INDEX_URI}
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 transition hover:bg-violet-300/20"
+              >
+                Indice grafo
               </a>
             </div>
           </div>
@@ -3387,7 +3396,7 @@ export function AgentJobsClient({
                       Optima resta sorgente autoritativa. Obsidian serve per esplorare e curare note/backlink; il rientro in Optima avviene solo con note revisionate.
                     </p>
                   </div>
-                  <div className="grid gap-2 min-[420px]:grid-cols-2 min-[560px]:shrink-0">
+                  <div className="grid gap-2 min-[420px]:grid-cols-3 min-[560px]:shrink-0">
                     <Button
                       type="button"
                       variant="outline"
@@ -3399,10 +3408,16 @@ export function AgentJobsClient({
                       Aggiorna vault
                     </Button>
                     <a
-                      href={OBSIDIAN_VAULT_URI}
+                      href={OBSIDIAN_AGENTIC_DASHBOARD_URI}
                       className="inline-flex h-9 items-center justify-center rounded-lg border border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 transition hover:bg-violet-300/15"
                     >
-                      Apri Obsidian
+                      Dashboard
+                    </a>
+                    <a
+                      href={OBSIDIAN_GRAPH_INDEX_URI}
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 transition hover:bg-violet-300/15"
+                    >
+                      Indice
                     </a>
                   </div>
                 </div>
@@ -3611,7 +3626,7 @@ export function AgentJobsClient({
                       La vista esatta di Obsidian non viene ricreata in React: Optima esporta un vault Markdown con wikilink e lo apre nell'app Obsidian, dove hai la mappa sinaptica nativa, drag, zoom, filtri, gruppi e forze originali.
                     </p>
                   </div>
-                  <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 sm:w-auto">
+                  <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-3 sm:w-auto">
                     <Button
                       type="button"
                       variant="outline"
@@ -3626,7 +3641,13 @@ export function AgentJobsClient({
                       href={OBSIDIAN_VAULT_URI}
                       className="inline-flex h-10 items-center justify-center rounded-lg border border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white transition hover:bg-violet-300/30"
                     >
-                      Apri Obsidian
+                      Apri vault
+                    </a>
+                    <a
+                      href={OBSIDIAN_AGENTIC_DASHBOARD_URI}
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white transition hover:bg-violet-300/30"
+                    >
+                      Dashboard OS
                     </a>
                   </div>
                 </div>
