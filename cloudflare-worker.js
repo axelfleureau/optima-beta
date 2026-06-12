@@ -1,6 +1,6 @@
 import handler from "./.open-next/worker.js"
 
-async function runMilestoneCron(env, ctx) {
+async function runCronPath(env, ctx, path, label) {
   if (!env.CRON_SECRET) {
     console.error("CRON_SECRET is not configured")
     return
@@ -10,7 +10,7 @@ async function runMilestoneCron(env, ctx) {
     env.NEXT_PUBLIC_SITE_URL ||
     env.NEXT_PUBLIC_APP_URL ||
     "https://optima-beta.workers.dev"
-  const url = new URL("/api/cron/check-milestones", origin)
+  const url = new URL(path, origin)
 
   const response = await handler.fetch(
     new Request(url.toString(), {
@@ -26,8 +26,16 @@ async function runMilestoneCron(env, ctx) {
 
   if (!response.ok) {
     const body = await response.text().catch(() => "")
-    console.error(`Milestone cron failed: ${response.status} ${body}`)
+    console.error(`${label} cron failed: ${response.status} ${body}`)
   }
+}
+
+async function runMilestoneCron(env, ctx) {
+  return runCronPath(env, ctx, "/api/cron/check-milestones", "Milestone")
+}
+
+async function runAgenticSelfImprovementCron(env, ctx) {
+  return runCronPath(env, ctx, "/api/cron/agentic-self-improvement", "Agentic self-improvement")
 }
 
 export default {
@@ -35,5 +43,6 @@ export default {
 
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(runMilestoneCron(env, ctx))
+    ctx.waitUntil(runAgenticSelfImprovementCron(env, ctx))
   },
 }
