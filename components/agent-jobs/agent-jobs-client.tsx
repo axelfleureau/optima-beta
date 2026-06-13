@@ -5057,6 +5057,19 @@ export function AgentJobsClient({
                                 Se Safari dice che non trova il server: il telefono non sta raggiungendo Tailscale/MagicDNS oppure il servizio VPS e spento. In quel caso prova dal Mac su Tailscale o usa il fallback IP.
                               </p>
                             </div>
+                            {browserGatewayConfirmedSessionId !== selectedBrowserPairingSession.id ? (
+                              <div className="rounded-lg border border-red-300/25 bg-red-400/[0.08] p-3 text-sm leading-6 text-red-50">
+                                <p className="font-black">Non aprire il login se il test fallisce</p>
+                                <p className="mt-1">
+                                  La schermata Safari “non trova il server” significa gateway offline/non raggiungibile. In quel caso fermati qui e avvia il servizio sul VPS: non e un problema di account, OAuth o API key.
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-emerald-300/25 bg-emerald-400/[0.08] p-3 text-sm leading-6 text-emerald-50">
+                                <p className="font-black">Gateway confermato manualmente</p>
+                                <p className="mt-1">Hai confermato di aver visto <span className="font-mono">ok: true</span>. Ora puoi aprire il browser remoto.</p>
+                              </div>
+                            )}
                             <div className="grid gap-2 sm:grid-cols-3">
                               <Button
                                 type="button"
@@ -5070,11 +5083,21 @@ export function AgentJobsClient({
                               <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => setBrowserGatewayConfirmedSessionId(selectedBrowserPairingSession.id)}
+                                onClick={() => {
+                                  const confirmed = window.confirm("Confermi di aver visto una risposta gateway con ok: true? Se Safari dice che non trova il server, premi Annulla.")
+                                  if (confirmed) {
+                                    setBrowserGatewayConfirmedSessionId(selectedBrowserPairingSession.id)
+                                  } else {
+                                    setBrowserGatewayConfirmedSessionId(null)
+                                    toast.warning("Gateway non confermato", {
+                                      description: "Avvia prima il servizio Browser MCP sul VPS o riprova il test da un dispositivo Tailscale.",
+                                    })
+                                  }
+                                }}
                                 className="min-h-12 w-full justify-center rounded-lg border-cyan-200/20 bg-cyan-300/10 px-3 text-center text-sm font-black text-cyan-50 hover:bg-cyan-300/15"
                               >
                                 <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
-                                2. Health OK
+                                2. Ho visto ok:true
                               </Button>
                               <Button
                                 type="button"
@@ -5083,7 +5106,7 @@ export function AgentJobsClient({
                                 className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90 disabled:cursor-not-allowed disabled:opacity-45"
                               >
                                 <Network className="mr-1.5 h-4 w-4 shrink-0" />
-                                3. Apri login
+                                3. Apri se ok
                               </Button>
                             </div>
                             <div className="grid min-w-0 gap-2 rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
