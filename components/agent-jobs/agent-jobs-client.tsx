@@ -642,6 +642,8 @@ function providerAuthLabel(method?: string) {
 }
 
 function providerPrimaryActionLabel(provider: AgenticCapabilities["providerCatalog"][number]) {
+  if (provider.id === "codex") return "Configura login"
+  if (provider.id === "openai") return "Configura AI"
   if (provider.authMethod === "runner_env") return "Configura runner"
   if (provider.authMethod === "local_install") return "Configura install"
   if (provider.authMethod === "oauth_pkce" || provider.authMethod === "external_oauth") return "Configura OAuth"
@@ -650,6 +652,14 @@ function providerPrimaryActionLabel(provider: AgenticCapabilities["providerCatal
 }
 
 function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][number]) {
+  if (provider.id === "codex") {
+    return [
+      "Sul VPS runner avvia login Codex CLI con device auth o sessione autorizzata: `codex login --device-auth` quando disponibile.",
+      "Completa il codice/QR dal telefono o dal browser autorizzato di Axel, poi verifica `codex login status` sul runner.",
+      "Configura solo il secret Optima necessario al polling del runner, cioe AGENT_RUNNER_API_KEY. Non mettere OPENAI_API_KEY se il CLI e gia autenticato con login.",
+      "Esegui health-check: heartbeat runner, `codex exec` dry-run, artefatto revisionabile e nessun deploy automatico.",
+    ]
+  }
   if (provider.authMethod === "runner_env") {
     return [
       "Verifica il runner autorizzato e il perimetro tenant: workdir isolata, heartbeat recente e nessun accesso a servizi esterni non allowlist.",
@@ -682,8 +692,11 @@ function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][n
 }
 
 function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][number]) {
+  if (provider.id === "codex") {
+    return "Codex non deve rimandarti prima alle API key: la strada preferita e login/device-auth del Codex CLI sul VPS runner. API key o access token restano fallback server-side; per strumenti web usa Browser MCP."
+  }
   if (provider.id === "openai") {
-    return "OpenAI via API richiede una API key server-side o tenant vault. ChatGPT web, Nano Banana o strumenti senza API non diventano OAuth backend: vanno usati tramite Browser MCP con Chromium/Playwright, profilo isolato, login utente, allowlist domini e review."
+    return "Per ChatGPT web, Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. OpenAI API key serve solo se vuoi chiamare modelli via API server-side."
   }
   if (provider.authMethod === "runner_env") {
     return "Questo provider non si collega da telefono con OAuth: si abilita configurando il runner autorizzato e verificando heartbeat, CLI e secret."
@@ -692,6 +705,74 @@ function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][n
     return "Qui non incollare token in chiaro: crea il secret nel runtime autorizzato, poi registra solo la reference in Optima."
   }
   return "La configurazione reale deve salvare stato, policy e secret_ref. Il job serve solo per health-check o audit, non per inserire credenziali."
+}
+
+function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][number]) {
+  if (provider.id === "codex") {
+    return [
+      {
+        label: "Login Codex CLI",
+        tone: "recommended",
+        body: "Sul VPS esegui device auth/login del Codex CLI e autorizzi tu l'account. Optima verifica lo stato del CLI, non conserva la password.",
+      },
+      {
+        label: "Browser MCP / QR",
+        tone: "oauth",
+        body: "Per sessioni web o login da telefono usa Browser MCP: profilo isolato, allowlist, pairing/QR e review prima di azioni esterne.",
+      },
+      {
+        label: "Secret server",
+        tone: "fallback",
+        body: "API key/access token solo quando serve esecuzione non interattiva. Restano nel runtime autorizzato come secret_ref.",
+      },
+    ]
+  }
+  if (provider.id === "openai") {
+    return [
+      {
+        label: "Browser MCP / ChatGPT",
+        tone: "recommended",
+        body: "Per ChatGPT, Nano Banana e strumenti web: login utente in browser controllato, profilo isolato, allowlist domini e audit.",
+      },
+      {
+        label: "OAuth provider",
+        tone: "oauth",
+        body: "Se il servizio espone OAuth/PKCE reale, Optima deve aprire callback con state, scope minimi e token nel runtime autorizzato.",
+      },
+      {
+        label: "API key",
+        tone: "fallback",
+        body: "Solo per chiamate API server-side ai modelli. Non e la strada per usare account ChatGPT web.",
+      },
+    ]
+  }
+  if (provider.authMethod === "api_key_secret") {
+    return [
+      {
+        label: "OAuth/connector se disponibile",
+        tone: "oauth",
+        body: "Preferisci OAuth o connector ufficiale quando il provider lo supporta davvero.",
+      },
+      {
+        label: "Secret server-side",
+        tone: "fallback",
+        body: "Se non esiste OAuth, usa API key nel runtime autorizzato con secret_ref e health-check.",
+      },
+    ]
+  }
+  return [
+    {
+      label: providerAuthLabel(provider.authMethod),
+      tone: "recommended",
+      body: providerSetupHint(provider),
+    },
+  ]
+}
+
+function setupModeClass(tone: string) {
+  if (tone === "recommended") return "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-50"
+  if (tone === "oauth") return "border-cyan-300/20 bg-cyan-300/[0.07] text-cyan-50"
+  return "border-amber-300/20 bg-amber-300/[0.07] text-amber-50"
 }
 
 function runtimeTone(state: string) {
@@ -4618,6 +4699,18 @@ export function AgentJobsClient({
                 </section>
 
                 <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+                  <p className="font-black text-white">Modalita disponibili</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    {providerSetupModes(selectedProvider).map((mode) => (
+                      <div key={mode.label} className={`rounded-lg border p-3 ${setupModeClass(mode.tone)}`}>
+                        <p className="text-sm font-black">{mode.label}</p>
+                        <p className="mt-2 text-xs leading-5 opacity-85">{mode.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
                   <p className="font-black text-white">Percorso consigliato</p>
                   <div className="mt-3 grid gap-2">
                     {providerInstallSteps(selectedProvider).map((step, index) => (
@@ -4633,7 +4726,7 @@ export function AgentJobsClient({
 
                 <section className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Secret richiesti</p>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Credenziali runtime / fallback</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedProvider.requiredSecrets.length ? (
                         selectedProvider.requiredSecrets.map((secret) => (
@@ -4642,7 +4735,7 @@ export function AgentJobsClient({
                           </span>
                         ))
                       ) : (
-                        <span className="text-sm text-slate-500">Nessun secret obbligatorio.</span>
+                        <span className="text-sm text-slate-500">Nessun secret obbligatorio: usa login, OAuth o runtime locale.</span>
                       )}
                     </div>
                   </div>
@@ -4670,11 +4763,13 @@ export function AgentJobsClient({
                   </div>
                 </section>
 
-                {selectedProvider.id === "openai" ? (
+                {selectedProvider.id === "openai" || selectedProvider.id === "codex" ? (
                   <section className="rounded-lg border border-purple-300/20 bg-purple-300/[0.07] p-3 sm:p-4">
-                    <p className="font-black text-purple-50">Vuoi ChatGPT o strumenti web senza API?</p>
+                    <p className="font-black text-purple-50">
+                      {selectedProvider.id === "codex" ? "Vuoi login/pairing invece di API key?" : "Vuoi ChatGPT o strumenti web senza API?"}
+                    </p>
                     <p className="mt-2 text-sm leading-6 text-purple-100">
-                      Usa Browser MCP: apre un browser controllato, fai login tu o con pairing/QR su profilo isolato, e Optima usa solo siti allowlist con audit e review. Non e una API gratuita nascosta e non sostituisce i permessi del provider.
+                      Usa Browser MCP: apre un browser controllato, fai login tu o con pairing/QR su profilo isolato, e Optima usa solo siti allowlist con audit e review. Per Codex CLI, sul VPS la strada preferita resta device auth/login del CLI; Browser MCP serve per account e strumenti web.
                     </p>
                     <Button
                       type="button"

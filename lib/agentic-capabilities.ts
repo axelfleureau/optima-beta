@@ -208,9 +208,9 @@ const PROVIDERS: AgenticProviderSpec[] = [
     installPattern: "Installazione guidata su VPS/runner con token server-side e review in Optima.",
     tenantUse: "Patch, PR, audit tecnico, task update da repository e deploy controllati.",
     strengths: ["coding", "patch", "git", "reviewable artifacts"],
-    requiredSecrets: ["AGENT_RUNNER_API_KEY", "OPENAI_API_KEY"],
+    requiredSecrets: ["AGENT_RUNNER_API_KEY"],
     recommendedMcpConnectors: ["github", "browser", "cloudflare", "vercel", "hostinger"],
-    notes: "Codex non deve mutare produzione senza job esplicito e approvazione.",
+    notes: "Codex non deve mutare produzione senza job esplicito e approvazione. Autenticazione preferita: login/device auth del Codex CLI sul runner; API key solo fallback server-side.",
   },
   {
     id: "open-code",
