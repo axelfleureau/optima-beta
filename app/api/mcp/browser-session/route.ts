@@ -72,9 +72,21 @@ export async function POST(request: NextRequest) {
     const baseUrl = appBaseUrl(request)
     const callbackUrl = `${baseUrl}/api/mcp/browser-session/callback?session=${sessionId}&code=${encodeURIComponent(code)}`
     const gateway = browserGatewayUrl()
+    const gatewayHealthUrl = gateway ? `${gateway}/health` : null
     const gatewayUrl = gateway
       ? `${gateway}/pair?session=${encodeURIComponent(sessionId)}&code=${encodeURIComponent(code)}&target=${encodeURIComponent(target)}&callback=${encodeURIComponent(callbackUrl)}`
       : null
+    const installCommand = [
+      "cd /srv/optima-agent/optima-beta",
+      "git pull --ff-only",
+      "sudo apt-get update",
+      "sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium",
+      "sudo mkdir -p /srv/optima-agent/browser-profiles/righello",
+      "sudo cp runner/optima-browser-mcp-gateway.service /etc/systemd/system/optima-browser-mcp-gateway.service",
+      "sudo systemctl daemon-reload",
+      "sudo systemctl enable --now optima-browser-mcp-gateway",
+      "sudo systemctl status optima-browser-mcp-gateway --no-pager",
+    ].join("\n")
 
     const session = {
       id: sessionId,
@@ -83,6 +95,7 @@ export async function POST(request: NextRequest) {
       target,
       startUrl: targetStartUrl(target),
       gatewayUrl,
+      gatewayHealthUrl,
       callbackUrl,
       pairingCode: code,
       expiresAt,
@@ -100,6 +113,7 @@ export async function POST(request: NextRequest) {
             "Dopo il login, salva solo secret_ref/profilo e audit: niente cookie o token in D1.",
           ],
       runnerCommand: `BROWSER_MCP_SESSION=${sessionId} BROWSER_MCP_PAIRING_CODE=${code} BROWSER_MCP_TARGET=${target} BROWSER_MCP_CALLBACK_URL=${callbackUrl} npm run browser:mcp:pair`,
+      installCommand,
       missingEnv: gatewayUrl ? [] : ["BROWSER_MCP_GATEWAY_URL"],
     }
 

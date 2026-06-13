@@ -73,11 +73,13 @@ interface BrowserMcpSession {
   target: string
   startUrl: string
   gatewayUrl: string | null
+  gatewayHealthUrl?: string | null
   callbackUrl: string
   pairingCode: string
   expiresAt: string
   instructions: string[]
   runnerCommand: string
+  installCommand?: string
   missingEnv: string[]
 }
 
@@ -2147,10 +2149,9 @@ export function AgentJobsClient({
       if (data.capabilities) setCapabilities(data.capabilities)
 
       if (data.session?.gatewayUrl) {
-        toast.success("Sessione Browser MCP pronta", {
-          description: "Apri il link gateway e completa il login nel Chromium isolato del runner.",
+        toast.success("Sessione Browser MCP preparata", {
+          description: "Verifica prima il gateway VPS, poi apri il login remoto.",
         })
-        window.open(data.session.gatewayUrl, "_blank", "noopener,noreferrer")
       } else {
         toast.warning("Gateway Browser MCP da configurare", {
           description: "Optima ha creato il pairing, ma manca BROWSER_MCP_GATEWAY_URL sul runtime.",
@@ -2170,7 +2171,7 @@ export function AgentJobsClient({
     try {
       await navigator.clipboard.writeText(command)
       toast.success("Comando copiato", {
-        description: "Usalo sul runner/VPS Optima quando il gateway non e ancora configurato.",
+        description: "Usalo sul runner/VPS Optima quando serve completare il setup.",
       })
     } catch {
       toast.error("Copia non riuscita")
@@ -4987,10 +4988,10 @@ export function AgentJobsClient({
                 {selectedConnector.id === "browser" ? (
                   <section className="rounded-lg border border-purple-300/20 bg-purple-300/[0.07] p-3 sm:p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-black text-purple-50">Login guidato Browser MCP</p>
+                      <div className="min-w-0">
+                        <p className="font-black text-purple-50">Wizard Browser MCP</p>
                         <p className="mt-2 text-sm leading-6 text-purple-100">
-                          Avvia una sessione sul Chromium isolato del runner. Non usa API key: il login va fatto nel profilo remoto autorizzato, poi Optima richiede health-check prima di usarlo.
+                          Per ChatGPT, Nano Banana e strumenti web non usiamo API key come prima scelta. Optima prepara una sessione, il login avviene nel Chromium isolato del VPS e poi serve health-check.
                         </p>
                       </div>
                       {selectedBrowserPairingSession ? (
@@ -5015,12 +5016,18 @@ export function AgentJobsClient({
                           className="rounded-lg border-purple-200/20 bg-black/20 text-purple-50 hover:bg-purple-300/10"
                         >
                           {browserPairingAction === target ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />}
-                          {label}
+                          Prepara {label}
                         </Button>
                       ))}
                     </div>
                     {selectedBrowserPairingSession ? (
                       <div className="mt-4 grid gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                        <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
+                          <p className="font-black">Prima verifica il gateway VPS</p>
+                          <p className="mt-1">
+                            Se il test gateway non apre, il servizio `optima-browser-mcp-gateway` non e attivo sul VPS: non e un errore OAuth e non serve inserire API key.
+                          </p>
+                        </div>
                         <div className="grid gap-2 sm:grid-cols-3">
                           <div>
                             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Pairing code</p>
@@ -5036,14 +5043,59 @@ export function AgentJobsClient({
                           </div>
                         </div>
                         {selectedBrowserPairingSession.gatewayUrl ? (
-                          <Button
-                            type="button"
-                            onClick={() => window.open(selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
-                            className="rounded-lg bg-purple-500 text-white hover:bg-purple-500/90"
-                          >
-                            <Network className="mr-1.5 h-4 w-4" />
-                            Apri login remoto
-                          </Button>
+                          <div className="grid gap-3">
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => window.open(selectedBrowserPairingSession.gatewayHealthUrl || selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
+                                className="rounded-lg border-emerald-200/20 bg-emerald-300/10 text-emerald-50 hover:bg-emerald-300/15"
+                              >
+                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                1. Test gateway
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={() => window.open(selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
+                                className="rounded-lg bg-purple-500 text-white hover:bg-purple-500/90"
+                              >
+                                <Network className="mr-1.5 h-4 w-4" />
+                                2. Apri login remoto
+                              </Button>
+                            </div>
+                            <div className="grid gap-2 rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
+                              <div>
+                                <p className="uppercase tracking-[0.16em] text-slate-500">Health URL</p>
+                                <code className="mt-1 block max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-black/35 p-2 text-cyan-100">
+                                  {selectedBrowserPairingSession.gatewayHealthUrl || `${selectedBrowserPairingSession.gatewayUrl.split("/pair")[0]}/health`}
+                                </code>
+                              </div>
+                              <div>
+                                <p className="uppercase tracking-[0.16em] text-slate-500">Login URL</p>
+                                <code className="mt-1 block max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-black/35 p-2 text-purple-100">
+                                  {selectedBrowserPairingSession.gatewayUrl}
+                                </code>
+                              </div>
+                            </div>
+                            {selectedBrowserPairingSession.installCommand ? (
+                              <div className="rounded-lg border border-slate-500/20 bg-slate-500/[0.06] p-3 text-sm leading-6 text-slate-200">
+                                <p className="font-black text-white">Se il test gateway non risponde</p>
+                                <p className="mt-1">Esegui da console Hostinger/VPS, solo in `/srv/optima-agent`:</p>
+                                <code className="mt-2 block max-w-full overflow-x-auto whitespace-pre rounded-md bg-black/40 p-2 text-xs text-slate-100">
+                                  {selectedBrowserPairingSession.installCommand}
+                                </code>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => copyBrowserPairingCommand(selectedBrowserPairingSession.installCommand!)}
+                                  className="mt-3 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
+                                >
+                                  <ClipboardList className="mr-1.5 h-4 w-4" />
+                                  Copia setup VPS
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
                         ) : (
                           <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
                             <p className="font-black">Gateway VPS non configurato</p>

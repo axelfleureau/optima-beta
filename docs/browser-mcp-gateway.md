@@ -13,12 +13,13 @@ Optima usa Browser MCP per strumenti web dove non conviene usare API key a consu
 
 1. Apri Optima > `Agenti` > `Grafo` > `Provider e MCP`.
 2. Apri `Browser MCP`.
-3. Premi `ChatGPT`, `Nano Banana`, `Perplexity` o `Claude`.
-4. Optima crea una sessione pairing con codice e scadenza.
-5. Se il gateway VPS e attivo, si apre `Apri login remoto`.
-6. Completa il login nel Chromium remoto.
-7. Premi `Ho completato il login` nella pagina gateway.
-8. Esegui `Job health-check` prima di dichiararlo operativo.
+3. Premi `Prepara ChatGPT`, `Prepara Nano Banana`, `Prepara Perplexity` o `Prepara Claude`.
+4. Optima crea una sessione pairing con codice e scadenza, ma non apre automaticamente il browser.
+5. Premi `Test gateway`: se non apre, il servizio VPS non e attivo.
+6. Se il gateway risponde, premi `Apri login remoto`.
+7. Completa il login nel Chromium remoto.
+8. Premi `Ho completato il login` nella pagina gateway.
+9. Esegui `Job health-check` prima di dichiararlo operativo.
 
 Il pulsante `Salva checklist` non esegue login e non rende operativo il connector.
 
