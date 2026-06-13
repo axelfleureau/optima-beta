@@ -210,7 +210,7 @@ const PROVIDERS: AgenticProviderSpec[] = [
     strengths: ["coding", "patch", "git", "reviewable artifacts"],
     requiredSecrets: ["AGENT_RUNNER_API_KEY"],
     recommendedMcpConnectors: ["github", "browser", "cloudflare", "vercel", "hostinger"],
-    notes: "Codex non deve mutare produzione senza job esplicito e approvazione. Autenticazione preferita: login/device auth del Codex CLI sul runner; API key solo fallback server-side.",
+    notes: "Codex non deve mutare produzione senza job esplicito e approvazione. Autenticazione preferita: login/device auth del Codex CLI sul runner; API key a consumo solo fallback facoltativo. AGENT_RUNNER_API_KEY e token interno Optima-runner.",
   },
   {
     id: "open-code",
@@ -233,12 +233,12 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "gemma-hosted",
     lane: "operations",
     authMethod: "api_key_secret",
-    installPattern: "Gateway hosted o provider compatibile: Optima salva secret_ref, endpoint_ref e policy tenant.",
+    installPattern: "Gateway hosted o provider compatibile solo se serve: API key facoltativa con secret_ref, endpoint_ref, quota e policy tenant.",
     tenantUse: "Operations agentiche, triage rapportini, classificazione richieste e assistant privacy-aware.",
     strengths: ["operations", "classification", "cost control", "privacy policy"],
     requiredSecrets: ["GEMMA_API_KEY"],
     recommendedMcpConnectors: ["notion", "telegram", "sendgrid"],
-    notes: "Da preferire al modello locale quando serve disponibilita continua senza gestire GPU sul VPS.",
+    notes: "Da preferire al modello locale solo quando il costo e sostenibile. API key facoltativa, con quota e budget.",
   },
   {
     id: "gemma",
@@ -261,12 +261,12 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "qwen-long-context",
     lane: "research",
     authMethod: "api_key_secret",
-    installPattern: "Secret tenant/provider in vault o env; Optima salva solo secret_ref e policy.",
+    installPattern: "Secret tenant/provider in vault o env solo come fallback; Optima salva solo secret_ref e policy.",
     tenantUse: "Research, sintesi lunga, analisi documentale e contesto multi-repository.",
     strengths: ["long context", "research", "summarization"],
     requiredSecrets: ["QWEN_API_KEY"],
     recommendedMcpConnectors: ["github", "notion", "browser", "cloudinary"],
-    notes: "Richiede policy chiara su quali dati tenant possono uscire dal runtime Optima.",
+    notes: "API key facoltativa e a consumo: usarla solo con policy chiara su dati tenant, budget e quota.",
   },
   {
     id: "minimax",
@@ -275,12 +275,12 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "minimax-media",
     lane: "media",
     authMethod: "api_key_secret",
-    installPattern: "Secret per tenant o organization; asset e risultati collegati al grafo media.",
+    installPattern: "Secret per tenant o organization solo se serve provider a consumo; asset e risultati collegati al grafo media.",
     tenantUse: "Generazione/trasformazione contenuti audio-video e media operations.",
     strengths: ["media generation", "video", "voice", "creative variants"],
     requiredSecrets: ["MINIMAX_API_KEY"],
     recommendedMcpConnectors: ["browser", "cloudinary"],
-    notes: "Ogni output deve avere provenienza, prompt, asset sorgenti e stato review.",
+    notes: "API key facoltativa e ultima spiaggia rispetto a strumenti gia inclusi o Browser MCP. Ogni output deve avere provenienza, prompt, asset sorgenti e stato review.",
   },
   {
     id: "openai",
@@ -289,12 +289,12 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "gpt-5.2",
     lane: "chat",
     authMethod: "api_key_secret",
-    installPattern: "Secret server-side o tenant-specific; usato da chat, command bar e reasoning.",
+    installPattern: "Browser MCP/login utente prima; secret server-side o tenant-specific solo come fallback a consumo per API.",
     tenantUse: "Assistant principale, reasoning, tool orchestration e generazione strutturata.",
     strengths: ["reasoning", "tool use", "structured output"],
     requiredSecrets: ["OPENAI_API_KEY"],
     recommendedMcpConnectors: ["github", "notion", "browser", "cloudflare", "sendgrid"],
-    notes: "Il modello non sostituisce autorizzazioni e grafo: opera sempre nel principal tenant.",
+    notes: "API key OpenAI e facoltativa e ultima spiaggia a consumo. Il modello non sostituisce autorizzazioni e grafo: opera sempre nel principal tenant.",
   },
 ]
 
@@ -313,8 +313,8 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     secretRefHint: "secret://tenant/{organizationId}/qwen",
     dataPolicy: "Usare per research e sintesi lunga. Dati tenant ammessi solo se policy e consenso organizzazione lo permettono.",
     installSteps: [
-      "Crea o collega un account provider Qwen/OpenAI-compatible.",
-      "Salva la API key in secret manager o env runtime; Optima conserva solo secret_ref.",
+      "Prima valuta modello locale, Browser MCP o piano gia incluso; collega Qwen/OpenAI-compatible solo se serve davvero.",
+      "Se usi API key a consumo, imposta budget/quota e salvala in secret manager o env runtime; Optima conserva solo secret_ref.",
       "Imposta QWEN_BASE_URL se non usi il gateway predefinito del provider.",
       "Esegui health check e abilita la route research.",
     ],
@@ -333,8 +333,8 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     secretRefHint: "secret://tenant/{organizationId}/gemma",
     dataPolicy: "Usare per triage operativo, bozze, rapportini e classificazione a costo controllato.",
     installSteps: [
-      "Scegli provider hosted o gateway compatibile per Gemma.",
-      "Configura GEMMA_API_KEY e GEMMA_BASE_URL nel runtime o secret manager.",
+      "Preferisci Gemma locale o piano incluso quando basta.",
+      "Se scegli provider hosted a consumo, configura GEMMA_API_KEY e GEMMA_BASE_URL con quota e budget nel runtime o secret manager.",
       "Abilita route operations e assegna Office Ops al provider Gemma Hosted.",
       "Mantieni fallback OpenAI/router per richieste ad alto ragionamento.",
     ],
@@ -372,8 +372,8 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     secretRefHint: "secret://tenant/{organizationId}/minimax",
     dataPolicy: "Usare per asset, audio, video e varianti creative collegate a task, clienti e review.",
     installSteps: [
-      "Collega MiniMax o un gateway compatibile per media generation.",
-      "Configura MINIMAX_API_KEY e opzionalmente MINIMAX_BASE_URL.",
+      "Prima valuta strumenti gia inclusi, Browser MCP o workflow manuale assistito.",
+      "Se serve MiniMax/gateway a consumo, configura MINIMAX_API_KEY e opzionalmente MINIMAX_BASE_URL con quota e budget.",
       "Collega Cloudinary per archiviazione e trasformazioni asset.",
       "Permetti a Codex Engineer di aprire handoff verso Media Operator quando un job tecnico richiede media.",
     ],
@@ -392,8 +392,9 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     secretRefHint: "secret://tenant/{organizationId}/openai",
     dataPolicy: "Usare come router/reasoning principale e fallback quando Qwen/Gemma non bastano.",
     installSteps: [
-      "Mantieni chiave server-side o tenant-specific.",
-      "Usa il grafo operativo per decidere quando delegare a provider specializzati.",
+      "Per ChatGPT web o strumenti senza API usa Browser MCP/login utente prima di API key.",
+      "Configura OPENAI_API_KEY solo se serve API server-side, con tetto budget e quota.",
+      "Usa il grafo operativo per decidere quando delegare a provider specializzati o locali.",
     ],
   },
 ]
@@ -515,7 +516,7 @@ export function getAgenticModelHosts() {
 
 export function getOAuthGuidance() {
   return {
-    pattern: "Authorization Code + PKCE per installazioni utente; GitHub App per repository; Browser MCP con sessione OAuth/profilo isolato per strumenti web senza API; secret_ref per API key; local_install per runner self-hosted.",
+    pattern: "Authorization Code + PKCE per installazioni utente; GitHub App per repository; Browser MCP con sessione OAuth/profilo isolato per strumenti web senza API; secret_ref per API key solo fallback facoltativo a consumo; local_install per runner self-hosted.",
     rules: [
       "Ogni installazione e sempre scoped a organization_id.",
       "D1 salva stato, scope, policy e secret_ref; non salva token o API key.",

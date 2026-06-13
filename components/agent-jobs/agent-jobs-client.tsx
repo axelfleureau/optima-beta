@@ -624,7 +624,7 @@ function providerSetupHint(provider: AgenticCapabilities["providerCatalog"][numb
     return "Installa il runtime/CLI nella macchina runner autorizzata. Optima deve solo vedere policy e health check, non password o token in chiaro."
   }
   if (provider.authMethod === "api_key_secret") {
-    return "Crea la API key dal provider, salvala come secret_ref/secret Cloudflare o tenant vault, poi fai verificare a Optima endpoint, modello e quota."
+    return "API key a consumo solo come ultima spiaggia e facoltativa: prima valuta OAuth, Browser MCP, modello locale o provider gia incluso. Se la usi, resta nel runtime come secret_ref."
   }
   if (provider.authMethod === "none") {
     return "Non richiede segreti: va attivato con policy tenant e prova di esecuzione locale."
@@ -637,7 +637,7 @@ function providerAuthLabel(method?: string) {
   if (method === "external_oauth") return "OAuth esterno"
   if (method === "runner_env") return "Runner env"
   if (method === "local_install") return "Install locale"
-  if (method === "api_key_secret") return "API key / secret_ref"
+  if (method === "api_key_secret") return "API key opzionale / fallback"
   return "Nessun segreto"
 }
 
@@ -647,8 +647,14 @@ function providerPrimaryActionLabel(provider: AgenticCapabilities["providerCatal
   if (provider.authMethod === "runner_env") return "Configura runner"
   if (provider.authMethod === "local_install") return "Configura install"
   if (provider.authMethod === "oauth_pkce" || provider.authMethod === "external_oauth") return "Configura OAuth"
-  if (provider.authMethod === "api_key_secret") return "Configura secret"
+  if (provider.authMethod === "api_key_secret") return "Configura opzioni"
   return "Configura provider"
+}
+
+function providerCredentialLabel(secret: string) {
+  if (secret === "AGENT_RUNNER_API_KEY") return "token interno runner"
+  if (secret.endsWith("_API_KEY")) return "API key facoltativa"
+  return "credential fallback"
 }
 
 function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][number]) {
@@ -656,7 +662,7 @@ function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][n
     return [
       "Sul VPS runner avvia login Codex CLI con device auth o sessione autorizzata: `codex login --device-auth` quando disponibile.",
       "Completa il codice/QR dal telefono o dal browser autorizzato di Axel, poi verifica `codex login status` sul runner.",
-      "Configura solo il secret Optima necessario al polling del runner, cioe AGENT_RUNNER_API_KEY. Non mettere OPENAI_API_KEY se il CLI e gia autenticato con login.",
+      "Configura solo il token interno Optima necessario al polling del runner, cioe AGENT_RUNNER_API_KEY. Non e una API key a consumo e non sostituisce il login Codex.",
       "Esegui health-check: heartbeat runner, `codex exec` dry-run, artefatto revisionabile e nessun deploy automatico.",
     ]
   }
@@ -669,9 +675,9 @@ function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][n
   }
   if (provider.authMethod === "api_key_secret") {
     return [
-      "Crea la chiave dal provider o dal gateway scelto, con scope minimi e billing controllato.",
-      "Salvala in Cloudflare secret, VPS env o tenant vault: Optima conserva solo secret_ref e stato installazione.",
-      "Esegui una richiesta dry-run con modello, quota e logging verificati. Se fallisce resta non configurato.",
+      "Prima prova un percorso senza consumo variabile: OAuth ufficiale, Browser MCP con login utente, modello locale o piano gia incluso.",
+      "Se serve davvero una API key a pagamento, trattala come fallback facoltativo con tetto budget, scope minimi e quota controllata.",
+      "Salvala solo in Cloudflare secret, VPS env o tenant vault: Optima conserva secret_ref, stato installazione e health-check, non la chiave.",
     ]
   }
   if (provider.authMethod === "local_install") {
@@ -693,16 +699,16 @@ function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][n
 
 function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][number]) {
   if (provider.id === "codex") {
-    return "Codex non deve rimandarti prima alle API key: la strada preferita e login/device-auth del Codex CLI sul VPS runner. API key o access token restano fallback server-side; per strumenti web usa Browser MCP."
+    return "Codex non deve rimandarti prima alle API key: la strada preferita e login/device-auth del Codex CLI sul VPS runner. API key a consumo o access token sono fallback facoltativi; AGENT_RUNNER_API_KEY e solo token interno Optima-runner."
   }
   if (provider.id === "openai") {
-    return "Per ChatGPT web, Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. OpenAI API key serve solo se vuoi chiamare modelli via API server-side."
+    return "Per ChatGPT web, Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. OpenAI API key e ultima spiaggia facoltativa, solo se vuoi chiamare modelli via API server-side con costi controllati."
   }
   if (provider.authMethod === "runner_env") {
     return "Questo provider non si collega da telefono con OAuth: si abilita configurando il runner autorizzato e verificando heartbeat, CLI e secret."
   }
   if (provider.authMethod === "api_key_secret") {
-    return "Qui non incollare token in chiaro: crea il secret nel runtime autorizzato, poi registra solo la reference in Optima."
+    return "Non partire dalla API key: e una modalita a consumo, facoltativa e da usare solo se OAuth/Browser MCP/local non bastano. Se la configuri, resta nel runtime autorizzato."
   }
   return "La configurazione reale deve salvare stato, policy e secret_ref. Il job serve solo per health-check o audit, non per inserire credenziali."
 }
@@ -721,9 +727,9 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
         body: "Per sessioni web o login da telefono usa Browser MCP: profilo isolato, allowlist, pairing/QR e review prima di azioni esterne.",
       },
       {
-        label: "Secret server",
+        label: "Token/API fallback",
         tone: "fallback",
-        body: "API key/access token solo quando serve esecuzione non interattiva. Restano nel runtime autorizzato come secret_ref.",
+        body: "API key a consumo solo se inevitabile. AGENT_RUNNER_API_KEY invece e token interno Optima-runner, non billing provider.",
       },
     ]
   }
@@ -740,9 +746,9 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
         body: "Se il servizio espone OAuth/PKCE reale, Optima deve aprire callback con state, scope minimi e token nel runtime autorizzato.",
       },
       {
-        label: "API key",
+        label: "API key facoltativa",
         tone: "fallback",
-        body: "Solo per chiamate API server-side ai modelli. Non e la strada per usare account ChatGPT web.",
+        body: "Ultima spiaggia per chiamate server-side ai modelli, con budget e quota. Non e la strada per usare account ChatGPT web.",
       },
     ]
   }
@@ -754,9 +760,9 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
         body: "Preferisci OAuth o connector ufficiale quando il provider lo supporta davvero.",
       },
       {
-        label: "Secret server-side",
+        label: "API key facoltativa",
         tone: "fallback",
-        body: "Se non esiste OAuth, usa API key nel runtime autorizzato con secret_ref e health-check.",
+        body: "Solo se non esistono OAuth, Browser MCP, modello locale o piano gia incluso. Deve avere budget/quote e secret_ref.",
       },
     ]
   }
@@ -4726,16 +4732,16 @@ export function AgentJobsClient({
 
                 <section className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Credenziali runtime / fallback</p>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Credenziali eventuali / fallback</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedProvider.requiredSecrets.length ? (
                         selectedProvider.requiredSecrets.map((secret) => (
                           <span key={secret} className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-bold text-amber-100">
-                            {secret}
+                            {secret} · {providerCredentialLabel(secret)}
                           </span>
                         ))
                       ) : (
-                        <span className="text-sm text-slate-500">Nessun secret obbligatorio: usa login, OAuth o runtime locale.</span>
+                        <span className="text-sm text-slate-500">Nessuna credenziale obbligatoria: usa login, OAuth, Browser MCP o runtime locale.</span>
                       )}
                     </div>
                   </div>
