@@ -2006,11 +2006,10 @@ export function AgentJobsClient({
   }
 
   function getProviderInstallBody(provider: AgenticCapabilities["providerCatalog"][number]) {
-    const selfHosted = provider.authMethod === "runner_env" || provider.authMethod === "local_install" || provider.authMethod === "none"
     return {
       action: "install_provider",
       providerId: provider.id,
-      installState: selfHosted ? "configured" : "guide_required",
+      installState: "guide_required",
       tenantPolicy: {
         dataScope: "tenant",
         requiresReview: true,
@@ -2028,11 +2027,10 @@ export function AgentJobsClient({
 
   function getConnectorInstallBody(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     const authMethod = connector.authMethod ?? (connector.requiredEnv.length ? "api_key_secret" : "external_oauth")
-    const installState = connector.status === "enabled" ? "healthy" : connector.status === "external" ? "configured" : "guide_required"
     return {
       action: "install_connector",
       connectorId: connector.id,
-      installState,
+      installState: "guide_required",
       authMethod,
       scopes: connector.graphUse,
       config: {
@@ -2089,8 +2087,8 @@ export function AgentJobsClient({
   async function configureConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     const saved = await mutateCapabilities(getConnectorInstallBody(connector), `connector-config:${connector.id}`)
     if (saved) {
-      toast.success("Setup connector registrato", {
-        description: `${connector.label}: stato e checklist salvati. Esegui health-check prima di usarlo in produzione.`,
+      toast.success("Checklist connector salvata", {
+        description: `${connector.label}: nessun login eseguito. Servono pairing/OAuth o secret nel runtime, poi health-check prima della produzione.`,
       })
     }
   }
@@ -2098,8 +2096,8 @@ export function AgentJobsClient({
   async function configureProvider(provider: AgenticCapabilities["providerCatalog"][number]) {
     const saved = await mutateCapabilities(getProviderInstallBody(provider), `provider-config:${provider.id}`)
     if (saved) {
-      toast.success("Setup provider registrato", {
-        description: `${provider.label}: policy e checklist salvate. Esegui health-check prima della produzione.`,
+      toast.success("Checklist provider salvata", {
+        description: `${provider.label}: non e stato fatto nessun accesso. Collega login/secret nel runtime e verifica con health-check.`,
       })
     }
   }
@@ -4677,10 +4675,10 @@ export function AgentJobsClient({
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-xl font-black sm:text-2xl">
-                Setup provider {selectedProvider?.label ?? ""}
+                Checklist provider {selectedProvider?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Configurazione guidata tenant-scoped. Optima registra policy, stato e secret_ref; token e sessioni restano nel runtime autorizzato.
+                Guida tenant-scoped. Questo salvataggio registra policy e requisiti: non esegue login, non crea sessioni e non salva token.
               </DialogDescription>
             </DialogHeader>
 
@@ -4810,7 +4808,7 @@ export function AgentJobsClient({
                     className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                   >
                     {capabilityAction === `provider-config:${selectedProvider.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                    Salva setup guidato
+                    Salva checklist
                   </Button>
                 </div>
               </div>
@@ -4827,10 +4825,10 @@ export function AgentJobsClient({
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-xl font-black sm:text-2xl">
-                Setup MCP {selectedConnector?.label ?? ""}
+                Checklist MCP {selectedConnector?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Configurazione guidata tenant-scoped. Optima registra stato, policy e secret_ref; token OAuth e API key restano nel runtime autorizzato.
+                Guida connector tenant-scoped. Questo salvataggio non autorizza account: login, pairing/OAuth e secret restano nel runtime autorizzato.
               </DialogDescription>
             </DialogHeader>
 
@@ -4907,6 +4905,15 @@ export function AgentJobsClient({
                   </p>
                 </section>
 
+                {selectedConnector.id === "browser" ? (
+                  <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50 sm:p-4">
+                    <p className="font-black">Login non ancora eseguito</p>
+                    <p className="mt-2">
+                      Salvare questa checklist non apre Chromium, non registra cookie e non collega ChatGPT o altri siti. Il Browser MCP diventa operativo solo dopo pairing/login su profilo isolato, allowlist domini e health-check con screenshot/audit.
+                    </p>
+                  </section>
+                ) : null}
+
                 <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
                   {selectedConnector.id === "github" ? (
                     <Button
@@ -4938,7 +4945,7 @@ export function AgentJobsClient({
                     className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                   >
                     {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                    Salva setup guidato
+                    Salva checklist
                   </Button>
                 </div>
               </div>
