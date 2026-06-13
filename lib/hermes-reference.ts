@@ -3,8 +3,8 @@ export const HERMES_REFERENCE = {
   label: "Optima native agentic core blueprint",
   repository: "https://github.com/NousResearch/hermes-agent",
   localClone: "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
-  auditedRevision: "ab0a6270c",
-  auditedTag: "v2026.6.5-208-gab0a6270c",
+  auditedRevision: "a85627612",
+  auditedTag: "v2026.6.5-816-ga85627612",
   license: "MIT",
   importPolicy:
     "Reference-only pattern import: Hermes is not an external connector to install. Optima absorbs compatible MIT patterns as TypeScript-native capabilities. Do not vendor the Python runtime, desktop app, secrets, or the active Hermes VPS service.",
@@ -86,14 +86,17 @@ export const HERMES_ADAPTER_PATTERNS: HermesAdapterPattern[] = [
       "hermes_cli/mcp_catalog.py",
       "tools/mcp_tool.py",
       "tools/mcp_oauth_manager.py",
+      "tools/managed_tool_gateway.py",
     ],
     optimaSurface: ["/mcp", "mcp_connector_installations", "lib/mcp-connectors.ts"],
     implementation:
-      "Optima exposes MCP tools/resources and connector installation state. Next step is guided install flows with per-connector health checks and tool allowlists.",
+      "Optima exposes MCP tools/resources, connector installation state, per-connector auth modes, setup steps and health checks. Next step is real vendor OAuth callbacks with PKCE/state and 401 reauth handling, while API-key connectors keep secrets in the runtime secret store.",
     guardrails: [
       "Never persist OAuth tokens in D1.",
       "Use PKCE/state and minimum scopes.",
       "Expose only allowlisted tools to subagents.",
+      "Deduplicate 401 reauth prompts and reload token state across long-lived sessions.",
+      "Separate connector configuration from agentic health-check jobs.",
     ],
   },
   {

@@ -91,6 +91,9 @@ interface AgenticCapabilities {
     graphUse: string[]
     requiredEnv: string[]
     optionalEnv?: string[]
+    authMethod?: string
+    setupSteps?: string[]
+    healthCheck?: string
     notes: string
   }>
   providerInstallations: Array<{
@@ -1579,6 +1582,7 @@ export function AgentJobsClient({
   const [isSavingGraphNode, setIsSavingGraphNode] = useState(false)
   const [capabilityAction, setCapabilityAction] = useState<string | null>(null)
   const [setupAction, setSetupAction] = useState<string | null>(null)
+  const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -1825,8 +1829,10 @@ export function AgentJobsClient({
       const data = await response.json()
       if (!response.ok) throw new Error(data?.error ?? "Errore aggiornamento capability")
       setCapabilities(data)
+      return true
     } catch (err: any) {
       setError(err?.message ?? "Errore aggiornamento capability")
+      return false
     } finally {
       setCapabilityAction(null)
     }
@@ -1854,20 +1860,66 @@ export function AgentJobsClient({
   }
 
   function getConnectorInstallBody(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    const authMethod = connector.authMethod ?? (connector.requiredEnv.length ? "api_key_secret" : "external_oauth")
     const installState = connector.status === "enabled" ? "healthy" : connector.status === "external" ? "configured" : "guide_required"
     return {
       action: "install_connector",
       connectorId: connector.id,
       installState,
-      authMethod: connector.requiredEnv.length ? "api_key_secret" : "external_oauth",
+      authMethod,
       scopes: connector.graphUse,
       config: {
         category: connector.category,
         requiredEnv: connector.requiredEnv,
         optionalEnv: connector.optionalEnv ?? [],
+        setupSteps: connector.setupSteps ?? [],
+        healthCheck: connector.healthCheck ?? null,
         purpose: connector.purpose,
         notes: connector.notes,
+        hermesPattern: {
+          catalog: "auth type dichiarato nel catalogo, installazione esplicita e health-check separato",
+          oauthManager: "token reload/reauth e 401 deduplication restano responsabilita del runtime autorizzato",
+          secretBoundary: "Optima salva secret_ref/stato, non token OAuth o API key in chiaro",
+        },
       },
+    }
+  }
+
+  function connectorAuthLabel(method?: string) {
+    if (method === "oauth_pkce") return "OAuth / PKCE"
+    if (method === "github_app") return "GitHub App / owner"
+    if (method === "runner_env") return "Runner env"
+    if (method === "service_account") return "Service account"
+    if (method === "external_oauth") return "OAuth esterno"
+    return "API key / secret"
+  }
+
+  function connectorPrimaryActionLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    if (connector.id === "github") return "Apri policy GitHub"
+    if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") return "Configura OAuth"
+    if (connector.authMethod === "runner_env") return "Configura runtime"
+    return "Configura secret"
+  }
+
+  function connectorSetupHint(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    if (connector.id === "github") {
+      return "GitHub e owner-scoped: solo Axel autorizza repository, commit, PR e deploy. Optima registra policy e health-check, non condivide l'account."
+    }
+    if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") {
+      return "Il flusso OAuth deve aprire una installazione guidata con state/PKCE. Finche non esiste callback verificata, Optima puo salvare solo checklist e stato."
+    }
+    if (connector.authMethod === "runner_env") {
+      return "Runtime self-hosted: configurazione su VPS/runner, heartbeat e dry-run prima di dichiararlo operativo."
+    }
+    return "Secret gestito fuori da D1: qui salviamo stato, policy e reference; la chiave reale resta nel runtime autorizzato."
+  }
+
+  async function configureConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    const saved = await mutateCapabilities(getConnectorInstallBody(connector), `connector-config:${connector.id}`)
+    if (saved) {
+      toast.success("Setup connector registrato", {
+        description: `${connector.label}: stato e checklist salvati. Esegui health-check prima di usarlo in produzione.`,
+      })
     }
   }
 
@@ -1904,8 +1956,8 @@ export function AgentJobsClient({
               source: "hermes-reference-audit",
               repository: hermesBlueprint?.reference.repository ?? "https://github.com/NousResearch/hermes-agent",
               referenceClone: hermesBlueprint?.reference.localClone ?? "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
-              referenceRevision: hermesBlueprint?.reference.auditedRevision ?? "ab0a6270c",
-              referenceTag: hermesBlueprint?.reference.auditedTag ?? "v2026.6.5-208-gab0a6270c",
+              referenceRevision: hermesBlueprint?.reference.auditedRevision ?? "a85627612",
+              referenceTag: hermesBlueprint?.reference.auditedTag ?? "v2026.6.5-816-ga85627612",
               license: hermesBlueprint?.reference.license ?? "MIT",
               relevantPatterns: hermesPatterns.length
                 ? hermesPatterns.map((pattern) => ({
@@ -2341,6 +2393,9 @@ export function AgentJobsClient({
   const activeReviewJob = reviewDetails?.job ?? jobs.find((job) => job.id === reviewJobId) ?? null
   const providerInstallationsById = new Map((capabilities?.providerInstallations ?? []).map((item) => [item.providerId, item]))
   const connectorInstallationsById = new Map((capabilities?.connectorInstallations ?? []).map((item) => [item.connectorId, item]))
+  const selectedConnector =
+    (capabilities?.mcpConnectorCatalog ?? []).find((connector) => connector.id === selectedConnectorId) ?? null
+  const selectedConnectorInstallation = selectedConnector ? connectorInstallationsById.get(selectedConnector.id) ?? null : null
   const subagentsBySlug = new Map((capabilities?.subagents ?? []).map((item) => [item.slug, item]))
   const graphTypes = Object.entries(graphMemory?.stats.byType ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
@@ -4009,7 +4064,7 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-white">MCP strategici</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Connector MCP da rendere operativi con setup guidato, OAuth/secret_ref e health check. I pulsanti creano job revisionabili.
+                    Prima configura OAuth, secret o runtime. I job agentici servono solo per health-check, audit o patch tecniche revisionabili.
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
@@ -4026,13 +4081,18 @@ export function AgentJobsClient({
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-white">{connector.label}</p>
-                          <p className="mt-1 break-words text-xs text-slate-500">{connector.category} · {connector.requiredEnv.length ? connector.requiredEnv.join(", ") : "oauth/reference"}</p>
+                          <p className="mt-1 break-words text-xs text-slate-500">
+                            {connector.category} · {connectorAuthLabel(connector.authMethod)}
+                          </p>
                         </div>
                         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${installTone(state)}`}>
                           {installLabel(state)}
                         </span>
                       </div>
                       <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{connector.purpose}</p>
+                      <p className="mt-2 line-clamp-2 rounded-md border border-white/10 bg-black/20 p-2 text-[11px] leading-5 text-slate-400">
+                        {connectorSetupHint(connector)}
+                      </p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {connector.graphUse.slice(0, 4).map((scope) => (
                           <span key={scope} className="max-w-full truncate rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
@@ -4043,13 +4103,22 @@ export function AgentJobsClient({
                       <Button
                         type="button"
                         size="sm"
+                        onClick={() => setSelectedConnectorId(connector.id)}
+                        className="mt-3 h-8 w-full rounded-lg bg-cyan-300/15 text-xs font-black text-cyan-50 hover:bg-cyan-300/25"
+                      >
+                        <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                        {connectorPrimaryActionLabel(connector)}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
                         variant="outline"
                         onClick={() => createConnectorSetupJob(connector)}
                         disabled={busy}
                         className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                       >
                         {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
-                        Crea job setup
+                        Job health-check
                       </Button>
                     </div>
                   )
@@ -4414,6 +4483,134 @@ export function AgentJobsClient({
             ))
           )}
         </div>
+
+        <Dialog
+          open={Boolean(selectedConnector)}
+          onOpenChange={(open) => {
+            if (!open) setSelectedConnectorId(null)
+          }}
+        >
+          <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
+            <DialogHeader className="pr-8 text-left">
+              <DialogTitle className="text-xl font-black sm:text-2xl">
+                Setup MCP {selectedConnector?.label ?? ""}
+              </DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Configurazione guidata tenant-scoped. Optima registra stato, policy e secret_ref; token OAuth e API key restano nel runtime autorizzato.
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedConnector ? (
+              <div className="grid min-w-0 gap-4">
+                <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-50">
+                      {connectorAuthLabel(selectedConnector.authMethod)}
+                    </span>
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedConnectorInstallation?.installState ?? (selectedConnector.status === "enabled" ? "healthy" : "not_installed"))}`}>
+                      {installLabel(selectedConnectorInstallation?.installState ?? (selectedConnector.status === "enabled" ? "healthy" : "not_installed"))}
+                    </span>
+                    {selectedConnectorInstallation?.lastHealthStatus ? (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                        health: {selectedConnectorInstallation.lastHealthStatus}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-200">{selectedConnector.purpose}</p>
+                  <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
+                    {connectorSetupHint(selectedConnector)}
+                  </p>
+                </section>
+
+                <section className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Secret richiesti</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {selectedConnector.requiredEnv.length ? (
+                        selectedConnector.requiredEnv.map((env) => (
+                          <span key={env} className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-bold text-amber-100">
+                            {env}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-slate-500">Nessun env obbligatorio.</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Scope grafo</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {selectedConnector.graphUse.map((scope) => (
+                        <span key={scope} className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-1 text-[11px] font-bold text-cyan-100">
+                          {scope}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+                  <p className="font-black text-white">Installazione reale</p>
+                  <div className="mt-3 grid gap-2">
+                    {(selectedConnector.setupSteps?.length
+                      ? selectedConnector.setupSteps
+                      : ["Definire credenziali nel runtime autorizzato.", "Salvare in Optima solo stato e secret_ref.", "Eseguire health-check prima di usare il connector."]
+                    ).map((step, index) => (
+                      <div key={`${selectedConnector.id}-step-${index}`} className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
+                          {index + 1}
+                        </span>
+                        <p className="min-w-0 break-words">{step}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.05] p-3 sm:p-4">
+                  <p className="font-black text-emerald-50">Health-check prima della produzione</p>
+                  <p className="mt-2 text-sm leading-6 text-emerald-100">
+                    {selectedConnector.healthCheck ?? "Verifica credenziali, permessi minimi e audit log prima di dichiarare il connector operativo."}
+                  </p>
+                </section>
+
+                <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                  {selectedConnector.id === "github" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        window.location.href = "/settings"
+                      }}
+                      className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
+                    >
+                      <GitBranch className="mr-1.5 h-4 w-4" />
+                      Apri impostazioni GitHub
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => createConnectorSetupJob(selectedConnector)}
+                    disabled={setupAction === `connector-setup:${selectedConnector.id}`}
+                    className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
+                  >
+                    {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
+                    Job health-check
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => configureConnector(selectedConnector)}
+                    disabled={capabilityAction === `connector-config:${selectedConnector.id}`}
+                    className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
+                  >
+                    {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
+                    Salva setup guidato
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
 
         <Dialog
           open={Boolean(selectedGraphNodeId)}
