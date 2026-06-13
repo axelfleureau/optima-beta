@@ -15,11 +15,14 @@ Optima usa Browser MCP per strumenti web dove non conviene usare API key a consu
 2. Apri `Browser MCP`.
 3. Premi `Prepara ChatGPT`, `Prepara Nano Banana`, `Prepara Perplexity` o `Prepara Claude`.
 4. Optima crea una sessione pairing con codice e scadenza, ma non apre automaticamente il browser.
-5. Premi `Test gateway`: se non apre, il servizio VPS non e attivo.
-6. Se il gateway risponde, premi `Apri login remoto`.
-7. Completa il login nel Chromium remoto.
-8. Premi `Ho completato il login` nella pagina gateway.
-9. Esegui `Job health-check` prima di dichiararlo operativo.
+5. Premi `Test gateway`: deve aprirsi una risposta JSON con `ok: true`.
+6. Se Safari dice che non trova il server, non e un problema OAuth: il dispositivo non raggiunge Tailscale/MagicDNS oppure il servizio VPS non e attivo. Prova dal Mac sulla tailnet o usa il fallback IP Tailscale `100.100.39.96:8789`.
+7. Solo dopo un health-check riuscito conferma in Optima e premi `Apri login remoto`.
+
+Optima non deve presentare il login remoto come azione primaria finche il gateway non e stato verificato. Il pairing crea una sessione e un codice, ma l'accesso reale vive nel Chromium isolato sul VPS.
+8. Completa il login nel Chromium remoto.
+9. Premi `Ho completato il login` nella pagina gateway.
+10. Esegui `Job health-check` prima di dichiararlo operativo.
 
 Il pulsante `Salva checklist` non esegue login e non rende operativo il connector.
 

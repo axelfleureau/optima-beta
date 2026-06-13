@@ -74,6 +74,8 @@ interface BrowserMcpSession {
   startUrl: string
   gatewayUrl: string | null
   gatewayHealthUrl?: string | null
+  fallbackGatewayUrl?: string | null
+  fallbackGatewayHealthUrl?: string | null
   callbackUrl: string
   pairingCode: string
   expiresAt: string
@@ -1782,6 +1784,7 @@ export function AgentJobsClient({
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [browserPairingAction, setBrowserPairingAction] = useState<string | null>(null)
   const [browserPairingSession, setBrowserPairingSession] = useState<BrowserMcpSession | null>(null)
+  const [browserGatewayConfirmedSessionId, setBrowserGatewayConfirmedSessionId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -2146,6 +2149,7 @@ export function AgentJobsClient({
       const data = await response.json()
       if (!response.ok) throw new Error(data?.error ?? "Errore avvio login Browser MCP")
       setBrowserPairingSession(data.session)
+      setBrowserGatewayConfirmedSessionId(null)
       if (data.capabilities) setCapabilities(data.capabilities)
 
       if (data.session?.gatewayUrl) {
@@ -5044,7 +5048,16 @@ export function AgentJobsClient({
                         </div>
                         {selectedBrowserPairingSession.gatewayUrl ? (
                           <div className="grid min-w-0 gap-3">
-                            <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50">
+                              <p className="font-black">Flusso corretto</p>
+                              <p className="mt-1">
+                                Apri prima il test gateway. Se vedi una pagina JSON con <span className="font-mono">ok: true</span>, torna qui e conferma. Solo dopo ha senso aprire il login remoto.
+                              </p>
+                              <p className="mt-1 text-cyan-100/80">
+                                Se Safari dice che non trova il server: il telefono non sta raggiungendo Tailscale/MagicDNS oppure il servizio VPS e spento. In quel caso prova dal Mac su Tailscale o usa il fallback IP.
+                              </p>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-3">
                               <Button
                                 type="button"
                                 variant="outline"
@@ -5052,21 +5065,31 @@ export function AgentJobsClient({
                                 className="min-h-12 w-full justify-center rounded-lg border-emerald-200/20 bg-emerald-300/10 px-3 text-center text-sm font-black text-emerald-50 hover:bg-emerald-300/15"
                               >
                                 <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
-                                Test gateway
+                                1. Test gateway
                               </Button>
                               <Button
                                 type="button"
+                                variant="outline"
+                                onClick={() => setBrowserGatewayConfirmedSessionId(selectedBrowserPairingSession.id)}
+                                className="min-h-12 w-full justify-center rounded-lg border-cyan-200/20 bg-cyan-300/10 px-3 text-center text-sm font-black text-cyan-50 hover:bg-cyan-300/15"
+                              >
+                                <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
+                                2. Health OK
+                              </Button>
+                              <Button
+                                type="button"
+                                disabled={browserGatewayConfirmedSessionId !== selectedBrowserPairingSession.id}
                                 onClick={() => window.open(selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
-                                className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90"
+                                className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90 disabled:cursor-not-allowed disabled:opacity-45"
                               >
                                 <Network className="mr-1.5 h-4 w-4 shrink-0" />
-                                Apri login remoto
+                                3. Apri login
                               </Button>
                             </div>
                             <div className="grid min-w-0 gap-2 rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
                               <p className="font-bold text-slate-200">Gateway Tailscale: padel-vps.tailcd2fda.ts.net:8789</p>
-                              <p className="text-slate-400">Su mobile evita di copiare l'URL lungo: usa i bottoni. Se Safari dice che non trova il server, avvia prima il servizio sul VPS.</p>
-                              <div className="grid gap-2 sm:grid-cols-2">
+                              <p className="text-slate-400">Su mobile evita di copiare l'URL lungo. Se MagicDNS non apre, prova il fallback IP Tailscale: 100.100.39.96:8789.</p>
+                              <div className="grid gap-2 sm:grid-cols-4">
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -5085,6 +5108,29 @@ export function AgentJobsClient({
                                   <ClipboardList className="mr-1.5 h-4 w-4" />
                                   Copia login URL
                                 </Button>
+                                {selectedBrowserPairingSession.fallbackGatewayHealthUrl ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => window.open(selectedBrowserPairingSession.fallbackGatewayHealthUrl!, "_blank", "noopener,noreferrer")}
+                                    className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
+                                  >
+                                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                    Test IP
+                                  </Button>
+                                ) : null}
+                                {selectedBrowserPairingSession.fallbackGatewayUrl ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={browserGatewayConfirmedSessionId !== selectedBrowserPairingSession.id}
+                                    onClick={() => window.open(selectedBrowserPairingSession.fallbackGatewayUrl!, "_blank", "noopener,noreferrer")}
+                                    className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                                  >
+                                    <Network className="mr-1.5 h-4 w-4" />
+                                    Login IP
+                                  </Button>
+                                ) : null}
                               </div>
                             </div>
                             {selectedBrowserPairingSession.installCommand ? (

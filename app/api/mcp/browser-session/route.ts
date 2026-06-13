@@ -26,6 +26,19 @@ function browserGatewayUrl() {
   ).replace(/\/$/, "")
 }
 
+function browserGatewayFallbackUrl(gateway: string) {
+  const configured = (
+    process.env.BROWSER_MCP_FALLBACK_URL ||
+    process.env.BROWSER_MCP_DIRECT_URL ||
+    ""
+  ).replace(/\/$/, "")
+  if (configured) return configured
+  if (gateway.includes("padel-vps.tailcd2fda.ts.net")) {
+    return gateway.replace("padel-vps.tailcd2fda.ts.net", "100.100.39.96")
+  }
+  return ""
+}
+
 function pairingCode() {
   const bytes = new Uint8Array(4)
   crypto.getRandomValues(bytes)
@@ -72,9 +85,14 @@ export async function POST(request: NextRequest) {
     const baseUrl = appBaseUrl(request)
     const callbackUrl = `${baseUrl}/api/mcp/browser-session/callback?session=${sessionId}&code=${encodeURIComponent(code)}`
     const gateway = browserGatewayUrl()
+    const fallbackGateway = gateway ? browserGatewayFallbackUrl(gateway) : ""
     const gatewayHealthUrl = gateway ? `${gateway}/health` : null
     const gatewayUrl = gateway
       ? `${gateway}/pair?session=${encodeURIComponent(sessionId)}&code=${encodeURIComponent(code)}&target=${encodeURIComponent(target)}&callback=${encodeURIComponent(callbackUrl)}`
+      : null
+    const fallbackGatewayHealthUrl = fallbackGateway ? `${fallbackGateway}/health` : null
+    const fallbackGatewayUrl = fallbackGateway
+      ? `${fallbackGateway}/pair?session=${encodeURIComponent(sessionId)}&code=${encodeURIComponent(code)}&target=${encodeURIComponent(target)}&callback=${encodeURIComponent(callbackUrl)}`
       : null
     const installCommand = [
       "cd /srv/optima-agent/optima-beta",
@@ -96,6 +114,8 @@ export async function POST(request: NextRequest) {
       startUrl: targetStartUrl(target),
       gatewayUrl,
       gatewayHealthUrl,
+      fallbackGatewayUrl,
+      fallbackGatewayHealthUrl,
       callbackUrl,
       pairingCode: code,
       expiresAt,
