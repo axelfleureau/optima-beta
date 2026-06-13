@@ -18,6 +18,7 @@ export type AgenticAuthMethod =
   | "runner_env"
   | "local_install"
   | "external_oauth"
+  | "browser_session_oauth"
 
 export type AgenticInstallState = "not_installed" | "guide_required" | "configured" | "healthy" | "blocked"
 
@@ -208,7 +209,7 @@ const PROVIDERS: AgenticProviderSpec[] = [
     tenantUse: "Patch, PR, audit tecnico, task update da repository e deploy controllati.",
     strengths: ["coding", "patch", "git", "reviewable artifacts"],
     requiredSecrets: ["AGENT_RUNNER_API_KEY", "OPENAI_API_KEY"],
-    recommendedMcpConnectors: ["github", "cloudflare", "vercel", "hostinger"],
+    recommendedMcpConnectors: ["github", "browser", "cloudflare", "vercel", "hostinger"],
     notes: "Codex non deve mutare produzione senza job esplicito e approvazione.",
   },
   {
@@ -222,7 +223,7 @@ const PROVIDERS: AgenticProviderSpec[] = [
     tenantUse: "Alternativa o subagente locale per lavori codice dove serve controllo self-hosted.",
     strengths: ["local tooling", "code edits", "terminal workflows"],
     requiredSecrets: [],
-    recommendedMcpConnectors: ["github"],
+    recommendedMcpConnectors: ["github", "browser"],
     notes: "Da usare come adapter dietro control plane, non come processo opaco fuori audit.",
   },
   {
@@ -264,7 +265,7 @@ const PROVIDERS: AgenticProviderSpec[] = [
     tenantUse: "Research, sintesi lunga, analisi documentale e contesto multi-repository.",
     strengths: ["long context", "research", "summarization"],
     requiredSecrets: ["QWEN_API_KEY"],
-    recommendedMcpConnectors: ["github", "notion", "cloudinary"],
+    recommendedMcpConnectors: ["github", "notion", "browser", "cloudinary"],
     notes: "Richiede policy chiara su quali dati tenant possono uscire dal runtime Optima.",
   },
   {
@@ -278,7 +279,7 @@ const PROVIDERS: AgenticProviderSpec[] = [
     tenantUse: "Generazione/trasformazione contenuti audio-video e media operations.",
     strengths: ["media generation", "video", "voice", "creative variants"],
     requiredSecrets: ["MINIMAX_API_KEY"],
-    recommendedMcpConnectors: ["cloudinary"],
+    recommendedMcpConnectors: ["browser", "cloudinary"],
     notes: "Ogni output deve avere provenienza, prompt, asset sorgenti e stato review.",
   },
   {
@@ -292,7 +293,7 @@ const PROVIDERS: AgenticProviderSpec[] = [
     tenantUse: "Assistant principale, reasoning, tool orchestration e generazione strutturata.",
     strengths: ["reasoning", "tool use", "structured output"],
     requiredSecrets: ["OPENAI_API_KEY"],
-    recommendedMcpConnectors: ["github", "notion", "cloudflare", "sendgrid"],
+    recommendedMcpConnectors: ["github", "notion", "browser", "cloudflare", "sendgrid"],
     notes: "Il modello non sostituisce autorizzazioni e grafo: opera sempre nel principal tenant.",
   },
 ]
@@ -514,11 +515,12 @@ export function getAgenticModelHosts() {
 
 export function getOAuthGuidance() {
   return {
-    pattern: "Authorization Code + PKCE per installazioni utente; GitHub App per repository; secret_ref per API key; local_install per runner self-hosted.",
+    pattern: "Authorization Code + PKCE per installazioni utente; GitHub App per repository; Browser MCP con sessione OAuth/profilo isolato per strumenti web senza API; secret_ref per API key; local_install per runner self-hosted.",
     rules: [
       "Ogni installazione e sempre scoped a organization_id.",
       "D1 salva stato, scope, policy e secret_ref; non salva token o API key.",
       "OAuth esterno deve usare redirect allowlist, state anti-CSRF e scope minimi.",
+      "Browser MCP usa profili isolati, allowlist domini e review; non salva cookie o token in D1.",
       "Le installazioni manuali devono avere una guida esplicita e un health check.",
       "I subagenti ricevono solo connector e tool dichiarati nella loro lane.",
     ],
@@ -540,7 +542,7 @@ export function getNativeAgenticRuntimePolicy(): NativeAgenticRuntimePolicy {
       {
         id: "agent_job",
         label: "Job agentico",
-        allowedToolsets: ["graph_read", "artifact_write", "git_read", "patch_propose", "mcp_allowlist"],
+        allowedToolsets: ["graph_read", "artifact_write", "git_read", "patch_propose", "mcp_allowlist", "browser_control_reviewed"],
         blockedToolsets: ["direct_deploy", "unscoped_customer_export", "secret_print"],
         requiredReview: ["patch_apply", "pull_request", "email_send", "database_mutation", "production_deploy"],
         notes: "Il runner riceve lane, connector concessi e brief; restituisce output in review prima di mutare stato irreversibile.",
@@ -566,42 +568,42 @@ export function getNativeAgenticRuntimePolicy(): NativeAgenticRuntimePolicy {
       {
         lane: "code",
         defaultProviderId: "codex",
-        allowedConnectors: ["github", "cloudflare", "vercel", "hostinger"],
+        allowedConnectors: ["github", "browser", "cloudflare", "vercel", "hostinger"],
         blockedActions: ["direct_production_deploy", "secret_exfiltration", "unreviewed_force_push"],
         fallbackProviderId: "open-code",
       },
       {
         lane: "research",
         defaultProviderId: "qwen",
-        allowedConnectors: ["github", "notion", "cloudinary"],
+        allowedConnectors: ["github", "notion", "browser", "cloudinary"],
         blockedActions: ["write_customer_records", "send_external_message"],
         fallbackProviderId: "openai",
       },
       {
         lane: "media",
         defaultProviderId: "minimax",
-        allowedConnectors: ["cloudinary"],
+        allowedConnectors: ["browser", "cloudinary"],
         blockedActions: ["publish_unreviewed_asset", "use_unlicensed_source"],
         fallbackProviderId: null,
       },
       {
         lane: "operations",
         defaultProviderId: "gemma-hosted",
-        allowedConnectors: ["notion", "sendgrid", "telegram"],
+        allowedConnectors: ["notion", "browser", "sendgrid", "telegram"],
         blockedActions: ["send_unreviewed_admin_email", "modify_timesheets_without_trace"],
         fallbackProviderId: "openai",
       },
       {
         lane: "chat",
         defaultProviderId: "openai",
-        allowedConnectors: ["github", "notion", "cloudflare", "sendgrid"],
+        allowedConnectors: ["github", "notion", "browser", "cloudflare", "sendgrid"],
         blockedActions: ["answer_with_empty_model_content", "invent_missing_business_data"],
         fallbackProviderId: null,
       },
       {
         lane: "router",
         defaultProviderId: "openai",
-        allowedConnectors: ["github", "notion", "cloudflare", "sendgrid", "telegram", "cloudinary"],
+        allowedConnectors: ["github", "notion", "browser", "cloudflare", "sendgrid", "telegram", "cloudinary"],
         blockedActions: ["bypass_tenant_scope", "bypass_review_room"],
         fallbackProviderId: null,
       },
@@ -779,7 +781,7 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     lane: "code",
     primaryProviderId: "codex",
     modelHint: "codex-cli",
-    connectorIds: ["github", "cloudflare", "vercel", "hostinger"],
+    connectorIds: ["github", "browser", "cloudflare", "vercel", "hostinger"],
     systemPrompt: "Produce patch, report e PR in worktree isolato. Non fa deploy, push o mutazioni produzione senza approvazione esplicita del control plane.",
     permissions: { canCreatePatch: true, canCreatePullRequest: true, canDeploy: false, requiresReview: true },
     handoffPolicy: { onMissingRepository: "ask_or_infer_from_graph", onRiskyAction: "return_to_review" },
@@ -790,7 +792,7 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     lane: "research",
     primaryProviderId: "qwen",
     modelHint: "qwen-long-context",
-    connectorIds: ["github", "notion", "cloudinary"],
+    connectorIds: ["github", "notion", "browser", "cloudinary"],
     systemPrompt: "Raccoglie contesto, fonti e sintesi operative. Non inventa dati: segnala lacune e produce output revisionabile.",
     permissions: { canReadGraph: true, canWriteTasks: false, requiresSources: true },
     handoffPolicy: { onInsufficientSources: "return_to_review" },
@@ -801,7 +803,7 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     lane: "media",
     primaryProviderId: "minimax",
     modelHint: "minimax-media",
-    connectorIds: ["cloudinary"],
+    connectorIds: ["browser", "cloudinary"],
     systemPrompt: "Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
     permissions: { canCreateMedia: true, canMutateAssets: false, requiresReview: true },
     handoffPolicy: { onCopyrightRisk: "return_to_review" },
@@ -823,10 +825,21 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     lane: "research",
     primaryProviderId: "qwen",
     modelHint: "qwen-long-context",
-    connectorIds: ["github", "notion", "cloudinary"],
+    connectorIds: ["github", "notion", "browser", "cloudinary"],
     systemPrompt: "Audita flussi reali, screenshot, feedback e telemetry per trovare attriti UI/UX, overflow, mobile regressions e copy ambiguo. Produce evidenze e patch suggestion, non mutazioni dirette.",
     permissions: { canReadGraph: true, canAuditUi: true, canCreateJob: true, canWriteCode: false, requiresEvidence: true },
     handoffPolicy: { onBugConfirmed: "handoff_to_codex_engineer", onMissingEvidence: "request_observation" },
+  },
+  {
+    name: "Browser Operator",
+    slug: "browser-operator",
+    lane: "operations",
+    primaryProviderId: "openai",
+    modelHint: "browser-mcp-controller",
+    connectorIds: ["browser", "notion", "cloudinary"],
+    systemPrompt: "Usa Browser MCP per siti allowlist, sessioni OAuth autorizzate, QA visuale, ricerche e compilazione bozze. Non invia form, acquista, pubblica o modifica dati esterni senza review.",
+    permissions: { canUseBrowser: true, canCaptureScreenshot: true, canSubmitForms: false, requiresReview: true, allowlistedOriginsOnly: true },
+    handoffPolicy: { onLoginRequired: "request_owner_pairing", onIrreversibleAction: "return_to_review" },
   },
   {
     name: "Proposal PDF Engineer",
@@ -834,7 +847,7 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     lane: "code",
     primaryProviderId: "codex",
     modelHint: "codex-cli",
-    connectorIds: ["github", "cloudinary"],
+    connectorIds: ["github", "browser", "cloudinary"],
     systemPrompt: "Migliora preventivi, PDF, layout, brand kit, overflow e generatori riproducibili. Lavora su componenti e script, con screenshot/PDF di verifica e output in review.",
     permissions: { canCreatePatch: true, canRunBuild: true, canGeneratePdfPreview: true, canDeploy: false, requiresReview: true },
     handoffPolicy: { onBrandAssetNeeded: "handoff_to_media_operator", onApprovedPatch: "return_to_review_room" },
@@ -900,7 +913,7 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     lane: "router",
     primaryProviderId: "openai",
     modelHint: "gpt-5.2",
-    connectorIds: ["github", "cloudflare", "notion"],
+    connectorIds: ["github", "browser", "cloudflare", "notion"],
     systemPrompt: "Legge telemetry, feedback, job falliti, richieste utente e readiness per decidere quali subagenti coinvolgere. Crea job piccoli, revisionabili e misurabili per migliorare Optima.",
     permissions: { canRouteSubagents: true, canCreateJob: true, canDeploy: false, requiresReview: true, tenantScopedOnly: true },
     handoffPolicy: { onUxIssue: "handoff_to_ux_quality_analyst", onCodePatch: "handoff_to_codex_engineer", onKnowledgeGap: "handoff_to_graph_knowledge_curator" },

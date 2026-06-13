@@ -403,8 +403,25 @@ const terminalJobStatuses = new Set(["approved", "rejected", "cancelled"])
 const OPTIMA_REPOSITORY_URL = "https://github.com/axelfleureau/optima-beta"
 const OPTIMA_REPOSITORY_BRANCH = "codex/pause-vps-runner"
 const priorityProviderIds = ["codex", "openai", "qwen", "gemma-hosted", "minimax"]
-const priorityConnectorIds = ["codex", "github", "notion", "cloudflare", "sendgrid", "telegram", "cloudinary", "hostinger"]
+const priorityConnectorIds = ["codex", "github", "notion", "browser", "cloudflare", "sendgrid", "telegram", "cloudinary", "hostinger"]
 type JobFilter = "active" | "review" | "running" | "done" | "all"
+
+function compactJobCardOutput(value: string, maxLength = 360) {
+  const normalized = value
+    .replace(/OpenAI Codex v[^\n]+/gi, "")
+    .replace(/workdir:\s*\S+/gi, "")
+    .replace(/session id:\s*\S+/gi, "")
+    .replace(/reasoning effort:\s*\S+/gi, "")
+    .replace(/reasoning summaries:\s*\S+/gi, "")
+    .replace(/sandbox:\s*[^\n]+/gi, "")
+    .replace(/approval:\s*\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!normalized) return "Output tecnico disponibile nella review room."
+  if (normalized.length <= maxLength) return normalized
+  return `${normalized.slice(0, maxLength).trim()}... Apri Revisiona per log completo, artefatti e azioni.`
+}
 
 const quickJobTemplates = [
   {
@@ -601,7 +618,7 @@ function installLabel(state: string) {
 
 function providerSetupHint(provider: AgenticCapabilities["providerCatalog"][number]) {
   if (provider.authMethod === "runner_env") {
-    return "Configura env sul VPS runner e su Cloudflare quando serve. Poi crea un job health-check: se heartbeat, Codex CLI e secret sono ok, Optima puo usarlo."
+    return "Configura env sul VPS runner e su Cloudflare quando serve. Poi esegui un health-check: se heartbeat, CLI e secret sono ok, Optima puo usarlo."
   }
   if (provider.authMethod === "local_install") {
     return "Installa il runtime/CLI nella macchina runner autorizzata. Optima deve solo vedere policy e health check, non password o token in chiaro."
@@ -613,6 +630,68 @@ function providerSetupHint(provider: AgenticCapabilities["providerCatalog"][numb
     return "Non richiede segreti: va attivato con policy tenant e prova di esecuzione locale."
   }
   return "Usa installazione guidata, salva solo secret_ref e verifica con health check prima di dichiararlo operativo."
+}
+
+function providerAuthLabel(method?: string) {
+  if (method === "oauth_pkce") return "OAuth / PKCE"
+  if (method === "external_oauth") return "OAuth esterno"
+  if (method === "runner_env") return "Runner env"
+  if (method === "local_install") return "Install locale"
+  if (method === "api_key_secret") return "API key / secret_ref"
+  return "Nessun segreto"
+}
+
+function providerPrimaryActionLabel(provider: AgenticCapabilities["providerCatalog"][number]) {
+  if (provider.authMethod === "runner_env") return "Configura runner"
+  if (provider.authMethod === "local_install") return "Configura install"
+  if (provider.authMethod === "oauth_pkce" || provider.authMethod === "external_oauth") return "Configura OAuth"
+  if (provider.authMethod === "api_key_secret") return "Configura secret"
+  return "Configura provider"
+}
+
+function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][number]) {
+  if (provider.authMethod === "runner_env") {
+    return [
+      "Verifica il runner autorizzato e il perimetro tenant: workdir isolata, heartbeat recente e nessun accesso a servizi esterni non allowlist.",
+      `Configura nel runtime solo i secret necessari: ${provider.requiredSecrets.length ? provider.requiredSecrets.join(", ") : "nessun secret obbligatorio"}.`,
+      "Salva in Optima policy e secret_ref, poi esegui health-check revisionabile prima di dichiarare il provider operativo.",
+    ]
+  }
+  if (provider.authMethod === "api_key_secret") {
+    return [
+      "Crea la chiave dal provider o dal gateway scelto, con scope minimi e billing controllato.",
+      "Salvala in Cloudflare secret, VPS env o tenant vault: Optima conserva solo secret_ref e stato installazione.",
+      "Esegui una richiesta dry-run con modello, quota e logging verificati. Se fallisce resta non configurato.",
+    ]
+  }
+  if (provider.authMethod === "local_install") {
+    return [
+      "Installa runtime/CLI sul runner autorizzato o nodo privato.",
+      "Esponi solo endpoint locale/Tailscale o comando controllato da policy.",
+      "Registra in Optima installazione, health-check e limiti d'uso per tenant.",
+    ]
+  }
+  if (provider.authMethod === "oauth_pkce" || provider.authMethod === "external_oauth") {
+    return [
+      "Apri installazione OAuth con state/PKCE e redirect allowlist.",
+      "Autorizza solo scope minimi e account corretti.",
+      "Salva token nel runtime autorizzato; Optima conserva subject, scope, stato e secret_ref.",
+    ]
+  }
+  return ["Salva policy tenant.", "Esegui health-check.", "Abilita il provider solo se il test e verificato."]
+}
+
+function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][number]) {
+  if (provider.id === "openai") {
+    return "OpenAI via API richiede una API key server-side o tenant vault. ChatGPT web, Nano Banana o strumenti senza API non diventano OAuth backend: vanno usati tramite Browser MCP con Chromium/Playwright, profilo isolato, login utente, allowlist domini e review."
+  }
+  if (provider.authMethod === "runner_env") {
+    return "Questo provider non si collega da telefono con OAuth: si abilita configurando il runner autorizzato e verificando heartbeat, CLI e secret."
+  }
+  if (provider.authMethod === "api_key_secret") {
+    return "Qui non incollare token in chiaro: crea il secret nel runtime autorizzato, poi registra solo la reference in Optima."
+  }
+  return "La configurazione reale deve salvare stato, policy e secret_ref. Il job serve solo per health-check o audit, non per inserire credenziali."
 }
 
 function runtimeTone(state: string) {
@@ -1583,6 +1662,7 @@ export function AgentJobsClient({
   const [capabilityAction, setCapabilityAction] = useState<string | null>(null)
   const [setupAction, setSetupAction] = useState<string | null>(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -1891,11 +1971,13 @@ export function AgentJobsClient({
     if (method === "runner_env") return "Runner env"
     if (method === "service_account") return "Service account"
     if (method === "external_oauth") return "OAuth esterno"
+    if (method === "browser_session_oauth") return "Browser session / OAuth"
     return "API key / secret"
   }
 
   function connectorPrimaryActionLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     if (connector.id === "github") return "Apri policy GitHub"
+    if (connector.id === "browser") return "Configura Browser"
     if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") return "Configura OAuth"
     if (connector.authMethod === "runner_env") return "Configura runtime"
     return "Configura secret"
@@ -1904,6 +1986,9 @@ export function AgentJobsClient({
   function connectorSetupHint(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     if (connector.id === "github") {
       return "GitHub e owner-scoped: solo Axel autorizza repository, commit, PR e deploy. Optima registra policy e health-check, non condivide l'account."
+    }
+    if (connector.id === "browser") {
+      return "Browser MCP usa Chromium/Playwright con profilo isolato per tenant. Da mobile puoi avviare un pairing/QR o login assistito, ma Optima salva solo secret_ref del profilo e audit: niente cookie o token in D1."
     }
     if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") {
       return "Il flusso OAuth deve aprire una installazione guidata con state/PKCE. Finche non esiste callback verificata, Optima puo salvare solo checklist e stato."
@@ -1919,6 +2004,15 @@ export function AgentJobsClient({
     if (saved) {
       toast.success("Setup connector registrato", {
         description: `${connector.label}: stato e checklist salvati. Esegui health-check prima di usarlo in produzione.`,
+      })
+    }
+  }
+
+  async function configureProvider(provider: AgenticCapabilities["providerCatalog"][number]) {
+    const saved = await mutateCapabilities(getProviderInstallBody(provider), `provider-config:${provider.id}`)
+    if (saved) {
+      toast.success("Setup provider registrato", {
+        description: `${provider.label}: policy e checklist salvate. Esegui health-check prima della produzione.`,
       })
     }
   }
@@ -2396,6 +2490,9 @@ export function AgentJobsClient({
   const selectedConnector =
     (capabilities?.mcpConnectorCatalog ?? []).find((connector) => connector.id === selectedConnectorId) ?? null
   const selectedConnectorInstallation = selectedConnector ? connectorInstallationsById.get(selectedConnector.id) ?? null : null
+  const selectedProvider =
+    (capabilities?.providerCatalog ?? []).find((provider) => provider.id === selectedProviderId) ?? null
+  const selectedProviderInstallation = selectedProvider ? providerInstallationsById.get(selectedProvider.id) ?? null : null
   const subagentsBySlug = new Map((capabilities?.subagents ?? []).map((item) => [item.slug, item]))
   const graphTypes = Object.entries(graphMemory?.stats.byType ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
@@ -2514,19 +2611,19 @@ export function AgentJobsClient({
     {
       title: "Provider base",
       detail: `${priorityProviderConfiguredCount}/${priorityProviderIds.length} pronti`,
-      body: "Crea un job setup per Codex, OpenAI, Qwen, Gemma hosted e MiniMax con health check veri.",
-      action: "Job provider",
-      busyKey: "stack-setup:providers",
-      onClick: () => createStackSetupJob("providers"),
+      body: "Apri i wizard per Codex, OpenAI, Qwen, Gemma hosted e MiniMax. I job servono solo come health-check dopo la configurazione.",
+      action: "Apri provider",
+      busyKey: "stack-section:providers",
+      onClick: () => setStackSection("providers"),
       complete: priorityProviderConfiguredCount >= priorityProviderIds.length,
     },
     {
       title: "MCP prioritari",
       detail: `${priorityConnectorConfiguredCount}/${priorityConnectorIds.length} collegati`,
-      body: "Crea un job setup per GitHub, Notion, Cloudflare, SendGrid, Telegram, Cloudinary e Hostinger.",
-      action: "Job MCP",
-      busyKey: "stack-setup:connectors",
-      onClick: () => createStackSetupJob("connectors"),
+      body: "Configura MCP con OAuth/secret_ref o Browser MCP. GitHub resta owner-scoped su Axel.",
+      action: "Apri MCP",
+      busyKey: "stack-section:providers",
+      onClick: () => setStackSection("providers"),
       complete: priorityConnectorConfiguredCount >= priorityConnectorIds.length,
     },
     {
@@ -3319,21 +3416,21 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-white">Provider AI operativi</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Ogni provider richiede setup guidato, env/secret_ref e health check. Optima puo creare il job di setup; non dichiara operativo cio che non e verificato.
+                    Ogni provider si configura con wizard: secret_ref, OAuth quando esiste, runtime e policy tenant. Il job e solo health-check, non il modo per inserire credenziali.
                   </p>
                 </div>
               </div>
               <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-amber-50">
                 <p className="font-black text-amber-100">Come si configura davvero</p>
                 <p className="mt-1">
-                  Il pulsante non inserisce token: crea una checklist/job revisionabile. La configurazione reale si fa salvando secret/env nel runtime autorizzato, poi eseguendo un health check. Per GitHub la policy owner resta in Impostazioni e deve essere autorizzata da Axel.
+                  Il pulsante apre una dialog di setup. Optima non salva token in chiaro: registra policy, secret_ref e stato; poi puoi eseguire un health-check revisionabile. Per strumenti web senza API usa Browser MCP con sessione autorizzata e allowlist.
                 </p>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {(capabilities?.providerCatalog ?? []).map((provider) => {
                   const installation = providerInstallationsById.get(provider.id)
                   const state = installation?.installState ?? "not_installed"
-                  const busy = setupAction === `provider-setup:${provider.id}`
+                  const saving = capabilityAction === `provider-config:${provider.id}`
                   return (
                     <div key={provider.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-start justify-between gap-2">
@@ -3369,12 +3466,12 @@ export function AgentJobsClient({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => createProviderSetupJob(provider)}
-                        disabled={busy}
+                        onClick={() => setSelectedProviderId(provider.id)}
+                        disabled={saving}
                         className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                       >
-                        {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
-                        Prepara setup
+                        {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
+                        {providerPrimaryActionLabel(provider)}
                       </Button>
                     </div>
                   )
@@ -4470,19 +4567,155 @@ export function AgentJobsClient({
 
                 {job.resultSummary ? (
                   <div className="mt-4 max-h-36 overflow-hidden break-words rounded-lg border border-cyan-300/15 bg-cyan-300/5 p-3 text-sm leading-6 text-cyan-50 sm:max-h-44">
-                    {job.resultSummary}
+                    {compactJobCardOutput(job.resultSummary)}
                   </div>
                 ) : null}
 
                 {job.errorMessage ? (
                   <div className="mt-4 rounded-lg border border-red-300/20 bg-red-500/10 p-3 text-sm leading-6 text-red-100">
-                    {job.errorMessage}
+                    {compactJobCardOutput(job.errorMessage)}
                   </div>
                 ) : null}
               </article>
             ))
           )}
         </div>
+
+        <Dialog
+          open={Boolean(selectedProvider)}
+          onOpenChange={(open) => {
+            if (!open) setSelectedProviderId(null)
+          }}
+        >
+          <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
+            <DialogHeader className="pr-8 text-left">
+              <DialogTitle className="text-xl font-black sm:text-2xl">
+                Setup provider {selectedProvider?.label ?? ""}
+              </DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Configurazione guidata tenant-scoped. Optima registra policy, stato e secret_ref; token e sessioni restano nel runtime autorizzato.
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedProvider ? (
+              <div className="grid min-w-0 gap-4">
+                <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-50">
+                      {providerAuthLabel(selectedProvider.authMethod)}
+                    </span>
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedProviderInstallation?.installState ?? "not_installed")}`}>
+                      {installLabel(selectedProviderInstallation?.installState ?? "not_installed")}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                      {selectedProvider.lane} · {selectedProvider.defaultModel}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-200">{selectedProvider.tenantUse}</p>
+                  <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
+                    {providerWizardNotice(selectedProvider)}
+                  </p>
+                </section>
+
+                <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+                  <p className="font-black text-white">Percorso consigliato</p>
+                  <div className="mt-3 grid gap-2">
+                    {providerInstallSteps(selectedProvider).map((step, index) => (
+                      <div key={`${selectedProvider.id}-provider-step-${index}`} className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
+                          {index + 1}
+                        </span>
+                        <p className="min-w-0 break-words">{step}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Secret richiesti</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {selectedProvider.requiredSecrets.length ? (
+                        selectedProvider.requiredSecrets.map((secret) => (
+                          <span key={secret} className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-bold text-amber-100">
+                            {secret}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-slate-500">Nessun secret obbligatorio.</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">MCP consigliati</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {selectedProvider.recommendedMcpConnectors.length ? (
+                        selectedProvider.recommendedMcpConnectors.map((connectorId) => (
+                          <button
+                            key={connectorId}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProviderId(null)
+                              setSelectedConnectorId(connectorId)
+                            }}
+                            className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-1 text-[11px] font-bold text-cyan-100 hover:bg-cyan-300/20"
+                          >
+                            {connectorId}
+                          </button>
+                        ))
+                      ) : (
+                        <span className="text-sm text-slate-500">Nessun MCP obbligatorio.</span>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                {selectedProvider.id === "openai" ? (
+                  <section className="rounded-lg border border-purple-300/20 bg-purple-300/[0.07] p-3 sm:p-4">
+                    <p className="font-black text-purple-50">Vuoi ChatGPT o strumenti web senza API?</p>
+                    <p className="mt-2 text-sm leading-6 text-purple-100">
+                      Usa Browser MCP: apre un browser controllato, fai login tu o con pairing/QR su profilo isolato, e Optima usa solo siti allowlist con audit e review. Non e una API gratuita nascosta e non sostituisce i permessi del provider.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedProviderId(null)
+                        setSelectedConnectorId("browser")
+                      }}
+                      className="mt-3 w-full rounded-lg border-purple-200/20 bg-transparent text-purple-50 hover:bg-purple-300/10 sm:w-auto"
+                    >
+                      <Network className="mr-1.5 h-4 w-4" />
+                      Configura Browser MCP
+                    </Button>
+                  </section>
+                ) : null}
+
+                <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => createProviderSetupJob(selectedProvider)}
+                    disabled={setupAction === `provider-setup:${selectedProvider.id}`}
+                    className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
+                  >
+                    {setupAction === `provider-setup:${selectedProvider.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
+                    Job health-check
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => configureProvider(selectedProvider)}
+                    disabled={capabilityAction === `provider-config:${selectedProvider.id}`}
+                    className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
+                  >
+                    {capabilityAction === `provider-config:${selectedProvider.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
+                    Salva setup guidato
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
 
         <Dialog
           open={Boolean(selectedConnector)}

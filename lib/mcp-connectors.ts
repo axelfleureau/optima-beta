@@ -4,12 +4,12 @@ export type StrategicMcpConnector = {
   id: string
   label: string
   status: StrategicMcpConnectorStatus
-  category: "ai" | "code" | "cloud" | "media" | "email" | "hosting" | "messaging"
+  category: "ai" | "code" | "cloud" | "media" | "email" | "hosting" | "messaging" | "browser"
   purpose: string
   graphUse: string[]
   requiredEnv: string[]
   optionalEnv?: string[]
-  authMethod: "api_key_secret" | "oauth_pkce" | "github_app" | "runner_env" | "service_account" | "external_oauth"
+  authMethod: "api_key_secret" | "oauth_pkce" | "github_app" | "runner_env" | "service_account" | "external_oauth" | "browser_session_oauth"
   setupSteps: string[]
   healthCheck: string
   notes: string
@@ -70,6 +70,24 @@ const CONNECTORS: ConnectorSpec[] = [
     ],
     healthCheck: "Heartbeat recente, claim job dry-run, artefatto prodotto e stato review aggiornato.",
     notes: "Il runner deve fare polling verso Optima. I risultati tornano in review prima di diventare operativi.",
+  },
+  {
+    id: "browser",
+    label: "Browser MCP",
+    category: "browser",
+    purpose: "Automazione browser controllata per strumenti senza API affidabile: sessioni OAuth utente, ricerche operative, QA visuale, backoffice e siti autorizzati.",
+    graphUse: ["browser_sessions", "agent_jobs", "audit", "screenshots", "qa", "external_tools"],
+    requiredEnv: ["BROWSER_MCP_ENDPOINT"],
+    optionalEnv: ["BROWSER_PROFILE_SECRET_REF", "BROWSER_ALLOWED_ORIGINS", "BROWSER_HEADLESS", "BROWSER_RECORDING_BUCKET"],
+    authMethod: "browser_session_oauth",
+    setupSteps: [
+      "Installare un Browser MCP server controllato dal runner, preferibilmente Playwright/Chromium con profilo persistente isolato per tenant.",
+      "Autorizzare manualmente solo account e siti consentiti, poi salvare in Optima un secret_ref del profilo/sessione, non cookie o token in D1.",
+      "Definire allowlist domini e policy azioni: leggere, compilare bozze, screenshot e QA; invii, acquisti, deploy o modifiche esterne richiedono review.",
+      "Usare il browser per strumenti senza API o per verifica visuale, non come scraping non autorizzato o aggiramento di termini/costi.",
+    ],
+    healthCheck: "Apre una pagina allowlist in Chromium, verifica sessione OAuth valida, produce screenshot redatto e registra audit senza eseguire azioni irreversibili.",
+    notes: "Questo e il ponte per l'agente mini-dipendente: puo usare interfacce web autorizzate quando non esiste API conveniente, ma resta fragile e governato da allowlist, review e sessioni isolate.",
   },
   {
     id: "cloudinary",
