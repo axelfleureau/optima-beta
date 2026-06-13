@@ -1,0 +1,19 @@
+[Unit]
+Description=Optima Browser MCP Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/optima-agent/optima-beta
+EnvironmentFile=/srv/optima-agent/optima-runner.env
+Environment=BROWSER_MCP_HOST=0.0.0.0
+Environment=BROWSER_MCP_PORT=8789
+Environment=BROWSER_MCP_PROFILE_DIR=/srv/optima-agent/browser-profiles/righello
+ExecStart=/usr/bin/env node runner/browser-mcp-gateway.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -67,6 +67,20 @@ interface AgentJobDetails {
   events: AgentJobEvent[]
 }
 
+interface BrowserMcpSession {
+  id: string
+  status: string
+  target: string
+  startUrl: string
+  gatewayUrl: string | null
+  callbackUrl: string
+  pairingCode: string
+  expiresAt: string
+  instructions: string[]
+  runnerCommand: string
+  missingEnv: string[]
+}
+
 interface AgenticCapabilities {
   providerCatalog: Array<{
     id: string
@@ -108,6 +122,7 @@ interface AgenticCapabilities {
     installState: string
     authMethod: string
     scopes: string[]
+    config?: Record<string, unknown>
     secretRef: string | null
     oauthSubject?: string | null
     lastHealthAt?: string | null
@@ -1640,6 +1655,19 @@ function formatRelativeTime(value: string | null) {
   return `${days} g fa`
 }
 
+function formatDateTime(value: string | null) {
+  if (!value) return "n/d"
+  const timestamp = parseServerDate(value)
+  if (!Number.isFinite(timestamp)) return "data non valida"
+  return new Date(timestamp).toLocaleString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
@@ -1750,6 +1778,8 @@ export function AgentJobsClient({
   const [setupAction, setSetupAction] = useState<string | null>(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
+  const [browserPairingAction, setBrowserPairingAction] = useState<string | null>(null)
+  const [browserPairingSession, setBrowserPairingSession] = useState<BrowserMcpSession | null>(null)
 
   useEffect(() => {
     let active = true
@@ -2099,6 +2129,51 @@ export function AgentJobsClient({
       toast.success("Checklist provider salvata", {
         description: `${provider.label}: non e stato fatto nessun accesso. Collega login/secret nel runtime e verifica con health-check.`,
       })
+    }
+  }
+
+  async function startBrowserMcpLogin(target: "chatgpt" | "nanobanana" | "perplexity" | "claude") {
+    try {
+      setBrowserPairingAction(target)
+      setError(null)
+      const response = await fetch("/api/mcp/browser-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Errore avvio login Browser MCP")
+      setBrowserPairingSession(data.session)
+      if (data.capabilities) setCapabilities(data.capabilities)
+
+      if (data.session?.gatewayUrl) {
+        toast.success("Sessione Browser MCP pronta", {
+          description: "Apri il link gateway e completa il login nel Chromium isolato del runner.",
+        })
+        window.open(data.session.gatewayUrl, "_blank", "noopener,noreferrer")
+      } else {
+        toast.warning("Gateway Browser MCP da configurare", {
+          description: "Optima ha creato il pairing, ma manca BROWSER_MCP_GATEWAY_URL sul runtime.",
+        })
+      }
+    } catch (err: any) {
+      setError(err?.message ?? "Errore avvio Browser MCP")
+      toast.error("Login Browser MCP non avviato", {
+        description: err?.message ?? "Controlla gateway e permessi.",
+      })
+    } finally {
+      setBrowserPairingAction(null)
+    }
+  }
+
+  async function copyBrowserPairingCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command)
+      toast.success("Comando copiato", {
+        description: "Usalo sul runner/VPS Optima quando il gateway non e ancora configurato.",
+      })
+    } catch {
+      toast.error("Copia non riuscita")
     }
   }
 
@@ -2575,6 +2650,10 @@ export function AgentJobsClient({
   const selectedConnector =
     (capabilities?.mcpConnectorCatalog ?? []).find((connector) => connector.id === selectedConnectorId) ?? null
   const selectedConnectorInstallation = selectedConnector ? connectorInstallationsById.get(selectedConnector.id) ?? null : null
+  const selectedBrowserPairingSession =
+    selectedConnector?.id === "browser"
+      ? browserPairingSession ?? (asRecord(selectedConnectorInstallation?.config?.activePairingSession) as BrowserMcpSession | null)
+      : null
   const selectedProvider =
     (capabilities?.providerCatalog ?? []).find((provider) => provider.id === selectedProviderId) ?? null
   const selectedProviderInstallation = selectedProvider ? providerInstallationsById.get(selectedProvider.id) ?? null : null
@@ -4906,11 +4985,94 @@ export function AgentJobsClient({
                 </section>
 
                 {selectedConnector.id === "browser" ? (
-                  <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50 sm:p-4">
-                    <p className="font-black">Login non ancora eseguito</p>
-                    <p className="mt-2">
-                      Salvare questa checklist non apre Chromium, non registra cookie e non collega ChatGPT o altri siti. Il Browser MCP diventa operativo solo dopo pairing/login su profilo isolato, allowlist domini e health-check con screenshot/audit.
-                    </p>
+                  <section className="rounded-lg border border-purple-300/20 bg-purple-300/[0.07] p-3 sm:p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black text-purple-50">Login guidato Browser MCP</p>
+                        <p className="mt-2 text-sm leading-6 text-purple-100">
+                          Avvia una sessione sul Chromium isolato del runner. Non usa API key: il login va fatto nel profilo remoto autorizzato, poi Optima richiede health-check prima di usarlo.
+                        </p>
+                      </div>
+                      {selectedBrowserPairingSession ? (
+                        <span className="rounded-full border border-purple-200/20 bg-purple-300/10 px-2.5 py-1 text-xs font-black text-purple-50">
+                          {selectedBrowserPairingSession.status}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                      {([
+                        ["chatgpt", "ChatGPT"],
+                        ["nanobanana", "Nano Banana"],
+                        ["perplexity", "Perplexity"],
+                        ["claude", "Claude"],
+                      ] as const).map(([target, label]) => (
+                        <Button
+                          key={target}
+                          type="button"
+                          variant="outline"
+                          onClick={() => startBrowserMcpLogin(target)}
+                          disabled={Boolean(browserPairingAction)}
+                          className="rounded-lg border-purple-200/20 bg-black/20 text-purple-50 hover:bg-purple-300/10"
+                        >
+                          {browserPairingAction === target ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />}
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                    {selectedBrowserPairingSession ? (
+                      <div className="mt-4 grid gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Pairing code</p>
+                            <p className="mt-1 font-mono text-lg font-black text-white">{selectedBrowserPairingSession.pairingCode}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Target</p>
+                            <p className="mt-1 break-words text-sm font-bold text-slate-200">{selectedBrowserPairingSession.startUrl}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Scadenza</p>
+                            <p className="mt-1 text-sm font-bold text-slate-200">{formatDateTime(selectedBrowserPairingSession.expiresAt)}</p>
+                          </div>
+                        </div>
+                        {selectedBrowserPairingSession.gatewayUrl ? (
+                          <Button
+                            type="button"
+                            onClick={() => window.open(selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
+                            className="rounded-lg bg-purple-500 text-white hover:bg-purple-500/90"
+                          >
+                            <Network className="mr-1.5 h-4 w-4" />
+                            Apri login remoto
+                          </Button>
+                        ) : (
+                          <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
+                            <p className="font-black">Gateway VPS non configurato</p>
+                            <p className="mt-1">Manca: {selectedBrowserPairingSession.missingEnv.join(", ") || "BROWSER_MCP_GATEWAY_URL"}.</p>
+                            <p className="mt-2">Da VPS Optima, usa questo comando quando il gateway Browser MCP e installato:</p>
+                            <code className="mt-2 block max-w-full overflow-x-auto rounded-md bg-black/40 p-2 text-xs text-amber-100">
+                              {selectedBrowserPairingSession.runnerCommand}
+                            </code>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => copyBrowserPairingCommand(selectedBrowserPairingSession.runnerCommand)}
+                              className="mt-3 rounded-lg border-amber-200/20 bg-transparent text-amber-50 hover:bg-amber-300/10"
+                            >
+                              <ClipboardList className="mr-1.5 h-4 w-4" />
+                              Copia comando runner
+                            </Button>
+                          </div>
+                        )}
+                        <div className="grid gap-2">
+                          {selectedBrowserPairingSession.instructions.map((instruction, index) => (
+                            <div key={`${selectedBrowserPairingSession.id}-instruction-${index}`} className="flex gap-2 text-sm leading-6 text-slate-300">
+                              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-300" />
+                              <p className="min-w-0">{instruction}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </section>
                 ) : null}
 
