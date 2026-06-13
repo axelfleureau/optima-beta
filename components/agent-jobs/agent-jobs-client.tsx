@@ -5021,64 +5021,74 @@ export function AgentJobsClient({
                       ))}
                     </div>
                     {selectedBrowserPairingSession ? (
-                      <div className="mt-4 grid gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
-                        <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
+                      <div className="mt-4 grid min-w-0 gap-3 overflow-hidden rounded-lg border border-white/10 bg-black/20 p-3">
+                        <div className="min-w-0 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
                           <p className="font-black">Prima verifica il gateway VPS</p>
-                          <p className="mt-1">
-                            Se il test gateway non apre, il servizio `optima-browser-mcp-gateway` non e attivo sul VPS: non e un errore OAuth e non serve inserire API key.
+                          <p className="mt-1 min-w-0 break-words">
+                            Se il test non risponde, il servizio Browser MCP sul VPS non e attivo. Non e un errore OAuth e non serve inserire API key.
                           </p>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-3">
-                          <div>
+                          <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
                             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Pairing code</p>
                             <p className="mt-1 font-mono text-lg font-black text-white">{selectedBrowserPairingSession.pairingCode}</p>
                           </div>
-                          <div>
+                          <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
                             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Target</p>
                             <p className="mt-1 break-words text-sm font-bold text-slate-200">{selectedBrowserPairingSession.startUrl}</p>
                           </div>
-                          <div>
+                          <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
                             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Scadenza</p>
                             <p className="mt-1 text-sm font-bold text-slate-200">{formatDateTime(selectedBrowserPairingSession.expiresAt)}</p>
                           </div>
                         </div>
                         {selectedBrowserPairingSession.gatewayUrl ? (
-                          <div className="grid gap-3">
+                          <div className="grid min-w-0 gap-3">
                             <div className="grid gap-2 sm:grid-cols-2">
                               <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => window.open(selectedBrowserPairingSession.gatewayHealthUrl || selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
-                                className="rounded-lg border-emerald-200/20 bg-emerald-300/10 text-emerald-50 hover:bg-emerald-300/15"
+                                className="min-h-12 w-full justify-center rounded-lg border-emerald-200/20 bg-emerald-300/10 px-3 text-center text-sm font-black text-emerald-50 hover:bg-emerald-300/15"
                               >
-                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                1. Test gateway
+                                <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
+                                Test gateway
                               </Button>
                               <Button
                                 type="button"
                                 onClick={() => window.open(selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
-                                className="rounded-lg bg-purple-500 text-white hover:bg-purple-500/90"
+                                className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90"
                               >
-                                <Network className="mr-1.5 h-4 w-4" />
-                                2. Apri login remoto
+                                <Network className="mr-1.5 h-4 w-4 shrink-0" />
+                                Apri login remoto
                               </Button>
                             </div>
-                            <div className="grid gap-2 rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
-                              <div>
-                                <p className="uppercase tracking-[0.16em] text-slate-500">Health URL</p>
-                                <code className="mt-1 block max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-black/35 p-2 text-cyan-100">
-                                  {selectedBrowserPairingSession.gatewayHealthUrl || `${selectedBrowserPairingSession.gatewayUrl.split("/pair")[0]}/health`}
-                                </code>
-                              </div>
-                              <div>
-                                <p className="uppercase tracking-[0.16em] text-slate-500">Login URL</p>
-                                <code className="mt-1 block max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-black/35 p-2 text-purple-100">
-                                  {selectedBrowserPairingSession.gatewayUrl}
-                                </code>
+                            <div className="grid min-w-0 gap-2 rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
+                              <p className="font-bold text-slate-200">Gateway Tailscale: padel-vps.tailcd2fda.ts.net:8789</p>
+                              <p className="text-slate-400">Su mobile evita di copiare l'URL lungo: usa i bottoni. Se Safari dice che non trova il server, avvia prima il servizio sul VPS.</p>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => copyBrowserPairingCommand(selectedBrowserPairingSession.gatewayHealthUrl || `${selectedBrowserPairingSession.gatewayUrl!.split("/pair")[0]}/health`)}
+                                  className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
+                                >
+                                  <ClipboardList className="mr-1.5 h-4 w-4" />
+                                  Copia health URL
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => copyBrowserPairingCommand(selectedBrowserPairingSession.gatewayUrl!)}
+                                  className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
+                                >
+                                  <ClipboardList className="mr-1.5 h-4 w-4" />
+                                  Copia login URL
+                                </Button>
                               </div>
                             </div>
                             {selectedBrowserPairingSession.installCommand ? (
-                              <div className="rounded-lg border border-slate-500/20 bg-slate-500/[0.06] p-3 text-sm leading-6 text-slate-200">
+                              <div className="min-w-0 rounded-lg border border-slate-500/20 bg-slate-500/[0.06] p-3 text-sm leading-6 text-slate-200">
                                 <p className="font-black text-white">Se il test gateway non risponde</p>
                                 <p className="mt-1">Esegui da console Hostinger/VPS, solo in `/srv/optima-agent`:</p>
                                 <code className="mt-2 block max-w-full overflow-x-auto whitespace-pre rounded-md bg-black/40 p-2 text-xs text-slate-100">

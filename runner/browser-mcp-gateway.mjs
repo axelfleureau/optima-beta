@@ -60,12 +60,14 @@ const server = createServer(async (request, response) => {
       html(response, 200, page(
         `Login ${target}`,
         [
-          `Codice pairing: ${code}`,
-          "Si aprira DevTools collegato al Chromium persistente del VPS.",
-          "Completa il login nel tab remoto. Non inserire credenziali in Optima.",
+          `<div class="badge">Codice pairing ${escapeHtml(code)}</div>`,
+          `<p>Usa il Chromium isolato del VPS. Non inserire credenziali dentro Optima e non usare API key per questo passaggio.</p>`,
+          `<div class="actions">`,
           `<a class="button" href="${escapeHtml(devtoolsUrl(request, pageTarget))}">Apri browser remoto</a>`,
           `<a class="secondary" href="/complete?session=${encodeURIComponent(session)}&code=${encodeURIComponent(code)}&target=${encodeURIComponent(target)}&callback=${encodeURIComponent(callback)}">Ho completato il login</a>`,
-          `<a class="secondary" href="/health">Health</a>`,
+          `<a class="secondary" href="/health">Verifica gateway</a>`,
+          `</div>`,
+          `<p class="hint">Da iPhone la DevTools UI puo essere scomoda: se il login richiede QR o passkey, completa l'accesso dal Mac o da un browser desktop collegato alla tailnet.</p>`,
         ].join("\n"),
       ))
       return
@@ -92,9 +94,9 @@ const server = createServer(async (request, response) => {
       html(response, 200, page(
         "Login registrato",
         [
-          "Optima ha ricevuto la conferma del login nel profilo Browser MCP.",
-          "Ora torna in Optima ed esegui il job health-check prima di usare il connector in produzione.",
-          `<a class="button" href="/health">Verifica gateway</a>`,
+          `<p>Optima ha ricevuto la conferma del login nel profilo Browser MCP.</p>`,
+          `<p>Ora torna in Optima ed esegui il job health-check prima di usare il connector in produzione.</p>`,
+          `<div class="actions"><a class="button" href="/health">Verifica gateway</a></div>`,
         ].join("\n"),
       ))
       return
@@ -105,7 +107,10 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    html(response, 200, page("Optima Browser MCP Gateway", "Usa il pulsante Avvia login da Optima per creare una sessione pairing."))
+    html(response, 200, page("Optima Browser MCP Gateway", [
+      `<p>Gateway attivo. Per creare una sessione valida apri Optima, sezione Agenti, e usa il wizard Browser MCP.</p>`,
+      `<div class="actions"><a class="button" href="/health">Verifica gateway</a></div>`,
+    ].join("\n")))
   } catch (error) {
     html(response, 500, page("Errore gateway", error instanceof Error ? error.message : String(error)))
   }
@@ -266,23 +271,30 @@ function json(response, status, body) {
 }
 
 function page(title, body) {
+  const content = String(body).includes("<") ? body : `<p>${escapeHtml(body)}</p>`
   return `<!doctype html>
 <html lang="it">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <style>
-  body { margin: 0; min-height: 100vh; background: #070b15; color: #f8fafc; font: 16px/1.55 system-ui, -apple-system, Segoe UI, sans-serif; display: grid; place-items: center; padding: 24px; }
-  main { width: min(720px, 100%); border: 1px solid rgba(255,255,255,.14); background: #111827; border-radius: 18px; padding: 28px; box-shadow: 0 30px 90px rgba(0,0,0,.35); }
-  h1 { margin: 0 0 16px; font-size: clamp(26px, 5vw, 42px); line-height: 1.05; }
-  pre, p { white-space: pre-wrap; overflow-wrap: anywhere; color: #cbd5e1; }
-  .button, .secondary { display: inline-flex; margin-top: 18px; margin-right: 10px; border-radius: 12px; padding: 13px 18px; text-decoration: none; font-weight: 800; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: #070b15; color: #f8fafc; font: 16px/1.55 system-ui, -apple-system, Segoe UI, sans-serif; display: grid; place-items: center; padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)); }
+  main { width: min(720px, 100%); min-width: 0; border: 1px solid rgba(255,255,255,.14); background: #111827; border-radius: 18px; padding: clamp(18px, 5vw, 28px); box-shadow: 0 30px 90px rgba(0,0,0,.35); overflow: hidden; }
+  h1 { margin: 0 0 16px; font-size: clamp(25px, 8vw, 42px); line-height: 1.05; overflow-wrap: anywhere; }
+  p { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #cbd5e1; }
+  .content { display: grid; gap: 12px; min-width: 0; }
+  .badge { display: inline-flex; width: fit-content; max-width: 100%; border: 1px solid rgba(219,63,134,.35); background: rgba(219,63,134,.12); color: #ffe4f1; border-radius: 999px; padding: 8px 12px; font-weight: 900; overflow-wrap: anywhere; }
+  .hint { border: 1px solid rgba(251,191,36,.22); background: rgba(251,191,36,.08); color: #fde68a; border-radius: 14px; padding: 12px; }
+  .actions { display: grid; gap: 10px; margin-top: 10px; }
+  .button, .secondary { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; border-radius: 12px; padding: 13px 18px; text-align: center; text-decoration: none; font-weight: 900; overflow-wrap: anywhere; }
   .button { background: #db3f86; color: #fff; }
   .secondary { border: 1px solid rgba(255,255,255,.18); color: #e2e8f0; }
+  @media (min-width: 640px) { .actions { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 </style>
 <main>
   <h1>${escapeHtml(title)}</h1>
-  <p>${body}</p>
+  <div class="content">${content}</div>
 </main>`
 }
 
