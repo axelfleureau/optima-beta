@@ -5071,14 +5071,28 @@ export function AgentJobsClient({
                               </div>
                             )}
                             <div className="grid gap-2 sm:grid-cols-3">
+                              {(() => {
+                                const primaryHealthUrl =
+                                  selectedBrowserPairingSession.fallbackGatewayHealthUrl ||
+                                  selectedBrowserPairingSession.gatewayHealthUrl ||
+                                  selectedBrowserPairingSession.gatewayUrl!
+                                const primaryLoginUrl =
+                                  selectedBrowserPairingSession.fallbackGatewayUrl ||
+                                  selectedBrowserPairingSession.gatewayUrl!
+                                const secondaryHealthUrl =
+                                  selectedBrowserPairingSession.fallbackGatewayHealthUrl
+                                    ? selectedBrowserPairingSession.gatewayHealthUrl
+                                    : null
+                                return (
+                                  <>
                               <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => window.open(selectedBrowserPairingSession.gatewayHealthUrl || selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
+                                onClick={() => window.open(primaryHealthUrl, "_blank", "noopener,noreferrer")}
                                 className="min-h-12 w-full justify-center rounded-lg border-emerald-200/20 bg-emerald-300/10 px-3 text-center text-sm font-black text-emerald-50 hover:bg-emerald-300/15"
                               >
                                 <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
-                                1. Test gateway
+                                1. Test IP
                               </Button>
                               <Button
                                 type="button"
@@ -5102,21 +5116,40 @@ export function AgentJobsClient({
                               <Button
                                 type="button"
                                 disabled={browserGatewayConfirmedSessionId !== selectedBrowserPairingSession.id}
-                                onClick={() => window.open(selectedBrowserPairingSession.gatewayUrl!, "_blank", "noopener,noreferrer")}
+                                onClick={() => window.open(primaryLoginUrl, "_blank", "noopener,noreferrer")}
                                 className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90 disabled:cursor-not-allowed disabled:opacity-45"
                               >
                                 <Network className="mr-1.5 h-4 w-4 shrink-0" />
                                 3. Apri se ok
                               </Button>
+                              {secondaryHealthUrl ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => window.open(secondaryHealthUrl, "_blank", "noopener,noreferrer")}
+                                  className="min-h-10 w-full justify-center rounded-lg border-white/10 bg-transparent px-3 text-center text-xs font-bold text-slate-200 hover:bg-white/10 sm:col-span-3"
+                                >
+                                  Test alternativo MagicDNS
+                                </Button>
+                              ) : null}
+                                  </>
+                                )
+                              })()}
                             </div>
                             <div className="grid min-w-0 gap-2 rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
-                              <p className="font-bold text-slate-200">Gateway Tailscale: padel-vps.tailcd2fda.ts.net:8789</p>
-                              <p className="text-slate-400">Su mobile evita di copiare l'URL lungo. Se MagicDNS non apre, prova il fallback IP Tailscale: 100.100.39.96:8789.</p>
+                              <p className="font-bold text-slate-200">Gateway consigliato su dispositivo Tailscale: http://100.100.39.96:8789</p>
+                              <p className="text-slate-400">Usa sempre URL completi con <span className="font-mono">http://</span>. MagicDNS resta alternativo: <span className="font-mono">http://padel-vps.tailcd2fda.ts.net:8789</span>.</p>
                               <div className="grid gap-2 sm:grid-cols-4">
                                 <Button
                                   type="button"
                                   variant="outline"
-                                  onClick={() => copyBrowserPairingCommand(selectedBrowserPairingSession.gatewayHealthUrl || `${selectedBrowserPairingSession.gatewayUrl!.split("/pair")[0]}/health`)}
+                                  onClick={() =>
+                                    copyBrowserPairingCommand(
+                                      selectedBrowserPairingSession.fallbackGatewayHealthUrl ||
+                                        selectedBrowserPairingSession.gatewayHealthUrl ||
+                                        `${selectedBrowserPairingSession.gatewayUrl!.split("/pair")[0]}/health`,
+                                    )
+                                  }
                                   className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                                 >
                                   <ClipboardList className="mr-1.5 h-4 w-4" />
@@ -5125,7 +5158,11 @@ export function AgentJobsClient({
                                 <Button
                                   type="button"
                                   variant="outline"
-                                  onClick={() => copyBrowserPairingCommand(selectedBrowserPairingSession.gatewayUrl!)}
+                                  onClick={() =>
+                                    copyBrowserPairingCommand(
+                                      selectedBrowserPairingSession.fallbackGatewayUrl || selectedBrowserPairingSession.gatewayUrl!,
+                                    )
+                                  }
                                   className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                                 >
                                   <ClipboardList className="mr-1.5 h-4 w-4" />
