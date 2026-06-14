@@ -152,11 +152,19 @@ async function ensureChrome() {
     chromeProcess = spawn(chromeBin, [
       `--remote-debugging-address=${config.chromeHost}`,
       `--remote-debugging-port=${config.chromePort}`,
+      "--remote-allow-origins=*",
       `--user-data-dir=${config.profileDir}`,
+      "--no-sandbox",
+      "--no-zygote-sandbox",
       "--no-first-run",
       "--no-default-browser-check",
+      "--noerrdialogs",
       "--disable-dev-shm-usage",
       "--disable-background-networking",
+      "--disable-gpu",
+      "--headless=new",
+      "--ozone-platform=headless",
+      "--use-angle=swiftshader-webgl",
       "--window-size=1440,1000",
       "about:blank",
     ], {
@@ -211,9 +219,19 @@ async function openChromeTarget(url) {
 function devtoolsUrl(request, target) {
   const host = request.headers.host || `localhost:${config.port}`
   const protocol = request.headers["x-forwarded-proto"] || "http"
-  const wsHost = host
-  const frontend = target.devtoolsFrontendUrl || `/devtools/inspector.html?ws=${config.chromeHost}:${config.chromePort}/devtools/page/${target.id}`
-  return `${protocol}://${host}${frontend.replace(`${config.chromeHost}:${config.chromePort}`, wsHost)}`
+  const wsTarget = `${host}/devtools/page/${target.id}`
+  const fallback = `${protocol}://${host}/devtools/inspector.html?ws=${encodeURIComponent(wsTarget)}`
+  const frontend = target.devtoolsFrontendUrl || fallback
+
+  try {
+    const url = frontend.startsWith("http")
+      ? new URL(frontend)
+      : new URL(frontend, `${protocol}://${host}`)
+    url.searchParams.set("ws", wsTarget)
+    return url.toString()
+  } catch {
+    return fallback
+  }
 }
 
 function proxyHttp(clientRequest, clientResponse) {
