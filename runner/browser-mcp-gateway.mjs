@@ -220,18 +220,7 @@ function devtoolsUrl(request, target) {
   const host = request.headers.host || `localhost:${config.port}`
   const protocol = request.headers["x-forwarded-proto"] || "http"
   const wsTarget = `${host}/devtools/page/${target.id}`
-  const fallback = `${protocol}://${host}/devtools/inspector.html?ws=${encodeURIComponent(wsTarget)}`
-  const frontend = target.devtoolsFrontendUrl || fallback
-
-  try {
-    const url = frontend.startsWith("http")
-      ? new URL(frontend)
-      : new URL(frontend, `${protocol}://${host}`)
-    url.searchParams.set("ws", wsTarget)
-    return url.toString()
-  } catch {
-    return fallback
-  }
+  return `${protocol}://${host}/devtools/inspector.html?ws=${encodeURIComponent(wsTarget)}`
 }
 
 function proxyHttp(clientRequest, clientResponse) {
