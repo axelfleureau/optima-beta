@@ -12,6 +12,12 @@ const config = {
   chromePort: Number(process.env.BROWSER_MCP_CHROME_PORT || 9233),
   profileDir: process.env.BROWSER_MCP_PROFILE_DIR || "/srv/optima-agent/browser-profiles/righello",
   chromeBin: process.env.BROWSER_MCP_CHROME_BIN || "",
+  mode: process.env.BROWSER_MCP_MODE || "desktop",
+  display: process.env.BROWSER_MCP_DISPLAY || ":109",
+  vncPort: Number(process.env.BROWSER_MCP_VNC_PORT || 5909),
+  noVncHost: process.env.BROWSER_MCP_NOVNC_HOST || "127.0.0.1",
+  noVncPort: Number(process.env.BROWSER_MCP_NOVNC_PORT || 8790),
+  noVncWebDir: process.env.BROWSER_MCP_NOVNC_WEB || "/usr/share/novnc",
 }
 
 const targets = new Map([
@@ -23,6 +29,10 @@ const targets = new Map([
 
 let chromeProcess = null
 let startingChrome = null
+let chromeLaunchMode = "stopped"
+let displayProcess = null
+let vncProcess = null
+let noVncProcess = null
 
 await mkdir(config.profileDir, { recursive: true })
 
@@ -35,6 +45,10 @@ const server = createServer(async (request, response) => {
       json(response, 200, {
         ok: true,
         chromeReady,
+        launchMode: chromeLaunchMode,
+        requestedMode: config.mode,
+        remoteBrowserReady: Boolean(noVncProcess),
+        remoteBrowserUrl: remoteBrowserUrl(request),
         profileDir: config.profileDir,
         port: config.port,
       })
@@ -63,11 +77,12 @@ const server = createServer(async (request, response) => {
           `<div class="badge">Codice pairing ${escapeHtml(code)}</div>`,
           `<p>Usa il Chromium isolato del VPS. Non inserire credenziali dentro Optima e non usare API key per questo passaggio.</p>`,
           `<div class="actions">`,
-          `<a class="button" href="${escapeHtml(devtoolsUrl(request, pageTarget))}">Apri browser remoto</a>`,
+          `<a class="button" href="${escapeHtml(remoteBrowserUrl(request))}">Apri browser controllabile</a>`,
           `<a class="secondary" href="/complete?session=${encodeURIComponent(session)}&code=${encodeURIComponent(code)}&target=${encodeURIComponent(target)}&callback=${encodeURIComponent(callback)}">Ho completato il login</a>`,
           `<a class="secondary" href="/health">Verifica gateway</a>`,
           `</div>`,
-          `<p class="hint">Da iPhone la DevTools UI puo essere scomoda: se il login richiede QR o passkey, completa l'accesso dal Mac o da un browser desktop collegato alla tailnet.</p>`,
+          `<p class="hint">Usa “Apri browser controllabile” per digitare nel Chrome remoto. DevTools non e adatto al login da telefono. Se ChatGPT continua a chiedere verifica umana, completa il pairing dal Mac collegato alla tailnet.</p>`,
+          `<details><summary>Fallback tecnico DevTools</summary><p><a class="secondary" href="${escapeHtml(devtoolsUrl(request, pageTarget))}">Apri DevTools</a></p></details>`,
         ].join("\n"),
       ))
       return
@@ -131,6 +146,7 @@ server.on("upgrade", (request, socket, head) => {
     socket.pipe(upstream)
     upstream.pipe(socket)
   })
+  socket.on("error", () => upstream.destroy())
   upstream.on("error", () => socket.destroy())
 })
 
@@ -149,27 +165,30 @@ async function ensureChrome() {
       throw new Error("Chromium non trovato. Installa chromium/google-chrome o imposta BROWSER_MCP_CHROME_BIN.")
     }
 
-    chromeProcess = spawn(chromeBin, [
+    await ensureDesktopServices()
+
+    const commonChromeArgs = [
       `--remote-debugging-address=${config.chromeHost}`,
       `--remote-debugging-port=${config.chromePort}`,
       "--remote-allow-origins=*",
       `--user-data-dir=${config.profileDir}`,
       "--no-sandbox",
-      "--no-zygote-sandbox",
       "--no-first-run",
       "--no-default-browser-check",
       "--noerrdialogs",
       "--disable-dev-shm-usage",
-      "--disable-background-networking",
-      "--disable-gpu",
-      "--headless=new",
-      "--ozone-platform=headless",
-      "--use-angle=swiftshader-webgl",
       "--window-size=1440,1000",
       "about:blank",
-    ], {
+    ]
+
+    const { command, args, launchMode, env } = buildChromeLaunch(chromeBin, commonChromeArgs)
+    chromeLaunchMode = launchMode
+    console.log(`Starting Chrome with Browser MCP mode=${launchMode}`)
+
+    chromeProcess = spawn(command, args, {
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
+      env: { ...process.env, ...env },
     })
 
     chromeProcess.stdout.on("data", (chunk) => process.stdout.write(`[chrome] ${chunk}`))
@@ -177,6 +196,7 @@ async function ensureChrome() {
     chromeProcess.on("exit", (code, signal) => {
       console.log(`Chrome exited code=${code} signal=${signal}`)
       chromeProcess = null
+      chromeLaunchMode = "stopped"
     })
 
     const deadline = Date.now() + 12_000
@@ -192,6 +212,116 @@ async function ensureChrome() {
   } finally {
     startingChrome = null
   }
+}
+
+async function ensureDesktopServices() {
+  const requestedMode = String(config.mode || "desktop").toLowerCase()
+  if (["headless", "headless-new"].includes(requestedMode)) return
+
+  if (!process.env.DISPLAY && !displayProcess && !displayLockExists()) {
+    const xvfb = findExecutable([process.env.BROWSER_MCP_XVFB || "", "/usr/bin/Xvfb", "/bin/Xvfb"])
+    if (xvfb) {
+      displayProcess = spawn(xvfb, [config.display, "-screen", "0", "1440x1000x24", "-ac"], {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: false,
+      })
+      displayProcess.stderr.on("data", (chunk) => process.stderr.write(`[xvfb] ${chunk}`))
+      displayProcess.on("exit", (code, signal) => {
+        console.log(`Xvfb exited code=${code} signal=${signal}`)
+        displayProcess = null
+      })
+      await sleep(500)
+    }
+  }
+
+  const display = process.env.DISPLAY || (displayProcess || displayLockExists() ? config.display : "")
+  if (!display) return
+
+  if (!vncProcess) {
+    const x11vnc = findExecutable([process.env.BROWSER_MCP_X11VNC || "", "/usr/bin/x11vnc", "/bin/x11vnc"])
+    if (x11vnc) {
+      vncProcess = spawn(x11vnc, [
+        "-display", display,
+        "-localhost",
+        "-nopw",
+        "-forever",
+        "-shared",
+        "-noshm",
+        "-rfbport", String(config.vncPort),
+        "-quiet",
+      ], {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: false,
+      })
+      vncProcess.stderr.on("data", (chunk) => process.stderr.write(`[x11vnc] ${chunk}`))
+      vncProcess.on("exit", (code, signal) => {
+        console.log(`x11vnc exited code=${code} signal=${signal}`)
+        vncProcess = null
+      })
+      await sleep(300)
+    }
+  }
+
+  if (!noVncProcess && vncProcess) {
+    const websockify = findExecutable([process.env.BROWSER_MCP_WEBSOCKIFY || "", "/usr/bin/websockify", "/bin/websockify"])
+    if (websockify && existsSync(config.noVncWebDir)) {
+      noVncProcess = spawn(websockify, [
+        "--web", config.noVncWebDir,
+        `${config.noVncHost}:${config.noVncPort}`,
+        `127.0.0.1:${config.vncPort}`,
+      ], {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: false,
+      })
+      noVncProcess.stderr.on("data", (chunk) => process.stderr.write(`[websockify] ${chunk}`))
+      noVncProcess.on("exit", (code, signal) => {
+        console.log(`websockify exited code=${code} signal=${signal}`)
+        noVncProcess = null
+      })
+      await sleep(300)
+    }
+  }
+}
+
+function buildChromeLaunch(chromeBin, commonChromeArgs) {
+  const requestedMode = String(config.mode || "desktop").toLowerCase()
+  const forceHeadless = ["headless", "headless-new"].includes(requestedMode)
+
+  if (!forceHeadless && process.env.DISPLAY) {
+    return {
+      command: chromeBin,
+      args: [...commonChromeArgs, "--disable-gpu"],
+      env: {},
+      launchMode: "desktop-display",
+    }
+  }
+
+  if (!forceHeadless && (displayProcess || displayLockExists())) {
+    return {
+      command: chromeBin,
+      args: [...commonChromeArgs, "--disable-gpu"],
+      env: { DISPLAY: config.display },
+      launchMode: "desktop-xvfb-vnc",
+    }
+  }
+
+  return {
+    command: chromeBin,
+    args: [
+      ...commonChromeArgs,
+      "--disable-gpu",
+      "--headless=new",
+      "--ozone-platform=headless",
+      "--use-angle=swiftshader-webgl",
+    ],
+    env: {},
+    launchMode: forceHeadless ? "headless-forced" : "headless-fallback",
+  }
+}
+
+function displayLockExists() {
+  const displayNumber = String(config.display).replace(/^:/, "").split(".")[0]
+  return Boolean(displayNumber) && existsSync(`/tmp/.X${displayNumber}-lock`)
 }
 
 async function isChromeReady() {
@@ -221,6 +351,13 @@ function devtoolsUrl(request, target) {
   const protocol = request.headers["x-forwarded-proto"] || "http"
   const wsTarget = `${host}/devtools/page/${target.id}`
   return `${protocol}://${host}/devtools/inspector.html?ws=${encodeURIComponent(wsTarget)}`
+}
+
+function remoteBrowserUrl(request) {
+  const hostHeader = request.headers.host || `localhost:${config.port}`
+  const hostname = hostHeader.split(":")[0]
+  const protocol = request.headers["x-forwarded-proto"] || "http"
+  return `${protocol}://${hostname}:${config.noVncPort}/vnc.html?autoconnect=1&resize=scale&reconnect=1&path=websockify`
 }
 
 function proxyHttp(clientRequest, clientResponse) {
@@ -257,14 +394,17 @@ async function notifyCallback(callback, payload) {
 }
 
 function findChrome() {
-  const candidates = [
+  return findExecutable([
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
     "/snap/bin/chromium",
-  ]
-  return candidates.find((candidate) => existsSync(candidate)) || ""
+  ])
+}
+
+function findExecutable(candidates) {
+  return candidates.filter(Boolean).find((candidate) => existsSync(candidate)) || ""
 }
 
 function html(response, status, body) {

@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       "cd /srv/optima-agent/optima-beta",
       "git pull --ff-only",
       "sudo apt-get update",
-      "sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium",
+      "sudo apt-get install -y chromium-browser xvfb x11vnc novnc websockify || sudo apt-get install -y chromium xvfb x11vnc novnc websockify",
       "sudo mkdir -p /srv/optima-agent/browser-profiles/righello",
       "sudo cp runner/optima-browser-mcp-gateway.service /etc/systemd/system/optima-browser-mcp-gateway.service",
       "sudo systemctl daemon-reload",

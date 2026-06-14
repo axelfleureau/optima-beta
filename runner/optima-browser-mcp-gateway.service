@@ -10,6 +10,11 @@ EnvironmentFile=/srv/optima-agent/optima-runner.env
 Environment=BROWSER_MCP_HOST=0.0.0.0
 Environment=BROWSER_MCP_PORT=8789
 Environment=BROWSER_MCP_PROFILE_DIR=/srv/optima-agent/browser-profiles/righello
+Environment=BROWSER_MCP_MODE=desktop
+Environment=BROWSER_MCP_DISPLAY=:109
+Environment=BROWSER_MCP_VNC_PORT=5909
+Environment=BROWSER_MCP_NOVNC_HOST=100.100.39.96
+Environment=BROWSER_MCP_NOVNC_PORT=8790
 ExecStart=/usr/bin/env node runner/browser-mcp-gateway.mjs
 Restart=always
 RestartSec=5

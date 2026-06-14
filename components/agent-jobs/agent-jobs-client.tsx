@@ -4995,7 +4995,7 @@ export function AgentJobsClient({
                       <div className="min-w-0">
                         <p className="font-black text-purple-50">Wizard Browser MCP</p>
                         <p className="mt-2 text-sm leading-6 text-purple-100">
-                          Per ChatGPT, Nano Banana e strumenti web non usiamo API key come prima scelta. Optima prepara una sessione, il login avviene nel Chromium isolato del VPS e poi serve health-check.
+                          Per ChatGPT, Nano Banana e strumenti web non usiamo API key come prima scelta. Optima prepara una sessione e apre un Chrome remoto controllabile via gateway VPS; poi serve health-check.
                         </p>
                       </div>
                       {selectedBrowserPairingSession ? (
@@ -5029,7 +5029,7 @@ export function AgentJobsClient({
                         <div className="min-w-0 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
                           <p className="font-black">Prima verifica il gateway VPS</p>
                           <p className="mt-1 min-w-0 break-words">
-                            Se il test non risponde, il servizio Browser MCP sul VPS non e attivo. Non e un errore OAuth e non serve inserire API key.
+                            Se il test non risponde, il servizio Browser MCP sul VPS non e attivo o il dispositivo non raggiunge Tailscale. Non e un errore OAuth e non serve inserire API key.
                           </p>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-3">
@@ -5051,10 +5051,13 @@ export function AgentJobsClient({
                             <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50">
                               <p className="font-black">Flusso corretto</p>
                               <p className="mt-1">
-                                Apri prima il test gateway. Se vedi una pagina JSON con <span className="font-mono">ok: true</span>, torna qui e conferma. Solo dopo ha senso aprire il login remoto.
+                                Apri prima il test gateway. Se vedi una pagina JSON con <span className="font-mono">ok: true</span>, torna qui e conferma. Poi apri il browser controllabile: quello e il posto giusto dove digitare credenziali e completare eventuali QR/passkey.
                               </p>
                               <p className="mt-1 text-cyan-100/80">
-                                Se Safari dice che non trova il server: il telefono non sta raggiungendo Tailscale/MagicDNS oppure il servizio VPS e spento. In quel caso prova dal Mac su Tailscale o usa il fallback IP.
+                                Se Safari dice che non trova il server: questo dispositivo non sta raggiungendo Tailscale/MagicDNS oppure il servizio VPS e spento. In quel caso prova dal Mac collegato a Tailscale o usa il fallback IP.
+                              </p>
+                              <p className="mt-1 text-cyan-100/80">
+                                Se il login apre DevTools invece del browser controllabile, chiudi e crea una nuova sessione. DevTools resta solo un fallback tecnico, non il flusso di login umano.
                               </p>
                             </div>
                             {browserGatewayConfirmedSessionId !== selectedBrowserPairingSession.id ? (
@@ -5092,7 +5095,7 @@ export function AgentJobsClient({
                                 className="min-h-12 w-full justify-center rounded-lg border-emerald-200/20 bg-emerald-300/10 px-3 text-center text-sm font-black text-emerald-50 hover:bg-emerald-300/15"
                               >
                                 <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
-                                1. Test IP
+                                1. Test gateway
                               </Button>
                               <Button
                                 type="button"
@@ -5104,7 +5107,7 @@ export function AgentJobsClient({
                                   } else {
                                     setBrowserGatewayConfirmedSessionId(null)
                                     toast.warning("Gateway non confermato", {
-                                      description: "Avvia prima il servizio Browser MCP sul VPS o riprova il test da un dispositivo Tailscale.",
+                                      description: "Avvia prima il servizio Browser MCP sul VPS o riprova il test da un dispositivo collegato a Tailscale.",
                                     })
                                   }
                                 }}
@@ -5120,7 +5123,7 @@ export function AgentJobsClient({
                                 className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90 disabled:cursor-not-allowed disabled:opacity-45"
                               >
                                 <Network className="mr-1.5 h-4 w-4 shrink-0" />
-                                3. Apri se ok
+                                3. Apri browser
                               </Button>
                               {secondaryHealthUrl ? (
                                 <Button
@@ -5137,7 +5140,7 @@ export function AgentJobsClient({
                               })()}
                             </div>
                             <div className="grid min-w-0 gap-2 rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
-                              <p className="font-bold text-slate-200">Gateway consigliato su dispositivo Tailscale: http://100.100.39.96:8789</p>
+                              <p className="font-bold text-slate-200">Gateway consigliato da qualunque dispositivo collegato a Tailscale: http://100.100.39.96:8789</p>
                               <p className="text-slate-400">Usa sempre URL completi con <span className="font-mono">http://</span>. MagicDNS resta alternativo: <span className="font-mono">http://padel-vps.tailcd2fda.ts.net:8789</span>.</p>
                               <div className="grid gap-2 sm:grid-cols-4">
                                 <Button
@@ -5176,7 +5179,7 @@ export function AgentJobsClient({
                                     className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                                   >
                                     <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                    Test IP
+                                    Test gateway
                                   </Button>
                                 ) : null}
                                 {selectedBrowserPairingSession.fallbackGatewayUrl ? (
