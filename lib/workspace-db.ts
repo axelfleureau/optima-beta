@@ -217,6 +217,9 @@ export function mapTaskRow(row: any): Task {
     parentItemId: row.parent_item_id || null,
     estimatedHours: Number(row.estimated_minutes || 0) / 60,
     actualHours: Number(row.actual_minutes || 0) / 60,
+    generatedAssets: parseJson<any[]>(row.generated_assets_json, []),
+    expectedDeliverable: row.expected_deliverable || "",
+    deliverableType: row.deliverable_type || "other",
   }
 }
 

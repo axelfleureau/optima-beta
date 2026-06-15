@@ -67,11 +67,20 @@ const taskTypes = [
 ]
 
 const statusOptions = [
-  { value: "to-do", label: "To Do" },
-  { value: "in-progress", label: "In Progress" },
-  { value: "review", label: "Review" },
+  { value: "to-do", label: "Da fare" },
+  { value: "urgenze", label: "Urgenze" },
+  { value: "in-corso", label: "In corso" },
+  { value: "validation", label: "Validazione" },
   { value: "done", label: "Done" },
-  { value: "on-hold", label: "On Hold" },
+  { value: "sospensioni", label: "Sospensioni" },
+  { value: "attivita-ricorrenti", label: "Ricorrenti" },
+  { value: "backlog", label: "Backlog" },
+  { value: "planning", label: "Planning" },
+  { value: "in-progress", label: "In progress" },
+  { value: "review", label: "Review" },
+  { value: "completed", label: "Completata" },
+  { value: "recurring", label: "Ricorrente" },
+  { value: "on-hold", label: "On hold" },
 ]
 
 const dialogSurfaceClass =
@@ -195,6 +204,12 @@ export function TaskDetailDialog({
     toast({ title: "Campo aggiornato", description: `${field} modificato con successo` })
   }
 
+  const handleDeliverableTypeChange = async (value: string) => {
+    setDeliverableType(value)
+    await onUpdateTask(task.id, { deliverableType: value as Task["deliverableType"] })
+    toast({ title: "Tipo deliverable aggiornato" })
+  }
+
   const handleAcceptAssignment = async () => {
     if (!onAcceptAssignment) return
 
@@ -302,17 +317,21 @@ export function TaskDetailDialog({
   }
 
   const currentStatusValue = String(task.status || task.columnId || "to-do")
-  const currentStatusLabel = statusOptions.find((status) => status.value === currentStatusValue)?.label || "To Do"
+  const currentStatusLabel = statusOptions.find((status) => status.value === currentStatusValue)?.label || currentStatusValue
   const currentStatusDotClass =
-    currentStatusValue === "done"
+    currentStatusValue === "done" || currentStatusValue === "completed"
       ? "bg-green-500"
-      : currentStatusValue === "in-progress"
+      : currentStatusValue === "in-progress" || currentStatusValue === "in-corso"
         ? "bg-blue-500"
-        : currentStatusValue === "review"
+        : currentStatusValue === "review" || currentStatusValue === "validation"
           ? "bg-yellow-500"
-          : currentStatusValue === "on-hold"
+          : currentStatusValue === "on-hold" || currentStatusValue === "sospensioni"
             ? "bg-gray-400"
-            : "bg-gray-300"
+            : currentStatusValue === "urgenze"
+              ? "bg-red-500"
+              : currentStatusValue === "attivita-ricorrenti" || currentStatusValue === "recurring"
+                ? "bg-indigo-500"
+                : "bg-gray-300"
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return "text-red-600"
@@ -694,7 +713,7 @@ export function TaskDetailDialog({
                 {/* Type Select - Sempre editabile */}
                 <Select
                   value={deliverableType}
-                  onValueChange={setDeliverableType}
+                  onValueChange={handleDeliverableTypeChange}
                 >
                   <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
                     <SelectValue placeholder="Tipo deliverable..." />
@@ -1020,7 +1039,7 @@ export function TaskDetailDialog({
 
               <Select
                 value={currentStatusValue}
-                onValueChange={(value) => handleUpdateField("status", value)}
+                onValueChange={(value) => handleUpdateField("columnId", value)}
               >
                 <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
                   <span className="flex min-w-0 items-center gap-2">

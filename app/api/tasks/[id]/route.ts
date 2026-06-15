@@ -16,6 +16,9 @@ const FIELD_MAP: Record<string, string> = {
   title: "title",
   description: "description",
   richDescription: "rich_description",
+  expectedDeliverable: "expected_deliverable",
+  deliverableType: "deliverable_type",
+  generatedAssets: "generated_assets_json",
   priority: "priority",
   type: "type",
   score: "score",
@@ -57,7 +60,7 @@ function autoDoneMinutes(row: any) {
   const estimatedMinutes = Number(row?.estimated_minutes || 0)
   if (Number.isFinite(estimatedMinutes) && estimatedMinutes > 0) return Math.round(estimatedMinutes)
 
-  return 60
+  return 0
 }
 
 async function ensureAutomaticDoneTimeEntry({
@@ -97,7 +100,10 @@ async function ensureAutomaticDoneTimeEntry({
   const entryId = createId("time")
   const memberId = String(updatedTask.assignee_member_id || actorMemberId)
   const title = String(updatedTask.title || "Task completata").trim()
-  const minutes = Math.max(1, Math.min(1440, autoDoneMinutes(updatedTask)))
+  const inferredMinutes = autoDoneMinutes(updatedTask)
+  if (inferredMinutes <= 0) return
+
+  const minutes = Math.max(1, Math.min(1440, inferredMinutes))
   const projectId = updatedTask.project_id ? String(updatedTask.project_id) : null
 
   await db
@@ -115,7 +121,7 @@ function serializeField(key: string, value: unknown) {
     return value ? new Date(value as any).toISOString() : null
   }
 
-  if (key === "tags" || key === "attachments" || key === "comments" || key === "subItems") {
+  if (key === "tags" || key === "attachments" || key === "comments" || key === "subItems" || key === "generatedAssets") {
     return stringifyJson(value)
   }
 
@@ -147,7 +153,37 @@ function actorDisplayName(user: { firstName?: string; lastName?: string; email?:
 
 function canDeleteTask(principal: { memberId: string; role: string }, task: any) {
   if (TASK_MANAGER_ROLES.has(principal.role)) return true
+  if (principal.role === "client") return false
   return task?.created_by_member_id === principal.memberId || task?.assignee_member_id === principal.memberId
+}
+
+async function isProjectMember(db: any, principal: { organizationId: string; memberId: string }, projectId: unknown) {
+  if (!projectId) return false
+
+  const row = await db
+    .prepare(
+      `SELECT 1
+       FROM project_members
+       WHERE organization_id = ?
+         AND project_id = ?
+         AND member_id = ?
+       LIMIT 1`,
+    )
+    .bind(principal.organizationId, String(projectId), principal.memberId)
+    .first()
+
+  return Boolean(row)
+}
+
+async function canAccessTask(db: any, principal: { organizationId: string; memberId: string; role: string }, task: any) {
+  if (TASK_MANAGER_ROLES.has(principal.role)) return true
+  if (task?.created_by_member_id === principal.memberId || task?.assignee_member_id === principal.memberId) return true
+  if (principal.role === "client") return isProjectMember(db, principal, task?.project_id)
+  return false
+}
+
+function clientPatchIsCommentOnly(body: Record<string, unknown>) {
+  return Object.keys(body).every((key) => key === "comments")
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -177,6 +213,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (!existingTask?.id) {
       return Response.json({ error: "Task non trovata" }, { status: 404 })
+    }
+
+    if (!(await canAccessTask(db, principal, existingTask))) {
+      return Response.json({ error: "Non hai i permessi per modificare questa task" }, { status: 403 })
     }
 
     if (body.assignmentAction === "accept" || body.assignmentAction === "reject") {
@@ -246,6 +286,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
 
       return Response.json({ task: mapTaskRow(row) })
+    }
+
+    if (principal.role === "client" && !clientPatchIsCommentOnly(body)) {
+      return Response.json({ error: "I clienti possono commentare la task, non modificarne stato o dati operativi" }, { status: 403 })
     }
 
     const assignments: string[] = []
@@ -353,6 +397,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       if (key === "columnId") {
         assignments.push("status = ?")
+        values.push(value || "to-do")
+      }
+
+      if (key === "status") {
+        assignments.push("column_id = ?")
         values.push(value || "to-do")
       }
     }

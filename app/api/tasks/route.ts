@@ -32,22 +32,43 @@ export async function GET() {
       principal.role === "junior"
         ? db
             .prepare(
-      `SELECT t.*, p.name AS project_name
+              `SELECT t.*, p.name AS project_name
                FROM tasks t
                LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
                WHERE t.organization_id = ? AND t.assignee_member_id = ?
                ORDER BY t.updated_at DESC`,
             )
             .bind(principal.organizationId, principal.memberId)
-        : db
-            .prepare(
-              `SELECT t.*, p.name AS project_name
-               FROM tasks t
-               LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
-               WHERE t.organization_id = ?
-               ORDER BY t.updated_at DESC`,
-            )
-            .bind(principal.organizationId)
+        : principal.role === "client"
+          ? db
+              .prepare(
+                `SELECT t.*, p.name AS project_name
+                 FROM tasks t
+                 LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+                 WHERE t.organization_id = ?
+                   AND (
+                     t.assignee_member_id = ?
+                     OR t.created_by_member_id = ?
+                     OR EXISTS (
+                       SELECT 1
+                       FROM project_members pm
+                       WHERE pm.organization_id = t.organization_id
+                         AND pm.project_id = t.project_id
+                         AND pm.member_id = ?
+                     )
+                   )
+                 ORDER BY t.updated_at DESC`,
+              )
+              .bind(principal.organizationId, principal.memberId, principal.memberId, principal.memberId)
+          : db
+              .prepare(
+                `SELECT t.*, p.name AS project_name
+                 FROM tasks t
+                 LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+                 WHERE t.organization_id = ?
+                 ORDER BY t.updated_at DESC`,
+              )
+              .bind(principal.organizationId)
 
     const result = await query.all()
     return Response.json({ tasks: (result.results || []).map(mapTaskRow) })
@@ -70,6 +91,10 @@ export async function POST(request: NextRequest) {
     }
 
     const principal = await ensureWorkspacePrincipal(db, user)
+    if (principal.role === "client") {
+      return Response.json({ error: "I clienti possono commentare task esistenti, non crearne di operative" }, { status: 403 })
+    }
+
     const body = await request.json()
     const title = typeof body.title === "string" ? body.title.trim() : ""
 

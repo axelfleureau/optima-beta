@@ -116,7 +116,22 @@ export interface Task {
   title: string
   description?: string
   richDescription?: string
-  status: "todo" | "in-progress" | "review" | "done"
+  status:
+    | "todo"
+    | "to-do"
+    | "urgenze"
+    | "in-corso"
+    | "in-progress"
+    | "validation"
+    | "review"
+    | "done"
+    | "completed"
+    | "sospensioni"
+    | "on-hold"
+    | "attivita-ricorrenti"
+    | "recurring"
+    | "backlog"
+    | "planning"
   columnId: string
   priority: "low" | "medium" | "high" | "urgent"
   type?: string

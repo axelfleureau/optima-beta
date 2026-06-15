@@ -18,11 +18,8 @@ import {
   MoreHorizontal,
   Star,
   Tag,
-  Sparkles,
-  ImageIcon,
 } from "lucide-react"
 import { useState } from "react"
-import { useAutoGenStore } from "@/lib/stores/auto-gen-store"
 import { useWorkspaceNav } from "@/lib/stores/workspace-nav-store"
 import type { Task } from "@/lib/types"
 
@@ -210,7 +207,7 @@ export function DynamicWorkspace() {
                             {allTasks
                               .filter((task) => task.columnId === column.id)
                               .map((task, index) => (
-                                <Draggable key={task.id} draggableId={task.id} index={index}>
+                                <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled>
                                   {(provided, snapshot) => {
                                     const isHighlighted = highlightedTaskId === task.id
 
@@ -323,41 +320,8 @@ export function DynamicWorkspace() {
                                             Assegnato a: {task.assignee || "Non assegnato"}
                                           </div>
 
-                                          <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="flex-1 h-7 text-xs"
-                                              onClick={async () => {
-                                                if (!user) return
-                                                const { generateCopy } = useAutoGenStore.getState()
-                                                await generateCopy(
-                                                  task.id,
-                                                  task.title || task.description || "",
-                                                  task.clientName || "",
-                                                  user.uid,
-                                                )
-                                              }}
-                                            >
-                                              <Sparkles className="w-3 h-3 mr-1" />
-                                              Genera Copy
-                                            </Button>
-
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="flex-1 h-7 text-xs"
-                                              onClick={async () => {
-                                                if (!user) return
-                                                const { generateVisual } = useAutoGenStore.getState()
-                                                const prompt = `${task.title || task.description}${task.clientName ? ` for ${task.clientName}` : ""}`
-                                                const token = await user.getIdToken()
-                                                await generateVisual(task.id, prompt, user.uid, token)
-                                              }}
-                                            >
-                                              <ImageIcon className="w-3 h-3 mr-1" />
-                                              Genera Visual
-                                            </Button>
+                                          <div className="rounded-lg border border-slate-200/70 px-3 py-2 text-xs text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
+                                            Workspace cliente in sola revisione: commenti e dettagli sono disponibili aprendo la card.
                                           </div>
                                         </div>
                                       </Card>
