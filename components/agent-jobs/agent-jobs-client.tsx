@@ -1065,16 +1065,42 @@ const GRAPH_MAX_ZOOM = 2.8
 const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
 const OBSIDIAN_VAULT_NAME = "Optima Obsidian Vault"
 const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault"
-const OBSIDIAN_VAULT_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}`
-const OBSIDIAN_GRAPH_INDEX_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent("Optima Graph Memory.md")}`
-const OBSIDIAN_AGENTIC_DASHBOARD_URI = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent("Dashboards/Agentic OS.md")}`
+const OBSIDIAN_GRAPH_INDEX_FILE = "Optima Graph Memory.md"
+const OBSIDIAN_AGENTIC_DASHBOARD_FILE = "Dashboards/Agentic OS.md"
+const OBSIDIAN_VAULT_URI = obsidianOpenPath()
+const OBSIDIAN_GRAPH_INDEX_URI = obsidianOpenPath(OBSIDIAN_GRAPH_INDEX_FILE)
+const OBSIDIAN_AGENTIC_DASHBOARD_URI = obsidianOpenPath(OBSIDIAN_AGENTIC_DASHBOARD_FILE)
 
-function openObsidianUri(uri: string, label: string) {
+function obsidianOpenPath(filePath = "") {
+  const localPath = filePath ? `${OBSIDIAN_VAULT_PATH}/${filePath}` : OBSIDIAN_VAULT_PATH
+  return `obsidian://open?path=${encodeURIComponent(localPath)}`
+}
+
+function copyObsidianPath(path = OBSIDIAN_VAULT_PATH) {
+  if (typeof navigator === "undefined" || !navigator.clipboard) {
+    toast.info(`Path vault: ${path}`)
+    return
+  }
+  navigator.clipboard
+    .writeText(path)
+    .then(() => toast.success("Path Obsidian copiato"))
+    .catch(() => toast.info(`Path vault: ${path}`))
+}
+
+function openObsidianUri(uri: string, label: string, path = OBSIDIAN_VAULT_PATH) {
   if (typeof window === "undefined") return
-  window.location.href = uri
+
+  const anchor = document.createElement("a")
+  anchor.href = uri
+  anchor.rel = "noreferrer"
+  anchor.style.display = "none"
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+
   window.setTimeout(() => {
-    toast.info(`${label}: se non si apre, Obsidian non ha il vault registrato su questo dispositivo. Usa Aggiorna vault dal Mac, poi aprilo dall'app Obsidian.`)
-  }, 900)
+    toast.info(`${label}: se non si apre, in Obsidian usa "Open folder as vault" con ${path}.`)
+  }, 1200)
 }
 
 function clampGraphZoom(value: number) {
@@ -1485,7 +1511,7 @@ function GraphMemoryMap({
         <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:overflow-visible sm:pb-0">
           <button
             type="button"
-            onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
+            onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`)}
             className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-200 transition hover:bg-white/10"
             title="Apre la dashboard Agentic OS nel vault Obsidian locale."
           >
@@ -3278,19 +3304,19 @@ export function AgentJobsClient({
         </div>
 
         <div className={stackSection === "overview" ? "grid gap-4" : "hidden"}>
-        <div className="mt-4 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Vault Obsidian</p>
-              <h3 className="mt-1 text-lg font-black text-white">Graph View nativa</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Vault locale Mac: <span className="font-bold text-violet-50">{OBSIDIAN_VAULT_PATH}</span>. Da iPhone usa il grafo interno; Dashboard e Indice funzionano solo se il vault Obsidian e aperto sul Mac o sincronizzato anche su questo dispositivo.
-              </p>
-              <div className="mt-3 rounded-lg border border-violet-200/15 bg-black/20 px-3 py-2 text-xs leading-5 text-violet-100">
-                Operazione corretta: dal Mac premi Aggiorna vault, apri Obsidian e seleziona il vault "{OBSIDIAN_VAULT_NAME}". Da mobile resta su Grafo interno, oppure sincronizza il vault con Obsidian Sync/iCloud e registralo nell'app Obsidian.
+          <div className="mt-4 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Vault Obsidian</p>
+                <h3 className="mt-1 text-lg font-black text-white">Graph View nativa</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Vault locale Mac: <span className="font-bold text-violet-50">{OBSIDIAN_VAULT_PATH}</span>. Da iPhone usa il grafo interno; Dashboard e Indice funzionano solo se il vault Obsidian e aperto sul Mac o sincronizzato anche su questo dispositivo.
+                </p>
+                <div className="mt-3 rounded-lg border border-violet-200/15 bg-black/20 px-3 py-2 text-xs leading-5 text-violet-100">
+                  Operazione corretta: dal Mac premi Aggiorna vault, apri Obsidian e seleziona il vault "{OBSIDIAN_VAULT_NAME}". Da mobile resta su Grafo interno, oppure sincronizza il vault con Obsidian Sync/iCloud e registralo nell'app Obsidian.
+                </div>
               </div>
-            </div>
-            <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 lg:grid-cols-4 sm:w-auto">
+              <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 lg:grid-cols-5 sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
@@ -3312,7 +3338,7 @@ export function AgentJobsClient({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
+                onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`)}
                 className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
               >
                 Dashboard Mac
@@ -3320,10 +3346,18 @@ export function AgentJobsClient({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian")}
+                onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_GRAPH_INDEX_FILE}`)}
                 className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
               >
                 Indice Mac
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => copyObsidianPath()}
+                className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
+              >
+                Path vault
               </Button>
             </div>
           </div>
@@ -3968,7 +4002,7 @@ export function AgentJobsClient({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
+                      onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`)}
                       className="h-9 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
                     >
                       Dashboard
@@ -3976,7 +4010,7 @@ export function AgentJobsClient({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian")}
+                      onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_GRAPH_INDEX_FILE}`)}
                       className="h-9 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
                     >
                       Indice
@@ -4210,7 +4244,7 @@ export function AgentJobsClient({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian")}
+                      onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`)}
                       className="h-10 rounded-lg border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white hover:bg-violet-300/30"
                     >
                       Dashboard OS
