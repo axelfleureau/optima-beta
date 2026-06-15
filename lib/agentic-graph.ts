@@ -840,11 +840,16 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
   const targetByLane: Record<string, string | undefined> = {
     memory: graphMemory?.id,
     skills: knowhowMemory?.id,
+    "tool-loop": optima?.id,
+    "context-engine": graphMemory?.id,
     mcp: mcpGateway?.id,
+    gateway: mcpGateway?.id,
+    approval: optima?.id,
     "provider-routing": subagentLanes?.id,
     messaging: mcpGateway?.id,
     scheduler: optima?.id,
     subagents: subagentLanes?.id,
+    security: optima?.id,
     runtime: optima?.id,
   }
 

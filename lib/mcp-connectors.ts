@@ -75,9 +75,9 @@ const CONNECTORS: ConnectorSpec[] = [
     id: "browser",
     label: "Browser MCP",
     category: "browser",
-    purpose: "Automazione browser controllata per strumenti senza API affidabile: sessioni OAuth utente, ricerche operative, QA visuale, backoffice e siti autorizzati.",
+    purpose: "Automazione browser controllata per strumenti web senza API conveniente o affidabile: login utente nel browser isolato, ricerche operative, QA visuale, backoffice e siti autorizzati.",
     graphUse: ["browser_sessions", "agent_jobs", "audit", "screenshots", "qa", "external_tools"],
-    requiredEnv: ["BROWSER_MCP_ENDPOINT"],
+    requiredEnv: ["BROWSER_MCP_GATEWAY_URL"],
     optionalEnv: ["BROWSER_PROFILE_SECRET_REF", "BROWSER_ALLOWED_ORIGINS", "BROWSER_HEADLESS", "BROWSER_RECORDING_BUCKET"],
     authMethod: "browser_session_oauth",
     setupSteps: [
@@ -86,7 +86,7 @@ const CONNECTORS: ConnectorSpec[] = [
       "Definire allowlist domini e policy azioni: leggere, compilare bozze, screenshot e QA; invii, acquisti, deploy o modifiche esterne richiedono review.",
       "Usare il browser per strumenti senza API o per verifica visuale, non come scraping non autorizzato o aggiramento di termini/costi.",
     ],
-    healthCheck: "Apre una pagina allowlist in Chromium, verifica sessione OAuth valida, produce screenshot redatto e registra audit senza eseguire azioni irreversibili.",
+    healthCheck: "Apre una pagina allowlist in Chromium, verifica che il profilo/sessione sia controllabile, produce screenshot redatto e registra audit senza eseguire azioni irreversibili.",
     notes: "Questo e il ponte per l'agente mini-dipendente: puo usare interfacce web autorizzate quando non esiste API conveniente, ma resta fragile e governato da allowlist, review e sessioni isolate.",
   },
   {

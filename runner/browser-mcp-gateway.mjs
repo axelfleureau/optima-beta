@@ -23,7 +23,9 @@ const config = {
 
 const targets = new Map([
   ["chatgpt", "https://chatgpt.com"],
-  ["nanobanana", "https://nanobanana.ai"],
+  ["gemini", "https://gemini.google.com/app"],
+  ["nanobanana", "https://gemini.google.com/app"],
+  ["nano-banana", "https://gemini.google.com/app"],
   ["perplexity", "https://www.perplexity.ai"],
   ["claude", "https://claude.ai"],
 ])

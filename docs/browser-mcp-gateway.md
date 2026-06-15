@@ -13,7 +13,7 @@ Optima usa Browser MCP per strumenti web dove non conviene usare API key a consu
 
 1. Apri Optima > `Agenti` > `Grafo` > `Provider e MCP`.
 2. Apri `Browser MCP`.
-3. Premi `Prepara ChatGPT`, `Prepara Nano Banana`, `Prepara Perplexity` o `Prepara Claude`.
+3. Premi `Prepara ChatGPT`, `Prepara Gemini / Nano Banana`, `Prepara Perplexity` o `Prepara Claude`.
 4. Optima crea una sessione pairing con codice e scadenza, ma non apre automaticamente il browser.
 5. Premi `Test gateway`: deve aprirsi una risposta JSON con `ok: true`.
 6. Se Safari dice che non trova il server, non e un problema OAuth: il dispositivo non raggiunge Tailscale/MagicDNS oppure il servizio VPS non e attivo. Prova dal Mac sulla tailnet o usa il fallback IP Tailscale `100.100.39.96:8789`.
@@ -65,3 +65,4 @@ Deve rispondere con `ok: true`. `chromeReady` puo essere `false` prima della pri
 - Gateway dietro Tailscale, non pubblico.
 - Invii, acquisti, deploy e modifiche esterne restano azioni da review.
 - API key di provider AI restano fallback facoltativo, non percorso primario.
+- Nano Banana viene trattato come capability Gemini: il browser apre `gemini.google.com`, non siti terzi non allowlist.

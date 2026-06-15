@@ -3,8 +3,8 @@ export const HERMES_REFERENCE = {
   label: "Optima native agentic core blueprint",
   repository: "https://github.com/NousResearch/hermes-agent",
   localClone: "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
-  auditedRevision: "a85627612",
-  auditedTag: "v2026.6.5-816-ga85627612",
+  auditedRevision: "ab0a6270c",
+  auditedTag: "v2026.6.5-208-gab0a6270c",
   license: "MIT",
   importPolicy:
     "Reference-only pattern import: Hermes is not an external connector to install. Optima absorbs compatible MIT patterns as TypeScript-native capabilities. Do not vendor the Python runtime, desktop app, secrets, or the active Hermes VPS service.",
@@ -15,11 +15,16 @@ export const HERMES_REFERENCE = {
 export type HermesAdapterLane =
   | "memory"
   | "skills"
+  | "tool-loop"
+  | "context-engine"
   | "mcp"
+  | "gateway"
+  | "approval"
   | "provider-routing"
   | "messaging"
   | "scheduler"
   | "subagents"
+  | "security"
   | "runtime"
 
 export type HermesAdapterStatus = "implemented" | "partial" | "planned" | "blocked"
@@ -57,6 +62,27 @@ export const HERMES_ADAPTER_PATTERNS: HermesAdapterPattern[] = [
     ],
   },
   {
+    id: "context-engine-compression",
+    lane: "context-engine",
+    label: "Context engine, compression and references",
+    status: "planned",
+    hermesFiles: [
+      "agent/context_engine.py",
+      "agent/context_compressor.py",
+      "agent/conversation_compression.py",
+      "agent/context_references.py",
+    ],
+    optimaSurface: ["chat_sessions", "chat_messages", "assistant_memories", "agentic_graph_sessions"],
+    implementation:
+      "Optima deve consolidare conversazioni, memoria e riferimenti in pacchetti contestuali bounded: summary verificabile, link a nodi grafo, transcript parziale e policy anti-context-bloat. Questo sostituisce il caricamento massivo di chat o dump.",
+    guardrails: [
+      "Non reinserire transcript integrali nel contesto automatico.",
+      "Ogni summary deve mantenere source_id e data.",
+      "Le memorie recuperate sono background, non nuovo input utente.",
+      "Limitare token e record per tenant, ruolo e task.",
+    ],
+  },
+  {
     id: "skills-loop",
     lane: "skills",
     label: "Skills and know-how loop",
@@ -74,6 +100,27 @@ export const HERMES_ADAPTER_PATTERNS: HermesAdapterPattern[] = [
       "Keep reusable lessons short and verifiable.",
       "Review generated skill edits before making them global.",
       "Do not mix project-private data into shared skills.",
+    ],
+  },
+  {
+    id: "tool-loop-guardrails",
+    lane: "tool-loop",
+    label: "Tool loop, result classification and guardrails",
+    status: "planned",
+    hermesFiles: [
+      "agent/tool_executor.py",
+      "agent/tool_guardrails.py",
+      "agent/tool_dispatch_helpers.py",
+      "agent/tool_result_classification.py",
+    ],
+    optimaSurface: ["agent_jobs", "agent_job_events", "runtimePolicy", "review room"],
+    implementation:
+      "Optima deve avere un loop strumenti nativo: classificazione risultato, deduplica errori ripetuti, stop su no-progress, separazione tool idempotenti/mutanti e ritorno automatico alla review room quando un agente non produce avanzamento reale.",
+    guardrails: [
+      "Le azioni mutanti richiedono policy e audit.",
+      "Bloccare loop identici senza progresso.",
+      "Non confondere output testuale con modifica realmente applicata.",
+      "Esporre motivo del blocco nella review, non log grezzi lunghi.",
     ],
   },
   {
@@ -100,6 +147,27 @@ export const HERMES_ADAPTER_PATTERNS: HermesAdapterPattern[] = [
     ],
   },
   {
+    id: "gateway-sessions",
+    lane: "gateway",
+    label: "Gateway, transports and controlled sessions",
+    status: "partial",
+    hermesFiles: [
+      "gateway/",
+      "tui_gateway/",
+      "apps/desktop/",
+      "agent/transports/",
+    ],
+    optimaSurface: ["runner/browser-mcp-gateway.mjs", "/api/mcp/browser-session", "/ai-assistant", "/agenti"],
+    implementation:
+      "Optima ha iniziato il Browser MCP gateway e la sessione pairing. Il pattern Hermes da assorbire e una superficie sessioni coerente: sessione utente, transport, canale, heartbeat, input remoto e fallback, distinguendo OAuth reale da sessione browser controllata.",
+    guardrails: [
+      "Browser MCP non e OAuth e non deve essere presentato come consenso provider.",
+      "Le sessioni browser non salvano cookie o token in D1.",
+      "Captcha, passkey e anti-bot non vanno bypassati.",
+      "Ogni sessione ha scadenza, allowlist dominio e audit.",
+    ],
+  },
+  {
     id: "provider-routing",
     lane: "provider-routing",
     label: "Model provider routing",
@@ -117,6 +185,26 @@ export const HERMES_ADAPTER_PATTERNS: HermesAdapterPattern[] = [
       "Provider selection must honor tenant data policy.",
       "Use fallback routes rather than silent model substitution.",
       "Log provider/model attribution for audit.",
+    ],
+  },
+  {
+    id: "approval-permissions-provenance",
+    lane: "approval",
+    label: "Approval, permissions and provenance",
+    status: "partial",
+    hermesFiles: [
+      "acp_adapter/edit_approval.py",
+      "acp_adapter/permissions.py",
+      "acp_adapter/provenance.py",
+    ],
+    optimaSurface: ["agent_jobs", "agent_job_events", "review room", "agentic github settings"],
+    implementation:
+      "Optima deve trattare ogni azione ad alto impatto come richiesta approvabile: allow once/session/always dove sensato, deny, ownership esplicita, provenienza artefatti e distinzione fra review tecnica, publish e deploy.",
+    guardrails: [
+      "Deploy, push, email inviate, acquisti e modifiche esterne richiedono approvazione esplicita.",
+      "Solo l'owner configurato puo autorizzare GitHub aziendale personale.",
+      "Ogni artefatto mantiene job_id, runner_id, commit/branch e source.",
+      "Permessi permanenti devono essere rari e revocabili.",
     ],
   },
   {
@@ -159,6 +247,27 @@ export const HERMES_ADAPTER_PATTERNS: HermesAdapterPattern[] = [
       "Cron context must use a narrower toolset than interactive chat or agent jobs.",
       "Automations must not mutate client-facing state without policy.",
       "Failures should notify responsible roles.",
+    ],
+  },
+  {
+    id: "security-secret-hygiene",
+    lane: "security",
+    label: "Credential hygiene, redaction and file safety",
+    status: "planned",
+    hermesFiles: [
+      "agent/credential_*",
+      "agent/redact.py",
+      "agent/file_safety.py",
+      "agent/secret_sources/",
+    ],
+    optimaSurface: ["mcp_connector_installations", "agentic_provider_installations", "runner", "R2 artifacts", "review room"],
+    implementation:
+      "Optima deve avere un livello nativo di secret hygiene: secret_ref ovunque, redazione log/artefatti, scanner output, policy file e blocco download/sync di asset pesanti o credenziali fuori perimetro.",
+    guardrails: [
+      "Mai salvare token, cookie, password o chiavi API in D1.",
+      "Redigere log runner prima della UI.",
+      "Bloccare sync locale di media cloud non necessari.",
+      "Limitare file access/write al workspace Optima autorizzato.",
     ],
   },
   {

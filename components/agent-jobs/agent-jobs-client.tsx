@@ -71,6 +71,7 @@ interface BrowserMcpSession {
   id: string
   status: string
   target: string
+  targetLabel?: string
   startUrl: string
   gatewayUrl: string | null
   gatewayHealthUrl?: string | null
@@ -721,7 +722,7 @@ function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][n
     return "Codex non deve rimandarti prima alle API key: la strada preferita e login/device-auth del Codex CLI sul VPS runner. API key a consumo o access token sono fallback facoltativi; AGENT_RUNNER_API_KEY e solo token interno Optima-runner."
   }
   if (provider.id === "openai") {
-    return "Per ChatGPT web, Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. OpenAI API key e ultima spiaggia facoltativa, solo se vuoi chiamare modelli via API server-side con costi controllati."
+    return "Per ChatGPT web, Gemini/Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. Le API key a consumo restano un fallback facoltativo, non il percorso principale."
   }
   if (provider.authMethod === "runner_env") {
     return "Questo provider non si collega da telefono con OAuth: si abilita configurando il runner autorizzato e verificando heartbeat, CLI e secret."
@@ -757,7 +758,7 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
       {
         label: "Browser MCP / ChatGPT",
         tone: "recommended",
-        body: "Per ChatGPT, Nano Banana e strumenti web: login utente in browser controllato, profilo isolato, allowlist domini e audit.",
+        body: "Per ChatGPT, Gemini/Nano Banana e strumenti web: login utente in browser controllato, profilo isolato, allowlist domini e audit.",
       },
       {
         label: "OAuth provider",
@@ -2090,7 +2091,7 @@ export function AgentJobsClient({
     if (method === "runner_env") return "Runner env"
     if (method === "service_account") return "Service account"
     if (method === "external_oauth") return "OAuth esterno"
-    if (method === "browser_session_oauth") return "Browser session / OAuth"
+    if (method === "browser_session_oauth") return "Browser controllato"
     return "API key / secret"
   }
 
@@ -2107,7 +2108,7 @@ export function AgentJobsClient({
       return "GitHub e owner-scoped: solo Axel autorizza repository, commit, PR e deploy. Optima registra policy e health-check, non condivide l'account."
     }
     if (connector.id === "browser") {
-      return "Browser MCP usa Chromium/Playwright con profilo isolato per tenant. Da mobile puoi avviare un pairing/QR o login assistito, ma Optima salva solo secret_ref del profilo e audit: niente cookie o token in D1."
+      return "Browser MCP usa Chromium/Playwright con profilo isolato per tenant. Non e un consenso OAuth del provider: e una sessione browser controllata, con profilo/audit e senza cookie o token salvati in D1."
     }
     if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") {
       return "Il flusso OAuth deve aprire una installazione guidata con state/PKCE. Finche non esiste callback verificata, Optima puo salvare solo checklist e stato."
@@ -2136,7 +2137,7 @@ export function AgentJobsClient({
     }
   }
 
-  async function startBrowserMcpLogin(target: "chatgpt" | "nanobanana" | "perplexity" | "claude") {
+  async function startBrowserMcpLogin(target: "chatgpt" | "gemini" | "perplexity" | "claude") {
     try {
       setBrowserPairingAction(target)
       setError(null)
@@ -4993,7 +4994,7 @@ export function AgentJobsClient({
                       <div className="min-w-0">
                         <p className="font-black text-purple-50">Wizard Browser MCP</p>
                         <p className="mt-2 text-sm leading-6 text-purple-100">
-                          Per ChatGPT, Nano Banana e strumenti web non usiamo API key come prima scelta. Optima prepara una sessione e apre un Chrome remoto controllabile via gateway VPS; poi serve health-check.
+                          Per ChatGPT, Gemini/Nano Banana e strumenti web non usiamo API key come prima scelta. Optima prepara una sessione e apre un Chrome remoto controllabile via gateway VPS; poi serve health-check.
                         </p>
                       </div>
                       {selectedBrowserPairingSession ? (
@@ -5005,7 +5006,7 @@ export function AgentJobsClient({
                     <div className="mt-3 grid gap-2 sm:grid-cols-4">
                       {([
                         ["chatgpt", "ChatGPT"],
-                        ["nanobanana", "Nano Banana"],
+                        ["gemini", "Gemini / Nano Banana"],
                         ["perplexity", "Perplexity"],
                         ["claude", "Claude"],
                       ] as const).map(([target, label]) => (
@@ -5037,7 +5038,10 @@ export function AgentJobsClient({
                           </div>
                           <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
                             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Target</p>
-                            <p className="mt-1 break-words text-sm font-bold text-slate-200">{selectedBrowserPairingSession.startUrl}</p>
+                            <p className="mt-1 break-words text-sm font-bold text-slate-200">
+                              {selectedBrowserPairingSession.targetLabel || selectedBrowserPairingSession.target}
+                            </p>
+                            <p className="mt-1 break-words font-mono text-[11px] text-slate-500">{selectedBrowserPairingSession.startUrl}</p>
                           </div>
                           <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
                             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Scadenza</p>

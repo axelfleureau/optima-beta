@@ -516,7 +516,7 @@ export function getAgenticModelHosts() {
 
 export function getOAuthGuidance() {
   return {
-    pattern: "Authorization Code + PKCE per installazioni utente; GitHub App per repository; Browser MCP con sessione OAuth/profilo isolato per strumenti web senza API; secret_ref per API key solo fallback facoltativo a consumo; local_install per runner self-hosted.",
+    pattern: "Authorization Code + PKCE per installazioni utente; GitHub App per repository; Browser MCP con profilo/sessione controllata per strumenti web senza API; secret_ref per API key solo fallback facoltativo a consumo; local_install per runner self-hosted.",
     rules: [
       "Ogni installazione e sempre scoped a organization_id.",
       "D1 salva stato, scope, policy e secret_ref; non salva token o API key.",

@@ -49,12 +49,31 @@ function pairingCode() {
   return `${value.slice(0, 4)}-${value.slice(4, 8)}`
 }
 
+function normalizeBrowserTarget(target: string) {
+  const normalized = String(target || "chatgpt").toLowerCase().trim()
+  if (normalized === "nanobanana" || normalized === "nano-banana" || normalized === "nano_banana") {
+    return "gemini"
+  }
+  if (normalized === "chatgpt" || normalized === "gemini" || normalized === "perplexity" || normalized === "claude") {
+    return normalized
+  }
+  return "chatgpt"
+}
+
 function targetStartUrl(target: string) {
   if (target === "chatgpt") return "https://chatgpt.com"
-  if (target === "nanobanana") return "https://nanobanana.ai"
+  if (target === "gemini") return "https://gemini.google.com/app"
   if (target === "perplexity") return "https://www.perplexity.ai"
   if (target === "claude") return "https://claude.ai"
   return "https://chatgpt.com"
+}
+
+function targetDisplayName(target: string) {
+  if (target === "gemini") return "Gemini / Nano Banana"
+  if (target === "chatgpt") return "ChatGPT"
+  if (target === "perplexity") return "Perplexity"
+  if (target === "claude") return "Claude"
+  return target
 }
 
 async function getPrincipal() {
@@ -77,7 +96,7 @@ export async function POST(request: NextRequest) {
     if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status })
 
     const body = await request.json().catch(() => ({}))
-    const target = String(body.target || "chatgpt")
+    const target = normalizeBrowserTarget(String(body.target || "chatgpt"))
     const sessionId = createId("bmcp")
     const code = pairingCode()
     const now = new Date()
@@ -111,6 +130,7 @@ export async function POST(request: NextRequest) {
       status: gatewayUrl ? "ready_to_pair" : "gateway_missing",
       connectorId: "browser",
       target,
+      targetLabel: targetDisplayName(target),
       startUrl: targetStartUrl(target),
       gatewayUrl,
       gatewayHealthUrl,
@@ -125,6 +145,7 @@ export async function POST(request: NextRequest) {
         ? [
             "Apri il link gateway dal dispositivo autorizzato o dal Mac.",
             "Il login deve avvenire nel Chromium isolato del Browser MCP, non nel browser personale del telefono.",
+            "Nano Banana viene trattato come Gemini ufficiale: non aprire siti terzi non allowlist.",
             "Completa login/QR sul sito richiesto, poi esegui health-check prima di dichiarare operativo il connector.",
           ]
         : [
