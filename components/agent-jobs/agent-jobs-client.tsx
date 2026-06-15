@@ -3110,7 +3110,7 @@ export function AgentJobsClient({
     )
 
   return (
-    <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
+    <section className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
       <div className="sticky top-0 z-20 grid min-w-0 grid-cols-3 gap-1 rounded-lg border border-white/10 bg-[#080d19]/95 p-1 shadow-lg shadow-black/20 backdrop-blur lg:hidden">
         <Button
           type="button"
@@ -3142,7 +3142,7 @@ export function AgentJobsClient({
       </div>
 
       <div
-        className={`min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-1 ${
+        className={`min-w-0 self-start overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/25 sm:p-5 lg:order-1 ${
           mobilePanel === "create" ? "block" : "hidden"
         } lg:block`}
       >
