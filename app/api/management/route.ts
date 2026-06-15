@@ -17,6 +17,7 @@ const CLOSED_STATUS_SQL =
 const DEFAULT_RATE_ADMIN_CENTS = 4500
 const DEFAULT_RATE_LEAD_CENTS = 3200
 const DEFAULT_RATE_OPERATIVE_CENTS = 2200
+const REPORTING_TIME_ZONE = "Europe/Rome"
 
 function openStatusSql(alias = "") {
   const prefix = alias ? `${alias}.` : ""
@@ -46,6 +47,42 @@ function daysUntil(value: unknown) {
   const due = new Date(`${value.slice(0, 10)}T23:59:59.999Z`).getTime()
   if (!Number.isFinite(due)) return null
   return Math.ceil((due - Date.now()) / 86400000)
+}
+
+function formatDateKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function romeDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: REPORTING_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date)
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return {
+    year: Number(byType.year),
+    month: Number(byType.month),
+    day: Number(byType.day),
+  }
+}
+
+function currentRomeWeekRange() {
+  const parts = romeDateParts()
+  const todayUtc = new Date(Date.UTC(parts.year, parts.month - 1, parts.day))
+  const weekday = todayUtc.getUTCDay()
+  const daysSinceMonday = (weekday + 6) % 7
+  const weekStart = new Date(todayUtc)
+  weekStart.setUTCDate(todayUtc.getUTCDate() - daysSinceMonday)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
+
+  return {
+    weekStart: formatDateKey(weekStart),
+    weekEnd: formatDateKey(weekEnd),
+    today: formatDateKey(todayUtc),
+  }
 }
 
 function estimatedTaskMinutesSql(alias = "t") {
@@ -97,6 +134,7 @@ export async function GET() {
 
     const principal = await ensureWorkspacePrincipal(db, user)
     const organizationId = principal.organizationId
+    const { weekStart, weekEnd } = currentRomeWeekRange()
 
     const [
       summaryRow,
@@ -114,9 +152,12 @@ export async function GET() {
              (SELECT COUNT(*) FROM tasks WHERE organization_id = ? AND ${openStatusSql()}) AS open_tasks,
              (SELECT COUNT(*) FROM tasks WHERE organization_id = ? AND ${openStatusSql()} AND due_at IS NOT NULL AND date(due_at) < date('now')) AS overdue_tasks,
              (SELECT COUNT(*) FROM tasks WHERE organization_id = ? AND ${openStatusSql()} AND assignee_member_id IS NULL) AS unassigned_tasks,
-             (SELECT COALESCE(SUM(minutes), 0) FROM time_entries WHERE organization_id = ? AND date(entry_date) >= date('now', '-6 days')) AS tracked_week_minutes`,
+             (SELECT COALESCE(SUM(minutes), 0)
+                FROM time_entries
+               WHERE organization_id = ?
+                 AND date(entry_date) BETWEEN date(?) AND date(?)) AS tracked_week_minutes`,
         )
-        .bind(organizationId, organizationId, organizationId, organizationId, organizationId, organizationId)
+        .bind(organizationId, organizationId, organizationId, organizationId, organizationId, organizationId, weekStart, weekEnd)
         .first(),
       db
         .prepare(
@@ -165,7 +206,7 @@ export async function GET() {
                 FROM time_entries te
                WHERE te.organization_id = m.organization_id
                  AND te.member_id = m.id
-                 AND date(te.entry_date) >= date('now', '-6 days')) AS tracked_week_minutes,
+                 AND date(te.entry_date) BETWEEN date(?) AND date(?)) AS tracked_week_minutes,
              (SELECT COALESCE(ROUND(SUM(
                        CASE
                          WHEN wd.check_in_at IS NOT NULL AND wd.status != 'absent'
@@ -180,19 +221,20 @@ export async function GET() {
                 FROM work_days wd
                WHERE wd.organization_id = m.organization_id
                  AND wd.member_id = m.id
-                 AND date(wd.entry_date) >= date('now', '-6 days')) AS presence_week_minutes,
+                 AND date(wd.entry_date) BETWEEN date(?) AND date(?)) AS presence_week_minutes,
              (SELECT COUNT(*)
                 FROM work_days wd
                WHERE wd.organization_id = m.organization_id
                  AND wd.member_id = m.id
                  AND wd.status = 'absent'
-                 AND date(wd.entry_date) >= date('now', '-6 days')) AS absence_week_days,
+                 AND date(wd.entry_date) BETWEEN date(?) AND date(?)) AS absence_week_days,
              (SELECT COALESCE(SUM(${estimatedTaskMinutesSql("t")}), 0)
                 FROM tasks t
                WHERE t.organization_id = m.organization_id
                  AND t.assignee_member_id = m.id
                  AND ${openStatusSql("t")}
-                 AND (t.due_at IS NULL OR date(t.due_at) <= date('now', '+7 days'))) AS planned_week_minutes,
+                 AND t.due_at IS NOT NULL
+                 AND date(t.due_at) BETWEEN date(?) AND date(?)) AS planned_week_minutes,
              (SELECT COUNT(*)
                 FROM tasks t
                WHERE t.organization_id = m.organization_id
@@ -243,7 +285,7 @@ export async function GET() {
              m.first_name ASC
            LIMIT 24`,
         )
-        .bind(organizationId)
+        .bind(weekStart, weekEnd, weekStart, weekEnd, weekStart, weekEnd, weekStart, weekEnd, organizationId)
         .all(),
       db
         .prepare(
