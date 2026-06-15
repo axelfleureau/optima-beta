@@ -268,7 +268,7 @@ INSERT INTO work_days (
 VALUES
   ('workday_axel_20260613_github_import', 'org_demo_righello', 'mem_axel_wearerighello', '2026-06-13', '2026-06-13T09:00:00+02:00', '2026-06-13T23:00:00+02:00', 'closed', NULL, 'Presenza ricostruita da attivita GitHub verificata 13 giugno: 13h nette su Optima Browser MCP, OBS live, Lumis e WhatsApp gateway. Finestra operativa ampia con pause escluse dal netto.'),
   ('workday_axel_20260614_github_import', 'org_demo_righello', 'mem_axel_wearerighello', '2026-06-14', '2026-06-14T09:30:00+02:00', '2026-06-14T22:00:00+02:00', 'closed', NULL, 'Presenza ricostruita da attivita GitHub verificata 14 giugno: 11h nette su Optima MCP, OBS live e Lumis. Domenica operativa da founder/CTO.'),
-  ('workday_axel_20260615_github_import', 'org_demo_righello', 'mem_axel_wearerighello', '2026-06-15', '2026-06-15T04:30:00+02:00', '2026-06-15T07:24:00+02:00', 'closed', NULL, 'Presenza ricostruita da attivita GitHub verificata 15 giugno: 3h nette mattutine su Optima Browser MCP e setup MCP.')
+  ('workday_axel_20260615_github_import', 'org_demo_righello', 'mem_axel_wearerighello', '2026-06-15', '2026-06-15T10:30:00+02:00', NULL, 'open', NULL, 'Giornata aperta: 3h gia consuntivate da attivita GitHub mattutine su Optima Browser MCP e setup MCP. Checkout lasciato manuale per evitare chiusure artificiali.')
 ON CONFLICT(organization_id, member_id, entry_date) DO UPDATE SET
   check_in_at = excluded.check_in_at,
   check_out_at = excluded.check_out_at,

@@ -62,6 +62,28 @@ export function normalizeTime(value: unknown, fallback = DEFAULT_WORK_START_TIME
   return raw
 }
 
+function lastSundayOfMonthUtc(year: number, monthIndex: number) {
+  const date = new Date(Date.UTC(year, monthIndex + 1, 0, 12, 0, 0))
+  date.setUTCDate(date.getUTCDate() - date.getUTCDay())
+  return date
+}
+
+export function europeRomeOffsetForDate(date: string) {
+  const normalizedDate = normalizeDate(date)
+  const [year, month, day] = normalizedDate.split("-").map(Number)
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return "+01:00"
+
+  const currentDayNoonUtc = Date.UTC(year, month - 1, day, 12, 0, 0)
+  const dstStart = lastSundayOfMonthUtc(year, 2).getTime()
+  const dstEnd = lastSundayOfMonthUtc(year, 9).getTime()
+  return currentDayNoonUtc >= dstStart && currentDayNoonUtc < dstEnd ? "+02:00" : "+01:00"
+}
+
+export function isoForBusinessDateTime(date: string, time?: unknown, fallback = DEFAULT_WORK_START_TIME) {
+  const normalizedDate = normalizeDate(date)
+  return `${normalizedDate}T${normalizeTime(time, fallback)}:00${europeRomeOffsetForDate(normalizedDate)}`
+}
+
 export function timeToMinutes(time: string) {
   const normalized = normalizeTime(time)
   const [hours, minutes] = normalized.split(":").map(Number)

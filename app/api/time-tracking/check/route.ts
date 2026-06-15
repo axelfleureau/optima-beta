@@ -4,14 +4,25 @@ import type { NextRequest } from "next/server"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
-import { canManageTime, minutesBetween, normalizeDate, normalizeTime, workScheduleForMember } from "@/lib/time-tracking"
+import { canManageTime, isoForBusinessDateTime, minutesBetween, normalizeDate, workScheduleForMember } from "@/lib/time-tracking"
 
 function currentTime() {
   return new Date().toTimeString().slice(0, 5)
 }
 
 function isoForDateTime(date: string, time?: unknown, fallback = currentTime()) {
-  return new Date(`${date}T${normalizeTime(time, fallback)}:00`).toISOString()
+  return isoForBusinessDateTime(date, time, fallback)
+}
+
+function noStoreJson(body: unknown, init: ResponseInit = {}) {
+  return Response.json(body, {
+    ...init,
+    headers: {
+      "Cache-Control": "no-store, max-age=0, must-revalidate",
+      Pragma: "no-cache",
+      ...(init.headers || {}),
+    },
+  })
 }
 
 export async function POST(request: NextRequest) {
@@ -30,7 +41,7 @@ export async function POST(request: NextRequest) {
     const action = String(body.action || "")
 
     if (!["check-in", "check-out", "undo-check-out", "absence", "notes"].includes(action)) {
-      return Response.json({ error: "Azione non valida" }, { status: 400 })
+      return noStoreJson({ error: "Azione non valida" }, { status: 400 })
     }
 
     const member = await db
@@ -39,7 +50,7 @@ export async function POST(request: NextRequest) {
       .first()
 
     if (!member || (!isManager && memberId !== principal.memberId)) {
-      return Response.json({ error: "Dipendente non autorizzato" }, { status: 403 })
+      return noStoreJson({ error: "Dipendente non autorizzato" }, { status: 403 })
     }
 
     const existing = await db
@@ -69,9 +80,12 @@ export async function POST(request: NextRequest) {
           .bind(isoForDateTime(date, body.time), principal.organizationId, memberId, date)
           .run()
       } else if (action === "check-out") {
+        if (!existing.check_in_at) {
+          return noStoreJson({ error: "Registra prima l'entrata: l'uscita non può creare una presenza finta" }, { status: 400 })
+        }
         const checkOutAt = isoForDateTime(date, body.time)
         if (existing.check_in_at && minutesBetween(String(existing.check_in_at), checkOutAt) <= 0) {
-          return Response.json({ error: "L'uscita deve essere successiva all'entrata" }, { status: 400 })
+          return noStoreJson({ error: "L'uscita deve essere successiva all'entrata" }, { status: 400 })
         }
         await db
           .prepare(
@@ -86,7 +100,7 @@ export async function POST(request: NextRequest) {
           .run()
       } else if (action === "undo-check-out") {
         if (!existing.check_out_at) {
-          return Response.json({ error: "Nessun checkout da annullare" }, { status: 400 })
+          return noStoreJson({ error: "Nessun checkout da annullare" }, { status: 400 })
         }
         await db
           .prepare(
@@ -126,17 +140,21 @@ export async function POST(request: NextRequest) {
     } else {
       const schedule = workScheduleForMember((member as any).weekly_capacity_minutes)
       if (action === "undo-check-out") {
-        return Response.json({ error: "Nessun checkout da annullare" }, { status: 400 })
+        return noStoreJson({ error: "Nessun checkout da annullare" }, { status: 400 })
       }
 
-      const checkInAt = action === "check-in" ? isoForDateTime(date, body.time, schedule.workStartTime) : action === "check-out" ? isoForDateTime(date, schedule.workStartTime) : null
-      const checkOutAt = action === "check-out" ? isoForDateTime(date, body.time) : null
-      const status = action === "absence" ? "absent" : action === "check-out" ? "closed" : "open"
+      if (action === "check-out") {
+        return noStoreJson({ error: "Registra prima l'entrata: l'uscita non può creare una presenza finta" }, { status: 400 })
+      }
+
+      const checkInAt = action === "check-in" ? isoForDateTime(date, body.time, schedule.workStartTime) : null
+      const checkOutAt = null
+      const status = action === "absence" ? "absent" : "open"
       const absenceReason = action === "absence" ? String(body.reason || "Assenza").trim() : null
       const notes = action === "notes" ? String(body.notes || "").trim() : null
 
       if (checkInAt && checkOutAt && minutesBetween(checkInAt, checkOutAt) <= 0) {
-        return Response.json({ error: "L'uscita deve essere successiva all'entrata" }, { status: 400 })
+        return noStoreJson({ error: "L'uscita deve essere successiva all'entrata" }, { status: 400 })
       }
 
       await db
@@ -149,9 +167,9 @@ export async function POST(request: NextRequest) {
         .run()
     }
 
-    return Response.json({ success: true })
+    return noStoreJson({ success: true })
   } catch (error) {
     console.error("Time tracking check error:", error)
-    return Response.json({ error: "Errore durante l'aggiornamento giornata" }, { status: 500 })
+    return noStoreJson({ error: "Errore durante l'aggiornamento giornata" }, { status: 500 })
   }
 }

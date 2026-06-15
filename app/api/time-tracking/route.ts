@@ -6,6 +6,11 @@ import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 import { canManageTime, currentPresenceMinutes, netPresenceMinutes, normalizeDate, workScheduleForMember } from "@/lib/time-tracking"
 
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, max-age=0, must-revalidate",
+  Pragma: "no-cache",
+}
+
 function rowToMember(row: any) {
   return {
     id: String(row.id),
@@ -282,9 +287,9 @@ export async function GET(request: NextRequest) {
           company: client.company || "",
         })),
       },
-    })
+    }, { headers: NO_STORE_HEADERS })
   } catch (error) {
     console.error("Time tracking GET error:", error)
-    return Response.json({ error: "Errore nel caricamento rapportino" }, { status: 500 })
+    return Response.json({ error: "Errore nel caricamento rapportino" }, { status: 500, headers: NO_STORE_HEADERS })
   }
 }
