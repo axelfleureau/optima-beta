@@ -1688,6 +1688,37 @@ function asBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null
 }
 
+function normalizeBrowserTargetForUi(target: unknown) {
+  const normalized = String(target || "chatgpt").toLowerCase().trim()
+  if (normalized === "nanobanana" || normalized === "nano-banana" || normalized === "nano_banana") return "gemini"
+  if (normalized === "chatgpt" || normalized === "gemini" || normalized === "perplexity" || normalized === "claude") return normalized
+  return "chatgpt"
+}
+
+function browserTargetLabel(target: unknown) {
+  const normalized = normalizeBrowserTargetForUi(target)
+  if (normalized === "gemini") return "Gemini / Nano Banana"
+  if (normalized === "chatgpt") return "ChatGPT"
+  if (normalized === "perplexity") return "Perplexity"
+  if (normalized === "claude") return "Claude"
+  return "Browser web"
+}
+
+function browserTargetStartUrl(target: unknown) {
+  const normalized = normalizeBrowserTargetForUi(target)
+  if (normalized === "gemini") return "https://gemini.google.com/app"
+  if (normalized === "chatgpt") return "https://chatgpt.com"
+  if (normalized === "perplexity") return "https://www.perplexity.ai"
+  if (normalized === "claude") return "https://claude.ai"
+  return "https://chatgpt.com"
+}
+
+function isBrowserSessionExpired(session: BrowserMcpSession | null | undefined) {
+  if (!session?.expiresAt) return false
+  const timestamp = parseServerDate(session.expiresAt)
+  return Number.isFinite(timestamp) && timestamp < Date.now()
+}
+
 function formatBytes(value: unknown) {
   const bytes = asNumber(value)
   if (bytes === null) return "n/d"
@@ -5096,14 +5127,17 @@ export function AgentJobsClient({
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {(["chatgpt", "gemini"] as const).map((target) => {
-                          const connected = selectedBrowserConnectedSessions.find((session) => session.target === target)
+                          const connected = selectedBrowserConnectedSessions.find((session) => normalizeBrowserTargetForUi(session.target) === target)
                           const activeForTarget =
-                            selectedBrowserPairingSession?.target === target ? selectedBrowserPairingSession : null
-                          const label = target === "gemini" ? "Gemini / Nano Banana" : "ChatGPT"
+                            normalizeBrowserTargetForUi(selectedBrowserPairingSession?.target) === target ? selectedBrowserPairingSession : null
+                          const label = browserTargetLabel(target)
                           const ready = connected?.status === "login_completed_by_user"
+                          const expired = !ready && isBrowserSessionExpired(activeForTarget)
                           const status = ready
                             ? "Login confermato"
-                            : activeForTarget
+                            : expired
+                              ? "Sessione scaduta"
+                              : activeForTarget
                               ? activeForTarget.status === "opened"
                                 ? "Login aperto"
                                 : "Sessione preparata"
@@ -5111,18 +5145,22 @@ export function AgentJobsClient({
                           const timestamp = connected?.connectedAt || connected?.lastEventAt || activeForTarget?.lastEventAt || null
                           return (
                             <div
-                              key={target}
-                              className={`min-w-0 rounded-lg border p-3 ${
-                                ready
-                                  ? "border-emerald-300/25 bg-emerald-300/[0.07]"
+                            key={target}
+                            className={`min-w-0 rounded-lg border p-3 ${
+                              ready
+                                ? "border-emerald-300/25 bg-emerald-300/[0.07]"
+                                : expired
+                                  ? "border-amber-300/25 bg-amber-300/[0.06]"
                                   : "border-white/10 bg-black/20"
-                              }`}
-                            >
+                            }`}
+                          >
                               <div className="flex items-center justify-between gap-3">
                                 <p className="font-black text-white">{label}</p>
                                 <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${
                                   ready
                                     ? "border-emerald-200/25 bg-emerald-300/10 text-emerald-50"
+                                    : expired
+                                      ? "border-amber-200/25 bg-amber-300/10 text-amber-50"
                                     : "border-slate-400/20 bg-slate-400/10 text-slate-200"
                                 }`}>
                                   {status}
@@ -5157,9 +5195,11 @@ export function AgentJobsClient({
                           <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
                             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Target</p>
                             <p className="mt-1 break-words text-sm font-bold text-slate-200">
-                              {selectedBrowserPairingSession.targetLabel || selectedBrowserPairingSession.target}
+                              {selectedBrowserPairingSession.targetLabel || browserTargetLabel(selectedBrowserPairingSession.target)}
                             </p>
-                            <p className="mt-1 break-words font-mono text-[11px] text-slate-500">{selectedBrowserPairingSession.startUrl}</p>
+                            <p className="mt-1 break-words font-mono text-[11px] text-slate-500">
+                              {browserTargetStartUrl(selectedBrowserPairingSession.target)}
+                            </p>
                           </div>
                           <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
                             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Scadenza</p>
