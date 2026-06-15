@@ -12,6 +12,10 @@ files=(
   "scripts/seed-axel-github-2026-06-06-to-11.sql"
   "scripts/fix-axel-github-2026-06-06-to-11-distribution.sql"
   "scripts/mark-fatin-absent-2026-06-10.sql"
+  "scripts/seed-axel-github-2026-06-11-to-12.sql"
+  "scripts/seed-axel-github-2026-06-12-evening.sql"
+  "scripts/mark-fatin-absent-2026-06-12.sql"
+  "scripts/seed-axel-github-2026-06-12-night-to-15.sql"
 )
 
 for file in "${files[@]}"; do
