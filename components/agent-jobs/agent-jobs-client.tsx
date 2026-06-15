@@ -80,6 +80,8 @@ interface BrowserMcpSession {
   callbackUrl: string
   pairingCode: string
   expiresAt: string
+  connectedAt?: string
+  lastEventAt?: string
   instructions: string[]
   runnerCommand: string
   installCommand?: string
@@ -1802,6 +1804,37 @@ export function AgentJobsClient({
     }
   }, [])
 
+  async function refreshCapabilitiesSnapshot() {
+    const response = await fetch("/api/agentic-capabilities", { cache: "no-store" })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data?.error ?? "Errore refresh stack agentico")
+    setCapabilities(data)
+    return data as AgenticCapabilities
+  }
+
+  useEffect(() => {
+    if (selectedConnectorId !== "browser") return
+    let active = true
+    const refreshBrowserState = () => {
+      refreshCapabilitiesSnapshot()
+        .then((snapshot) => {
+          if (!active) return
+          const browserInstallation = snapshot.connectorInstallations.find((item) => item.connectorId === "browser")
+          const activeSession = asRecord(browserInstallation?.config?.activePairingSession)
+          if (activeSession) setBrowserPairingSession(activeSession as unknown as BrowserMcpSession)
+        })
+        .catch((err) => {
+          console.warn("Browser MCP state refresh failed:", err)
+        })
+    }
+    refreshBrowserState()
+    const interval = window.setInterval(refreshBrowserState, 8000)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+    }
+  }, [selectedConnectorId, browserPairingSession?.id])
+
   useEffect(() => {
     let active = true
     fetch("/api/agentic-graph")
@@ -2658,6 +2691,16 @@ export function AgentJobsClient({
     selectedConnector?.id === "browser"
       ? browserPairingSession ?? (asRecord(selectedConnectorInstallation?.config?.activePairingSession) as BrowserMcpSession | null)
       : null
+  const selectedBrowserConnectedSessions =
+    selectedConnector?.id === "browser"
+      ? (Array.isArray(selectedConnectorInstallation?.config?.connectedSessions)
+          ? selectedConnectorInstallation.config.connectedSessions
+          : []
+        )
+          .map((session) => asRecord(session))
+          .filter((session): session is Record<string, unknown> => Boolean(session))
+          .map((session) => session as unknown as BrowserMcpSession)
+      : []
   const selectedProvider =
     (capabilities?.providerCatalog ?? []).find((provider) => provider.id === selectedProviderId) ?? null
   const selectedProviderInstallation = selectedProvider ? providerInstallationsById.get(selectedProvider.id) ?? null : null
@@ -4994,7 +5037,7 @@ export function AgentJobsClient({
                       <div className="min-w-0">
                         <p className="font-black text-purple-50">Wizard Browser MCP</p>
                         <p className="mt-2 text-sm leading-6 text-purple-100">
-                          Per ChatGPT, Gemini/Nano Banana e strumenti web non usiamo API key come prima scelta. Optima prepara una sessione e apre un Chrome remoto controllabile via gateway VPS; poi serve health-check.
+                          Per ChatGPT, Gemini/Nano Banana e strumenti web la prima scelta non e una API key a consumo. Optima usa un profilo Chrome isolato sul VPS: fai login tu, poi Optima mostra lo stato collegato e lo usa solo dentro azioni allowlist e revisionabili.
                         </p>
                       </div>
                       {selectedBrowserPairingSession ? (
@@ -5023,12 +5066,87 @@ export function AgentJobsClient({
                         </Button>
                       ))}
                     </div>
+                    <div className="mt-3 grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-black text-cyan-50">Stato collegamenti web</p>
+                          <p className="mt-1 text-sm leading-6 text-cyan-100/80">
+                            Dopo il login premi “Aggiorna stato”. Se vedi ChatGPT o Gemini qui sotto, il profilo browser e pronto per job e assistente. La verifica finale resta un health-check, non un nuovo login.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            refreshCapabilitiesSnapshot()
+                              .then(() => {
+                                toast.success("Stato Browser MCP aggiornato")
+                              })
+                              .catch((err) => {
+                                toast.error("Refresh non riuscito", {
+                                  description: err?.message ?? "Riprova tra poco.",
+                                })
+                              })
+                          }
+                          className="min-h-10 rounded-lg border-cyan-200/20 bg-cyan-300/10 text-cyan-50 hover:bg-cyan-300/15"
+                        >
+                          <RefreshCw className="mr-1.5 h-4 w-4" />
+                          Aggiorna stato
+                        </Button>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(["chatgpt", "gemini"] as const).map((target) => {
+                          const connected = selectedBrowserConnectedSessions.find((session) => session.target === target)
+                          const activeForTarget =
+                            selectedBrowserPairingSession?.target === target ? selectedBrowserPairingSession : null
+                          const label = target === "gemini" ? "Gemini / Nano Banana" : "ChatGPT"
+                          const ready = connected?.status === "login_completed_by_user"
+                          const status = ready
+                            ? "Login confermato"
+                            : activeForTarget
+                              ? activeForTarget.status === "opened"
+                                ? "Login aperto"
+                                : "Sessione preparata"
+                              : "Da collegare"
+                          const timestamp = connected?.connectedAt || connected?.lastEventAt || activeForTarget?.lastEventAt || null
+                          return (
+                            <div
+                              key={target}
+                              className={`min-w-0 rounded-lg border p-3 ${
+                                ready
+                                  ? "border-emerald-300/25 bg-emerald-300/[0.07]"
+                                  : "border-white/10 bg-black/20"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="font-black text-white">{label}</p>
+                                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${
+                                  ready
+                                    ? "border-emerald-200/25 bg-emerald-300/10 text-emerald-50"
+                                    : "border-slate-400/20 bg-slate-400/10 text-slate-200"
+                                }`}>
+                                  {status}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-xs leading-5 text-slate-400">
+                                {target === "gemini"
+                                  ? "Nano Banana passa da Gemini ufficiale, non da siti terzi."
+                                  : "ChatGPT web controllato dal profilo browser isolato."}
+                              </p>
+                              {timestamp ? (
+                                <p className="mt-2 text-xs font-bold text-slate-300">Ultimo evento: {formatDateTime(timestamp)}</p>
+                              ) : null}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                     {selectedBrowserPairingSession ? (
                       <div className="mt-4 grid min-w-0 gap-3 overflow-hidden rounded-lg border border-white/10 bg-black/20 p-3">
                         <div className="min-w-0 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
-                          <p className="font-black">Prima verifica il gateway VPS</p>
+                          <p className="font-black">Sessione corrente</p>
                           <p className="mt-1 min-w-0 break-words">
-                            Se il test non risponde, il servizio Browser MCP sul VPS non e attivo o il dispositivo non raggiunge Tailscale. Non e un errore OAuth e non serve inserire API key.
+                            Usa “Apri login controllabile” per completare l'accesso. Se hai gia fatto login, premi “Aggiorna stato”: Optima deve mostrare il servizio collegato sopra.
                           </p>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-3">
@@ -5237,7 +5355,7 @@ export function AgentJobsClient({
                     className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                   >
                     {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-                    Job health-check
+                    {selectedConnector.id === "browser" ? "Verifica sessione" : "Job health-check"}
                   </Button>
                   <Button
                     type="button"
@@ -5246,7 +5364,7 @@ export function AgentJobsClient({
                     className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                   >
                     {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                    Salva checklist
+                    {selectedConnector.id === "browser" ? "Salva stato guidato" : "Salva checklist"}
                   </Button>
                 </div>
               </div>

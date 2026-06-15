@@ -76,6 +76,10 @@ function targetDisplayName(target: string) {
   return target
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
 async function getPrincipal() {
   const user = await requireClerkUser()
   const db = await getCloudflareDb()
@@ -177,6 +181,66 @@ export async function POST(request: NextRequest) {
     console.error("Error creating Browser MCP session:", error)
     return Response.json(
       { error: error?.message ?? "Errore creazione sessione Browser MCP." },
+      { status: 400 },
+    )
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await getPrincipal()
+    if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status })
+
+    const url = new URL(request.url)
+    const requestedTarget = url.searchParams.get("target")
+      ? normalizeBrowserTarget(String(url.searchParams.get("target")))
+      : null
+    const row = (await auth.db
+      .prepare(
+        `SELECT install_state, auth_method, config_json, updated_at, last_health_at, last_health_status
+         FROM mcp_connector_installations
+         WHERE organization_id = ?
+           AND connector_id = 'browser'
+         LIMIT 1`,
+      )
+      .bind(auth.principal.organizationId)
+      .first()) as {
+        install_state: string
+        auth_method: string
+        config_json: string | null
+        updated_at: string | null
+        last_health_at: string | null
+        last_health_status: string | null
+      } | null
+
+    const config = row ? (JSON.parse(row.config_json || "{}") as Record<string, unknown>) : {}
+    const activePairingSession = config.activePairingSession ?? null
+    const connectedSessions = Array.isArray(config.connectedSessions) ? config.connectedSessions : []
+    const filteredConnectedSessions = requestedTarget
+      ? connectedSessions.filter((session) => asRecord(session).target === requestedTarget)
+      : connectedSessions
+
+    return Response.json({
+      connector: row
+        ? {
+            installState: row.install_state,
+            authMethod: row.auth_method,
+            updatedAt: row.updated_at,
+            lastHealthAt: row.last_health_at,
+            lastHealthStatus: row.last_health_status,
+          }
+        : null,
+      activePairingSession,
+      connectedSessions: filteredConnectedSessions,
+      gateway: {
+        url: browserGatewayUrl() || null,
+        fallbackUrl: browserGatewayUrl() ? browserGatewayFallbackUrl(browserGatewayUrl()) || null : null,
+      },
+    })
+  } catch (error: any) {
+    console.error("Error reading Browser MCP session:", error)
+    return Response.json(
+      { error: error?.message ?? "Errore lettura sessione Browser MCP." },
       { status: 400 },
     )
   }

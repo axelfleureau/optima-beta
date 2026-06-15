@@ -8,6 +8,10 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 }
 
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
 export async function POST(request: NextRequest) {
   try {
     const db = await getCloudflareDb()
@@ -42,12 +46,32 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Codice pairing non valido." }, { status: 403 })
     }
 
+    const now = new Date().toISOString()
+    const completed = status === "login_completed_by_user"
+    const connectedSessions = completed
+      ? [
+          {
+            ...session,
+            status,
+            target: String(body.target || session.target || "chatgpt"),
+            lastEventAt: now,
+            connectedAt: String(body.completedAt || now),
+          },
+          ...asArray(config.connectedSessions).filter((item) => {
+            const record = asRecord(item)
+            return record.id !== sessionId && record.target !== (body.target || session.target)
+          }),
+        ].slice(0, 8)
+      : asArray(config.connectedSessions)
+
     const updatedConfig = {
       ...config,
+      connectedSessions,
       activePairingSession: {
         ...session,
         status,
-        lastEventAt: new Date().toISOString(),
+        lastEventAt: now,
+        connectedAt: completed ? String(body.completedAt || now) : session.connectedAt,
         lastGatewayEvent: asRecord(body),
       },
     }
