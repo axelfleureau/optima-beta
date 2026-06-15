@@ -1784,7 +1784,6 @@ export function AgentJobsClient({
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [browserPairingAction, setBrowserPairingAction] = useState<string | null>(null)
   const [browserPairingSession, setBrowserPairingSession] = useState<BrowserMcpSession | null>(null)
-  const [browserGatewayConfirmedSessionId, setBrowserGatewayConfirmedSessionId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -2149,7 +2148,6 @@ export function AgentJobsClient({
       const data = await response.json()
       if (!response.ok) throw new Error(data?.error ?? "Errore avvio login Browser MCP")
       setBrowserPairingSession(data.session)
-      setBrowserGatewayConfirmedSessionId(null)
       if (data.capabilities) setCapabilities(data.capabilities)
 
       if (data.session?.gatewayUrl) {
@@ -5049,9 +5047,9 @@ export function AgentJobsClient({
                         {selectedBrowserPairingSession.gatewayUrl ? (
                           <div className="grid min-w-0 gap-3">
                             <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50">
-                              <p className="font-black">Flusso corretto</p>
+                              <p className="font-black">Flusso rapido</p>
                               <p className="mt-1">
-                                Apri prima il test gateway. Se vedi una pagina JSON con <span className="font-mono">ok: true</span>, torna qui e conferma. Poi apri il browser controllabile: quello e il posto giusto dove digitare credenziali e completare eventuali QR/passkey.
+                                Apri il login controllabile: quello e il posto giusto dove digitare credenziali e completare eventuali QR/passkey. Il test gateway resta disponibile solo se il link non si apre.
                               </p>
                               <p className="mt-1 text-cyan-100/80">
                                 Se Safari dice che non trova il server: questo dispositivo non sta raggiungendo Tailscale/MagicDNS oppure il servizio VPS e spento. In quel caso prova dal Mac collegato a Tailscale o usa il fallback IP.
@@ -5060,19 +5058,6 @@ export function AgentJobsClient({
                                 Se il login apre DevTools invece del browser controllabile, chiudi e crea una nuova sessione. DevTools resta solo un fallback tecnico, non il flusso di login umano.
                               </p>
                             </div>
-                            {browserGatewayConfirmedSessionId !== selectedBrowserPairingSession.id ? (
-                              <div className="rounded-lg border border-red-300/25 bg-red-400/[0.08] p-3 text-sm leading-6 text-red-50">
-                                <p className="font-black">Non aprire il login se il test fallisce</p>
-                                <p className="mt-1">
-                                  La schermata Safari “non trova il server” significa gateway offline/non raggiungibile. In quel caso fermati qui e avvia il servizio sul VPS: non e un problema di account, OAuth o API key.
-                                </p>
-                              </div>
-                            ) : (
-                              <div className="rounded-lg border border-emerald-300/25 bg-emerald-400/[0.08] p-3 text-sm leading-6 text-emerald-50">
-                                <p className="font-black">Gateway confermato manualmente</p>
-                                <p className="mt-1">Hai confermato di aver visto <span className="font-mono">ok: true</span>. Ora puoi aprire il browser remoto.</p>
-                              </div>
-                            )}
                             <div className="grid gap-2 sm:grid-cols-3">
                               {(() => {
                                 const primaryHealthUrl =
@@ -5090,40 +5075,20 @@ export function AgentJobsClient({
                                   <>
                               <Button
                                 type="button"
+                                onClick={() => window.open(primaryLoginUrl, "_blank", "noopener,noreferrer")}
+                                className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90 sm:col-span-2"
+                              >
+                                <Network className="mr-1.5 h-4 w-4 shrink-0" />
+                                Apri login controllabile
+                              </Button>
+                              <Button
+                                type="button"
                                 variant="outline"
                                 onClick={() => window.open(primaryHealthUrl, "_blank", "noopener,noreferrer")}
                                 className="min-h-12 w-full justify-center rounded-lg border-emerald-200/20 bg-emerald-300/10 px-3 text-center text-sm font-black text-emerald-50 hover:bg-emerald-300/15"
                               >
                                 <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
-                                1. Test gateway
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  const confirmed = window.confirm("Confermi di aver visto una risposta gateway con ok: true? Se Safari dice che non trova il server, premi Annulla.")
-                                  if (confirmed) {
-                                    setBrowserGatewayConfirmedSessionId(selectedBrowserPairingSession.id)
-                                  } else {
-                                    setBrowserGatewayConfirmedSessionId(null)
-                                    toast.warning("Gateway non confermato", {
-                                      description: "Avvia prima il servizio Browser MCP sul VPS o riprova il test da un dispositivo collegato a Tailscale.",
-                                    })
-                                  }
-                                }}
-                                className="min-h-12 w-full justify-center rounded-lg border-cyan-200/20 bg-cyan-300/10 px-3 text-center text-sm font-black text-cyan-50 hover:bg-cyan-300/15"
-                              >
-                                <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
-                                2. Ho visto ok:true
-                              </Button>
-                              <Button
-                                type="button"
-                                disabled={browserGatewayConfirmedSessionId !== selectedBrowserPairingSession.id}
-                                onClick={() => window.open(primaryLoginUrl, "_blank", "noopener,noreferrer")}
-                                className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90 disabled:cursor-not-allowed disabled:opacity-45"
-                              >
-                                <Network className="mr-1.5 h-4 w-4 shrink-0" />
-                                3. Apri browser
+                                Test gateway
                               </Button>
                               {secondaryHealthUrl ? (
                                 <Button
@@ -5186,9 +5151,8 @@ export function AgentJobsClient({
                                   <Button
                                     type="button"
                                     variant="outline"
-                                    disabled={browserGatewayConfirmedSessionId !== selectedBrowserPairingSession.id}
                                     onClick={() => window.open(selectedBrowserPairingSession.fallbackGatewayUrl!, "_blank", "noopener,noreferrer")}
-                                    className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                                    className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                                   >
                                     <Network className="mr-1.5 h-4 w-4" />
                                     Login IP
