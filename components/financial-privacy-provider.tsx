@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 const STORAGE_KEY = "optima-financial-reveal-until"
 const REVEAL_DURATION_MS = 5 * 60 * 1000
 const MONEY_PATTERN =
-  /(?:[$€£¥]|(?:\b(?:EUR|USD|CHF|GBP)\b)|(?:\b\d{1,3}(?:[.\s]\d{3})*(?:[,.]\d{1,2})?\s?(?:€|eur|usd|chf|gbp)\b)|(?:\b(?:euro|dollari)\b))/i
+  /(?:[$€£¥]\s?\d|\b(?:EUR|USD|CHF|GBP)\s?\d|\b\d{1,3}(?:[.\s]\d{3})*(?:[,.]\d{1,2})?\s?(?:€|eur|euro|usd|dollari|chf|gbp)\b|\b\d{1,3}(?:[.\s]\d{3})+(?:[,.]\d{1,2})?\b(?=[^\n]{0,18}\b(?:iva|netto|totale|budget|prezzo|costo|valore|importo)\b))/i
 
 const BLOCKED_TAGS = new Set([
   "SCRIPT",
@@ -21,6 +21,19 @@ const BLOCKED_TAGS = new Set([
   "NOSCRIPT",
   "CODE",
   "PRE",
+])
+
+const INLINE_TEXT_TAGS = new Set([
+  "A",
+  "B",
+  "BUTTON",
+  "EM",
+  "I",
+  "LABEL",
+  "SMALL",
+  "SPAN",
+  "STRONG",
+  "U",
 ])
 
 function formatTimer(milliseconds: number) {
@@ -43,6 +56,24 @@ function shouldMarkTextNode(node: Text) {
   return true
 }
 
+function markFinancialTextNode(node: Text) {
+  const parent = node.parentElement
+  if (!parent) return null
+
+  if (INLINE_TEXT_TAGS.has(parent.tagName) && parent.childNodes.length === 1) {
+    parent.classList.add("financial-sensitive")
+    parent.setAttribute("data-financial-sensitive", "true")
+    return parent
+  }
+
+  const wrapper = document.createElement("span")
+  wrapper.className = "financial-sensitive"
+  wrapper.setAttribute("data-financial-sensitive", "true")
+  wrapper.textContent = node.nodeValue || ""
+  parent.replaceChild(wrapper, node)
+  return wrapper
+}
+
 function markFinancialValues(root: ParentNode = document.body) {
   if (typeof document === "undefined") return 0
 
@@ -52,19 +83,15 @@ function markFinancialValues(root: ParentNode = document.body) {
     },
   })
 
-  const targets = new Set<HTMLElement>()
+  const textNodes: Text[] = []
   let current = walker.nextNode()
 
   while (current) {
-    const parent = current.parentElement
-    if (parent) targets.add(parent)
+    textNodes.push(current as Text)
     current = walker.nextNode()
   }
 
-  targets.forEach((target) => {
-    target.classList.add("financial-sensitive")
-    target.setAttribute("data-financial-sensitive", "true")
-  })
+  textNodes.forEach(markFinancialTextNode)
 
   return document.querySelectorAll("[data-financial-sensitive='true']").length
 }
