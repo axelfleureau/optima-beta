@@ -855,7 +855,7 @@ function getBriefPlaceholder(jobType: string) {
 function getGraphNodeLayout(
   nodes: AgenticGraphSnapshot["nodes"],
   edges: AgenticGraphSnapshot["edges"] = [],
-  options: { limit?: number; selectedNodeId?: string | null } = {},
+  options: { limit?: number | null; selectedNodeId?: string | null } = {},
 ) {
   const typeOrder = [
     "system",
@@ -874,7 +874,7 @@ function getGraphNodeLayout(
     "obsidian_note",
     "development_knowhow",
   ]
-  const limit = options.limit ?? 18
+  const limit = options.limit == null ? nodes.length : options.limit
   const selectedNodeId = options.selectedNodeId ?? null
   const degreeByNode = new Map<string, number>()
   const neighborIds = new Set<string>()
@@ -1085,6 +1085,7 @@ const GRAPH_MIN_ZOOM = 0.45
 const GRAPH_FIT_ZOOM = 0.62
 const GRAPH_MAX_ZOOM = 2.8
 const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
+const GRAPH_NODE_LIMIT_OPTIONS = [48, 96, 160, 240]
 const OBSIDIAN_VAULT_NAME = "Optima Obsidian Vault"
 const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault"
 const OBSIDIAN_GRAPH_INDEX_FILE = "Optima Graph Memory.md"
@@ -1158,7 +1159,7 @@ function GraphMemoryMap({
         nodeId: string
       }
 
-  const [nodeLimit, setNodeLimit] = useState(160)
+  const [nodeLimit, setNodeLimit] = useState<number | "all">("all")
   const [zoom, setZoom] = useState(GRAPH_FIT_ZOOM)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragState, setDragState] = useState<CanvasDragState | null>(null)
@@ -1169,7 +1170,11 @@ function GraphMemoryMap({
   const lastTapRef = useRef<{ nodeId: string | null; x: number; y: number; time: number } | null>(null)
 
   const layout = useMemo(
-    () => getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? [], { limit: nodeLimit, selectedNodeId }),
+    () =>
+      getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? [], {
+        limit: nodeLimit === "all" ? null : nodeLimit,
+        selectedNodeId,
+      }),
     [graphMemory?.nodes, graphMemory?.edges, nodeLimit, selectedNodeId],
   )
   const totalNodes = graphMemory?.stats.nodes ?? layout.length
@@ -1180,7 +1185,7 @@ function GraphMemoryMap({
   const hoveredLayoutNode = hoveredNodeId ? nodePosition.get(hoveredNodeId) : null
   const focusLayoutNode = selectedLayoutNode ?? hoveredLayoutNode
   const focusNodeId = selectedNodeId ?? hoveredNodeId
-  const visibleEdges = (graphMemory?.edges ?? [])
+  const sortedVisibleEdges = (graphMemory?.edges ?? [])
     .map((edge) => ({
       edge,
       from: nodePosition.get(edge.fromNodeId),
@@ -1198,9 +1203,10 @@ function GraphMemoryMap({
       }
       return Number(b.edge.weight || 0) - Number(a.edge.weight || 0)
     })
-    .slice(0, Math.max(18, Math.min(360, nodeLimit * 4)))
+  const visibleEdges =
+    nodeLimit === "all" ? sortedVisibleEdges : sortedVisibleEdges.slice(0, Math.max(18, Math.min(360, nodeLimit * 4)))
   const isPartialMap = totalNodes > layout.length || totalEdges > visibleEdges.length
-  const densityOptions = [48, 96, 160, 240].filter((limit) => limit <= Math.max(240, loadedNodes || 0))
+  const densityOptions = GRAPH_NODE_LIMIT_OPTIONS.filter((limit) => limit < Math.max(240, loadedNodes || 0))
   const summary = graphMapSummary({
     visibleNodes: layout.length,
     loadedNodes,
@@ -1538,6 +1544,16 @@ function GraphMemoryMap({
             title="Apre la dashboard Agentic OS nel vault Obsidian locale."
           >
             Obsidian OS
+          </button>
+          <button
+            type="button"
+            onClick={() => setNodeLimit("all")}
+            className={`h-7 shrink-0 rounded-md border px-2.5 text-[10px] font-bold transition ${
+              nodeLimit === "all" ? "border-[#7c3aed] bg-[#7c3aed]/25 text-violet-100" : "border-white/10 bg-white/[0.025] text-slate-500 hover:bg-white/10"
+            }`}
+            title="Mostra tutti i nodi caricati nello snapshot del grafo."
+          >
+            Tutti
           </button>
           {densityOptions.map((limit) => (
             <button
