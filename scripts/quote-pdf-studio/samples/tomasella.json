@@ -1,0 +1,95 @@
+{
+  "projectType": "sito_web",
+  "cliente": {
+    "nome": "Tomasella",
+    "azienda": "Tomasella",
+    "email": "amministrazione@example.com"
+  },
+  "preventivo": {
+    "titolo": "Sito Web A 180 - Base/Semplificato per Tomasella",
+    "descrizione": "La proposta definisce perimetro, priorita operative e condizioni economiche per un sito web base orientato a showroom, arredo bagno e contatto commerciale. Il documento separa sviluppo, opzioni e gestione ricorrente per rendere la decisione piu semplice.",
+    "numeroPreventivo": "RIG-PVTN-20260615-STUDIO",
+    "dataCreazione": "2026-06-15",
+    "validitaGiorni": 30,
+    "settore": "arredo bagno e showroom",
+    "timeline": "4-6 settimane"
+  },
+  "obiettivi": [
+    "Presentare in modo chiaro l'offerta Tomasella, con gerarchia pensata per utenti mobile e contatti qualificati.",
+    "Costruire una base tecnica pulita, veloce e manutenibile senza appesantire il progetto con funzionalita non necessarie.",
+    "Separare sviluppo, contenuti, SEO iniziale e gestione annuale per mantenere il preventivo controllato."
+  ],
+  "attivita": [
+    "Raccolta requisiti, analisi riferimenti, sitemap essenziale e wireframe operativo.",
+    "Realizzazione pagine principali: home, azienda/showroom, servizi, portfolio o gallery, contatti.",
+    "Ottimizzazione tecnica base: performance, metadata essenziali, struttura URL, sitemap e tracciamenti.",
+    "Setup privacy, cookie policy e form contatto conforme alle esigenze minime del sito.",
+    "QA responsive, correzioni finali e accompagnamento alla pubblicazione."
+  ],
+  "voci": [
+    {
+      "descrizione": "Raccolta requisiti, analisi concorrenza, sitemap e wireframe operativo",
+      "quantita": 1,
+      "prezzoUnitario": 650,
+      "totale": 650,
+      "categoria": "base",
+      "tipo": "one_time"
+    },
+    {
+      "descrizione": "Implementazione sito responsive base con pagine principali e componenti riutilizzabili",
+      "quantita": 1,
+      "prezzoUnitario": 1750,
+      "totale": 1750,
+      "categoria": "base",
+      "tipo": "one_time"
+    },
+    {
+      "descrizione": "SEO tecnico iniziale, metadata, sitemap, analytics e ottimizzazione performance",
+      "quantita": 1,
+      "prezzoUnitario": 550,
+      "totale": 550,
+      "categoria": "base",
+      "tipo": "one_time"
+    },
+    {
+      "descrizione": "Privacy, cookie policy, form contatto e configurazione invii",
+      "quantita": 1,
+      "prezzoUnitario": 400,
+      "totale": 400,
+      "categoria": "base",
+      "tipo": "one_time"
+    },
+    {
+      "descrizione": "Inserimento contenuti iniziali e QA finale",
+      "quantita": 1,
+      "prezzoUnitario": 450,
+      "totale": 450,
+      "categoria": "base",
+      "tipo": "one_time"
+    }
+  ],
+  "gestioneAnnuale": {
+    "items": [
+      {
+        "description": "Gestione tecnica, aggiornamenti minori e monitoraggio",
+        "monthly": 95,
+        "annual": 1140
+      }
+    ],
+    "totalMonthly": 95,
+    "totalAnnual": 1140
+  },
+  "condizioni": {
+    "costVariation": 0,
+    "validityDays": 30,
+    "paymentTerms": "Pagamento sviluppo: 40% alla conferma, 30% ad approvazione struttura, 30% alla consegna prima della pubblicazione. Gestione annuale separata e attivabile dopo il go-live.",
+    "cancellationPenalty": 0
+  },
+  "terminiCondizioni": "Il preventivo include quanto esplicitamente indicato. Produzione foto/video, testi estesi, integrazioni gestionali, campagne advertising e funzioni e-commerce sono esclusi salvo diversa approvazione scritta.",
+  "totali": {
+    "subtotale": 3800,
+    "iva": 836,
+    "percentualeIva": 22,
+    "totale": 4636
+  }
+}
