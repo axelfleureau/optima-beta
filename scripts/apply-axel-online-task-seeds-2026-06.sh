@@ -16,6 +16,7 @@ files=(
   "scripts/seed-axel-github-2026-06-12-evening.sql"
   "scripts/mark-fatin-absent-2026-06-12.sql"
   "scripts/seed-axel-github-2026-06-12-night-to-15.sql"
+  "scripts/seed-axel-portopiccolo-zoho-email-2026-06-13.sql"
 )
 
 for file in "${files[@]}"; do
