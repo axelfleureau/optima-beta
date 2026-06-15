@@ -612,10 +612,32 @@ const recommendedSubagents = [
     lane: "media",
     primaryProviderId: "minimax",
     modelHint: "minimax-media",
-    connectorIds: ["cloudinary"],
+    connectorIds: ["cloudinary", "google-drive"],
     systemPrompt: "Collabora con Codex Engineer quando patch, landing o automazioni richiedono asset. Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
     permissions: { canCreateMedia: true, canMutateAssets: false, requiresReview: true },
     handoffPolicy: { onCopyrightRisk: "return_to_review" },
+  },
+  {
+    name: "Client Publishing Operator",
+    slug: "client-publishing-operator",
+    lane: "operations",
+    primaryProviderId: "gemma-hosted",
+    modelHint: "gemma-hosted",
+    connectorIds: ["google-business-profile", "google-calendar", "meta-business-suite", "linkedin-pages", "google-drive", "cloudinary"],
+    systemPrompt:
+      "Trasforma task e deliverable approvati in bozze editoriali, aggiornamenti Google Business Profile e pubblicazioni social. Non pubblica nulla e non modifica schede pubbliche senza approvazione cliente/responsabile.",
+    permissions: {
+      canDraftSocialPosts: true,
+      canDraftBusinessProfileUpdates: true,
+      canPublishExternally: false,
+      requiresClientApproval: true,
+      requiresReview: true,
+    },
+    handoffPolicy: {
+      onMissingOauth: "open_connector_wizard",
+      onAssetNeeded: "handoff_to_media_operator",
+      onApprovedPublish: "create_reviewed_publish_job",
+    },
   },
   {
     name: "Office Ops",
@@ -2185,10 +2207,14 @@ export function AgentJobsClient({
     return "API key / secret"
   }
 
+  function isStandardOAuthConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    return connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth"
+  }
+
   function connectorPrimaryActionLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     if (connector.id === "github") return "Apri policy GitHub"
     if (connector.id === "browser") return "Configura Browser"
-    if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") return "Configura OAuth"
+    if (isStandardOAuthConnector(connector)) return "Connetti OAuth"
     if (connector.authMethod === "runner_env") return "Configura runtime"
     return "Configura secret"
   }
@@ -2200,8 +2226,8 @@ export function AgentJobsClient({
     if (connector.id === "browser") {
       return "Browser MCP usa Chromium/Playwright con profilo isolato per tenant. Non e un consenso OAuth del provider: e una sessione browser controllata, con profilo/audit e senza cookie o token salvati in D1."
     }
-    if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") {
-      return "Il flusso OAuth deve aprire una installazione guidata con state/PKCE. Finche non esiste callback verificata, Optima puo salvare solo checklist e stato."
+    if (isStandardOAuthConnector(connector)) {
+      return "Questo connector deve usare OAuth standard: app developer, redirect allowlist, state/PKCE, scope minimi e token nel runtime/secret vault. Il job serve solo per health-check o patch, non per fare login."
     }
     if (connector.authMethod === "runner_env") {
       return "Runtime self-hosted: configurazione su VPS/runner, heartbeat e dry-run prima di dichiararlo operativo."
@@ -5071,6 +5097,30 @@ export function AgentJobsClient({
                     </div>
                   </div>
                 </section>
+
+                {isStandardOAuthConnector(selectedConnector) ? (
+                  <section className="rounded-lg border border-emerald-300/20 bg-emerald-300/[0.06] p-3 sm:p-4">
+                    <p className="font-black text-emerald-50">Flusso OAuth corretto</p>
+                    <div className="mt-3 grid gap-2 text-sm leading-6 text-emerald-100">
+                      <p>
+                        1. Optima apre una pagina di consenso del provider con `state`, PKCE e redirect allowlist.
+                      </p>
+                      <p>
+                        2. Axel o il cliente autorizza solo account, pagina, sede, calendario o cartella necessari.
+                      </p>
+                      <p>
+                        3. Il token finisce nel runtime/secret vault come `secret_ref`; in D1 restano solo stato, scope, soggetto e audit.
+                      </p>
+                      <p>
+                        4. Le azioni pubbliche restano draft/review: pubblicazione social, aggiornamento orari Google Business o invio cliente richiedono approvazione.
+                      </p>
+                    </div>
+                    <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-300">
+                      Se il pulsante non apre ancora il consenso reale significa che manca l'OAuth app del provider nel runtime
+                      (`client_id`, redirect URI e secret_ref). In quel caso il prossimo passo e configurare l'app developer, non creare un job generico.
+                    </div>
+                  </section>
+                ) : null}
 
                 <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
                   <p className="font-black text-white">Installazione reale</p>

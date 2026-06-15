@@ -4,7 +4,18 @@ export type StrategicMcpConnector = {
   id: string
   label: string
   status: StrategicMcpConnectorStatus
-  category: "ai" | "code" | "cloud" | "media" | "email" | "hosting" | "messaging" | "browser"
+  category:
+    | "ai"
+    | "code"
+    | "cloud"
+    | "media"
+    | "email"
+    | "hosting"
+    | "messaging"
+    | "browser"
+    | "local_seo"
+    | "social"
+    | "calendar"
   purpose: string
   graphUse: string[]
   requiredEnv: string[]
@@ -105,6 +116,115 @@ const CONNECTORS: ConnectorSpec[] = [
     ],
     healthCheck: "Lookup account, upload o trasformazione test su asset non sensibile e salvataggio source_id.",
     notes: "Da usare come nodo media del grafo, con asset collegati a clienti, campagne e deliverable.",
+  },
+  {
+    id: "google-business-profile",
+    label: "Google Business Profile",
+    category: "local_seo",
+    purpose: "Gestione schede locali cliente: orari, chiusure straordinarie, servizi, post locali, foto e QA informazioni pubbliche.",
+    graphUse: [
+      "clienti",
+      "sedi",
+      "local_seo",
+      "orari_attivita",
+      "servizi",
+      "calendario_editoriale",
+      "approvazioni_cliente",
+    ],
+    requiredEnv: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET_REF"],
+    optionalEnv: ["GOOGLE_BUSINESS_PROFILE_SCOPES", "GOOGLE_OAUTH_REDIRECT_URI"],
+    authMethod: "oauth_pkce",
+    setupSteps: [
+      "Creare una OAuth app Google Cloud con redirect allowlist verso Optima.",
+      "Richiedere scope minimi per Business Profile e collegare solo le location del cliente autorizzato.",
+      "Mappare location_id, sede, cliente e progetto nel grafo Optima.",
+      "Le modifiche pubbliche AI-driven devono partire come proposta: preview, diff, approvazione responsabile/cliente e poi pubblicazione.",
+    ],
+    healthCheck: "OAuth installato, lista location leggibile, lettura orari corrente e simulazione update senza pubblicazione.",
+    notes:
+      "Questo deve essere un OAuth standard, non Browser MCP. Browser MCP resta fallback solo per QA visuale o casi non coperti dall'API ufficiale.",
+  },
+  {
+    id: "google-calendar",
+    label: "Google Calendar",
+    category: "calendar",
+    purpose: "Sincronizzare scadenze, riunioni, finestre editoriali e milestone cliente con calendario e task Optima.",
+    graphUse: ["calendario_editoriale", "task", "progetti", "approvazioni_cliente", "milestone", "meeting"],
+    requiredEnv: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET_REF"],
+    optionalEnv: ["GOOGLE_CALENDAR_SCOPES", "GOOGLE_OAUTH_REDIRECT_URI"],
+    authMethod: "oauth_pkce",
+    setupSteps: [
+      "Usare OAuth Google con scope calendario minimi e consenso per il singolo account/tenant.",
+      "Collegare calendari a cliente/progetto e definire direzione del sync: Optima fonte, Calendar vista esterna o sync bidirezionale controllato.",
+      "Creare eventi solo da task, approvazioni o post editoriali con source_id stabile.",
+      "Evitare duplicati usando external_id e finestra di deduplica.",
+    ],
+    healthCheck: "Lista calendari allowlist, creazione evento test in calendario sandbox e cancellazione controllata.",
+    notes:
+      "Serve per fare apparire deliverable, pubblicazioni e approvazioni nel calendario reale senza perdere il legame con task/progetto.",
+  },
+  {
+    id: "meta-business-suite",
+    label: "Meta Business Suite",
+    category: "social",
+    purpose: "Pubblicazione e insight Facebook/Instagram collegati al calendario editoriale, con flusso approvazione cliente.",
+    graphUse: [
+      "calendario_editoriale",
+      "asset",
+      "clienti",
+      "campagne",
+      "task",
+      "approvazioni_cliente",
+      "deliverable",
+      "social_posts",
+    ],
+    requiredEnv: ["META_APP_ID", "META_APP_SECRET_REF"],
+    optionalEnv: ["META_OAUTH_REDIRECT_URI", "META_REQUIRED_SCOPES"],
+    authMethod: "oauth_pkce",
+    setupSteps: [
+      "Configurare Meta app e Business Login con pagine/account Instagram autorizzati dal cliente.",
+      "Collegare page_id, instagram_business_account_id, cliente e canale nel grafo.",
+      "Il calendario editoriale deve creare bozze con asset, copy, stato approvazione e task collegate.",
+      "La pubblicazione richiede approvazione esplicita se il post e customer-facing.",
+    ],
+    healthCheck: "OAuth valido, lettura pagine/IG account allowlist, creazione draft interno e dry-run pubblicazione non distruttivo.",
+    notes:
+      "Il social connector e il cuore del flusso contenuti: task -> asset -> approvazione -> calendario -> pubblicazione -> insight -> retroazione nel grafo.",
+  },
+  {
+    id: "linkedin-pages",
+    label: "LinkedIn Pages",
+    category: "social",
+    purpose: "Pubblicazione e reportistica LinkedIn per pagine aziendali cliente collegate a campagne B2B e calendario editoriale.",
+    graphUse: ["calendario_editoriale", "clienti", "campagne", "task", "approvazioni_cliente", "deliverable"],
+    requiredEnv: ["LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET_REF"],
+    optionalEnv: ["LINKEDIN_OAUTH_REDIRECT_URI", "LINKEDIN_REQUIRED_SCOPES"],
+    authMethod: "oauth_pkce",
+    setupSteps: [
+      "Configurare OAuth LinkedIn con scope minimi per organization/page consentite.",
+      "Mappare organization urn al cliente e al calendario editoriale.",
+      "Creare bozze e publish job separati, con approvazione cliente prima della pubblicazione.",
+    ],
+    healthCheck: "OAuth valido, lettura organizzazioni allowlist e dry-run creazione contenuto non pubblicato.",
+    notes: "Utile per clienti B2B e contenuti corporate; non deve pubblicare direttamente da task non approvate.",
+  },
+  {
+    id: "google-drive",
+    label: "Google Drive",
+    category: "cloud",
+    purpose: "Archiviazione e reperimento deliverable cliente, materiali approvati, allegati task e pacchetti finali di progetto.",
+    graphUse: ["deliverable", "task", "progetti", "clienti", "asset", "approvazioni_cliente"],
+    requiredEnv: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET_REF"],
+    optionalEnv: ["GOOGLE_DRIVE_SCOPES", "GOOGLE_OAUTH_REDIRECT_URI"],
+    authMethod: "oauth_pkce",
+    setupSteps: [
+      "Autorizzare Drive con scope limitati a cartelle/app-folder o cartelle cliente allowlist.",
+      "Collegare folder_id a cliente/progetto e salvare solo metadata/source_id in Optima.",
+      "Ogni deliverable finale deve avere task/progetto, versione, stato approvazione e link sorgente.",
+    ],
+    healthCheck: "Lettura cartella sandbox, upload file test redatto, recupero metadata e cancellazione controllata.",
+    notes:
+      "Serve a rendere i deliverable facili da reperire da progetto, card task e calendario editoriale senza duplicare file dentro Optima.",
   },
   {
     id: "github",
