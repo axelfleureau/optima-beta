@@ -50,6 +50,27 @@ Optima deve assorbire le funzioni utili di Hermes e Graphify come capability nat
 
 Script: `scripts/import-hermes-graph-source.mjs`
 
+Per dati commerciali/clienti Righello, Hermes espone anche un vault Obsidian operativo. La fonte verificata al 2026-06-15 e:
+
+- `/home/hermes/obsidian-righello-vault/01_Commerciale/Clienti/Righello_Client_Intelligence_Master.md`
+- `/home/hermes/obsidian-righello-vault/01_Commerciale/Opportunita_Upsell.md`
+- `/home/hermes/.hermes/state/notion_db_ids.json`
+- `/home/hermes/.hermes/state/notion_sync_state.json`
+
+Script dedicato:
+
+```bash
+scp root@<vps>:/home/hermes/obsidian-righello-vault/01_Commerciale/Clienti/Righello_Client_Intelligence_Master.md /private/tmp/righello-client-intelligence-master.md
+node scripts/import-hermes-client-intelligence.mjs \
+  --input=/private/tmp/righello-client-intelligence-master.md \
+  --output=scripts/seed-hermes-client-intelligence-2026-06-15.sql
+node scripts/run-with-wrangler-vars.mjs production -- \
+  npx wrangler d1 execute optima-beta-production-db --remote \
+  --file scripts/seed-hermes-client-intelligence-2026-06-15.sql
+```
+
+Questo import e intenzionalmente redatto: legge solo la tabella `Indice Clienti`, crea/aggiorna clienti e record `external_data_records` con `provider='hermes'`, `record_type='client'` e `record_type='payment'` per il fatturato aggregato. Non importa recapiti, OneDrive, allegati, token, sessioni o schede dettagliate. Esempio: Portopiccolo Apartments viene collegato a `client_rig_ppap` con un record di fatturato aggregato Hermes da 2.750 euro, `confidence='extracted'`.
+
 Uso consigliato:
 
 ```bash
