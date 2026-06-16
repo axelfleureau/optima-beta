@@ -107,6 +107,15 @@ function calendarKey(memberId: string, date: string) {
   return `${memberId}:${date}`
 }
 
+function splitTaskTitles(value: unknown) {
+  return typeof value === "string" && value
+    ? value
+        .split("|||")
+        .map((title) => title.trim())
+        .filter(Boolean)
+    : []
+}
+
 function mapCalendarStatus(day?: any) {
   if (!day) return "missing"
   return getPresenceStatus({
@@ -152,13 +161,7 @@ function mapCalendarDay({
   const completedTaskCount = Number(tasks?.completed_task_count || 0)
   const missingDurationTaskCount = Number(tasks?.missing_duration_task_count || 0)
   const taskTitles =
-    typeof tasks?.task_titles === "string" && tasks.task_titles
-      ? String(tasks.task_titles)
-          .split("|||")
-          .map((title) => title.trim())
-          .filter(Boolean)
-          .slice(0, 8)
-      : []
+    splitTaskTitles(tasks?.task_titles).slice(0, 8)
   const loadMinutes = Math.max(activityMinutes, taskMinutes)
   const assumedCheckInAt = assumedPresence ? localDateTime(date, schedule.workStartTime) : null
   const checkInAt = workDay?.check_in_at || assumedCheckInAt
@@ -444,7 +447,7 @@ export async function GET(request: NextRequest) {
     )
     const self = people.find((person) => person.id === principal.memberId) || null
 
-    const [workDaysResult, activityDaysResult, taskDaysResult, trackedTaskDaysResult, completedTaskDaysResult] = await Promise.all([
+    const [workDaysResult, activityDaysResult, taskDaysResult, trackedTaskDaysResult, completedTaskDaysResult, monthTaskCountsResult] = await Promise.all([
       db
         .prepare(
           `SELECT member_id,
@@ -559,6 +562,47 @@ export async function GET(request: NextRequest) {
         )
         .bind(principal.organizationId, month.monthStart, month.monthEnd, isManager ? 1 : 0, principal.memberId)
         .all(),
+      db
+        .prepare(
+          `SELECT member_id, COUNT(DISTINCT task_id) AS task_count
+           FROM (
+             SELECT assignee_member_id AS member_id, id AS task_id
+             FROM tasks
+             WHERE organization_id = ?
+               AND assignee_member_id IS NOT NULL
+               AND COALESCE(assignment_status, 'accepted') = 'accepted'
+               AND (
+                 (created_at IS NOT NULL AND date(datetime(created_at, '+2 hours')) >= date(?) AND date(datetime(created_at, '+2 hours')) <= date(?))
+                 OR (due_at IS NOT NULL AND date(due_at) >= date(?) AND date(due_at) <= date(?))
+               )
+               AND (? = 1 OR assignee_member_id = ?)
+             UNION
+             SELECT member_id, task_id
+             FROM time_entries
+             WHERE organization_id = ?
+               AND task_id IS NOT NULL
+               AND task_id <> ''
+               AND entry_date >= ?
+               AND entry_date <= ?
+               AND (? = 1 OR member_id = ?)
+           )
+           GROUP BY member_id`,
+        )
+        .bind(
+          principal.organizationId,
+          month.monthStart,
+          month.monthEnd,
+          month.monthStart,
+          month.monthEnd,
+          isManager ? 1 : 0,
+          principal.memberId,
+          principal.organizationId,
+          month.monthStart,
+          month.monthEnd,
+          isManager ? 1 : 0,
+          principal.memberId,
+        )
+        .all(),
     ])
 
     const workDaysByMemberDate = new Map<string, any>()
@@ -602,15 +646,30 @@ export async function GET(request: NextRequest) {
         task_minutes: 0,
         task_titles: "",
       }
+      const currentTitles = splitTaskTitles(current.task_titles)
+      const completedTitles = splitTaskTitles(day.completed_task_titles)
+      const additionalCompletedTitles = completedTitles.filter((title) => !currentTitles.includes(title))
+      const additionalCompletedCount =
+        completedTitles.length > 0 ? additionalCompletedTitles.length : Number(day.completed_task_count || 0)
+      const additionalCompletedMinutes =
+        additionalCompletedCount > 0 && additionalCompletedCount === completedTitles.length
+          ? Number(day.completed_task_minutes || 0)
+          : 0
+
       tasksByMemberDate.set(key, {
         ...current,
-        task_count: Number(current.task_count || 0) + Number(day.completed_task_count || 0),
-        task_minutes: Number(current.task_minutes || 0) + Number(day.completed_task_minutes || 0),
+        task_count: Number(current.task_count || 0) + additionalCompletedCount,
+        task_minutes: Number(current.task_minutes || 0) + additionalCompletedMinutes,
         completed_task_count: Number(day.completed_task_count || 0),
         completed_task_minutes: Number(day.completed_task_minutes || 0),
         missing_duration_task_count: Number(day.missing_duration_task_count || 0),
-        task_titles: [current.task_titles, day.completed_task_titles].filter(Boolean).join("|||"),
+        task_titles: [...currentTitles, ...additionalCompletedTitles].join("|||"),
       })
+    }
+
+    const monthTaskCountByMember = new Map<string, number>()
+    for (const row of (monthTaskCountsResult.results || []) as any[]) {
+      monthTaskCountByMember.set(String(row.member_id), Number(row.task_count || 0))
     }
 
     const calendarPeople = memberRows.map((member) => ({
@@ -618,6 +677,7 @@ export async function GET(request: NextRequest) {
       name: formatName(member),
       email: String(member.email || ""),
       role: String(member.role || "junior"),
+      monthTaskCount: monthTaskCountByMember.get(String(member.id)) || 0,
       days: month.days.map((day) =>
         mapCalendarDay({
           date: day,

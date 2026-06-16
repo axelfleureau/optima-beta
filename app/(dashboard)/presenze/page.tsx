@@ -85,6 +85,7 @@ type PresencePayload = {
       name: string
       email: string
       role: string
+      monthTaskCount: number
       days: Array<{
         date: string
         status: PresenceStatus
@@ -404,7 +405,7 @@ function calendarDayTitle(person: PresencePayload["calendar"]["people"][number],
 }
 
 function personMonthStats(person: PresencePayload["calendar"]["people"][number]) {
-  return person.days.reduce(
+  const stats = person.days.reduce(
     (acc, day) => {
   if (day.status === "present" || day.status === "closed") acc.presenceDays += 1
       if (day.status === "absent") acc.absenceDays += 1
@@ -415,6 +416,11 @@ function personMonthStats(person: PresencePayload["calendar"]["people"][number])
     },
     { presenceDays: 0, absenceDays: 0, anomalyDays: 0, taskCount: 0, activityMinutes: 0 },
   )
+
+  return {
+    ...stats,
+    taskCount: Number(person.monthTaskCount || 0),
+  }
 }
 
 function getMonthCalendarCells(days: string[]) {
