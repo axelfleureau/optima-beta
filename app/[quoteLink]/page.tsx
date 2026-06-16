@@ -27,7 +27,7 @@ export default async function ShortQuoteLinkPage({
     notFound()
   }
 
-  const row = (await db
+  let row = (await db
     .prepare(
       `SELECT q.share_token,
               share.raw_json AS share_record_json
@@ -42,6 +42,20 @@ export default async function ShortQuoteLinkPage({
     )
     .bind(quoteLink, quoteLink)
     .first()) as { share_token?: string | null; share_record_json?: string | null } | null
+
+  if (!row) {
+    row = (await db
+      .prepare(
+        `SELECT raw_json AS share_record_json
+         FROM external_data_records
+         WHERE provider = 'optima'
+           AND record_type = 'quote_share'
+           AND external_id = ?
+         LIMIT 1`,
+      )
+      .bind(`quote-short-link:${quoteLink}`)
+      .first()) as { share_token?: string | null; share_record_json?: string | null } | null
+  }
 
   if (!row) {
     notFound()
