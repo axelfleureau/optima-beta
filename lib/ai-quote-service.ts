@@ -15,6 +15,7 @@ import {
   type QuoteCreativePalette,
 } from "@/lib/righello-quote-creative-system"
 import { buildRighelloQuoteOperatingContext } from "@/lib/righello-quote-operating-model"
+import { applyQuoteClientDataQuality, type QuoteDataQuality } from "@/lib/quote-data-quality"
 
 const RIGHELLO_QUOTE_OPERATING_CONTEXT = buildRighelloQuoteOperatingContext()
 
@@ -177,6 +178,7 @@ export interface GeneratedQuoteData {
     warnings: string[]
     movedToPhaseTwo: string[]
   }
+  dataQuality?: QuoteDataQuality
   totali: {
     subtotale: number
     iva: number
@@ -656,7 +658,7 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
     console.log("✅ Quote generated successfully with deterministic pricing")
     console.log("💰 Final totals:", finalQuote.totali)
     
-    return finalQuote
+    return applyQuoteClientDataQuality(finalQuote)
 
   } catch (error) {
     console.error("❌ Error generating quote from enriched data:", error)
@@ -795,7 +797,7 @@ Restituisci SOLO il JSON completo.`
     await logTokenUsage(userId, userId, response.usage?.totalTokens || 0, "quote_generation")
     
     console.log("✅ Quote generated successfully")
-    return quoteData
+    return applyQuoteClientDataQuality(quoteData)
 
   } catch (error) {
     console.error("❌ Error generating quote:", error)
@@ -836,10 +838,10 @@ export async function enrichQuoteWithClientData(
       }
     }
 
-    return quoteData
+    return applyQuoteClientDataQuality(quoteData)
   } catch (error) {
     console.error("❌ Error enriching quote data:", error)
-    return quoteData // Return original data if enrichment fails
+    return applyQuoteClientDataQuality(quoteData) // Return original data if enrichment fails
   }
 }
 

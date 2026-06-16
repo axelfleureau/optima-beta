@@ -1,6 +1,7 @@
 import jsPDF from "jspdf"
 import type { GeneratedQuoteData } from "@/lib/ai-quote-service"
 import { RIGHELLO_QUOTE_DARK_PNG, RIGHELLO_QUOTE_WHITE_PNG } from "@/lib/righello-pdf-assets"
+import { applyQuoteClientDataQuality, getQuoteClientDataQuality } from "@/lib/quote-data-quality"
 
 type QuoteVoice = GeneratedQuoteData["voci"][number]
 
@@ -104,9 +105,13 @@ const optionalProjectItems = (data: GeneratedQuoteData) =>
 export function validateQuotePDFData(data: GeneratedQuoteData): string[] {
   const errors: string[] = []
   const oneShotItems = baseProjectItems(data)
+  const clientQuality = getQuoteClientDataQuality(data.cliente || {})
 
   if (!data.cliente?.nome?.trim()) {
     errors.push("cliente mancante")
+  }
+  if (clientQuality.placeholderFields.length > 0) {
+    errors.push(`dati cliente fittizi non ammessi nel PDF: ${clientQuality.placeholderFields.join(", ")}`)
   }
   if (!data.preventivo?.titolo?.trim()) {
     errors.push("titolo preventivo mancante")
@@ -788,21 +793,22 @@ class RighelloPDFGenerator {
   }
 
   public generatePDF(data: GeneratedQuoteData): jsPDF {
-    const errors = validateQuotePDFData(data)
+    const safeData = applyQuoteClientDataQuality(data)
+    const errors = validateQuotePDFData(safeData)
     if (errors.length > 0) {
       throw new Error(`Preventivo non valido: ${errors.join("; ")}`)
     }
 
     this.brand = BRAND
-    this.drawCover(data)
-    this.drawExecutiveSummary(data)
-    this.drawContext(data)
-    this.drawProjectSection(data)
-    this.drawRecurring(data)
-    this.drawEconomicRecap(data)
-    this.drawConditions(data)
-    this.drawMaterials(data)
-    this.footer(data)
+    this.drawCover(safeData)
+    this.drawExecutiveSummary(safeData)
+    this.drawContext(safeData)
+    this.drawProjectSection(safeData)
+    this.drawRecurring(safeData)
+    this.drawEconomicRecap(safeData)
+    this.drawConditions(safeData)
+    this.drawMaterials(safeData)
+    this.footer(safeData)
 
     const pageCount = this.doc.getNumberOfPages()
     if (pageCount > 20) {
@@ -818,8 +824,8 @@ class RighelloPDFGenerator {
         "condizioni e materiali presenti",
       ],
       pages: pageCount,
-      developmentTotal: quoteDevelopmentTotal(data),
-      yearOneTotal: quoteYearOneTotal(data),
+      developmentTotal: quoteDevelopmentTotal(safeData),
+      yearOneTotal: quoteYearOneTotal(safeData),
     })
 
     return this.doc

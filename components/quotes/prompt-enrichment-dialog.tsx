@@ -33,10 +33,12 @@ import {
   ImageIcon,
   FileText,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SECTOR_TEMPLATES } from "@/lib/quote-templates"
+import { getQuoteClientDataQuality } from "@/lib/quote-data-quality"
 import {
   RIGHELLO_QUOTE_DISCOVERY_QUESTIONS,
   RIGHELLO_QUOTE_SERVICE_AREAS,
@@ -249,6 +251,11 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
   const isStep1Valid = !!formData.projectType
   const isStep2Valid = !!formData.sector
   const isStep3Valid = formData.description && formData.description.length >= 50 && isBudgetDraftValid
+  const clientDataQuality = getQuoteClientDataQuality({
+    nome: formData.clientName,
+    email: formData.clientEmail,
+    azienda: formData.clientCompany,
+  })
   const isStep4Valid = formData.clientMode === 'platform' 
     ? !!formData.clientId 
     : !!(formData.clientName && formData.clientEmail)
@@ -826,8 +833,40 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground mt-2">
-                          ✓ Pagamento Stripe automatico • Dati cliente precompilati
+                          Pagamento Stripe automatico se i dati cliente sono completi.
                         </p>
+                        {formData.clientId && (
+                          <div className={cn(
+                            "mt-3 rounded-xl border p-3 text-sm",
+                            clientDataQuality.status === "complete"
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                              : "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                          )}>
+                            <div className="flex items-start gap-2">
+                              {clientDataQuality.status === "complete" ? (
+                                <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                              ) : (
+                                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                              )}
+                              <div>
+                                <p className="font-semibold">
+                                  {clientDataQuality.status === "complete"
+                                    ? "Dati cliente pronti"
+                                    : "Dati cliente da completare"}
+                                </p>
+                                {clientDataQuality.status === "complete" ? (
+                                  <p className="mt-1 opacity-80">Optima usera solo campi reali presenti in anagrafica.</p>
+                                ) : (
+                                  <ul className="mt-1 space-y-1 opacity-90">
+                                    {clientDataQuality.warnings.map((warning) => (
+                                      <li key={warning}>{warning}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -870,8 +909,38 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                         </div>
                         
                         <p className="text-xs text-amber-600 dark:text-amber-400">
-                          ℹ️ Cliente esterno: link approvazione pubblico, nessun pagamento automatico
+                          Cliente esterno: link approvazione pubblico, nessun pagamento automatico.
                         </p>
+                        <div className={cn(
+                          "rounded-xl border p-3 text-sm",
+                          clientDataQuality.status === "complete"
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                            : "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                        )}>
+                          <div className="flex items-start gap-2">
+                            {clientDataQuality.status === "complete" ? (
+                              <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                            ) : (
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                            )}
+                            <div>
+                              <p className="font-semibold">
+                                {clientDataQuality.status === "complete"
+                                  ? "Nessun dato fittizio rilevato"
+                                  : "Optima non inserisce dati mock"}
+                              </p>
+                              {clientDataQuality.status === "complete" ? (
+                                <p className="mt-1 opacity-80">Il PDF puo usare i dati cliente inseriti.</p>
+                              ) : (
+                                <ul className="mt-1 space-y-1 opacity-90">
+                                  {clientDataQuality.warnings.map((warning) => (
+                                    <li key={warning}>{warning}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </>
                     )}
 

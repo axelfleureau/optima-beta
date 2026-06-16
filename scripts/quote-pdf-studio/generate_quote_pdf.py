@@ -98,6 +98,21 @@ def clean_text(value: Any, fallback: str = "") -> str:
     return text
 
 
+def is_mock_contact_value(value: Any) -> bool:
+    text = clean_text(value)
+    if not text:
+        return False
+    email_match = re.fullmatch(r"[^@\s]+@([^@\s]+\.[^@\s]+)", text)
+    if email_match and email_match.group(1).lower() in {"example.com", "example.it", "example.org", "test.com", "test.it"}:
+        return True
+    return bool(re.search(r"\b(placeholder|lorem|mock|fake|test|esempio)\b", text, re.I))
+
+
+def real_client_value(value: Any) -> str:
+    text = clean_text(value)
+    return "" if is_mock_contact_value(text) else text
+
+
 def ptext(value: Any, fallback: str = "") -> str:
     return html.escape(clean_text(value, fallback))
 
@@ -332,10 +347,18 @@ class StudioQuotePDF:
 
     def validate(self) -> None:
         errors: list[str] = []
+        cliente = self.data.get("cliente", {})
+        placeholder_fields = [
+            field
+            for field in ("email", "telefono", "indirizzo", "partitaIva")
+            if is_mock_contact_value(cliente.get(field))
+        ]
         if not self.client_name:
             errors.append("cliente mancante")
         if not self.title:
             errors.append("titolo mancante")
+        if placeholder_fields:
+            errors.append("dati cliente fittizi non ammessi: " + ", ".join(placeholder_fields))
         if len(self.base_items()) < 3:
             errors.append("servono almeno 3 voci base per un preventivo commerciale completo")
         for item in self.items():
@@ -451,11 +474,14 @@ class StudioQuotePDF:
     def meta_table(self) -> Table:
         cliente = self.data.get("cliente", {})
         preventivo = self.data.get("preventivo", {})
+        company = real_client_value(cliente.get("azienda"))
+        email = real_client_value(cliente.get("email"))
+        vat = real_client_value(cliente.get("partitaIva"))
         client_lines = [
             self.client_name,
-            clean_text(cliente.get("azienda")),
-            clean_text(cliente.get("email")),
-            clean_text(cliente.get("partitaIva")),
+            company if company.lower() != self.client_name.lower() else "",
+            email or "Email da completare",
+            vat,
         ]
         client_text = "<br/>".join(ptext(line) for line in client_lines if line)
         data = [

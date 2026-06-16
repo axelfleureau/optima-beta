@@ -18,6 +18,7 @@ import { useAIActionState } from "@/hooks/use-ai-action-state"
 import { useAIFeedback } from "@/hooks/use-ai-feedback"
 import { convertToQuoteFormat, type GeneratedQuoteData } from "@/lib/ai-quote-service"
 import { downloadQuotePDF } from "@/lib/pdf-generator"
+import { getQuoteClientDataQuality } from "@/lib/quote-data-quality"
 import { PromptEnrichmentDialog, type EnrichedPromptData } from "@/components/quotes/prompt-enrichment-dialog"
 import {
   Wand2,
@@ -33,7 +34,8 @@ import {
   Plus,
   Pencil,
   Check,
-  X
+  X,
+  AlertTriangle
 } from "lucide-react"
 
 async function readApiJson(response: Response) {
@@ -717,24 +719,52 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                       <CardTitle>Informazioni Cliente</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {(() => {
+                        const clientQuality = generatedQuote.dataQuality || getQuoteClientDataQuality(generatedQuote.cliente)
+                        return (
+                          <div className={`rounded-lg border p-3 text-sm ${
+                            clientQuality.status === "complete"
+                              ? "border-emerald-500/30 bg-emerald-500/10"
+                              : "border-amber-500/30 bg-amber-500/10"
+                          }`}>
+                            <div className="flex items-start gap-2">
+                              {clientQuality.status === "complete" ? (
+                                <Check className="mt-0.5 h-4 w-4 text-emerald-500" />
+                              ) : (
+                                <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
+                              )}
+                              <div>
+                                <p className="font-medium">
+                                  {clientQuality.status === "complete"
+                                    ? "Dati cliente pronti per il PDF"
+                                    : "Dati cliente da completare prima dell'invio"}
+                                </p>
+                                {clientQuality.warnings.length > 0 && (
+                                  <ul className="mt-1 space-y-1 text-muted-foreground">
+                                    {clientQuality.warnings.map((warning) => (
+                                      <li key={warning}>{warning}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                           <Label className="font-medium">Nome:</Label>
                           <p className="text-sm">{generatedQuote.cliente.nome}</p>
                         </div>
-                        {generatedQuote.cliente.email && (
-                          <div>
-                            <Label className="font-medium">Email:</Label>
-                            <p className="text-sm">{generatedQuote.cliente.email}</p>
-                          </div>
-                        )}
-                      </div>
-                      {generatedQuote.cliente.azienda && (
                         <div>
-                          <Label className="font-medium">Azienda:</Label>
-                          <p className="text-sm">{generatedQuote.cliente.azienda}</p>
+                          <Label className="font-medium">Email:</Label>
+                          <p className="text-sm">{generatedQuote.cliente.email || "Da completare"}</p>
                         </div>
-                      )}
+                      </div>
+                      <div>
+                        <Label className="font-medium">Azienda:</Label>
+                        <p className="text-sm">{generatedQuote.cliente.azienda || "Da completare"}</p>
+                      </div>
                       {generatedQuote.cliente.telefono && (
                         <div>
                           <Label className="font-medium">Telefono:</Label>
