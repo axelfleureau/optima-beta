@@ -129,7 +129,10 @@ body:not([data-scroll-locked]) {
 }
 
 .optima-app-surface {
+  min-height: 100svh;
+  overflow-x: hidden;
   overscroll-behavior-y: auto;
+  touch-action: pan-x pan-y;
 }
 
 @media (max-width: 767px) {
@@ -147,8 +150,11 @@ body:not([data-scroll-locked]) {
 
 [data-app-scroll-root] {
   min-height: 100svh;
+  overflow-x: hidden;
+  overflow-y: visible;
   overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 @media (pointer: fine) {
@@ -165,10 +171,16 @@ body:not([data-scroll-locked]) {
   }
 }
 
-[data-radix-scroll-area-viewport],
-.mobile-scroll-container {
+[data-radix-scroll-area-viewport] {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+}
+
+.mobile-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   touch-action: pan-x pan-y;
 }
 

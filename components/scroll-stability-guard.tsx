@@ -13,8 +13,20 @@ const LOCKED_BODY_STYLES = [
   "left",
   "right",
   "width",
+  "height",
 ] as const
-const LOCKED_DOCUMENT_STYLES = ["overflow", "overscrollBehavior", "overscrollBehaviorY"] as const
+const LOCKED_DOCUMENT_STYLES = [
+  "overflow",
+  "overscrollBehavior",
+  "overscrollBehaviorY",
+  "position",
+  "top",
+  "left",
+  "right",
+  "width",
+  "height",
+  "pointerEvents",
+] as const
 
 function isVisibleBlockingLayer(element: Element) {
   if (!(element instanceof HTMLElement)) return false
@@ -58,6 +70,8 @@ function clearStaleScrollLock() {
 
   if (!bodyLooksLocked) return
 
+  const lockedTop = body.style.position === "fixed" ? Number.parseInt(body.style.top || "0", 10) : 0
+
   body.removeAttribute("data-scroll-locked")
   body.removeAttribute("data-scroll-lock")
   LOCKED_BODY_STYLES.forEach((property) => {
@@ -66,6 +80,12 @@ function clearStaleScrollLock() {
   LOCKED_DOCUMENT_STYLES.forEach((property) => {
     documentElement.style[property] = ""
   })
+
+  if (lockedTop < 0) {
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: Math.abs(lockedTop) })
+    })
+  }
 }
 
 export function ScrollStabilityGuard() {
@@ -98,6 +118,9 @@ export function ScrollStabilityGuard() {
     window.addEventListener("orientationchange", scheduleCleanup)
     window.addEventListener("wheel", scheduleCleanup, { passive: true })
     window.addEventListener("pointerdown", scheduleCleanup, { passive: true })
+    window.addEventListener("touchstart", scheduleCleanup, { passive: true })
+    window.addEventListener("touchmove", scheduleCleanup, { passive: true })
+    window.addEventListener("scroll", scheduleCleanup, { passive: true })
     document.addEventListener("visibilitychange", scheduleCleanup)
 
     return () => {
@@ -108,6 +131,9 @@ export function ScrollStabilityGuard() {
       window.removeEventListener("orientationchange", scheduleCleanup)
       window.removeEventListener("wheel", scheduleCleanup)
       window.removeEventListener("pointerdown", scheduleCleanup)
+      window.removeEventListener("touchstart", scheduleCleanup)
+      window.removeEventListener("touchmove", scheduleCleanup)
+      window.removeEventListener("scroll", scheduleCleanup)
       document.removeEventListener("visibilitychange", scheduleCleanup)
     }
   }, [pathname])

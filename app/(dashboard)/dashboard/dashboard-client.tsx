@@ -18,6 +18,7 @@ import {
 import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useAuth } from "@/lib/auth-context"
 import { TokenUsageWidget } from "@/components/dashboard/token-usage-widget"
+import { StaffPremiereGuide } from "@/components/staff-premiere-guide"
 
 // Lazy load Technical Architect Dialog - reduces initial bundle size
 const TechnicalArchitectDialog = dynamic(
@@ -51,7 +52,7 @@ const DashboardCommandInput = dynamic(
 )
 
 const dashboardPageClass =
-  "h-[calc(100svh-73px)] w-full overflow-y-auto overflow-x-hidden overscroll-contain bg-transparent [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:h-auto md:min-h-screen md:overflow-visible"
+  "min-h-[calc(100svh-73px)] w-full overflow-x-hidden bg-transparent md:min-h-screen"
 
 export function DashboardClient() {
   const { userData } = useAuth()
@@ -159,6 +160,8 @@ export function DashboardClient() {
               </div>
             </div>
           </div>
+
+          <StaffPremiereGuide />
 
           {/* Command Bar Glassmorphic Section */}
           <div className="optima-panel relative rounded-[1.5rem] p-5 md:p-8">
