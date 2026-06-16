@@ -268,7 +268,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
 
     try {
       downloadQuotePDF(generatedQuote)
-      feedback.success('PDF generato', {
+      feedback.success('Bozza PDF generata', {
         quoteName: generatedQuote.preventivo.titolo
       })
     } catch (error) {
@@ -1054,7 +1054,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
                   className="w-full border-pink-200 text-pink-700 hover:bg-pink-50 disabled:opacity-50 sm:w-auto"
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  Scarica PDF
+                  Scarica bozza PDF
                 </Button>
                 <Button 
                   onClick={handleSaveQuote} 

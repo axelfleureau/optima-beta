@@ -349,7 +349,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
               onClick={() => onDownload(quote.id)}
             >
               <Download className="mr-2 h-4 w-4" />
-              PDF
+              Bozza PDF
             </Button>
           )}
         </div>

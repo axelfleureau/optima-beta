@@ -134,7 +134,7 @@ export function QuoteActions({
           {onDownload && (
             <DropdownMenuItem onClick={() => onDownload(quote.id)}>
               <Download className="mr-2 h-4 w-4" />
-              Scarica PDF
+              Scarica bozza PDF
             </DropdownMenuItem>
           )}
           

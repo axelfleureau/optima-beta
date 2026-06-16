@@ -362,8 +362,8 @@ export default function PreventiviPage() {
       const { downloadQuotePDF } = await import("@/lib/pdf-generator")
       downloadQuotePDF(convertQuoteToPDFData(quote), `Proposta_${quote.id.slice(0, 8)}.pdf`)
       toast({
-        title: "PDF scaricato",
-        description: "La proposta commerciale e' stata generata correttamente.",
+        title: "Bozza PDF scaricata",
+        description: "Per il PDF finale usa il generatore studio ReportLab con QA layout.",
       })
     } catch (downloadError) {
       console.error("Error downloading quote PDF:", downloadError)

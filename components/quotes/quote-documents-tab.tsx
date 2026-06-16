@@ -105,8 +105,8 @@ export function QuoteDocumentsTab({ quote }: QuoteDocumentsTabProps) {
       downloadQuotePDF(pdfData, `Proposta_${quote.id}.pdf`)
       
       toast({
-        title: "PDF Scaricato",
-        description: "La proposta commerciale e' stata scaricata con successo.",
+        title: "Bozza PDF scaricata",
+        description: "Per il PDF finale usa il generatore studio ReportLab con controllo layout.",
       })
     } catch (error) {
       console.error("Error downloading PDF:", error)
@@ -173,7 +173,7 @@ export function QuoteDocumentsTab({ quote }: QuoteDocumentsTabProps) {
               <p className="font-medium text-gray-900 dark:text-white">
                 Proposta_{quote.id}.pdf
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">PDF Preventivo</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Bozza PDF browser</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

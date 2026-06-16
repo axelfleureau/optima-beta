@@ -169,6 +169,14 @@ export interface GeneratedQuoteData {
     visualNotes: string[]
     sourcePattern: string
   }
+  budgetPolicy?: {
+    mode: 'strict_max' | 'advisory'
+    requestedMin?: number
+    requestedMax?: number
+    status: 'within_budget' | 'phased_to_fit' | 'scaled_to_fit' | 'over_budget'
+    warnings: string[]
+    movedToPhaseTwo: string[]
+  }
   totali: {
     subtotale: number
     iva: number
@@ -421,7 +429,9 @@ export async function generateQuoteFromEnrichedData(
       enrichedData.sector,
       {
         recurringMonths: 12,
-        complexity: enrichedData.complexity
+        complexity: enrichedData.complexity,
+        budgetRange: enrichedData.budgetRange,
+        budgetPolicy: 'strict_max',
       }
     )
     
@@ -634,6 +644,7 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
         domandeAperte: discoveryQuestions,
       },
       creativeDirection,
+      budgetPolicy: templateResult.budgetPolicy,
       totali: templateResult.totals // DA TEMPLATE ✅ NON RICALCOLARE
     }
     

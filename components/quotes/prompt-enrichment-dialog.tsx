@@ -231,17 +231,24 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
     if (!open) {
       wasOpenRef.current = false
     }
-  }, [open, formData.budgetRange?.min, formData.budgetRange?.max])
+  }, [open])
 
   const selectedProjectType = PROJECT_TYPES.find(pt => pt.id === formData.projectType)
   const selectedSector = SECTOR_TEMPLATES.find(s => s.id === formData.sector)
+  const budgetDraftMin = Number(budgetInputs.min)
+  const budgetDraftMax = Number(budgetInputs.max)
+  const isBudgetDraftValid =
+    Number.isFinite(budgetDraftMin) &&
+    Number.isFinite(budgetDraftMax) &&
+    budgetDraftMin >= MIN_BUDGET &&
+    budgetDraftMin <= MAX_BUDGET &&
+    budgetDraftMax >= MIN_BUDGET &&
+    budgetDraftMax <= MAX_BUDGET &&
+    budgetDraftMin <= budgetDraftMax
 
   const isStep1Valid = !!formData.projectType
   const isStep2Valid = !!formData.sector
-  const isStep3Valid = formData.description && formData.description.length >= 50 &&
-    (formData.budgetRange?.min || 0) >= MIN_BUDGET && (formData.budgetRange?.min || 0) <= MAX_BUDGET &&
-    (formData.budgetRange?.max || 0) >= MIN_BUDGET && (formData.budgetRange?.max || 0) <= MAX_BUDGET &&
-    (formData.budgetRange?.min || 0) <= (formData.budgetRange?.max || 0)
+  const isStep3Valid = formData.description && formData.description.length >= 50 && isBudgetDraftValid
   const isStep4Valid = formData.clientMode === 'platform' 
     ? !!formData.clientId 
     : !!(formData.clientName && formData.clientEmail)
@@ -267,17 +274,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
 
   const setBudgetDraft = (field: 'min' | 'max', rawValue: string) => {
     const cleaned = rawValue.replace(/[^\d]/g, '').slice(0, 6)
-    const parsed = cleaned === '' ? 0 : Number(cleaned)
-    const previousRange = formData.budgetRange || DEFAULT_BUDGET_RANGE
-
     setBudgetInputs((current) => ({ ...current, [field]: cleaned }))
-    setFormData({
-      ...formData,
-      budgetRange: {
-        min: field === 'min' ? parsed : previousRange.min,
-        max: field === 'max' ? parsed : previousRange.max,
-      },
-    })
   }
 
   const normalizeBudgetInputs = (field?: 'min' | 'max') => {
@@ -647,7 +644,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                               onBlur={() => normalizeBudgetInputs('min')}
                               className="bg-white/50 dark:bg-black/30 backdrop-blur-sm"
                             />
-                            {(formData.budgetRange?.min && (formData.budgetRange.min < MIN_BUDGET || formData.budgetRange.min > MAX_BUDGET)) && (
+                            {Boolean(budgetInputs.min && (budgetDraftMin < MIN_BUDGET || budgetDraftMin > MAX_BUDGET)) && (
                               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                 Il budget deve essere tra €500 e €100.000
                               </p>
@@ -667,12 +664,12 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                               onBlur={() => normalizeBudgetInputs('max')}
                               className="bg-white/50 dark:bg-black/30 backdrop-blur-sm"
                             />
-                            {(formData.budgetRange?.max && (formData.budgetRange.max < MIN_BUDGET || formData.budgetRange.max > MAX_BUDGET)) && (
+                            {Boolean(budgetInputs.max && (budgetDraftMax < MIN_BUDGET || budgetDraftMax > MAX_BUDGET)) && (
                               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                 Il budget deve essere tra €500 e €100.000
                               </p>
                             )}
-                            {Boolean(formData.budgetRange?.min && formData.budgetRange?.max && formData.budgetRange.min > formData.budgetRange.max) && (
+                            {Boolean(budgetInputs.min && budgetInputs.max && budgetDraftMin > budgetDraftMax) && (
                               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                 Il massimo deve essere maggiore o uguale al minimo
                               </p>
@@ -683,12 +680,15 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                           <div className="flex items-center gap-2">
                             <Euro className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                             <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                              Range: €{formData.budgetRange?.min.toLocaleString()} - €{formData.budgetRange?.max.toLocaleString()}
+                              Range: €{(budgetDraftMin || DEFAULT_BUDGET_RANGE.min).toLocaleString()} - €{(budgetDraftMax || DEFAULT_BUDGET_RANGE.max).toLocaleString()}
                             </span>
                           </div>
                           <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700">
-                            Δ €{((formData.budgetRange?.max || 15000) - (formData.budgetRange?.min || 3000)).toLocaleString()}
+                            Δ €{Math.max(0, (budgetDraftMax || DEFAULT_BUDGET_RANGE.max) - (budgetDraftMin || DEFAULT_BUDGET_RANGE.min)).toLocaleString()}
                           </Badge>
+                        </div>
+                        <div className="rounded-[8px] border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs leading-5 text-emerald-700 dark:text-emerald-200">
+                          Il massimo indicato viene trattato come limite reale: se il perimetro non entra, Optima sposta voci in fase 2/opzionali invece di gonfiare il totale.
                         </div>
                       </div>
                     </div>

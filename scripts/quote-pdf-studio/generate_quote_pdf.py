@@ -29,6 +29,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     BaseDocTemplate,
+    CondPageBreak,
     Flowable,
     Frame,
     Image,
@@ -47,6 +48,7 @@ HERE = Path(__file__).resolve().parent
 ASSET_DIR = HERE / "assets"
 FONT_DIR = ASSET_DIR / "fonts"
 DEFAULT_OUTPUT_DIR = HERE / "output"
+DEFAULT_MIN_PAGE_DENSITY = 0.36
 
 LOGO_DARK = ROOT / "public" / "assets" / "logos" / "righello-quote-dark.png"
 LOGO_WHITE = ROOT / "public" / "assets" / "logos" / "righello-quote-white.png"
@@ -408,6 +410,44 @@ class StudioQuotePDF:
         )
         return table
 
+    def item_card(self, item: dict[str, Any], index: int) -> KeepTogether:
+        details = [
+            f"Quantita: {number(item.get('quantita'), 1):g}",
+            f"Categoria: {clean_text(item.get('categoria'), 'base')}",
+        ]
+        if clean_text(item.get("tipo")):
+            details.append(f"Tipologia: {clean_text(item.get('tipo'))}")
+
+        amount = Paragraph(money(self.item_total(item)), self.styles["amount_big"])
+        description = Paragraph(ptext(clean_text(item.get("descrizione"), f"Voce {index}")), self.styles["table_bold"])
+        meta = Paragraph(ptext(" - ".join(details)), self.styles["small"])
+        table = Table(
+            [
+                [
+                    Paragraph(ptext(f"VOCE {index:02d}"), self.styles["label"]),
+                    Paragraph("IMPORTO NETTO", self.styles["label"]),
+                ],
+                [description, amount],
+                [meta, ""],
+            ],
+            colWidths=[self.content_width - 42 * mm, 42 * mm],
+            style=TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), P.surface),
+                    ("BOX", (0, 0), (-1, -1), 0.45, P.border),
+                    ("LINEABOVE", (0, 0), (-1, 0), 1.0, P.pink),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 9),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("SPAN", (0, 2), (1, 2)),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ]
+            ),
+        )
+        return KeepTogether([table, Spacer(1, 6)])
+
     def meta_table(self) -> Table:
         cliente = self.data.get("cliente", {})
         preventivo = self.data.get("preventivo", {})
@@ -490,37 +530,23 @@ class StudioQuotePDF:
         ]
 
     def detail_sections(self) -> list[Any]:
-        output: list[Any] = []
-        for index, item in enumerate(self.base_items(), start=1):
-            output.extend(
-                [
-                    *self.section_title(f"voce {index:02d}", clean_text(item.get("descrizione"), f"Voce {index}")),
-                    Table(
-                        [[Paragraph("IMPORTO NETTO", self.styles["label"]), Paragraph(money(self.item_total(item)), self.styles["amount_big"])]],
-                        colWidths=[self.content_width - 48 * mm, 48 * mm],
-                        style=TableStyle(
-                            [
-                                ("BACKGROUND", (0, 0), (-1, -1), P.surface),
-                                ("BOX", (0, 0), (-1, -1), 0.4, P.border),
-                                ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                                ("TOPPADDING", (0, 0), (-1, -1), 8),
-                                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                            ]
-                        ),
-                    ),
-                    Spacer(1, 12),
-                ]
-            )
-            details = [
-                f"Quantita: {number(item.get('quantita'), 1):g}",
-                f"Categoria: {clean_text(item.get('categoria'), 'base')}",
-            ]
-            if clean_text(item.get("tipo")):
-                details.append(f"Tipologia: {clean_text(item.get('tipo'))}")
-            output.extend(self.bullet_list(details))
-            output.append(PageBreak())
+        items = self.base_items()
+        if not items:
+            return []
+
+        output: list[Any] = [
+            *self.section_title("dettaglio economico", "Voci di sviluppo"),
+            Paragraph(
+                "Le voci sono raggruppate per mantenere il documento compatto e stampabile. "
+                "Ogni importo e' netto IVA e separa lo sviluppo dai servizi ricorrenti.",
+                self.styles["body_muted"],
+            ),
+            Spacer(1, 10),
+        ]
+        for index, item in enumerate(items, start=1):
+            output.append(CondPageBreak(34 * mm))
+            output.append(self.item_card(item, index))
+        output.append(PageBreak())
         return output
 
     def project_content(self) -> list[Any]:
@@ -608,6 +634,8 @@ def render_pngs(pdf_path: Path, output_dir: Path) -> None:
         return
     render_dir = output_dir / f"{pdf_path.stem}_pages"
     render_dir.mkdir(parents=True, exist_ok=True)
+    for stale_page in render_dir.glob("page_*.png"):
+        stale_page.unlink()
     doc = fitz.open(str(pdf_path))
     for index, page in enumerate(doc, start=1):
         pix = page.get_pixmap(matrix=fitz.Matrix(1.35, 1.35), alpha=False)
@@ -615,11 +643,61 @@ def render_pngs(pdf_path: Path, output_dir: Path) -> None:
     print(f"rendered_pages={render_dir}")
 
 
+def page_density_report(pdf_path: Path, min_density: float = DEFAULT_MIN_PAGE_DENSITY) -> dict[str, Any] | None:
+    try:
+        import fitz  # type: ignore
+    except Exception:
+        print("warning: PyMuPDF not installed; skipping density QA", file=sys.stderr)
+        return None
+
+    doc = fitz.open(str(pdf_path))
+    pages: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    page_height = A4[1]
+    content_top = 24 * mm
+    content_bottom = page_height - 28 * mm
+    content_height = content_bottom - content_top
+
+    for index, page in enumerate(doc, start=1):
+        ys: list[float] = []
+        for block in page.get_text("blocks"):
+            if len(block) < 5 or not clean_text(block[4]):
+                continue
+            y0, y1 = float(block[1]), float(block[3])
+            if y1 < content_top or y0 > content_bottom:
+                continue
+            ys.extend([max(y0, content_top), min(y1, content_bottom)])
+
+        density = 1.0 if index == 1 else 0.0
+        if ys:
+            density = max(0.0, min(1.0, (max(ys) - min(ys)) / content_height))
+
+        page_result = {
+            "page": index,
+            "content_density": round(density, 3),
+            "status": "ok",
+        }
+        if 1 < index < len(doc) and density < min_density:
+            page_result["status"] = "warning"
+            warnings.append(f"page {index} has low content density ({density:.0%})")
+        pages.append(page_result)
+
+    return {
+        "pdf": str(pdf_path),
+        "page_count": len(doc),
+        "min_density": min_density,
+        "warnings": warnings,
+        "pages": pages,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate a print-ready Righello quote PDF from Optima JSON.")
     parser.add_argument("input", help="Path to Optima GeneratedQuoteData JSON")
     parser.add_argument("--output", help="Output PDF path")
     parser.add_argument("--render", action="store_true", help="Render pages to PNG with PyMuPDF for QA")
+    parser.add_argument("--qa-json", help="Write layout QA metrics to JSON")
+    parser.add_argument("--strict-qa", action="store_true", help="Fail when internal pages are mostly empty")
     args = parser.parse_args()
 
     register_fonts()
@@ -633,6 +711,17 @@ def main() -> None:
 
     StudioQuotePDF(data, output).build()
     print(f"pdf={output}")
+    qa_report = page_density_report(output)
+    if qa_report:
+        if args.qa_json:
+            qa_path = Path(args.qa_json).expanduser().resolve()
+            qa_path.parent.mkdir(parents=True, exist_ok=True)
+            qa_path.write_text(json.dumps(qa_report, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"qa={qa_path}")
+        for warning in qa_report["warnings"]:
+            print(f"warning: {warning}", file=sys.stderr)
+        if args.strict_qa and qa_report["warnings"]:
+            fail("layout QA failed: " + "; ".join(qa_report["warnings"]))
     if args.render:
         render_pngs(output, output.parent)
 

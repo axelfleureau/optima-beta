@@ -719,6 +719,8 @@ export function calculateQuoteWithExplicitParams(
     recurringMonths?: number
     applyDiscount?: number
     complexity?: 'basic' | 'standard' | 'advanced'
+    budgetRange?: { min: number; max: number }
+    budgetPolicy?: 'strict_max' | 'advisory'
   }
 ): {
   sector: SectorTemplate | null
@@ -742,6 +744,14 @@ export function calculateQuoteWithExplicitParams(
     iva: number
     percentualeIva: number
     totale: number
+  }
+  budgetPolicy: {
+    mode: 'strict_max' | 'advisory'
+    requestedMin?: number
+    requestedMax?: number
+    status: 'within_budget' | 'phased_to_fit' | 'scaled_to_fit' | 'over_budget'
+    warnings: string[]
+    movedToPhaseTwo: string[]
   }
 } {
   // Get sector template explicitly by ID
@@ -767,22 +777,81 @@ export function calculateQuoteWithExplicitParams(
   const isWebsite = template.type === 'website'
   const managementCosts = isWebsite ? getStandardManagementCosts(false) : null
   
-  // Convert pricing breakdown to quote items format.
-  // Recurring website management is kept in gestioneAnnuale, not inside the
-  // signed development total, otherwise a 3.5k site looks like a 9k site.
-  const items = pricing.breakdown
+  const budgetRange = customizations?.budgetRange
+  const budgetMode = customizations?.budgetPolicy || 'strict_max'
+  const budgetWarnings: string[] = []
+  const movedToPhaseTwo: string[] = []
+
+  // Convert pricing breakdown to quote items format. Recurring website
+  // management is kept in gestioneAnnuale, not inside the signed development
+  // total, otherwise a 3.5k site looks like a 9k site.
+  let pricedBreakdown = pricing.breakdown
     .filter(b => b.isIncluded && b.item.category !== 'recurring')
-    .map(b => ({
-      descrizione: b.item.description,
-      quantita: b.item.quantity || 1,
-      prezzoUnitario: b.calculatedPrice,
-      totale: b.calculatedPrice * (b.item.quantity || 1),
-      categoria: b.item.category,
-      tipo: (b.item.unit || 'one_time') as 'one_time' | 'monthly' | 'annual'
+    .map((b, index) => ({
+      index,
+      item: b.item,
+      calculatedPrice: b.calculatedPrice,
+      category: b.item.category,
+      quantity: b.item.quantity || 1,
+    }))
+
+  const subtotalOf = (rows: typeof pricedBreakdown) =>
+    rows.reduce((sum, row) => sum + row.calculatedPrice * row.quantity, 0)
+
+  let budgetStatus: 'within_budget' | 'phased_to_fit' | 'scaled_to_fit' | 'over_budget' = 'within_budget'
+
+  if (budgetRange?.max && budgetMode === 'strict_max' && subtotalOf(pricedBreakdown) > budgetRange.max) {
+    pricedBreakdown = pricedBreakdown.map(row => ({
+      ...row,
+      calculatedPrice: Math.min(row.calculatedPrice, row.item.priceRange.min || row.calculatedPrice),
+    }))
+
+    if (subtotalOf(pricedBreakdown) > budgetRange.max) {
+      const phaseCandidates = [...pricedBreakdown]
+        .filter(row => row.item.category === 'optional' || row.index >= 3)
+        .sort((a, b) => (b.calculatedPrice * b.quantity) - (a.calculatedPrice * a.quantity))
+
+      for (const candidate of phaseCandidates) {
+        if (pricedBreakdown.length <= 3 || subtotalOf(pricedBreakdown) <= budgetRange.max) {
+          break
+        }
+        pricedBreakdown = pricedBreakdown.filter(row => row.item.id !== candidate.item.id)
+        movedToPhaseTwo.push(candidate.item.description)
+      }
+    }
+
+    if (movedToPhaseTwo.length > 0) {
+      budgetStatus = 'phased_to_fit'
+      budgetWarnings.push('Alcune voci sono state spostate in fase 2/opzionali per rispettare il budget massimo.')
+    }
+
+    if (subtotalOf(pricedBreakdown) > budgetRange.max) {
+      const currentSubtotal = subtotalOf(pricedBreakdown)
+      const scaleFactor = budgetRange.max / currentSubtotal
+      pricedBreakdown = pricedBreakdown.map(row => ({
+        ...row,
+        calculatedPrice: Number((row.calculatedPrice * scaleFactor).toFixed(2)),
+      }))
+      budgetStatus = 'scaled_to_fit'
+      budgetWarnings.push('Il perimetro e stato ridimensionato in modo proporzionale per rispettare il budget massimo indicato.')
+    }
+  } else if (budgetRange?.max && subtotalOf(pricedBreakdown) > budgetRange.max) {
+    budgetStatus = 'over_budget'
+    budgetWarnings.push('Il preventivo supera il budget massimo indicato perche la policy e advisory.')
+  }
+
+  const items = pricedBreakdown
+    .map(row => ({
+      descrizione: row.item.description,
+      quantita: row.quantity,
+      prezzoUnitario: row.calculatedPrice,
+      totale: Number((row.calculatedPrice * row.quantity).toFixed(2)),
+      categoria: row.category,
+      tipo: (row.item.unit || 'one_time') as 'one_time' | 'monthly' | 'annual'
     }))
   
   // Calculate signed project totals. Recurring annual support remains separate.
-  const subtotale = pricing.oneTimeTotal
+  const subtotale = subtotalOf(pricedBreakdown)
   const iva = subtotale * 0.22
   const totale = subtotale + iva
   
@@ -801,6 +870,14 @@ export function calculateQuoteWithExplicitParams(
       iva: Number(iva.toFixed(2)),
       percentualeIva: 22,
       totale: Number(totale.toFixed(2))
+    },
+    budgetPolicy: {
+      mode: budgetMode,
+      requestedMin: budgetRange?.min,
+      requestedMax: budgetRange?.max,
+      status: budgetStatus,
+      warnings: budgetWarnings,
+      movedToPhaseTwo,
     }
   }
 }
