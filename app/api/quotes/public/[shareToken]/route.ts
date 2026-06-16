@@ -17,6 +17,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
+import { sanitizeQuoteClient } from "@/lib/quote-data-quality"
 import { validateShareToken, isQuoteExpired } from "@/lib/quote-utils"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
@@ -120,6 +121,15 @@ export async function GET(
       )
     }
 
+    const platformClient = sanitizeQuoteClient({
+      nome: quoteData.client_name || quoteData.linked_client_name || "",
+      email: quoteData.client_email || quoteData.linked_client_email || "",
+    })
+    const externalClient = sanitizeQuoteClient({
+      nome: quoteData.external_client_name,
+      email: quoteData.external_client_email || quoteData.client_email || quoteData.linked_client_email,
+    })
+
     // Return public-safe quote data (NO sensitive tenant info)
     // DUAL CLIENT MODE: Include both platform and external client data
     return NextResponse.json({
@@ -128,10 +138,10 @@ export async function GET(
       description: quoteData.description,
       // Platform client fields
       clientId: quoteData.client_id, // Safe to expose for display logic
-      clientName: quoteData.client_name || quoteData.linked_client_name || '',
+      clientName: platformClient.nome || '',
       // External client fields
-      externalClientName: quoteData.external_client_name,
-      externalClientEmail: quoteData.external_client_email || quoteData.client_email || quoteData.linked_client_email,
+      externalClientName: externalClient.nome || undefined,
+      externalClientEmail: externalClient.email || undefined,
       items: mapPublicItems(quoteData),
       total: euros(quoteData.total_cents),
       currency: quoteData.currency || 'EUR',

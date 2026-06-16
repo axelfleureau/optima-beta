@@ -6,6 +6,7 @@ import { LiquidButton } from "@/components/ui/liquid-button"
 import { FileText, Download, Eye } from "lucide-react"
 import { downloadQuotePDF, getQuotePDFBlob } from "@/lib/pdf-generator"
 import { GeneratedQuoteData } from "@/lib/ai-quote-service"
+import { applyQuoteClientDataQuality } from "@/lib/quote-data-quality"
 import { useToast } from "@/hooks/use-toast"
 
 interface QuoteDocumentsTabProps {
@@ -59,7 +60,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
   const iva = quote.iva ?? Math.round(subtotale * (percentualeIva / 100) * 100) / 100
   const totale = quote.total ?? (subtotale + iva)
 
-  return {
+  return applyQuoteClientDataQuality({
     cliente: {
       nome: clientName,
       email: clientEmail,
@@ -93,7 +94,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       percentualeIva: percentualeIva,
       totale: totale
     }
-  }
+  })
 }
 
 export function QuoteDocumentsTab({ quote }: QuoteDocumentsTabProps) {

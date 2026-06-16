@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+import { sanitizeQuoteClient } from "@/lib/quote-data-quality"
 
 function parseJson(value: unknown, fallback: unknown) {
   if (typeof value !== "string" || !value.trim()) return fallback
@@ -34,16 +35,24 @@ function mapQuote(row: any) {
   )
   const subtotal = euros(row.subtotal_cents) || itemSubtotal || voiceSubtotal || total
   const vat = euros(row.vat_cents)
+  const client = sanitizeQuoteClient({
+    nome: row.client_name || row.external_client_name || "Cliente",
+    email: row.client_email || row.external_client_email || "",
+  })
+  const externalClient = sanitizeQuoteClient({
+    nome: row.external_client_name || undefined,
+    email: row.external_client_email || undefined,
+  })
 
   return {
     id: String(row.id),
     title: String(row.title || ""),
     description: row.description || "",
     clientId: row.client_id || undefined,
-    clientName: row.client_name || row.external_client_name || "Cliente",
-    clientEmail: row.client_email || row.external_client_email || "",
-    externalClientName: row.external_client_name || undefined,
-    externalClientEmail: row.external_client_email || undefined,
+    clientName: client.nome || "Cliente",
+    clientEmail: client.email || "",
+    externalClientName: externalClient.nome || undefined,
+    externalClientEmail: externalClient.email || undefined,
     status: row.status || "draft",
     currency: row.currency || "EUR",
     items,

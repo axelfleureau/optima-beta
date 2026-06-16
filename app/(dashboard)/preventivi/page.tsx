@@ -36,6 +36,7 @@ import { useQuotes } from "@/hooks/use-quotes"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { getRighelloQuoteAreaLabels, RIGHELLO_QUOTE_FLOW_STEPS } from "@/lib/righello-quote-operating-model"
+import { applyQuoteClientDataQuality } from "@/lib/quote-data-quality"
 import { cn } from "@/lib/utils"
 import type { GeneratedQuoteData } from "@/lib/ai-quote-service"
 import type { Quote } from "@/types/quote"
@@ -169,7 +170,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
   const percentualeIva = quote.percentualeIva ?? 22
   const iva = quote.iva && quote.iva > 0 ? quote.iva : Math.round(subtotale * (percentualeIva / 100) * 100) / 100
 
-  return {
+  return applyQuoteClientDataQuality({
     cliente: {
       nome: quote.externalClientName || quote.clientName || "Cliente",
       email: quote.externalClientEmail || quote.clientEmail || "",
@@ -203,7 +204,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       percentualeIva,
       totale: subtotale + iva,
     },
-  }
+  })
 }
 
 export default function PreventiviPage() {
