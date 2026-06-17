@@ -253,9 +253,9 @@ const CONNECTORS: ConnectorSpec[] = [
     graphUse: ["clienti", "task", "progetti", "knowledge_base", "notion_pages", "notion_databases"],
     requiredEnv: ["NOTION_API_KEY"],
     optionalEnv: ["NOTION_RIGHELLO_CLIENTS_SOURCE", "NOTION_RIGHELLO_WORK_SOURCE", "NOTION_IMPORT_ALLOWLIST"],
-    authMethod: "oauth_pkce",
+    authMethod: "api_key_secret",
     setupSteps: [
-      "Autorizzare Notion con OAuth/PKCE o integrazione interna su database allowlist.",
+      "Configurare Notion con integrazione interna o OAuth dedicato quando disponibile, sempre su database allowlist.",
       "Limitare import a RIG_CLIENTI, RIG_WORK, preventivi e fonti esplicitamente approvate.",
       "Importare in Optima dati redatti e source_id, non credenziali o dump integrali.",
     ],

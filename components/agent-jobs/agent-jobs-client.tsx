@@ -2230,12 +2230,43 @@ export function AgentJobsClient({
     return connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth"
   }
 
+  type ConnectorSetupKind = "oauth" | "browser" | "github_owner" | "runtime" | "service_account" | "secret_ref"
+
+  function connectorSetupKind(connector: AgenticCapabilities["mcpConnectorCatalog"][number]): ConnectorSetupKind {
+    if (connector.id === "browser") return "browser"
+    if (connector.id === "github") return "github_owner"
+    if (isStandardOAuthConnector(connector)) return "oauth"
+    if (connector.authMethod === "runner_env") return "runtime"
+    if (connector.authMethod === "service_account") return "service_account"
+    return "secret_ref"
+  }
+
+  function connectorSetupKindLabel(kind: ConnectorSetupKind) {
+    if (kind === "oauth") return "OAuth reale"
+    if (kind === "browser") return "Browser login"
+    if (kind === "github_owner") return "Owner GitHub"
+    if (kind === "runtime") return "Runtime CLI"
+    if (kind === "service_account") return "Service token"
+    return "Secret ref"
+  }
+
+  function connectorSetupKindTone(kind: ConnectorSetupKind) {
+    if (kind === "oauth") return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+    if (kind === "browser") return "border-purple-300/25 bg-purple-300/10 text-purple-100"
+    if (kind === "github_owner") return "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+    if (kind === "runtime") return "border-sky-300/25 bg-sky-300/10 text-sky-100"
+    if (kind === "service_account") return "border-amber-300/25 bg-amber-300/10 text-amber-100"
+    return "border-slate-300/20 bg-slate-300/10 text-slate-200"
+  }
+
   function connectorPrimaryActionLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    if (connector.id === "github") return "Apri policy GitHub"
-    if (connector.id === "browser") return "Configura Browser"
-    if (isStandardOAuthConnector(connector)) return "Connetti OAuth"
-    if (connector.authMethod === "runner_env") return "Configura runtime"
-    return "Configura secret"
+    const kind = connectorSetupKind(connector)
+    if (kind === "github_owner") return "Governance GitHub"
+    if (kind === "browser") return "Login browser"
+    if (kind === "oauth") return "Apri OAuth"
+    if (kind === "runtime") return "Configura runtime"
+    if (kind === "service_account") return "Configura service token"
+    return "Configura secret_ref"
   }
 
   function connectorSetupHint(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
@@ -3762,6 +3793,53 @@ export function AgentJobsClient({
               </p>
             </div>
             <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-white">Percorsi di collegamento</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    Scegli il percorso giusto prima di creare job: OAuth apre consenso, Browser MCP apre login controllato, runtime configura CLI/VPS.
+                  </p>
+                </div>
+                <span className="w-fit rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100">
+                  no token in D1
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    title: "OAuth standard",
+                    badge: "consenso provider",
+                    body: "Google Business, Calendar, Drive, Meta, LinkedIn e Vercel devono aprire una pagina consenso con redirect allowlist, state e PKCE.",
+                  },
+                  {
+                    title: "Browser MCP",
+                    badge: "login web",
+                    body: "ChatGPT, Gemini/Nano Banana, Perplexity e Claude usano un browser isolato sul VPS quando non vogliamo API key a consumo.",
+                  },
+                  {
+                    title: "Runtime / CLI",
+                    badge: "VPS",
+                    body: "Codex CLI, OpenCode, Cloudflare o Hostinger richiedono profilo runtime, wrapper, service token o secret_ref verificato.",
+                  },
+                  {
+                    title: "Health-check",
+                    badge: "dopo setup",
+                    body: "Il job agentico non fa login: verifica credenziali, scope e permessi dopo che il collegamento e stato configurato.",
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-black text-white">{item.title}</p>
+                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                        {item.badge}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-400">{item.body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-black text-white">Provider AI operativi</p>
@@ -4522,7 +4600,7 @@ export function AgentJobsClient({
                 {operationalMcpConnectors.map((connector) => {
                   const installation = connectorInstallationsById.get(connector.id)
                   const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
-                  const busy = setupAction === `connector-setup:${connector.id}`
+                  const setupKind = connectorSetupKind(connector)
                   return (
                     <div key={connector.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-start justify-between gap-3">
@@ -4532,9 +4610,14 @@ export function AgentJobsClient({
                             {connector.category} · {connectorAuthLabel(connector.authMethod)}
                           </p>
                         </div>
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${installTone(state)}`}>
-                          {installLabel(state)}
-                        </span>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${installTone(state)}`}>
+                            {installLabel(state)}
+                          </span>
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(setupKind)}`}>
+                            {connectorSetupKindLabel(setupKind)}
+                          </span>
+                        </div>
                       </div>
                       <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{connector.purpose}</p>
                       <p className="mt-2 line-clamp-2 rounded-md border border-white/10 bg-black/20 p-2 text-[11px] leading-5 text-slate-400">
@@ -4555,17 +4638,6 @@ export function AgentJobsClient({
                       >
                         <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
                         {connectorPrimaryActionLabel(connector)}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => createConnectorSetupJob(connector)}
-                        disabled={busy}
-                        className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
-                      >
-                        {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
-                        Job health-check
                       </Button>
                     </div>
                   )
@@ -5090,10 +5162,10 @@ export function AgentJobsClient({
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-xl font-black sm:text-2xl">
-                Checklist MCP {selectedConnector?.label ?? ""}
+                Setup MCP {selectedConnector?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Guida connector tenant-scoped. Questo salvataggio non autorizza account: login, pairing/OAuth e secret restano nel runtime autorizzato.
+                Flusso tenant-scoped. OAuth, Browser MCP, runtime e secret_ref sono percorsi diversi: Optima mostra l'azione reale e usa job solo per health-check revisionabili.
               </DialogDescription>
             </DialogHeader>
 
@@ -5107,12 +5179,15 @@ export function AgentJobsClient({
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedConnectorInstallation?.installState ?? (selectedConnector.status === "enabled" ? "healthy" : "not_installed"))}`}>
                       {installLabel(selectedConnectorInstallation?.installState ?? (selectedConnector.status === "enabled" ? "healthy" : "not_installed"))}
                     </span>
-                    {selectedConnectorInstallation?.lastHealthStatus ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-                        health: {selectedConnectorInstallation.lastHealthStatus}
-                      </span>
-                    ) : null}
-                  </div>
+	                    {selectedConnectorInstallation?.lastHealthStatus ? (
+	                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+	                        health: {selectedConnectorInstallation.lastHealthStatus}
+	                      </span>
+	                    ) : null}
+	                    <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${connectorSetupKindTone(connectorSetupKind(selectedConnector))}`}>
+	                      {connectorSetupKindLabel(connectorSetupKind(selectedConnector))}
+	                    </span>
+	                  </div>
                   <p className="mt-3 text-sm leading-6 text-slate-200">{selectedConnector.purpose}</p>
                   <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
                     {connectorSetupHint(selectedConnector)}
@@ -5224,9 +5299,9 @@ export function AgentJobsClient({
                           disabled={Boolean(browserPairingAction)}
                           className="rounded-lg border-purple-200/20 bg-black/20 text-purple-50 hover:bg-purple-300/10"
                         >
-                          {browserPairingAction === target ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />}
-                          Prepara {label}
-                        </Button>
+	                          {browserPairingAction === target ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />}
+	                          Login {label}
+	                        </Button>
                       ))}
                     </div>
                     <div className="mt-3 grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3">
@@ -5527,7 +5602,7 @@ export function AgentJobsClient({
 	                      className="rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400"
 	                    >
 	                      {oauthAction === `connector-oauth:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                      Apri OAuth
+	                      Apri consenso OAuth
                     </Button>
                   ) : null}
                   <Button
@@ -5538,7 +5613,7 @@ export function AgentJobsClient({
                     className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                   >
                     {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-                    {selectedConnector.id === "browser" ? "Verifica sessione" : "Job health-check"}
+	                    {selectedConnector.id === "browser" ? "Health-check sessione" : "Health-check revisionabile"}
                   </Button>
                   <Button
                     type="button"
@@ -5547,7 +5622,7 @@ export function AgentJobsClient({
                     className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                   >
                     {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                    {selectedConnector.id === "browser" ? "Salva stato guidato" : "Salva checklist"}
+	                    {selectedConnector.id === "browser" ? "Salva stato Browser" : "Salva stato setup"}
                   </Button>
                 </div>
               </div>

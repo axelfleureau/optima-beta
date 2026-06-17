@@ -89,18 +89,32 @@ function oauthEnv(connectorId: string) {
   }
 }
 
+function randomBase64Url(bytes = 48) {
+  const buffer = new Uint8Array(bytes)
+  crypto.getRandomValues(buffer)
+  return Buffer.from(buffer).toString("base64url")
+}
+
+async function pkceChallenge(verifier: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
+  return Buffer.from(new Uint8Array(digest)).toString("base64url")
+}
+
 function buildOAuthUrl(input: {
   authorizeUrl: string
   clientId: string
   redirectUri: string
   state: string
   scopes: string
+  codeChallenge: string
 }) {
   const url = new URL(input.authorizeUrl)
   url.searchParams.set("client_id", input.clientId)
   url.searchParams.set("redirect_uri", input.redirectUri)
   url.searchParams.set("response_type", "code")
   url.searchParams.set("state", input.state)
+  url.searchParams.set("code_challenge", input.codeChallenge)
+  url.searchParams.set("code_challenge_method", "S256")
   if (input.scopes) url.searchParams.set("scope", input.scopes)
   return url.toString()
 }
@@ -159,6 +173,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ co
     }
 
     const state = crypto.randomUUID()
+    const codeVerifier = randomBase64Url()
+    const codeChallenge = await pkceChallenge(codeVerifier)
     await upsertConnectorInstallation(auth.db, auth.principal, {
       connectorId: connector.id,
       installState: "guide_required",
@@ -170,6 +186,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ co
           state,
           redirectUri,
           scopeEnv: oauth.scopeEnv,
+          pkce: true,
+          codeVerifier,
+          codeChallenge,
           startedAt: new Date().toISOString(),
           status: "authorization_started",
         },
@@ -185,6 +204,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ co
         redirectUri,
         state,
         scopes: oauth.scopes,
+        codeChallenge,
       }),
       state,
       redirectUri,

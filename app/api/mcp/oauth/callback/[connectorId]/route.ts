@@ -67,6 +67,27 @@ export async function GET(request: NextRequest, context: { params: Promise<{ con
     const db = await getCloudflareDb()
     if (user && db) {
       const principal = await ensureWorkspacePrincipal(db, user)
+      const existing = await db
+        .prepare(
+          `SELECT config_json
+           FROM mcp_connector_installations
+           WHERE organization_id = ? AND connector_id = ?
+           LIMIT 1`,
+        )
+        .bind(principal.organizationId, connector.id)
+        .first()
+      const existingConfig = existing?.config_json ? JSON.parse(String(existing.config_json)) : {}
+      const existingOauth = typeof existingConfig?.oauth === "object" && existingConfig.oauth ? existingConfig.oauth : {}
+      const expectedState = typeof existingOauth.state === "string" ? existingOauth.state : ""
+
+      if (expectedState && expectedState !== state) {
+        return html(
+          "OAuth state non valido",
+          "<p>Il consenso non corrisponde alla sessione OAuth avviata da Optima. Torna in Optima e riavvia il collegamento dal connector.</p>",
+          400,
+        )
+      }
+
       await upsertConnectorInstallation(db, principal, {
         connectorId: connector.id,
         installState: "guide_required",
@@ -75,11 +96,15 @@ export async function GET(request: NextRequest, context: { params: Promise<{ con
         oauthSubject: null,
         secretRef: `${connector.id}:oauth_runtime_secret`,
         config: {
+          ...existingConfig,
           oauth: {
+            ...existingOauth,
             state,
             callbackReceivedAt: new Date().toISOString(),
             status: "authorization_code_received",
             codeReceived: true,
+            stateVerified: Boolean(expectedState),
+            codeVerifierAvailable: Boolean(existingOauth.codeVerifier),
           },
         },
       })
