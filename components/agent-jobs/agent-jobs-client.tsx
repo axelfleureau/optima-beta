@@ -704,10 +704,12 @@ function providerCredentialLabel(secret: string) {
 function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][number]) {
   if (provider.id === "codex") {
     return [
-      "Sul VPS runner avvia login Codex CLI con device auth o sessione autorizzata: `codex login --device-auth` quando disponibile.",
-      "Completa il codice/QR dal telefono o dal browser autorizzato di Axel, poi verifica `codex login status` sul runner.",
-      "Configura solo il token interno Optima necessario al polling del runner, cioe AGENT_RUNNER_API_KEY. Non e una API key a consumo e non sostituisce il login Codex.",
-      "Esegui health-check: heartbeat runner, `codex exec` dry-run, artefatto revisionabile e nessun deploy automatico.",
+      "Non modificare il profilo Codex esistente se usa API key. Crea una home separata, ad esempio `/root/.codex-chatgpt`.",
+      "Autentica quella home con ChatGPT/device-auth oppure con auth.json gia valido copiato nella home separata. Non stampare token o contenuti del file.",
+      "Verifica con `CODEX_HOME=/root/.codex-chatgpt codex login status` e `codex doctor`: deve risultare ChatGPT, API key false, token ChatGPT true.",
+      "Crea o verifica il wrapper `codex-chatgpt` che esporta `CODEX_HOME=/root/.codex-chatgpt` e usa quello nei job Optima.",
+      "Configura solo il token interno Optima necessario al polling, cioe AGENT_RUNNER_API_KEY. Non e una API key a consumo e non sostituisce il login Codex.",
+      "Esegui health-check: heartbeat runner, `codex-chatgpt exec` dry-run, artefatto revisionabile e nessun deploy automatico.",
     ]
   }
   if (provider.authMethod === "runner_env") {
@@ -743,7 +745,7 @@ function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][n
 
 function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][number]) {
   if (provider.id === "codex") {
-    return "Codex non deve rimandarti prima alle API key: la strada preferita e login/device-auth del Codex CLI sul VPS runner. API key a consumo o access token sono fallback facoltativi; AGENT_RUNNER_API_KEY e solo token interno Optima-runner."
+    return "Codex non deve rimandarti prima alle API key: la strada preferita e una CODEX_HOME separata autenticata ChatGPT sul VPS runner, richiamata da wrapper codex-chatgpt. API key a consumo o access token sono fallback facoltativi; AGENT_RUNNER_API_KEY e solo token interno Optima-runner."
   }
   if (provider.id === "openai") {
     return "Per ChatGPT web, Gemini/Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. Le API key a consumo restano un fallback facoltativo, non il percorso principale."
@@ -761,9 +763,9 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
   if (provider.id === "codex") {
     return [
       {
-        label: "Login Codex CLI",
+        label: "Profilo ChatGPT isolato",
         tone: "recommended",
-        body: "Sul VPS esegui device auth/login del Codex CLI e autorizzi tu l'account. Optima verifica lo stato del CLI, non conserva la password.",
+        body: "Sul VPS usa una CODEX_HOME separata, per esempio /root/.codex-chatgpt, autenticata ChatGPT e richiamata solo dal wrapper codex-chatgpt.",
       },
       {
         label: "Browser MCP / QR",
@@ -1878,6 +1880,7 @@ export function AgentJobsClient({
   const [isSavingGraphNode, setIsSavingGraphNode] = useState(false)
   const [capabilityAction, setCapabilityAction] = useState<string | null>(null)
   const [setupAction, setSetupAction] = useState<string | null>(null)
+  const [oauthAction, setOauthAction] = useState<string | null>(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [browserPairingAction, setBrowserPairingAction] = useState<string | null>(null)
@@ -2257,6 +2260,35 @@ export function AgentJobsClient({
       toast.success("Checklist connector salvata", {
         description: `${connector.label}: nessun login eseguito. Servono pairing/OAuth o secret nel runtime, poi health-check prima della produzione.`,
       })
+    }
+  }
+
+  async function startConnectorOAuth(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    try {
+      setOauthAction(`connector-oauth:${connector.id}`)
+      setError(null)
+      const response = await fetch(`/api/mcp/connect/${encodeURIComponent(connector.id)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const missing = Array.isArray(data?.missingEnv) && data.missingEnv.length ? ` Mancano: ${data.missingEnv.join(", ")}.` : ""
+        throw new Error(`${data?.error ?? "OAuth non configurato."}${missing}`)
+      }
+      if (!data?.authorizationUrl) throw new Error("Il provider non ha restituito un URL OAuth valido.")
+      toast.success("Apro consenso OAuth", {
+        description: `${connector.label}: autorizza solo account e scope necessari.`,
+      })
+      window.location.href = String(data.authorizationUrl)
+    } catch (err: any) {
+      const message = err?.message ?? "Impossibile aprire OAuth."
+      setError(message)
+      toast.error("OAuth non avviato", {
+        description: message,
+      })
+    } finally {
+      setOauthAction(null)
     }
   }
 
@@ -5006,7 +5038,7 @@ export function AgentJobsClient({
                       {selectedProvider.id === "codex" ? "Vuoi login/pairing invece di API key?" : "Vuoi ChatGPT o strumenti web senza API?"}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-purple-100">
-                      Usa Browser MCP: apre un browser controllato, fai login tu o con pairing/QR su profilo isolato, e Optima usa solo siti allowlist con audit e review. Per Codex CLI, sul VPS la strada preferita resta device auth/login del CLI; Browser MCP serve per account e strumenti web.
+                      Usa Browser MCP: apre un browser controllato, fai login tu o con pairing/QR su profilo isolato, e Optima usa solo siti allowlist con audit e review. Per Codex CLI, sul VPS la strada preferita e il wrapper codex-chatgpt con CODEX_HOME ChatGPT separata; Browser MCP serve per account e strumenti web.
                     </p>
                     <Button
                       type="button"
@@ -5245,15 +5277,15 @@ export function AgentJobsClient({
                           const timestamp = connected?.connectedAt || connected?.lastEventAt || activeForTarget?.lastEventAt || null
                           return (
                             <div
-                            key={target}
-                            className={`min-w-0 rounded-lg border p-3 ${
-                              ready
-                                ? "border-emerald-300/25 bg-emerald-300/[0.07]"
-                                : expired
-                                  ? "border-amber-300/25 bg-amber-300/[0.06]"
-                                  : "border-white/10 bg-black/20"
-                            }`}
-                          >
+                              key={target}
+                              className={`min-w-0 rounded-lg border p-3 ${
+                                ready
+                                  ? "border-emerald-300/25 bg-emerald-300/[0.07]"
+                                  : expired
+                                    ? "border-amber-300/25 bg-amber-300/[0.06]"
+                                    : "border-white/10 bg-black/20"
+                              }`}
+                            >
                               <div className="flex items-center justify-between gap-3">
                                 <p className="font-black text-white">{label}</p>
                                 <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${
@@ -5485,6 +5517,17 @@ export function AgentJobsClient({
                     >
                       <GitBranch className="mr-1.5 h-4 w-4" />
                       Apri impostazioni GitHub
+                    </Button>
+                  ) : null}
+                  {isStandardOAuthConnector(selectedConnector) ? (
+	                    <Button
+	                      type="button"
+	                      onClick={() => startConnectorOAuth(selectedConnector)}
+	                      disabled={oauthAction === `connector-oauth:${selectedConnector.id}`}
+	                      className="rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+	                    >
+	                      {oauthAction === `connector-oauth:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
+                      Apri OAuth
                     </Button>
                   ) : null}
                   <Button

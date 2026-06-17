@@ -8,28 +8,57 @@ Il runner non espone porte pubbliche: fa polling HTTPS verso Óptima, prende un 
 
 - Node.js 20+
 - Git
-- Codex CLI autenticato
+- Codex CLI autenticato con profilo ChatGPT isolato quando i job devono usare il piano ChatGPT
 - Accesso outbound HTTPS verso `https://appbeta.wearerighello.com`
 - Eventuale SSH key GitHub o token se deve clonare repository privati
 
 ## Autenticazione Codex sul VPS
 
-Per un VPS headless usa OAuth/device auth:
+Non convertire il profilo Codex principale del VPS se e gia configurato con API key. Crea invece una home separata per ChatGPT:
 
 ```bash
-codex login --device-auth
-codex login status
-codex doctor
+mkdir -p /root/.codex-chatgpt
+chmod 700 /root/.codex-chatgpt
 ```
 
-Il comando mostra un codice e un URL: apri l'URL dal browser, autorizza Codex e poi lascia che la CLI salvi la sessione sul VPS. In alternativa, se l'ambiente richiede automazione non interattiva, Codex supporta anche:
+Poi prova OAuth/device auth dentro quella home:
 
 ```bash
-printenv OPENAI_API_KEY | codex login --with-api-key
-printenv CODEX_ACCESS_TOKEN | codex login --with-access-token
+CODEX_HOME=/root/.codex-chatgpt codex login --device-auth
+CODEX_HOME=/root/.codex-chatgpt codex login status
+CODEX_HOME=/root/.codex-chatgpt codex doctor
 ```
 
-Preferisci `--device-auth` quando possibile: evita di copiare API key long-lived sul server e rende piu semplice revocare l'accesso.
+Il comando mostra un codice e un URL: apri l'URL dal browser, autorizza Codex e poi lascia che la CLI salvi la sessione nella home separata. Se il device-code login non e abilitato, attivalo in ChatGPT da `Sicurezza e accesso -> Abilita autorizzazione tramite codice dispositivo per Codex`.
+
+Fallback consentito quando una macchina locale ha gia Codex autenticato via ChatGPT: copia `~/.codex/auth.json` dentro `/root/.codex-chatgpt/auth.json`, senza stamparne il contenuto, e imposta:
+
+```bash
+chmod 600 /root/.codex-chatgpt/auth.json
+```
+
+Crea un wrapper esplicito per evitare profili sbagliati:
+
+```bash
+cat >/usr/local/bin/codex-chatgpt <<'EOF'
+#!/usr/bin/env bash
+export CODEX_HOME=/root/.codex-chatgpt
+exec /usr/bin/codex "$@"
+EOF
+chmod +x /usr/local/bin/codex-chatgpt
+```
+
+Verifica:
+
+```bash
+codex-chatgpt login status
+codex-chatgpt doctor
+codex-chatgpt exec -s read-only --skip-git-repo-check --ephemeral "Rispondi solo con: OK"
+```
+
+Esito atteso: `Logged in using ChatGPT`, `stored auth mode = chatgpt`, `stored API key = false`, `stored ChatGPT tokens = true`.
+
+API key e access token sono solo fallback facoltativi e a consumo. Non usarli per workflow che devono rientrare nel piano ChatGPT.
 
 ## Secret del runner
 
@@ -73,7 +102,8 @@ DISK_GUARD_PATH=/home/hermes/obsidian-righello-vault/12_OneDrive
 POLL_INTERVAL_MS=30000
 MAX_JOB_SECONDS=1800
 RUNNER_MODE=codex
-CODEX_BIN=codex
+CODEX_BIN=codex-chatgpt
+CODEX_HOME=/root/.codex-chatgpt
 CODEX_SANDBOX=workspace-write
 ```
 
