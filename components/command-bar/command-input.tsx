@@ -148,8 +148,8 @@ export function CommandInput() {
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className="relative p-5 pb-3">
-        <div className="absolute left-8 top-[2.15rem] pointer-events-none">
+      <div className="relative p-4 pb-3 sm:p-5 sm:pb-3">
+        <div className="pointer-events-none absolute left-7 top-[1.95rem] sm:left-8 sm:top-[2.15rem]">
           {isProcessing ? (
             <Loader2 className="h-5 w-5 text-righello-pink animate-spin" />
           ) : (
@@ -168,7 +168,7 @@ export function CommandInput() {
           onKeyDown={handleKeyDown}
           placeholder="Chiedi qualsiasi cosa... es: 'crea task per cliente Acme con priorità alta'"
           className={cn(
-            "pl-12 pr-24 text-base h-14",
+            "h-[3.25rem] pl-11 pr-14 text-base sm:h-14 sm:pl-12 sm:pr-24",
             "border border-slate-300 dark:border-slate-700",
             "bg-white dark:bg-slate-900",
             "text-slate-950 dark:text-slate-50 placeholder:text-slate-400",
@@ -185,7 +185,7 @@ export function CommandInput() {
           type="submit"
           size="sm"
           disabled={isProcessing || !localInput.trim() || !context}
-          className="absolute right-7 top-[1.65rem] h-9 bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
+          className="absolute right-6 top-[1.45rem] h-9 min-w-9 bg-righello-pink px-2.5 text-white hover:bg-righello-pink-dark sm:right-7 sm:top-[1.65rem] sm:px-3"
         >
           {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CornerDownLeft className="h-4 w-4" />}
           <span className="ml-1 hidden sm:inline">Esegui</span>
@@ -199,7 +199,7 @@ export function CommandInput() {
       </div>
 
       {!context && (
-        <div className="px-5 pb-3">
+        <div className="px-4 pb-3 sm:px-5">
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
             Caricamento contesto in corso. Tra un istante potrai eseguire il comando.
           </p>
@@ -207,14 +207,14 @@ export function CommandInput() {
       )}
 
       {actionState.isLoading && (
-        <div className="flex items-center gap-2 px-5 pb-3">
+        <div className="flex items-center gap-2 px-4 pb-3 sm:px-5">
           <Loader2 className="h-4 w-4 animate-spin text-righello-pink" />
           <span className="text-sm text-muted-foreground">{actionState.message}</span>
         </div>
       )}
 
       {status === "idle" && !localInput && context && !actionState.isLoading && (
-        <div className="flex flex-wrap items-center gap-2 px-5 pb-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 px-4 pb-3 text-xs text-muted-foreground sm:px-5">
           <span className="font-semibold text-slate-600 dark:text-slate-300">Prova:</span>
           <span>"crea task per G&M urgente"</span>
           <span className="hidden sm:inline">•</span>
