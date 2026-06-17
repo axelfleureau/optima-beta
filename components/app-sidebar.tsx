@@ -22,6 +22,7 @@ import {
   Gauge,
   X,
   Upload,
+  ArrowRight,
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
@@ -196,6 +197,27 @@ export function AppSidebar() {
     },
   ]
 
+  const dailyFlowItems = [
+    {
+      title: "1. Presenza e focus",
+      body: "Ingresso, uscita, assenze e anomalie.",
+      url: "/presenze",
+      icon: UserCheck,
+    },
+    {
+      title: "2. Task operative",
+      body: "Cliente, progetto, stato e deliverable.",
+      url: "/workspace",
+      icon: Kanban,
+    },
+    {
+      title: "3. Rapportino",
+      body: "Fine giornata, ore e lavoro svolto.",
+      url: "/rapportini",
+      icon: ClipboardList,
+    },
+  ]
+
   let menuItems: typeof superAdminMenuItems = []
   let menuLabel = "MENU"
 
@@ -332,6 +354,47 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className={cn(isCollapsed ? "p-2" : "p-4", isMobile && "gap-4 overflow-y-auto pb-6 [-webkit-overflow-scrolling:touch]")}>
+        {!isCollapsed && !isClient ? (
+          <div className="mb-4 rounded-[8px] border border-righello-cyan/18 bg-righello-cyan/[0.055] p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[0.66rem] font-black uppercase tracking-[0.2em] text-righello-cyan">
+                  Percorso giornata
+                </p>
+                <p className="mt-1 text-xs leading-5 text-white/48">Ordine consigliato per personale e direzione.</p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-righello-cyan/70" />
+            </div>
+            <div className="mt-3 space-y-2">
+              {dailyFlowItems.map((item) => {
+                const Icon = item.icon
+                const active = isActive(item.url)
+                return (
+                  <Link
+                    key={item.url}
+                    href={item.url}
+                    onClick={closeMobileSidebar}
+                    className={cn(
+                      "group flex min-h-12 items-center gap-3 rounded-[7px] border px-3 py-2 transition",
+                      active
+                        ? "border-righello-pink/35 bg-righello-pink/14 text-white"
+                        : "border-white/8 bg-black/15 text-white/68 hover:border-righello-cyan/30 hover:bg-white/[0.045] hover:text-white"
+                    )}
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[7px] border border-white/10 bg-white/[0.04]">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black">{item.title}</span>
+                      <span className="block truncate text-xs text-white/42">{item.body}</span>
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
+
         {/* Main menu section */}
         <div className="mb-4">
           {!isCollapsed && (

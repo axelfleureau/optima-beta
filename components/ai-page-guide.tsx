@@ -628,7 +628,7 @@ export function AiPageGuide() {
 
   return (
     <>
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-3 z-[80] md:bottom-[5rem] md:right-4">
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] right-3 z-[80] md:bottom-[5rem] md:right-4">
         <AnimatePresence>
           {hintOpen && !panelOpen ? (
             <motion.div
@@ -661,7 +661,7 @@ export function AiPageGuide() {
             setHintOpen(false)
             dismissAssistantHint()
           }}
-          className="group relative grid h-14 w-14 place-items-center rounded-[8px] border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl transition hover:border-righello-pink/50"
+          className="group relative flex h-14 min-w-14 items-center justify-center gap-2 rounded-[8px] border border-white/10 bg-[#070b12]/95 px-1.5 text-white shadow-2xl backdrop-blur-xl transition hover:border-righello-pink/50 md:min-w-[10.5rem] md:justify-start md:px-3"
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
           whileHover={reduceMotion ? undefined : { y: -2 }}
@@ -677,6 +677,12 @@ export function AiPageGuide() {
             <RighelloIcon className="h-8 w-8" imageClassName="h-[18px] w-[18px]" />
             <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border border-[#070b12] bg-righello-pink">
               <Bot className="h-3 w-3 text-white" />
+            </span>
+          </span>
+          <span className="relative hidden min-w-0 text-left md:block">
+            <span className="block text-sm font-black leading-4 text-white">Guida pagina</span>
+            <span className="mt-0.5 block max-w-[7rem] truncate text-[0.68rem] font-bold uppercase tracking-[0.12em] text-righello-cyan/75">
+              {activeGuide.eyebrow}
             </span>
           </span>
         </motion.button>
@@ -706,7 +712,7 @@ export function AiPageGuide() {
                     </motion.div>
                     <div className="min-w-0">
                       <p className="truncate text-xs font-black uppercase tracking-[0.22em] text-righello-pink">{activeGuide.eyebrow}</p>
-                      <h2 className="mt-1 text-base font-black leading-tight text-white">Opi, assistente pagina</h2>
+                      <h2 className="mt-1 text-base font-black leading-tight text-white">Guida operativa pagina</h2>
                     </div>
                   </div>
                   <button
@@ -723,6 +729,11 @@ export function AiPageGuide() {
               </div>
 
               <div className="max-h-[min(62svh,560px)] space-y-4 overflow-y-auto p-4 [-webkit-overflow-scrolling:touch]">
+                <div className="rounded-md border border-righello-cyan/20 bg-righello-cyan/[0.055] p-3">
+                  <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-cyan">Cosa fare qui</div>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">{activeGuide.summary}</p>
+                </div>
+
                 <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">

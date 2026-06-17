@@ -119,8 +119,6 @@ export function ScrollStabilityGuard() {
     window.addEventListener("wheel", scheduleCleanup, { passive: true })
     window.addEventListener("pointerdown", scheduleCleanup, { passive: true })
     window.addEventListener("touchstart", scheduleCleanup, { passive: true })
-    window.addEventListener("touchmove", scheduleCleanup, { passive: true })
-    window.addEventListener("scroll", scheduleCleanup, { passive: true })
     document.addEventListener("visibilitychange", scheduleCleanup)
 
     return () => {
@@ -132,8 +130,6 @@ export function ScrollStabilityGuard() {
       window.removeEventListener("wheel", scheduleCleanup)
       window.removeEventListener("pointerdown", scheduleCleanup)
       window.removeEventListener("touchstart", scheduleCleanup)
-      window.removeEventListener("touchmove", scheduleCleanup)
-      window.removeEventListener("scroll", scheduleCleanup)
       document.removeEventListener("visibilitychange", scheduleCleanup)
     }
   }, [pathname])

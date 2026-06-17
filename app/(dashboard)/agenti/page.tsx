@@ -8,7 +8,7 @@ import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 export const dynamic = "force-dynamic"
 
 const pageClass =
-  "h-[calc(100svh-73px)] overflow-x-hidden overflow-y-auto overscroll-contain bg-[#050914] text-slate-100 md:h-auto md:min-h-screen md:overflow-visible"
+  "min-h-[calc(100svh-73px)] overflow-x-clip bg-[#050914] text-slate-100 md:min-h-screen"
 
 export default async function AgentiPage() {
   const user = await requireClerkUser()

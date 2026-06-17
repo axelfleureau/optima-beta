@@ -124,7 +124,7 @@ type TimeTrackingPayload = {
 }
 
 const pageClass =
-  "h-[calc(100svh-73px)] w-full max-w-full overflow-y-auto overflow-x-clip overscroll-contain bg-[#0b1323] text-slate-100 touch-pan-y md:h-auto md:min-h-screen md:overflow-x-clip md:overflow-y-visible"
+  "min-h-[calc(100svh-73px)] w-full max-w-full overflow-x-clip bg-[#0b1323] text-slate-100 touch-pan-y md:min-h-screen"
 const panelClass =
   "w-full min-w-0 max-w-full overflow-hidden rounded-[8px] border border-white/10 bg-[#151d2c] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.28)] sm:p-5"
 const fieldClass =
