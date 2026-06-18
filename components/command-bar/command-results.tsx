@@ -82,6 +82,15 @@ export function CommandResults() {
                   {nlpResponse.suggestedAction}
                 </p>
               )}
+              {nlpResponse.source && (
+                <p className="mt-2 inline-flex rounded-full border border-emerald-200 bg-white/60 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  {nlpResponse.source === "ai"
+                    ? "Interpretazione AI"
+                    : nlpResponse.source === "fallback"
+                      ? "Fallback locale"
+                      : "Azione locale"}
+                </p>
+              )}
             </div>
           </div>
         </motion.div>

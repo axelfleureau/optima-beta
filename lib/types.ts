@@ -487,6 +487,7 @@ export interface NLPResponse {
   suggestedAction?: string
   reasoning?: string
   requiresConfirmation?: boolean
+  source?: "ai" | "deterministic" | "fallback"
 }
 
 export interface CommandExecutionResult {

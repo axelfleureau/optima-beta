@@ -39,10 +39,205 @@ const IntentSchema = z.object({
   requiresConfirmation: z.boolean().optional().default(false),
 })
 
+type DeterministicIntent = NLPResponse & {
+  source: "deterministic"
+}
+
+const routeAliases: Array<{ patterns: RegExp[]; route: string; label: string }> = [
+  { patterns: [/rapportin/i, /timesheet/i], route: "/rapportini", label: "rapportini" },
+  { patterns: [/presenz/i, /calendario presenze/i], route: "/presenze", label: "presenze" },
+  { patterns: [/workspace/i, /task/i], route: "/workspace", label: "workspace" },
+  { patterns: [/client[ei]/i, /rubrica/i], route: "/clienti", label: "clienti" },
+  { patterns: [/preventiv/i, /propost/i], route: "/preventivi", label: "preventivi" },
+  { patterns: [/team/i, /collaborator/i], route: "/team", label: "team" },
+  { patterns: [/ai ops/i, /agent[ei]/i, /mcp/i], route: "/agenti", label: "agenti" },
+  { patterns: [/assistente/i, /chat/i], route: "/dashboard/ai-assistant", label: "assistente AI" },
+]
+
+function normalizeText(value: unknown) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim()
+}
+
+function findNamedClient(message: string, context: CommandContext) {
+  const normalizedMessage = normalizeText(message)
+  return (context.availableClients || [])
+    .filter((client) => client?.name)
+    .sort((a, b) => String(b.name).length - String(a.name).length)
+    .find((client) => normalizedMessage.includes(normalizeText(client.name)))
+}
+
+function findNamedUser(message: string, context: CommandContext) {
+  const normalizedMessage = normalizeText(message)
+  return (context.availableUsers || [])
+    .filter((user) => user?.id)
+    .sort((a, b) => {
+      const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim()
+      const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim()
+      return nameB.length - nameA.length
+    })
+    .find((user) => {
+      const fullName = normalizeText(`${user.firstName || ""} ${user.lastName || ""}`.trim())
+      const email = normalizeText(user.email)
+      return Boolean(fullName && normalizedMessage.includes(fullName)) || Boolean(email && normalizedMessage.includes(email))
+    })
+}
+
+function extractPriority(message: string) {
+  const normalized = normalizeText(message)
+  if (/\burgent(e|i)?\b|subito|massima priorita|alta priorita/.test(normalized)) return "urgent"
+  if (/\balta\b|importante|priorita high/.test(normalized)) return "high"
+  if (/\bbassa\b|quando puoi|low/.test(normalized)) return "low"
+  if (/\bmedia\b|normale|medium/.test(normalized)) return "medium"
+  return undefined
+}
+
+function extractTitle(message: string, clientName?: string) {
+  let title = message
+    .replace(/^(crea|aggiungi|inserisci|apri|nuova|nuovo)\s+(una\s+)?(task|attivita|todo)\s*/i, "")
+    .replace(/\b(con\s+)?priorit[aà]\s+(urgente|alta|media|bassa|high|medium|low)\b/gi, "")
+    .replace(/\b(urgente|alta|media|bassa)\b/gi, "")
+    .replace(/\b(per|cliente)\s+cliente\b/gi, "per")
+    .trim()
+
+  if (clientName) {
+    title = title.replace(new RegExp(`\\b(per\\s+)?${clientName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"), "")
+  }
+
+  title = title
+    .replace(/\b(per|a|al|alla|cliente)\s*$/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+
+  return title || "Nuova task"
+}
+
+function deterministicIntent(message: string, context: CommandContext): DeterministicIntent | null {
+  const normalized = normalizeText(message)
+  if (!normalized) return null
+
+  const client = findNamedClient(message, context)
+  const user = findNamedUser(message, context)
+  const priority = extractPriority(message)
+
+  const routeMatch = routeAliases.find((route) =>
+    /^(vai|apri|mostra|portami|naviga)\b/i.test(normalized) && route.patterns.some((pattern) => pattern.test(message)),
+  )
+  if (routeMatch) {
+    return {
+      source: "deterministic",
+      intent: "NAVIGATE" as CommandIntent,
+      confidence: 0.95,
+      entities: { route: routeMatch.route },
+      suggestedAction: `Apro ${routeMatch.label}.`,
+      reasoning: "Comando di navigazione riconosciuto localmente.",
+    }
+  }
+
+  if (/^(mostra|apri|vedi|analizza)\b.*(analytics|statistiche|settimana|carico|presenze|monitoraggio)/i.test(message)) {
+    return {
+      source: "deterministic",
+      intent: "SHOW_ANALYTICS" as CommandIntent,
+      confidence: 0.9,
+      entities: {},
+      suggestedAction: "Mostro il quadro operativo disponibile.",
+      reasoning: "Comando analytics riconosciuto localmente.",
+    }
+  }
+
+  if (/^(cerca|trova)\b/i.test(message)) {
+    return {
+      source: "deterministic",
+      intent: client ? ("SEARCH_TASK" as CommandIntent) : ("SEARCH_GLOBAL" as CommandIntent),
+      confidence: 0.88,
+      entities: {
+        query: message.replace(/^(cerca|trova)\s+/i, "").trim(),
+        ...(client ? { clientId: client.id, clientName: client.name } : {}),
+      },
+      suggestedAction: client ? `Cerco task collegate a ${client.name}.` : "Cerco nel workspace.",
+      reasoning: "Ricerca riconosciuta localmente.",
+    }
+  }
+
+  if (/^(assegna|dai|affida)\b/i.test(message)) {
+    return {
+      source: "deterministic",
+      intent: "ASSIGN_TASK" as CommandIntent,
+      confidence: user ? 0.9 : 0.75,
+      entities: {
+        title: extractTitle(message, client?.name),
+        ...(client ? { clientId: client.id, clientName: client.name } : {}),
+        ...(user ? { assignedUserId: user.id, assignee: `${user.firstName || ""} ${user.lastName || ""}`.trim() } : {}),
+        ...(priority ? { priority } : {}),
+      },
+      missingParams: user ? [] : ["assignee"],
+      suggestedAction: user ? "Preparo assegnazione task." : "Dimmi a chi va assegnata la task.",
+      reasoning: "Assegnazione riconosciuta localmente.",
+    }
+  }
+
+  if (/^(crea|aggiungi|inserisci|nuova|nuovo)\b.*\b(task|attivita|todo)\b/i.test(message)) {
+    return {
+      source: "deterministic",
+      intent: "CREATE_TASK" as CommandIntent,
+      confidence: client ? 0.92 : 0.78,
+      entities: {
+        title: extractTitle(message, client?.name),
+        ...(client ? { clientId: client.id, clientName: client.name } : {}),
+        ...(user ? { assignedUserId: user.id, assignee: `${user.firstName || ""} ${user.lastName || ""}`.trim() } : {}),
+        ...(priority ? { priority } : { priority: "medium" }),
+      },
+      missingParams: client ? [] : ["clientName"],
+      suggestedAction: client ? `Creo la task per ${client.name}.` : "Scegli il cliente a cui collegare la task.",
+      reasoning: "Creazione task riconosciuta localmente.",
+    }
+  }
+
+  if (/^(crea|genera|prepara)\b.*\b(post|reel|video|contenuto|instagram|tiktok|youtube|linkedin)\b/i.test(message)) {
+    const platform =
+      ["instagram", "tiktok", "youtube", "linkedin", "facebook"].filter((item) => normalized.includes(item)) || []
+    const contentType = normalized.includes("reel")
+      ? "reel"
+      : normalized.includes("video")
+        ? "video"
+        : "post"
+
+    return {
+      source: "deterministic",
+      intent:
+        contentType === "reel"
+          ? ("CREATE_CONTENT_REEL" as CommandIntent)
+          : contentType === "video"
+            ? ("CREATE_CONTENT_VIDEO" as CommandIntent)
+            : ("CREATE_CONTENT_POST" as CommandIntent),
+      confidence: client ? 0.88 : 0.72,
+      entities: {
+        contentType,
+        platform: platform.length ? platform : ["instagram"],
+        topic: extractTitle(message, client?.name),
+        ...(client ? { clientId: client.id, clientName: client.name } : {}),
+      },
+      missingParams: client ? [] : ["clientName"],
+      suggestedAction: client ? `Creo una task contenuto per ${client.name}.` : "Scegli il cliente del contenuto.",
+      reasoning: "Comando contenuto riconosciuto localmente.",
+    }
+  }
+
+  return null
+}
+
 export async function recognizeIntent(
   message: string,
   context: CommandContext
 ): Promise<NLPResponse> {
+  const localIntent = deterministicIntent(message, context)
+  if (localIntent && localIntent.confidence >= 0.86) {
+    return localIntent
+  }
+
   const clientNames = context.availableClients?.map((c) => c.name).join(", ") || "nessun cliente"
   const userNames =
     context.availableUsers?.map((u) => `${u.firstName} ${u.lastName}`).join(", ") || "nessun utente"
@@ -228,18 +423,30 @@ Rispondi SEMPRE in JSON con lo schema richiesto.`
       missingParams: object.missingParams,
       suggestedAction: object.suggestedAction,
       reasoning: object.reasoning,
+      source: "ai",
     }
 
     console.log("🤖 Intent Recognition Result:", response)
     return response
   } catch (error) {
     console.error("❌ Intent recognition error:", error)
+    if (localIntent) {
+      return {
+        ...localIntent,
+        source: "fallback",
+        suggestedAction:
+          localIntent.suggestedAction ||
+          "Provider AI non disponibile: uso interpretazione operativa locale e ti chiedo i dati mancanti.",
+      }
+    }
+
     return {
       intent: "UNKNOWN" as CommandIntent,
       confidence: 0,
       entities: {},
       missingParams: [],
-      suggestedAction: "Riprova con un comando più chiaro",
+      suggestedAction:
+        "Non ho riconosciuto il comando. Prova con: crea task per [cliente], cerca task [cliente], vai a rapportini.",
     }
   }
 }
@@ -369,6 +576,7 @@ Rispondi SEMPRE in JSON con lo schema richiesto.`
       missingParams: object.missingParams,
       suggestedAction: object.suggestedAction,
       reasoning: object.reasoning,
+      source: "ai",
     }
 
     console.log("🤖 Intent Recognition Result (Streaming):", response)

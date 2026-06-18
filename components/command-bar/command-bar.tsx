@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { useCommandBarStore } from "@/lib/stores/command-bar-store"
@@ -15,6 +15,35 @@ import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { liquidExpand } from "@/lib/animations/liquid"
 
+type CommandRuntimeReadiness = {
+  deterministicReady: boolean
+  commandBarReady: boolean
+  chat?: {
+    providerId: string
+    model: string
+    runtimeStatus: string
+    runtimeDetail: string
+  }
+  research?: {
+    providerId: string
+    model: string
+    runtimeStatus: string
+    runtimeDetail: string
+  }
+  code?: {
+    providerId: string
+    model: string
+    runtimeStatus: string
+    runtimeDetail: string
+  }
+}
+
+function statusTone(status?: string) {
+  if (status === "ready" || status === "configured") return "text-emerald-300"
+  if (status === "needs_secret" || status === "missing") return "text-amber-300"
+  return "text-slate-400"
+}
+
 export function CommandBar() {
   const { isOpen, close, status, missingParams, setContext } = useCommandBarStore()
   const { userData } = useAuth()
@@ -22,6 +51,7 @@ export function CommandBar() {
   const { users } = useUsers()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [readiness, setReadiness] = useState<CommandRuntimeReadiness | null>(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -40,6 +70,24 @@ export function CommandBar() {
       setContext(newContext)
     }
   }, [isOpen, userData, clients, users, setContext, pathname, searchParams])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    let cancelled = false
+    fetch("/api/ai/command", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled) setReadiness(data)
+      })
+      .catch(() => {
+        if (!cancelled) setReadiness(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -118,14 +166,32 @@ export function CommandBar() {
         </AnimatePresence>
 
         <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-900 sm:px-5 sm:py-3">
-          <div className="flex items-center justify-center text-xs text-muted-foreground sm:justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-center gap-2 sm:justify-start">
               <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ⌘K
               </kbd>
               <span>command bar</span>
             </div>
-            <div className="hidden items-center gap-2 sm:flex">
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
+              <span className="font-medium text-emerald-600 dark:text-emerald-300">locale pronto</span>
+              {readiness?.chat && (
+                <span className={statusTone(readiness.chat.runtimeStatus)}>
+                  chat {readiness.chat.providerId}
+                </span>
+              )}
+              {readiness?.research && (
+                <span className={statusTone(readiness.research.runtimeStatus)}>
+                  research {readiness.research.providerId}
+                </span>
+              )}
+              {readiness?.code && (
+                <span className={statusTone(readiness.code.runtimeStatus)}>
+                  code {readiness.code.providerId}
+                </span>
+              )}
+            </div>
+            <div className="hidden items-center justify-end gap-2 sm:flex">
               <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ↵
               </kbd>
