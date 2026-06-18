@@ -253,6 +253,28 @@ interface AgenticGraphSnapshot {
     edges: number
     sessions: number
     byType: Record<string, number>
+    bySource?: Record<string, number>
+    byConfidence?: Record<string, number>
+    byEdgeType?: Record<string, number>
+    indexedNodes?: number
+    connectedNodes?: number
+    orphanNodes?: number
+    averageDegree?: number
+  }
+  index?: {
+    hubs: Array<{ id: string; title: string; nodeType: string; sourceType: string; degree: number }>
+    sourceGroups: Array<{ sourceType: string; label: string; count: number }>
+    typeGroups: Array<{ nodeType: string; label: string; count: number }>
+    edgeGroups: Array<{ edgeType: string; label: string; count: number }>
+    quality: {
+      completenessScore: number
+      indexedNodes: number
+      connectedNodes: number
+      orphanNodes: number
+      weakSourceNodes: number
+      ambiguousNodes: number
+      notes: string[]
+    }
   }
   nodes: Array<{
     id: string
@@ -2870,6 +2892,24 @@ export function AgentJobsClient({
   const graphTypes = Object.entries(graphMemory?.stats.byType ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(0, 8)
+  const graphIndex = graphMemory?.index ?? null
+  const graphQuality = graphIndex?.quality ?? null
+  const graphSourceGroups =
+    graphIndex?.sourceGroups?.length
+      ? graphIndex.sourceGroups
+      : Object.entries(graphMemory?.stats.bySource ?? {}).map(([sourceType, count]) => ({
+          sourceType,
+          label: graphSourceCopy[sourceType] ?? sourceType,
+          count,
+        }))
+  const graphEdgeGroups =
+    graphIndex?.edgeGroups?.length
+      ? graphIndex.edgeGroups
+      : Object.entries(graphMemory?.stats.byEdgeType ?? {}).map(([edgeType, count]) => ({
+          edgeType,
+          label: edgeType.replace(/_/g, " "),
+          count,
+        }))
   const graphTypeOptions = Object.keys(graphMemory?.stats.byType ?? {}).sort((a, b) => a.localeCompare(b))
   const graphSourceOptions = Array.from(
     new Set([
@@ -4105,20 +4145,120 @@ export function AgentJobsClient({
                 </Button>
               </div>
 
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {[
-                  ["Nodi", graphMemory?.stats.nodes ?? 0],
-                  ["Archi", graphMemory?.stats.edges ?? 0],
-                  ["Sessioni", graphMemory?.stats.sessions ?? 0],
+	              <div className="mt-3 grid grid-cols-3 gap-2">
+	                {[
+	                  ["Nodi", graphMemory?.stats.nodes ?? 0],
+	                  ["Archi", graphMemory?.stats.edges ?? 0],
+	                  ["Sessioni", graphMemory?.stats.sessions ?? 0],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2">
                     <p className="truncate text-[11px] text-slate-500">{label}</p>
                     <p className="mt-1 text-lg font-black text-white">{value}</p>
-                  </div>
-                ))}
-              </div>
+	                  </div>
+	                ))}
+	              </div>
 
-              <div className="mt-3 rounded-lg border border-teal-300/20 bg-teal-300/[0.055] p-3">
+	              <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+	                <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+	                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+	                    <div className="min-w-0">
+	                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Indice operativo</p>
+	                      <p className="mt-1 text-sm font-black text-white">
+	                        {graphQuality ? `${graphQuality.completenessScore}/100` : "Indice in aggiornamento"}
+	                      </p>
+	                      <p className="mt-1 text-xs leading-5 text-slate-300">
+	                        Misura quanto il grafo e collegato, indicizzato e affidabile per risposte agentiche.
+	                      </p>
+	                    </div>
+	                    <div className="grid grid-cols-2 gap-2 sm:w-64">
+	                      {[
+	                        ["Collegati", graphMemory?.stats.connectedNodes ?? graphQuality?.connectedNodes ?? 0],
+	                        ["Orfani", graphMemory?.stats.orphanNodes ?? graphQuality?.orphanNodes ?? 0],
+	                        ["Indicizzati", graphMemory?.stats.indexedNodes ?? graphQuality?.indexedNodes ?? 0],
+	                        ["Grado medio", graphMemory?.stats.averageDegree ?? 0],
+	                      ].map(([label, value]) => (
+	                        <div key={label} className="rounded-lg border border-cyan-300/15 bg-[#06111b]/75 p-2">
+	                          <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+	                          <p className="mt-1 text-base font-black text-white">{value}</p>
+	                        </div>
+	                      ))}
+	                    </div>
+	                  </div>
+	                  {graphQuality?.notes?.length ? (
+	                    <div className="mt-3 grid gap-2">
+	                      {graphQuality.notes.slice(0, 3).map((note) => (
+	                        <p key={note} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-300">
+	                          {note}
+	                        </p>
+	                      ))}
+	                    </div>
+	                  ) : null}
+	                </div>
+
+	                <div className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+	                  <div className="flex items-center justify-between gap-3">
+	                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Hub principali</p>
+	                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+	                      degree
+	                    </span>
+	                  </div>
+	                  <div className="mt-2 grid gap-2">
+	                    {(graphIndex?.hubs ?? []).slice(0, 5).map((hub) => (
+	                      <button
+	                        key={hub.id}
+	                        type="button"
+	                        onClick={() => {
+	                          const node = graphMemory?.nodes.find((item) => item.id === hub.id)
+	                          if (node) loadGraphNode(node)
+	                        }}
+	                        className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-left transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.055]"
+	                      >
+	                        <span className="min-w-0">
+	                          <span className="block truncate text-xs font-black text-white">{hub.title}</span>
+	                          <span className="mt-0.5 block truncate text-[11px] text-slate-500">
+	                            {graphNodeTypeVisual[hub.nodeType]?.label ?? hub.nodeType} · {graphSourceCopy[hub.sourceType] ?? hub.sourceType}
+	                          </span>
+	                        </span>
+	                        <span className="shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-xs font-black text-cyan-50">
+	                          {hub.degree}
+	                        </span>
+	                      </button>
+	                    ))}
+	                    {graphIndex?.hubs?.length ? null : (
+	                      <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-500">
+	                        Nessun hub calcolato: sincronizza o importa altre relazioni.
+	                      </p>
+	                    )}
+	                  </div>
+	                </div>
+	              </div>
+
+	              <div className="mt-3 grid gap-2 lg:grid-cols-2">
+	                <div className="rounded-lg border border-white/10 bg-[#060a15]/70 p-3">
+	                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Fonti indicizzate</p>
+	                  <div className="mt-2 flex flex-wrap gap-2">
+	                    {graphSourceGroups.slice(0, 10).map((group) => (
+	                      <span key={group.sourceType} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+	                        {group.label}: {group.count}
+	                      </span>
+	                    ))}
+	                    {graphSourceGroups.length ? null : <span className="text-xs text-slate-500">Nessuna fonte indicizzata.</span>}
+	                  </div>
+	                </div>
+	                <div className="rounded-lg border border-white/10 bg-[#060a15]/70 p-3">
+	                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Relazioni principali</p>
+	                  <div className="mt-2 flex flex-wrap gap-2">
+	                    {graphEdgeGroups.slice(0, 10).map((group) => (
+	                      <span key={group.edgeType} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+	                        {group.label}: {group.count}
+	                      </span>
+	                    ))}
+	                    {graphEdgeGroups.length ? null : <span className="text-xs text-slate-500">Nessuna relazione indicizzata.</span>}
+	                  </div>
+	                </div>
+	              </div>
+
+	              <div className="mt-3 rounded-lg border border-teal-300/20 bg-teal-300/[0.055] p-3">
                 <div className="flex items-start gap-3">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-teal-300/25 bg-teal-300/10 text-teal-100">
                     <Network className="h-4 w-4" />
@@ -4497,11 +4637,11 @@ export function AgentJobsClient({
 
           <div className="mt-3 flex flex-wrap gap-2">
                 {graphTypes.length ? (
-                  graphTypes.map(([type, count]) => (
-                    <span key={type} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-                      {type}: {count}
-                    </span>
-                  ))
+	                  graphTypes.map(([type, count]) => (
+	                    <span key={type} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+	                      {graphNodeTypeVisual[type]?.label ?? type}: {count}
+	                    </span>
+	                  ))
                 ) : (
                   <span className="text-xs text-slate-500">Nessun nodo ancora indicizzato.</span>
                 )}

@@ -70,6 +70,28 @@ export interface AgenticGraphSnapshot {
     edges: number
     sessions: number
     byType: Record<string, number>
+    bySource: Record<string, number>
+    byConfidence: Record<string, number>
+    byEdgeType: Record<string, number>
+    indexedNodes: number
+    connectedNodes: number
+    orphanNodes: number
+    averageDegree: number
+  }
+  index: {
+    hubs: Array<{ id: string; title: string; nodeType: string; sourceType: string; degree: number }>
+    sourceGroups: Array<{ sourceType: string; label: string; count: number }>
+    typeGroups: Array<{ nodeType: string; label: string; count: number }>
+    edgeGroups: Array<{ edgeType: string; label: string; count: number }>
+    quality: {
+      completenessScore: number
+      indexedNodes: number
+      connectedNodes: number
+      orphanNodes: number
+      weakSourceNodes: number
+      ambiguousNodes: number
+      notes: string[]
+    }
   }
   referenceSources: AgenticReferenceSource[]
 }
@@ -213,6 +235,104 @@ function stringifyObject(value: unknown) {
 
 function stringifyArray(value: unknown) {
   return JSON.stringify(Array.isArray(value) ? value : [])
+}
+
+function normalizeGraphToken(value: unknown, fallback: string) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_{2,}/g, "_")
+  return normalized || fallback
+}
+
+const NODE_TYPE_ALIASES: Record<string, string> = {
+  "knowledge-base": "knowledge_base",
+  knowledge: "knowledge_base",
+  knowhow: "development_knowhow",
+  know_how: "development_knowhow",
+  skill: "codex_skill",
+  skills: "codex_skill",
+  client: "notion_client",
+  cliente: "notion_client",
+  task: "notion_task",
+  database: "notion_database",
+  db_notion: "notion_database",
+  mcp: "connector",
+  mcp_connector: "connector",
+  repo: "repository",
+  runtime: "runtime_source",
+  source: "reference_source",
+  sorgente: "reference_source",
+}
+
+const SOURCE_TYPE_ALIASES: Record<string, string> = {
+  optima: "internal",
+  manuale: "manual",
+  notion: "notion_righello",
+  notion_righello_readonly: "notion_righello",
+  righello_notion: "notion_righello",
+  hermes: "hermes_readonly",
+  hermes_righello: "hermes_readonly",
+  codex: "codex_knowhow",
+  knowhow: "codex_knowhow",
+  development_knowhow: "codex_knowhow",
+  obsidian: "obsidian_vault",
+  github_repo: "github",
+  repository: "github",
+}
+
+function normalizeNodeType(value: unknown) {
+  const token = normalizeGraphToken(value, "knowledge_base")
+  return NODE_TYPE_ALIASES[token] || token
+}
+
+function normalizeSourceType(value: unknown) {
+  const token = normalizeGraphToken(value, "manual")
+  return SOURCE_TYPE_ALIASES[token] || token
+}
+
+function normalizeEdgeType(value: unknown) {
+  return normalizeGraphToken(value, "relates_to")
+}
+
+function normalizeGraphTags(tags: unknown) {
+  if (!Array.isArray(tags)) return []
+  return Array.from(
+    new Set(
+      tags
+        .map((tag) => normalizeGraphToken(tag, ""))
+        .filter(Boolean)
+        .slice(0, 40),
+    ),
+  )
+}
+
+function graphTypeLabel(type: string) {
+  return type
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function graphSourceLabel(sourceType: string) {
+  const labels: Record<string, string> = {
+    internal: "Optima",
+    manual: "Manuale",
+    notion_righello: "Notion Righello",
+    hermes_readonly: "Hermes read-only",
+    codex_knowhow: "Know-how Codex",
+    obsidian_vault: "Obsidian Vault",
+    github: "GitHub",
+    open_source_reference: "Open source",
+    private_readonly_source: "Sorgente privata",
+    product_pattern: "Pattern prodotto",
+    local_tool: "Tool locale",
+  }
+  return labels[sourceType] || graphTypeLabel(sourceType)
 }
 
 function normalizeConfidence(value: unknown): AgenticGraphConfidence {
@@ -422,13 +542,25 @@ export async function upsertAgenticGraphNode(
     properties?: Record<string, unknown>
   },
 ) {
-  const nodeType = input.nodeType.trim()
+  const nodeType = normalizeNodeType(input.nodeType)
   const title = input.title.trim()
   if (!nodeType || !title) throw new Error("nodeType e title sono obbligatori.")
 
   const id = createId("agnode")
-  const sourceType = String(input.sourceType || "manual").trim() || "manual"
+  const sourceType = normalizeSourceType(input.sourceType || "manual")
   const sourceId = String(input.sourceId || id).trim() || id
+  const tags = normalizeGraphTags(input.tags)
+  const properties = {
+    ...(input.properties || {}),
+    graphIndex: {
+      type: nodeType,
+      typeLabel: graphTypeLabel(nodeType),
+      sourceType,
+      sourceLabel: graphSourceLabel(sourceType),
+      tags,
+      searchable: [title, input.summary || "", tags.join(" ")].join(" ").trim().slice(0, 2000),
+    },
+  }
 
   await db
     .prepare(
@@ -445,21 +577,21 @@ export async function upsertAgenticGraphNode(
         properties_json = excluded.properties_json,
         updated_at = CURRENT_TIMESTAMP`,
     )
-    .bind(
-      id,
-      principal.organizationId,
-      nodeType,
-      title,
-      input.summary || "",
-      sourceType,
-      sourceId,
-      input.sourceUrl || null,
-      normalizeConfidence(input.confidence),
-      stringifyArray(input.tags),
-      stringifyObject(input.properties),
-      principal.memberId,
-    )
-    .run()
+	    .bind(
+	      id,
+	      principal.organizationId,
+	      nodeType,
+	      title,
+	      input.summary || "",
+	      sourceType,
+	      sourceId,
+	      input.sourceUrl || null,
+	      normalizeConfidence(input.confidence),
+	      stringifyArray(tags),
+	      stringifyObject(properties),
+	      principal.memberId,
+	    )
+	    .run()
 
   const rows = await safeAll(
     db,
@@ -486,7 +618,7 @@ export async function upsertAgenticGraphEdge(
 ) {
   const fromNodeId = input.fromNodeId.trim()
   const toNodeId = input.toNodeId.trim()
-  const edgeType = input.edgeType.trim()
+  const edgeType = normalizeEdgeType(input.edgeType)
   if (!fromNodeId || !toNodeId || !edgeType) {
     throw new Error("fromNodeId, toNodeId e edgeType sono obbligatori.")
   }
@@ -903,9 +1035,73 @@ export async function getAgenticGraphSnapshot(
   ])
 
   const byType = typeRows.reduce<Record<string, number>>((acc, row) => {
-    acc[String(row.node_type)] = Number(row.count || 0)
+    const nodeType = normalizeNodeType(row.node_type)
+    acc[nodeType] = (acc[nodeType] || 0) + Number(row.count || 0)
     return acc
   }, {})
+  const bySource = nodes.reduce<Record<string, number>>((acc, node) => {
+    const sourceType = normalizeSourceType(node.sourceType)
+    acc[sourceType] = (acc[sourceType] || 0) + 1
+    return acc
+  }, {})
+  const byConfidence = nodes.reduce<Record<string, number>>((acc, node) => {
+    acc[node.confidence] = (acc[node.confidence] || 0) + 1
+    return acc
+  }, {})
+  const byEdgeType = edges.reduce<Record<string, number>>((acc, edge) => {
+    const edgeType = normalizeEdgeType(edge.edgeType)
+    acc[edgeType] = (acc[edgeType] || 0) + 1
+    return acc
+  }, {})
+  const degreeByNode = new Map<string, number>()
+  edges.forEach((edge) => {
+    degreeByNode.set(edge.fromNodeId, (degreeByNode.get(edge.fromNodeId) || 0) + 1)
+    degreeByNode.set(edge.toNodeId, (degreeByNode.get(edge.toNodeId) || 0) + 1)
+  })
+  const indexedNodes = nodes.filter((node) => {
+    return Boolean(node.sourceId) && node.sourceType !== "manual" && node.sourceType !== "internal"
+  }).length
+  const connectedNodes = nodes.filter((node) => (degreeByNode.get(node.id) || 0) > 0).length
+  const orphanNodes = Math.max(0, nodes.length - connectedNodes)
+  const weakSourceNodes = nodes.filter((node) => {
+    return !node.sourceId || node.sourceType === "manual" || node.sourceType === "internal"
+  }).length
+  const ambiguousNodes = nodes.filter((node) => node.confidence === "ambiguous").length
+  const averageDegree = nodes.length ? Number(((edges.length * 2) / nodes.length).toFixed(2)) : 0
+  const indexedRatio = nodes.length ? indexedNodes / nodes.length : 0
+  const connectedRatio = nodes.length ? connectedNodes / nodes.length : 0
+  const confidencePenalty = nodes.length ? ambiguousNodes / nodes.length : 0
+  const completenessScore = Math.max(
+    0,
+    Math.min(100, Math.round(indexedRatio * 42 + connectedRatio * 48 + Math.max(0, 1 - confidencePenalty) * 10)),
+  )
+  const qualityNotes = [
+    nodes.length < Number(nodeCountRows[0]?.count || nodes.length)
+      ? "Snapshot parziale: aumenta il limite o filtra per analizzare tutto il grafo."
+      : "",
+    orphanNodes ? `${orphanNodes} nodi non hanno ancora collegamenti utili.` : "",
+    weakSourceNodes ? `${weakSourceNodes} nodi hanno sorgente debole o manuale.` : "",
+    ambiguousNodes ? `${ambiguousNodes} nodi sono ancora da verificare.` : "",
+  ].filter(Boolean)
+  const hubs = nodes
+    .map((node) => ({
+      id: node.id,
+      title: node.title,
+      nodeType: node.nodeType,
+      sourceType: node.sourceType,
+      degree: degreeByNode.get(node.id) || 0,
+    }))
+    .sort((a, b) => b.degree - a.degree || a.title.localeCompare(b.title))
+    .slice(0, 12)
+  const typeGroups = Object.entries(byType)
+    .map(([nodeType, count]) => ({ nodeType, label: graphTypeLabel(nodeType), count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  const sourceGroups = Object.entries(bySource)
+    .map(([sourceType, count]) => ({ sourceType, label: graphSourceLabel(sourceType), count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  const edgeGroups = Object.entries(byEdgeType)
+    .map(([edgeType, count]) => ({ edgeType, label: graphTypeLabel(edgeType), count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
 
   return {
     nodes,
@@ -916,6 +1112,28 @@ export async function getAgenticGraphSnapshot(
       edges: Number(edgeCountRows[0]?.count || edges.length),
       sessions: Number(sessionCountRows[0]?.count || sessions.length),
       byType,
+      bySource,
+      byConfidence,
+      byEdgeType,
+      indexedNodes,
+      connectedNodes,
+      orphanNodes,
+      averageDegree,
+    },
+    index: {
+      hubs,
+      sourceGroups,
+      typeGroups,
+      edgeGroups,
+      quality: {
+        completenessScore,
+        indexedNodes,
+        connectedNodes,
+        orphanNodes,
+        weakSourceNodes,
+        ambiguousNodes,
+        notes: qualityNotes.length ? qualityNotes : ["Grafo indicizzato e collegato in modo coerente."],
+      },
     },
     referenceSources: AGENTIC_REFERENCE_SOURCES,
   }
@@ -925,13 +1143,19 @@ export function formatAgenticGraphSnapshot(snapshot: AgenticGraphSnapshot) {
   const typeLines = Object.entries(snapshot.stats.byType)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([type, count]) => `- ${type}: ${count}`)
+  const sourceIndexLines = Object.entries(snapshot.stats.bySource)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([source, count]) => `- ${graphSourceLabel(source)} (${source}): ${count}`)
+  const hubLines = snapshot.index.hubs.slice(0, 8).map((hub) => {
+    return `- ${hub.title} [${hub.nodeType}/${hub.sourceType}] degree ${hub.degree}`
+  })
 
   const nodeLines = snapshot.nodes.slice(0, 12).map((node) => {
     const source = node.sourceUrl ? ` | fonte ${node.sourceUrl}` : ""
     return `- ${node.title} [${node.nodeType}/${node.confidence}]${source}`
   })
 
-  const sourceLines = snapshot.referenceSources.map((source) => {
+  const referenceSourceLines = snapshot.referenceSources.map((source) => {
     return `- ${source.label}: ${source.importPolicy}${source.url ? ` (${source.url})` : ""}`
   })
 
@@ -941,14 +1165,23 @@ export function formatAgenticGraphSnapshot(snapshot: AgenticGraphSnapshot) {
     `Nodi: ${snapshot.stats.nodes}`,
     `Archi: ${snapshot.stats.edges}`,
     `Sessioni agentiche: ${snapshot.stats.sessions}`,
+    `Indice qualita: ${snapshot.index.quality.completenessScore}/100`,
+    `Nodi collegati: ${snapshot.stats.connectedNodes}`,
+    `Nodi orfani: ${snapshot.stats.orphanNodes}`,
     "",
     "## Tipi nodo",
     ...(typeLines.length ? typeLines : ["- nessun nodo ancora indicizzato"]),
+    "",
+    "## Sorgenti",
+    ...(sourceIndexLines.length ? sourceIndexLines : ["- nessuna sorgente indicizzata"]),
+    "",
+    "## Hub operativi",
+    ...(hubLines.length ? hubLines : ["- nessun hub ancora calcolato"]),
     "",
     "## Nodi recenti",
     ...(nodeLines.length ? nodeLines : ["- nessun nodo ancora indicizzato"]),
     "",
     "## Sorgenti/Pattern",
-    ...sourceLines,
+    ...referenceSourceLines,
   ].join("\n")
 }
