@@ -266,6 +266,23 @@ interface AgenticGraphSnapshot {
     sourceGroups: Array<{ sourceType: string; label: string; count: number }>
     typeGroups: Array<{ nodeType: string; label: string; count: number }>
     edgeGroups: Array<{ edgeType: string; label: string; count: number }>
+    semanticDomains: Array<{
+      id: string
+      label: string
+      description: string
+      count: number
+      connectedCount: number
+      nodeTypes: string[]
+      sourceTypes: string[]
+      action: string
+    }>
+    nodeActions: Array<{
+      id: string
+      label: string
+      description: string
+      nodeTypes: string[]
+      sourceTypes: string[]
+    }>
     quality: {
       completenessScore: number
       indexedNodes: number
@@ -508,6 +525,7 @@ const quickJobTemplates = [
 
 const graphNodeTypeVisual: Record<string, { fill: string; stroke: string; label: string }> = {
   system: { fill: "#db2777", stroke: "#f9a8d4", label: "Sistema" },
+  graph_domain: { fill: "#eab308", stroke: "#fef08a", label: "Dominio" },
   capability: { fill: "#0891b2", stroke: "#67e8f9", label: "Capability" },
   graph_engine: { fill: "#14b8a6", stroke: "#99f6e4", label: "Motore grafo" },
   graph_workspace: { fill: "#a855f7", stroke: "#e9d5ff", label: "Workspace grafo" },
@@ -550,6 +568,9 @@ const graphSourceCopy: Record<string, string> = {
   hermes_readonly: "Hermes Righello",
   notion_righello: "Notion Righello",
   codex_knowhow: "Know-how Codex",
+  codex_knowhow_file: "File know-how",
+  codex_knowhow_catalog: "Catalogo know-how",
+  codex_skill_catalog: "Catalogo skill",
   open_source_reference: "Open source",
   product_pattern: "Pattern prodotto",
   private_readonly_source: "Sorgente privata",
@@ -2910,6 +2931,7 @@ export function AgentJobsClient({
           label: edgeType.replace(/_/g, " "),
           count,
         }))
+  const graphDomains = graphIndex?.semanticDomains ?? []
   const graphTypeOptions = Object.keys(graphMemory?.stats.byType ?? {}).sort((a, b) => a.localeCompare(b))
   const graphSourceOptions = Array.from(
     new Set([
@@ -3062,7 +3084,7 @@ export function AgentJobsClient({
       title: "Graph memory",
       detail: graphReady ? `${graphMemory?.stats.nodes ?? 0} nodi` : "da sincronizzare",
       body: "Nodi aziendali, connector, repository, know-how e sorgenti agentiche.",
-      action: "Sincronizza grafo",
+      action: "Normalizza indice",
       busyKey: "graph:seed",
       onClick: seedGraphReferences,
       complete: graphReady,
@@ -3125,7 +3147,7 @@ export function AgentJobsClient({
       const response = await fetch("/api/agentic-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "seed_references" }),
+        body: JSON.stringify({ action: "normalize_index" }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data?.error ?? "Errore sincronizzazione grafo")
@@ -4139,10 +4161,10 @@ export function AgentJobsClient({
                   onClick={seedGraphReferences}
                   disabled={isSeedingGraph}
                   className="h-9 w-full shrink-0 rounded-lg border-white/15 bg-transparent px-3 text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
-                  title="Crea o aggiorna i nodi base della graph memory. Non cancella dati esistenti."
+                  title="Crea i riferimenti base, normalizza l'indice operativo e collega i nodi ai domini. Non cancella dati esistenti."
                 >
                   {isSeedingGraph ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Network className="mr-2 h-4 w-4" />}
-                  Sincronizza grafo
+                  Normalizza indice
                 </Button>
               </div>
 
@@ -4231,6 +4253,47 @@ export function AgentJobsClient({
 	                      </p>
 	                    )}
 	                  </div>
+	                </div>
+	              </div>
+
+	              <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.055] p-3">
+	                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+	                  <div className="min-w-0">
+	                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-100">Domini operativi</p>
+	                    <p className="mt-1 text-xs leading-5 text-slate-300">
+	                      L'indice normalizzato raggruppa nodi eterogenei in aree aziendali interrogabili da AI Assistant, command bar e job Codex.
+	                    </p>
+	                  </div>
+	                  <span className="w-fit shrink-0 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] font-bold text-amber-50">
+	                    {graphDomains.length || 0} aree
+	                  </span>
+	                </div>
+	                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+	                  {graphDomains.slice(0, 6).map((domain) => {
+	                    const coverage = domain.count ? Math.round((domain.connectedCount / domain.count) * 100) : 0
+	                    return (
+	                      <div key={domain.id} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+	                        <div className="flex items-start justify-between gap-3">
+	                          <div className="min-w-0">
+	                            <p className="truncate text-sm font-black text-white">{domain.label}</p>
+	                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{domain.description}</p>
+	                          </div>
+	                          <span className="shrink-0 rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-xs font-black text-amber-50">
+	                            {domain.count}
+	                          </span>
+	                        </div>
+	                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+	                          <div className="h-full rounded-full bg-amber-300" style={{ width: `${Math.max(8, Math.min(100, coverage))}%` }} />
+	                        </div>
+	                        <p className="mt-2 text-[11px] font-bold text-slate-500">{coverage}% collegati · {domain.action}</p>
+	                      </div>
+	                    )
+	                  })}
+	                  {graphDomains.length ? null : (
+	                    <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-500">
+	                      Nessun dominio calcolato: normalizza l'indice per creare le aree operative.
+	                    </p>
+	                  )}
 	                </div>
 	              </div>
 
@@ -5827,6 +5890,36 @@ export function AgentJobsClient({
                     </div>
                   ) : null}
                 </section>
+
+                {(() => {
+                  const nodeActions = (graphIndex?.nodeActions ?? []).filter((action) => {
+                    return action.nodeTypes.includes(graphNodeDetail.node.nodeType) || action.sourceTypes.includes(graphNodeDetail.node.sourceType)
+                  })
+                  if (!nodeActions.length) return null
+                  return (
+                    <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.055] p-3 sm:p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h4 className="font-black text-white">Azioni consigliate</h4>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">
+                            Cosa puo fare Optima con questo nodo quando lo usa AI Assistant, command bar o un job agentico.
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-xs font-bold text-amber-50">
+                          {nodeActions.length}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-2">
+                        {nodeActions.slice(0, 4).map((action) => (
+                          <div key={action.id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                            <p className="text-sm font-black text-white">{action.label}</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-400">{action.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )
+                })()}
 
                 <section className="rounded-lg border border-white/10 bg-[#050914] p-3 sm:p-4">
                   <div className="flex items-center justify-between gap-3">

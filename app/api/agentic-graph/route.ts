@@ -5,6 +5,7 @@ import {
   getAgenticGraphNodeDetail,
   getAgenticGraphSnapshot,
   listAgenticGraphNodes,
+  normalizeAgenticGraphOperationalIndex,
   seedAgenticReferenceGraph,
   upsertAgenticGraphEdge,
   upsertAgenticGraphNode,
@@ -75,6 +76,11 @@ export async function POST(request: NextRequest) {
 
     if (action === "seed_references") {
       const snapshot = await seedAgenticReferenceGraph(auth.db, auth.principal)
+      return Response.json(snapshot)
+    }
+
+    if (action === "normalize_index") {
+      const snapshot = await normalizeAgenticGraphOperationalIndex(auth.db, auth.principal)
       return Response.json(snapshot)
     }
 

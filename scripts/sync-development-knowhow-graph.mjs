@@ -53,6 +53,7 @@ const NODE_TYPE_ALIASES = {
   mcp: "connector",
   mcp_connector: "connector",
   repo: "repository",
+  runtime: "runtime_source",
   source: "reference_source",
   sorgente: "reference_source",
 }

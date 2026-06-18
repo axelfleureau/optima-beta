@@ -80,6 +80,23 @@ export interface AgenticGraphSnapshot {
   }
   index: {
     hubs: Array<{ id: string; title: string; nodeType: string; sourceType: string; degree: number }>
+    semanticDomains: Array<{
+      id: string
+      label: string
+      description: string
+      count: number
+      connectedCount: number
+      nodeTypes: string[]
+      sourceTypes: string[]
+      action: string
+    }>
+    nodeActions: Array<{
+      id: string
+      label: string
+      description: string
+      nodeTypes: string[]
+      sourceTypes: string[]
+    }>
     sourceGroups: Array<{ sourceType: string; label: string; count: number }>
     typeGroups: Array<{ nodeType: string; label: string; count: number }>
     edgeGroups: Array<{ edgeType: string; label: string; count: number }>
@@ -284,6 +301,96 @@ const SOURCE_TYPE_ALIASES: Record<string, string> = {
   repository: "github",
 }
 
+export const AGENTIC_GRAPH_NODE_ACTIONS = [
+  {
+    id: "answer_with_context",
+    label: "Rispondi con contesto",
+    description: "Usa il nodo come fonte prioritaria per AI Assistant, command bar e job agentici.",
+    nodeTypes: ["knowledge_base", "knowledge_file", "development_knowhow", "codex_skill", "hermes_memory", "obsidian_note"],
+    sourceTypes: ["codex_knowhow", "codex_knowhow_file", "hermes_readonly", "obsidian_vault", "manual"],
+  },
+  {
+    id: "create_task_or_report",
+    label: "Crea task o rapportino",
+    description: "Trasforma il nodo in lavoro operativo collegato a cliente, progetto, repository o persona.",
+    nodeTypes: ["notion_client", "notion_task", "project", "repository", "person", "workflow"],
+    sourceTypes: ["notion_righello", "github", "manual", "internal"],
+  },
+  {
+    id: "configure_integration",
+    label: "Configura integrazione",
+    description: "Apri il percorso guidato per OAuth, secret_ref, health-check e permessi tenant-scoped.",
+    nodeTypes: ["connector", "runtime_source", "subagent", "capability", "graph_domain"],
+    sourceTypes: ["internal", "open_source_reference", "product_pattern"],
+  },
+  {
+    id: "improve_quotes",
+    label: "Migliora preventivi",
+    description: "Usa il nodo come memoria commerciale per pricing, sezioni PDF, casi studio e vincoli cliente.",
+    nodeTypes: ["notion_quote_configurator", "notion_quote_patterns", "quote", "quote_section", "notion_client"],
+    sourceTypes: ["notion_righello", "hermes_readonly", "manual"],
+  },
+] as const
+
+export const AGENTIC_GRAPH_DOMAIN_RULES = [
+  {
+    id: "business",
+    label: "Clienti, progetti e task",
+    description: "Contesto aziendale usato da workspace, rapportini, task operative e AI Assistant.",
+    nodeTypes: ["notion_client", "client", "project", "notion_task", "task", "person", "workflow"],
+    sourceTypes: ["notion_righello"],
+    action: "Collega clienti, progetti, task, rapportini e responsabilita.",
+  },
+  {
+    id: "commercial",
+    label: "Preventivi e vendite",
+    description: "Memoria commerciale per preventivi, pricing, PDF, casi studio e materiali clienti.",
+    nodeTypes: ["notion_quote_configurator", "notion_quote_patterns", "quote", "quote_section"],
+    sourceTypes: ["notion_righello", "hermes_readonly"],
+    action: "Usa per generare preventivi coerenti, senza mock e con budget rispettato.",
+  },
+  {
+    id: "delivery",
+    label: "Operativita e delivery",
+    description: "Presenze, rapportini, produzione, QA, audit e workflow giornalieri.",
+    nodeTypes: ["operational_audit", "notion_task", "workflow", "policy"],
+    sourceTypes: ["internal", "notion_righello"],
+    action: "Aiuta a capire cosa e stato fatto, da chi, quando e con quale output.",
+  },
+  {
+    id: "repositories",
+    label: "Repository e codice",
+    description: "Repository, branch, runtime, deploy e fonti GitHub collegate al lavoro reale.",
+    nodeTypes: ["repository", "runtime_source"],
+    sourceTypes: ["github"],
+    action: "Collega job Codex, deploy, task tecniche e audit del codice.",
+  },
+  {
+    id: "knowledge",
+    label: "Know-how e skill",
+    description: "Scibile Codex/Righello, skill installate, lezioni operative e note riutilizzabili.",
+    nodeTypes: ["knowledge_base", "knowledge_file", "development_knowhow", "codex_skill", "skill_metadata", "source_map"],
+    sourceTypes: ["codex_knowhow", "codex_knowhow_file", "codex_skill_catalog", "codex_knowhow_catalog"],
+    action: "Recupera know-how senza caricare tutto nel prompt e aggiorna le skill quando impariamo qualcosa.",
+  },
+  {
+    id: "agentic_stack",
+    label: "Stack agentico",
+    description: "MCP, OAuth, provider AI, subagenti, Graphify, Obsidian e runtime controllati.",
+    nodeTypes: ["system", "capability", "connector", "subagent", "graph_engine", "graph_workspace", "runtime_source", "graph_domain"],
+    sourceTypes: ["internal", "open_source_reference", "product_pattern", "local_tool"],
+    action: "Configura capability agentiche, permessi, health-check e recovery.",
+  },
+  {
+    id: "external_sources",
+    label: "Sorgenti esterne",
+    description: "Notion, Hermes, Obsidian, Portopiccolo sync e altre sorgenti read-only indicizzate.",
+    nodeTypes: ["reference_source", "notion_database", "hermes_memory", "hermes_skill", "hermes_pattern", "obsidian_note"],
+    sourceTypes: ["private_readonly_source", "hermes_readonly", "obsidian_vault"],
+    action: "Importa solo metadati verificati e relazioni redatte, senza segreti o dump integrali.",
+  },
+] as const
+
 function normalizeNodeType(value: unknown) {
   const token = normalizeGraphToken(value, "knowledge_base")
   return NODE_TYPE_ALIASES[token] || token
@@ -333,6 +440,31 @@ function graphSourceLabel(sourceType: string) {
     local_tool: "Tool locale",
   }
   return labels[sourceType] || graphTypeLabel(sourceType)
+}
+
+function graphDomainForNode(node: Pick<AgenticGraphNode, "nodeType" | "sourceType" | "tags">) {
+  const nodeType = normalizeNodeType(node.nodeType)
+  const sourceType = normalizeSourceType(node.sourceType)
+  const tags = new Set((node.tags || []).map((tag) => normalizeGraphToken(tag, "")))
+
+  return (
+    AGENTIC_GRAPH_DOMAIN_RULES.find((domain) => {
+      if ((domain.nodeTypes as readonly string[]).includes(nodeType) || (domain.sourceTypes as readonly string[]).includes(sourceType)) return true
+      if (domain.id === "commercial" && (tags.has("preventivi") || tags.has("quote") || tags.has("pricing"))) return true
+      if (domain.id === "delivery" && (tags.has("rapportini") || tags.has("time_tracking") || tags.has("presence"))) return true
+      if (domain.id === "repositories" && (tags.has("github") || tags.has("repo") || tags.has("deploy"))) return true
+      if (domain.id === "knowledge" && (tags.has("knowhow") || tags.has("skill"))) return true
+      return false
+    }) ?? AGENTIC_GRAPH_DOMAIN_RULES.find((domain) => domain.id === "knowledge")
+  )
+}
+
+function graphActionsForNode(node: Pick<AgenticGraphNode, "nodeType" | "sourceType">) {
+  const nodeType = normalizeNodeType(node.nodeType)
+  const sourceType = normalizeSourceType(node.sourceType)
+  return AGENTIC_GRAPH_NODE_ACTIONS.filter((action) => {
+    return (action.nodeTypes as readonly string[]).includes(nodeType) || (action.sourceTypes as readonly string[]).includes(sourceType)
+  })
 }
 
 function normalizeConfidence(value: unknown): AgenticGraphConfidence {
@@ -1013,6 +1145,74 @@ export async function seedAgenticReferenceGraph(db: any, principal: WorkspacePri
   return getAgenticGraphSnapshot(db, principal)
 }
 
+export async function normalizeAgenticGraphOperationalIndex(db: any, principal: WorkspacePrincipal) {
+  await seedAgenticReferenceGraph(db, principal)
+
+  const snapshot = await getAgenticGraphSnapshot(db, principal)
+  const optimaNode =
+    snapshot.nodes.find((node) => node.sourceType === "internal" && node.sourceId === "optima-agentic-os") ??
+    snapshot.nodes.find((node) => node.nodeType === "system")
+
+  const domainNodes = new Map<string, AgenticGraphNode>()
+  for (const domain of AGENTIC_GRAPH_DOMAIN_RULES) {
+    const node = await upsertAgenticGraphNode(db, principal, {
+      nodeType: "graph_domain",
+      title: domain.label,
+      summary: `${domain.description} ${domain.action}`,
+      sourceType: "internal",
+      sourceId: `graph-domain:${domain.id}`,
+      confidence: "manual",
+      tags: ["graph-domain", domain.id, "index"],
+      properties: {
+        domainId: domain.id,
+        nodeTypes: domain.nodeTypes,
+        sourceTypes: domain.sourceTypes,
+        action: domain.action,
+        normalizedBy: "normalizeAgenticGraphOperationalIndex",
+      },
+    })
+    if (!node) continue
+    domainNodes.set(domain.id, node)
+
+    if (optimaNode?.id && optimaNode.id !== node.id) {
+      await upsertAgenticGraphEdge(db, principal, {
+        fromNodeId: optimaNode.id,
+        toNodeId: node.id,
+        edgeType: "indexes_operational_domain",
+        confidence: "manual",
+        weight: 0.82,
+        properties: { domainId: domain.id, normalizedBy: "normalizeAgenticGraphOperationalIndex" },
+      })
+    }
+  }
+
+  const skipSourceIds = new Set(AGENTIC_GRAPH_DOMAIN_RULES.map((domain) => `graph-domain:${domain.id}`))
+  for (const node of snapshot.nodes) {
+    if (skipSourceIds.has(node.sourceId)) continue
+    if (node.id === optimaNode?.id) continue
+    const domain = graphDomainForNode(node)
+    if (!domain) continue
+    const domainNode = domainNodes.get(domain.id)
+    if (!domainNode || domainNode.id === node.id) continue
+
+    await upsertAgenticGraphEdge(db, principal, {
+      fromNodeId: domainNode.id,
+      toNodeId: node.id,
+      edgeType: "indexes_node",
+      confidence: node.confidence === "ambiguous" ? "ambiguous" : "inferred",
+      weight: node.confidence === "manual" || node.confidence === "extracted" ? 0.56 : 0.38,
+      properties: {
+        domainId: domain.id,
+        nodeType: node.nodeType,
+        sourceType: node.sourceType,
+        normalizedBy: "normalizeAgenticGraphOperationalIndex",
+      },
+    })
+  }
+
+  return getAgenticGraphSnapshot(db, principal)
+}
+
 export async function getAgenticGraphSnapshot(
   db: any,
   principal: WorkspacePrincipal,
@@ -1102,6 +1302,30 @@ export async function getAgenticGraphSnapshot(
   const edgeGroups = Object.entries(byEdgeType)
     .map(([edgeType, count]) => ({ edgeType, label: graphTypeLabel(edgeType), count }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  const semanticDomains = AGENTIC_GRAPH_DOMAIN_RULES.map((domain) => {
+    const domainNodes = nodes.filter((node) => graphDomainForNode(node)?.id === domain.id)
+    const connectedDomainNodes = domainNodes.filter((node) => (degreeByNode.get(node.id) || 0) > 0)
+    const nodeTypes = Array.from(new Set(domainNodes.map((node) => node.nodeType))).sort((a, b) => a.localeCompare(b))
+    const sourceTypes = Array.from(new Set(domainNodes.map((node) => node.sourceType))).sort((a, b) => a.localeCompare(b))
+    return {
+      id: domain.id,
+      label: domain.label,
+      description: domain.description,
+      count: domainNodes.length,
+      connectedCount: connectedDomainNodes.length,
+      nodeTypes,
+      sourceTypes,
+      action: domain.action,
+    }
+  })
+    .filter((domain) => domain.count > 0)
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  const lowDomainCoverage = semanticDomains.filter((domain) => domain.count > 0 && domain.connectedCount / Math.max(1, domain.count) < 0.6)
+  if (lowDomainCoverage.length) {
+    qualityNotes.push(
+      `${lowDomainCoverage.length} domini operativi hanno copertura collegamenti sotto il 60%: usa Normalizza indice.`,
+    )
+  }
 
   return {
     nodes,
@@ -1122,6 +1346,14 @@ export async function getAgenticGraphSnapshot(
     },
     index: {
       hubs,
+      semanticDomains,
+      nodeActions: AGENTIC_GRAPH_NODE_ACTIONS.map((action) => ({
+        id: action.id,
+        label: action.label,
+        description: action.description,
+        nodeTypes: [...action.nodeTypes],
+        sourceTypes: [...action.sourceTypes],
+      })),
       sourceGroups,
       typeGroups,
       edgeGroups,
@@ -1148,6 +1380,13 @@ export function formatAgenticGraphSnapshot(snapshot: AgenticGraphSnapshot) {
     .map(([source, count]) => `- ${graphSourceLabel(source)} (${source}): ${count}`)
   const hubLines = snapshot.index.hubs.slice(0, 8).map((hub) => {
     return `- ${hub.title} [${hub.nodeType}/${hub.sourceType}] degree ${hub.degree}`
+  })
+  const domainLines = snapshot.index.semanticDomains.map((domain) => {
+    const coverage = domain.count ? Math.round((domain.connectedCount / domain.count) * 100) : 0
+    return `- ${domain.label}: ${domain.count} nodi, ${coverage}% collegati. Azione: ${domain.action}`
+  })
+  const actionLines = snapshot.index.nodeActions.map((action) => {
+    return `- ${action.label}: ${action.description}`
   })
 
   const nodeLines = snapshot.nodes.slice(0, 12).map((node) => {
@@ -1177,6 +1416,12 @@ export function formatAgenticGraphSnapshot(snapshot: AgenticGraphSnapshot) {
     "",
     "## Hub operativi",
     ...(hubLines.length ? hubLines : ["- nessun hub ancora calcolato"]),
+    "",
+    "## Domini operativi normalizzati",
+    ...(domainLines.length ? domainLines : ["- nessun dominio ancora calcolato"]),
+    "",
+    "## Azioni disponibili sui nodi",
+    ...(actionLines.length ? actionLines : ["- nessuna azione ancora configurata"]),
     "",
     "## Nodi recenti",
     ...(nodeLines.length ? nodeLines : ["- nessun nodo ancora indicizzato"]),
