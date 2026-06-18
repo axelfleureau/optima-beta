@@ -148,12 +148,12 @@ export function CommandInput() {
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className="relative p-4 pb-3 sm:p-5 sm:pb-3">
-        <div className="pointer-events-none absolute left-7 top-[1.95rem] sm:left-8 sm:top-[2.15rem]">
+      <div className="relative p-3 pb-2 sm:p-4 sm:pb-2.5">
+        <div className="pointer-events-none absolute left-6 top-[1.55rem] sm:left-7 sm:top-[1.9rem]">
           {isProcessing ? (
-            <Loader2 className="h-5 w-5 text-righello-pink animate-spin" />
+            <Loader2 className="h-4 w-4 text-righello-pink animate-spin" />
           ) : (
-            <Sparkles className="h-5 w-5 text-righello-pink" />
+            <Sparkles className="h-4 w-4 text-righello-pink" />
           )}
         </div>
 
@@ -168,7 +168,7 @@ export function CommandInput() {
           onKeyDown={handleKeyDown}
           placeholder="Chiedi qualsiasi cosa... es: 'crea task per cliente Acme con priorità alta'"
           className={cn(
-            "h-[3.25rem] pl-11 pr-14 text-base sm:h-14 sm:pl-12 sm:pr-24",
+            "h-12 pl-10 pr-14 text-sm sm:h-12 sm:pl-11 sm:pr-24 sm:text-base",
             "border border-slate-300 dark:border-slate-700",
             "bg-white dark:bg-slate-900",
             "text-slate-950 dark:text-slate-50 placeholder:text-slate-400",
@@ -185,7 +185,7 @@ export function CommandInput() {
           type="submit"
           size="sm"
           disabled={isProcessing || !localInput.trim() || !context}
-          className="absolute right-6 top-[1.45rem] h-9 min-w-9 bg-righello-pink px-2.5 text-white hover:bg-righello-pink-dark sm:right-7 sm:top-[1.65rem] sm:px-3"
+          className="absolute right-5 top-[1.1rem] h-8 min-w-8 bg-righello-pink px-2 text-white hover:bg-righello-pink-dark sm:right-6 sm:top-[1.45rem] sm:px-3"
         >
           {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CornerDownLeft className="h-4 w-4" />}
           <span className="ml-1 hidden sm:inline">Esegui</span>
@@ -214,7 +214,7 @@ export function CommandInput() {
       )}
 
       {status === "idle" && !localInput && context && !actionState.isLoading && (
-        <div className="flex flex-wrap items-center gap-2 px-4 pb-3 text-xs text-muted-foreground sm:px-5">
+        <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5 text-xs text-muted-foreground sm:px-4">
           <span className="font-semibold text-slate-600 dark:text-slate-300">Prova:</span>
           <span>"crea task per G&M urgente"</span>
           <span className="hidden sm:inline">•</span>

@@ -181,11 +181,11 @@ export async function GET(request: NextRequest) {
          LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
          LEFT JOIN clients c ON c.id = t.client_id AND c.organization_id = t.organization_id
          WHERE t.organization_id = ?
-           AND (? = 1 OR t.assignee_member_id = ?)
+           AND (? = 1 OR t.assignee_member_id = ? OR t.created_by_member_id = ?)
          ORDER BY t.updated_at DESC
          LIMIT 200`,
       )
-      .bind(principal.organizationId, isManager ? 1 : 0, selectedMemberId)
+      .bind(principal.organizationId, isManager ? 1 : 0, selectedMemberId, selectedMemberId)
       .all()
 
     const projectOptions = await db

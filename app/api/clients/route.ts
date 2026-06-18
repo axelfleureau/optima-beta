@@ -20,6 +20,7 @@ export async function GET() {
 
     const principal = await ensureWorkspacePrincipal(db, user)
     const canViewAllClients = CLIENT_MANAGER_ROLES.has(principal.role)
+    const canBrowseClientDirectory = principal.role !== "client"
     const result = await db
       .prepare(
         `SELECT id, name, email, company, status, created_at, updated_at,
@@ -40,6 +41,7 @@ export async function GET() {
                    AND tp.organization_id = t.organization_id
                   WHERE t.organization_id = clients.organization_id
                     AND (t.client_id = clients.id OR tp.client_id = clients.id)
+                    AND (? = 1 OR t.assignee_member_id = ? OR t.created_by_member_id = ?)
                     AND COALESCE(t.column_id, t.status) IN (
                       'to-do', 'todo', 'urgenze', 'in-corso', 'in-progress',
                       'active', 'validation', 'review', 'backlog', 'planning'
@@ -53,6 +55,7 @@ export async function GET() {
                    AND tp.organization_id = t.organization_id
                   WHERE t.organization_id = clients.organization_id
                     AND (t.client_id = clients.id OR tp.client_id = clients.id)
+                    AND (? = 1 OR t.assignee_member_id = ? OR t.created_by_member_id = ?)
                     AND COALESCE(t.column_id, t.status) IN ('done', 'completed')
                 ) AS completed_tasks_count,
                 (
@@ -77,6 +80,7 @@ export async function GET() {
                      AND tp.organization_id = t.organization_id
                     WHERE t.organization_id = clients.organization_id
                       AND (t.client_id = clients.id OR tp.client_id = clients.id)
+                      AND (? = 1 OR t.assignee_member_id = ? OR t.created_by_member_id = ?)
                   ), clients.updated_at)
                 ) AS last_activity_at
          FROM clients
@@ -106,7 +110,21 @@ export async function GET() {
            )
          ORDER BY updated_at DESC`,
       )
-      .bind(principal.organizationId, canViewAllClients ? 1 : 0, principal.memberId, principal.memberId)
+      .bind(
+        principal.organizationId,
+        canViewAllClients ? 1 : 0,
+        principal.memberId,
+        principal.memberId,
+        canViewAllClients ? 1 : 0,
+        principal.memberId,
+        principal.memberId,
+        canViewAllClients ? 1 : 0,
+        principal.memberId,
+        principal.memberId,
+        canBrowseClientDirectory ? 1 : 0,
+        principal.memberId,
+        principal.memberId,
+      )
       .all()
 
     return Response.json({

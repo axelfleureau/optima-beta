@@ -123,11 +123,12 @@ export async function buildOperationalContextSnapshot(
   }
 
   const isManager = MANAGER_ROLES.has(principal.role)
+  const canBrowseClientDirectory = principal.role !== "client"
   const today = new Date().toISOString().slice(0, 10)
   const sources: OperationalContextSource[] = []
 
-  const taskVisibility = isManager ? "" : "AND t.assignee_member_id = ?"
-  const taskParams = isManager ? [principal.organizationId] : [principal.organizationId, principal.memberId]
+  const taskVisibility = isManager ? "" : "AND (t.assignee_member_id = ? OR t.created_by_member_id = ?)"
+  const taskParams = isManager ? [principal.organizationId] : [principal.organizationId, principal.memberId, principal.memberId]
   const [taskSummary] = await safeAll(
     db,
     `SELECT
@@ -181,7 +182,10 @@ export async function buildOperationalContextSnapshot(
     db,
     `SELECT c.id, c.name, c.status, c.company, COUNT(t.id) AS task_count
      FROM clients c
-     LEFT JOIN tasks t ON t.client_id = c.id AND t.organization_id = c.organization_id
+     LEFT JOIN tasks t
+       ON t.client_id = c.id
+      AND t.organization_id = c.organization_id
+      AND (? = 1 OR t.assignee_member_id = ? OR t.created_by_member_id = ?)
      WHERE c.organization_id = ?
        AND (
          ? = 1
@@ -205,7 +209,15 @@ export async function buildOperationalContextSnapshot(
      GROUP BY c.id
      ORDER BY c.updated_at DESC
      LIMIT 12`,
-    [principal.organizationId, isManager ? 1 : 0, principal.memberId, principal.memberId],
+    [
+      isManager ? 1 : 0,
+      principal.memberId,
+      principal.memberId,
+      principal.organizationId,
+      canBrowseClientDirectory ? 1 : 0,
+      principal.memberId,
+      principal.memberId,
+    ],
   )
   if (clients.length) sources.push("clients")
 

@@ -45,10 +45,10 @@ export async function POST(request: NextRequest) {
            FROM tasks
            WHERE organization_id = ?
              AND id = ?
-             AND (? = 1 OR assignee_member_id = ?)
+             AND (? = 1 OR assignee_member_id = ? OR created_by_member_id = ?)
            LIMIT 1`,
         )
-        .bind(principal.organizationId, taskId, isManager ? 1 : 0, memberId)
+        .bind(principal.organizationId, taskId, isManager ? 1 : 0, memberId, memberId)
         .first()
 
       if (!task) {

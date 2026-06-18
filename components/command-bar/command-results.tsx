@@ -128,7 +128,7 @@ export function CommandResults() {
         <motion.div
           initial={liquidFadeIn.initial}
           animate={liquidFadeIn.animate}
-          className="mx-5 mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"
+          className="mx-3 mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900 sm:mx-4"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -146,8 +146,8 @@ export function CommandResults() {
       )}
 
       {showSuggestions && (
-        <div className="px-5 pb-5">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="px-3 pb-3 sm:px-4">
+          <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Azioni rapide</p>
             <p className="text-xs text-muted-foreground">Click per preparare il comando</p>
           </div>
@@ -166,14 +166,14 @@ export function CommandResults() {
                     setInput(suggestion.title)
                   }}
                   className={cn(
-                    "group flex min-h-[72px] items-start gap-3 rounded-lg px-3 py-3 text-left",
+                    "group flex min-h-[60px] items-start gap-3 rounded-lg px-3 py-2.5 text-left",
                     "border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
                     "hover:border-righello-pink/60 hover:bg-righello-pink/5",
                     "transition-all duration-200"
                   )}
                 >
                   {Icon && (
-                    <span className="mt-0.5 rounded-md bg-righello-pink/10 p-2 text-righello-pink transition-colors group-hover:bg-righello-pink group-hover:text-white">
+                    <span className="mt-0.5 rounded-md bg-righello-pink/10 p-1.5 text-righello-pink transition-colors group-hover:bg-righello-pink group-hover:text-white">
                       <Icon className="h-4 w-4 flex-shrink-0" />
                     </span>
                   )}

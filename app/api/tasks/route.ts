@@ -35,10 +35,11 @@ export async function GET() {
               `SELECT t.*, p.name AS project_name
                FROM tasks t
                LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
-               WHERE t.organization_id = ? AND t.assignee_member_id = ?
+               WHERE t.organization_id = ?
+                 AND (t.assignee_member_id = ? OR t.created_by_member_id = ?)
                ORDER BY t.updated_at DESC`,
             )
-            .bind(principal.organizationId, principal.memberId)
+            .bind(principal.organizationId, principal.memberId, principal.memberId)
         : principal.role === "client"
           ? db
               .prepare(
@@ -124,8 +125,29 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Progetto non trovato" }, { status: 404 })
     }
 
-    const clientId = project?.client_id || body.clientId || "tenant"
-    const clientName = project?.client_name || body.clientName || ""
+    let clientId = project?.client_id || (typeof body.clientId === "string" && body.clientId.trim() ? body.clientId.trim() : null)
+    let clientName = project?.client_name || (typeof body.clientName === "string" ? body.clientName.trim() : "")
+
+    if (clientId) {
+      const client = await db
+        .prepare(
+          `SELECT id, name
+           FROM clients
+           WHERE organization_id = ? AND id = ?
+           LIMIT 1`,
+        )
+        .bind(principal.organizationId, clientId)
+        .first()
+
+      if (!client?.id) {
+        return Response.json({ error: "Cliente non trovato" }, { status: 404 })
+      }
+
+      clientId = String(client.id)
+      clientName = String(client.name || clientName || "")
+    }
+
+    clientId = clientId || "tenant"
     const assignedUserId =
       typeof body.assignedUserId === "string" && body.assignedUserId.trim()
         ? body.assignedUserId.trim()

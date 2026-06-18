@@ -264,6 +264,7 @@ export default function RapportiniPage() {
   const [activity, setActivity] = useState("")
   const [minutes, setMinutes] = useState("60")
   const [notes, setNotes] = useState("")
+  const [createTaskFromReport, setCreateTaskFromReport] = useState(false)
   const hasLoadedRef = useRef(false)
 
   const shiftDate = (days: number) => {
@@ -457,6 +458,37 @@ export default function RapportiniPage() {
     const selected = targetOptions.find((option) => option.value === selectedTarget)
     const [kind, id] = selectedTarget.split(":")
     const clientId = selectedClientId || resolveClientId(selected) || null
+    let taskId = kind === "task" ? id : null
+    const projectId = kind === "project" ? id : selected?.projectId || null
+
+    if (createTaskFromReport && !taskId) {
+      const title = activity.trim()
+      if (!title) {
+        throw new Error("Scrivi prima cosa è stato fatto: diventerà il titolo della task.")
+      }
+
+      const createTaskResponse = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: `Task creata dal rapportino del ${formatShortDate(date)} per ${payload?.selectedMember?.name || "dipendente"}.`,
+          columnId: "done",
+          status: "done",
+          priority: "medium",
+          projectId,
+          clientId,
+          assignedUserId: selectedMemberId,
+          assignee: payload?.selectedMember?.name || "",
+          tags: ["rapportino", date],
+        }),
+      })
+      const createTaskData = await createTaskResponse.json().catch(() => ({}))
+      if (!createTaskResponse.ok) {
+        throw new Error(createTaskData.error || "Errore creazione task dal rapportino")
+      }
+      taskId = createTaskData.task?.id || null
+    }
 
     const response = await fetch("/api/time-tracking/entries", {
       method: "POST",
@@ -464,8 +496,8 @@ export default function RapportiniPage() {
       body: JSON.stringify({
         date,
         memberId: selectedMemberId,
-        taskId: kind === "task" ? id : null,
-        projectId: kind === "project" ? id : selected?.projectId || null,
+        taskId,
+        projectId,
         clientId,
         note: activity,
         minutes: Number(minutes),
@@ -478,6 +510,7 @@ export default function RapportiniPage() {
     setMinutes("60")
     setSelectedTarget("")
     setSelectedClientId("")
+    setCreateTaskFromReport(false)
     await load()
     notifyOperationalDataChanged()
   }
@@ -884,6 +917,22 @@ export default function RapportiniPage() {
                 </p>
               </div>
 
+              {selectedOption?.kind !== "task" && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 p-3 transition hover:border-cyan-300/35 hover:bg-cyan-300/15">
+                  <Checkbox
+                    checked={createTaskFromReport}
+                    onCheckedChange={(checked) => setCreateTaskFromReport(Boolean(checked))}
+                    className="mt-0.5 border-cyan-200/40 data-[state=checked]:border-cyan-300 data-[state=checked]:bg-cyan-500"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black text-cyan-50">Crea task completata dal rapportino</span>
+                    <span className="mt-1 block text-xs leading-5 text-cyan-100/75">
+                      Utile quando hai svolto un lavoro per un cliente ma non esiste ancora la task. Optima crea la task, la segna completata e collega subito il tempo.
+                    </span>
+                  </span>
+                </label>
+              )}
+
               <Dialog open={targetPickerOpen} onOpenChange={setTargetPickerOpen}>
                 <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-3xl overflow-hidden rounded-[8px] border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
                   <DialogHeader className="border-b border-white/10 px-4 py-4 sm:px-5">
@@ -1031,7 +1080,7 @@ export default function RapportiniPage() {
                 onClick={() => handleAddEntry().then(() => toast.success("Attività aggiunta")).catch((err) => toast.error(err.message))}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Aggiungi attività
+                {createTaskFromReport && selectedOption?.kind !== "task" ? "Crea task e aggiungi attività" : "Aggiungi attività"}
               </Button>
 
               <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">

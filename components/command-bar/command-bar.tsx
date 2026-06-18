@@ -67,10 +67,10 @@ export function CommandBar() {
       <DialogContent
         stableViewport="top"
         className={cn(
-          "relative flex max-h-[calc(100svh-1.5rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0",
+          "relative top-3 flex max-h-[calc(100svh-1rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:top-5",
           "rounded-2xl bg-white dark:bg-slate-950",
           "border border-slate-200 shadow-2xl shadow-black/30 dark:border-slate-800",
-          "sm:max-h-[min(72svh,700px)]",
+          "sm:max-h-[min(66svh,600px)]",
           "motion-safe:duration-200 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0 motion-safe:data-[state=open]:zoom-in-95 motion-safe:data-[state=open]:slide-in-from-top-4 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-95 motion-safe:data-[state=closed]:slide-out-to-top-4"
         )}
       >
@@ -123,7 +123,7 @@ export function CommandBar() {
               <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ⌘K
               </kbd>
-              <span>per aprire</span>
+              <span>command bar</span>
             </div>
             <div className="hidden items-center gap-2 sm:flex">
               <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
