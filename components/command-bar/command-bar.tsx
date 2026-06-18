@@ -115,10 +115,10 @@ export function CommandBar() {
       <DialogContent
         stableViewport="top"
         className={cn(
-          "relative top-3 flex max-h-[calc(100svh-1rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:top-5",
+          "flex max-h-[calc(100svh-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0",
           "rounded-2xl bg-white dark:bg-slate-950",
           "border border-slate-200 shadow-2xl shadow-black/30 dark:border-slate-800",
-          "sm:max-h-[min(66svh,600px)]",
+          "sm:max-h-[min(72svh,640px)]",
           "motion-safe:duration-200 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0 motion-safe:data-[state=open]:zoom-in-95 motion-safe:data-[state=open]:slide-in-from-top-4 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-95 motion-safe:data-[state=closed]:slide-out-to-top-4"
         )}
       >

@@ -27,6 +27,73 @@ function json(value) {
   return sql(JSON.stringify(value))
 }
 
+function normalizeGraphToken(value, fallback) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_{2,}/g, "_")
+  return normalized || fallback
+}
+
+const NODE_TYPE_ALIASES = {
+  "knowledge-base": "knowledge_base",
+  knowledge: "knowledge_base",
+  knowhow: "development_knowhow",
+  know_how: "development_knowhow",
+  skill: "codex_skill",
+  skills: "codex_skill",
+  client: "notion_client",
+  cliente: "notion_client",
+  task: "notion_task",
+  database: "notion_database",
+  db_notion: "notion_database",
+  mcp: "connector",
+  mcp_connector: "connector",
+  repo: "repository",
+  source: "reference_source",
+  sorgente: "reference_source",
+}
+
+const SOURCE_TYPE_ALIASES = {
+  optima: "internal",
+  manuale: "manual",
+  notion: "notion_righello",
+  notion_righello_readonly: "notion_righello",
+  righello_notion: "notion_righello",
+  hermes: "hermes_readonly",
+  hermes_righello: "hermes_readonly",
+  codex: "codex_knowhow",
+  knowhow: "codex_knowhow",
+  development_knowhow: "codex_knowhow",
+  obsidian: "obsidian_vault",
+  github_repo: "github",
+  repository: "github",
+}
+
+function normalizeNodeType(value) {
+  const token = normalizeGraphToken(value, "knowledge_base")
+  return NODE_TYPE_ALIASES[token] || token
+}
+
+function normalizeSourceType(value) {
+  const token = normalizeGraphToken(value, "manual")
+  return SOURCE_TYPE_ALIASES[token] || token
+}
+
+function normalizeEdgeType(value) {
+  return normalizeGraphToken(value, "relates_to")
+}
+
+function normalizeTags(tags) {
+  return Array.from(new Set((Array.isArray(tags) ? tags : []).map((tag) => normalizeGraphToken(tag, "")).filter(Boolean))).slice(
+    0,
+    40,
+  )
+}
+
 function titleFromMarkdown(filename, content) {
   const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim()
   if (heading) return heading
@@ -95,12 +162,25 @@ function normalizeCatalogLink(entry) {
 }
 
 function nodeUpsert({ id, nodeType, title, summary, sourceType, sourceId, tags, properties }) {
+  const normalizedNodeType = normalizeNodeType(nodeType)
+  const normalizedSourceType = normalizeSourceType(sourceType)
+  const normalizedTags = normalizeTags(tags)
+  const normalizedProperties = {
+    ...properties,
+    graphIndex: {
+      type: normalizedNodeType,
+      sourceType: normalizedSourceType,
+      tags: normalizedTags,
+      searchable: [title, summary, normalizedTags.join(" ")].filter(Boolean).join(" ").slice(0, 2000),
+      normalizedBy: "sync-development-knowhow-graph",
+    },
+  }
   return `INSERT INTO agentic_graph_nodes (
   id, organization_id, node_type, title, summary, source_type, source_id,
   source_url, confidence, tags_json, properties_json, created_by_member_id
 ) VALUES (
-  ${sql(id)}, ${sql(organizationId)}, ${sql(nodeType)}, ${sql(title)}, ${sql(summary)},
-  ${sql(sourceType)}, ${sql(sourceId)}, NULL, 'manual', ${json(tags)}, ${json(properties)}, NULL
+  ${sql(id)}, ${sql(organizationId)}, ${sql(normalizedNodeType)}, ${sql(title)}, ${sql(summary)},
+  ${sql(normalizedSourceType)}, ${sql(sourceId)}, NULL, 'manual', ${json(normalizedTags)}, ${json(normalizedProperties)}, NULL
 )
 ON CONFLICT(organization_id, node_type, source_type, source_id) DO UPDATE SET
   title = excluded.title,
@@ -111,20 +191,30 @@ ON CONFLICT(organization_id, node_type, source_type, source_id) DO UPDATE SET
 }
 
 function edgeUpsertBySource({ id, fromSourceType, fromSourceId, toSourceType, toSourceId, edgeType, weight = 1, properties = {} }) {
+  const normalizedFromSourceType = normalizeSourceType(fromSourceType)
+  const normalizedToSourceType = normalizeSourceType(toSourceType)
+  const normalizedEdgeType = normalizeEdgeType(edgeType)
+  const normalizedProperties = {
+    ...properties,
+    graphIndex: {
+      edgeType: normalizedEdgeType,
+      normalizedBy: "sync-development-knowhow-graph",
+    },
+  }
   return `INSERT INTO agentic_graph_edges (
   id, organization_id, from_node_id, to_node_id, edge_type,
   confidence, weight, properties_json, created_by_member_id
 )
 SELECT
   ${sql(id)}, ${sql(organizationId)}, from_node.id, to_node.id,
-  ${sql(edgeType)}, 'manual', ${Number(weight)}, ${json(properties)}, NULL
+  ${sql(normalizedEdgeType)}, 'manual', ${Number(weight)}, ${json(normalizedProperties)}, NULL
 FROM agentic_graph_nodes from_node
 JOIN agentic_graph_nodes to_node
   ON to_node.organization_id = from_node.organization_id
 WHERE from_node.organization_id = ${sql(organizationId)}
-  AND from_node.source_type = ${sql(fromSourceType)}
+  AND from_node.source_type = ${sql(normalizedFromSourceType)}
   AND from_node.source_id = ${sql(fromSourceId)}
-  AND to_node.source_type = ${sql(toSourceType)}
+  AND to_node.source_type = ${sql(normalizedToSourceType)}
   AND to_node.source_id = ${sql(toSourceId)}
 LIMIT 1
 ON CONFLICT(organization_id, from_node_id, to_node_id, edge_type) DO UPDATE SET

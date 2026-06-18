@@ -19,6 +19,7 @@ import {
   Film,
   Layers,
   Video,
+  Upload,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { CommandSuggestion } from "@/lib/types"
@@ -36,6 +37,7 @@ const iconMap: Record<string, any> = {
   Video,
   Film,
   Layers,
+  Upload,
 }
 
 export function CommandResults() {

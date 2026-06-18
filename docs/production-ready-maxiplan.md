@@ -2,6 +2,8 @@
 
 Questo piano serve a portare Optima da beta operativa a sistema operativo aziendale agentico usabile ogni giorno da Righello. Non misura solo se la build passa: misura se persone, clienti, task, rapportini, chat, grafo, runner, MCP e review producono un flusso affidabile.
 
+Fonte di verita architetturale e di design: `docs/optima-production-architecture-design-contract.md`.
+
 ## Stato target
 
 Optima e production-ready quando:

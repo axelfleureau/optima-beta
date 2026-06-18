@@ -1109,7 +1109,7 @@ const GRAPH_MIN_ZOOM = 0.45
 const GRAPH_FIT_ZOOM = 0.62
 const GRAPH_MAX_ZOOM = 2.8
 const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
-const GRAPH_NODE_LIMIT_OPTIONS = [48, 96, 160, 240]
+const GRAPH_NODE_LIMIT_OPTIONS = [48, 96, 160, 240, 500, 1000]
 const OBSIDIAN_VAULT_NAME = "Optima Obsidian Vault"
 const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault"
 const OBSIDIAN_GRAPH_INDEX_FILE = "Optima Graph Memory.md"
@@ -2033,7 +2033,7 @@ export function AgentJobsClient({
       if (graphQuery.trim()) params.set("q", graphQuery.trim())
       if (graphNodeTypeFilter) params.set("nodeType", graphNodeTypeFilter)
       if (graphSourceFilter) params.set("sourceType", graphSourceFilter)
-      params.set("limit", "240")
+      params.set("limit", "2000")
       setIsSearchingGraph(true)
       fetch(`/api/agentic-graph?${params.toString()}`)
         .then((response) => (response.ok ? response.json() : null))
@@ -2961,6 +2961,7 @@ export function AgentJobsClient({
   const codexSkillNodeCount = Number(graphMemory?.stats.byType?.codex_skill ?? 0)
   const knowledgeBaseNodeCount = Number(graphMemory?.stats.byType?.knowledge_base ?? 0)
   const knowhowNodeCount = knowhowCatalogNodeCount + knowhowFileNodeCount + codexSkillNodeCount + knowledgeBaseNodeCount
+  const knowhowBreakdownLabel = `${knowhowFileNodeCount} file · ${knowhowCatalogNodeCount} note · ${codexSkillNodeCount} skill`
   const graphReady = Boolean(graphMemory?.stats.nodes)
   const filteredJobs = jobs.filter((job) => {
     if (jobFilter === "all") return true
@@ -3513,7 +3514,7 @@ export function AgentJobsClient({
             ["Policy provider", configuredProviderCount, `${capabilities?.providerCatalog.length ?? 0} catalogo`],
             ["Runtime ready", readyRuntimeCount, `${capabilities?.modelRuntime?.hosts.length ?? 0} host`],
             ["Subagenti", capabilities?.subagents.length ?? 0, "tenant"],
-            ["Scibile", knowhowNodeCount, `${knowhowFileNodeCount} file · ${knowhowCatalogNodeCount} note · ${codexSkillNodeCount} skill`],
+            ["Scibile", knowhowNodeCount, knowhowBreakdownLabel],
           ].map(([label, value, detail]) => (
             <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3">
               <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
@@ -4313,7 +4314,7 @@ export function AgentJobsClient({
                   {[
                     ["Workspace", Number(graphMemory?.stats.byType?.graph_workspace ?? 0)],
                     ["Note", Number(graphMemory?.stats.byType?.obsidian_note ?? 0)],
-                    ["Know-how", knowhowNodeCount],
+                    ["Scibile", knowhowNodeCount],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-violet-300/15 bg-[#0b0914]/70 p-2">
                       <p className="truncate text-[11px] text-slate-500">{label}</p>

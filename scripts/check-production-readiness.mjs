@@ -1,4 +1,5 @@
 import { resolve4, resolveCname } from "node:dns/promises"
+import { existsSync, readFileSync } from "node:fs"
 
 const baseUrl = (process.env.OPTIMA_PRODUCTION_URL || "https://appbeta.wearerighello.com").replace(/\/$/, "")
 
@@ -39,6 +40,21 @@ async function dnsExists(hostname) {
 
 async function main() {
   console.log(`Checking Optima production readiness: ${baseUrl}`)
+
+  const productionContractPath = "docs/optima-production-architecture-design-contract.md"
+  const productionContract = existsSync(productionContractPath)
+    ? readFileSync(productionContractPath, "utf8")
+    : ""
+  record("production architecture contract present", productionContract.length > 0, productionContractPath)
+  record(
+    "production contract covers agentic architecture",
+    productionContract.includes("Agentic System") &&
+      productionContract.includes("MCP and OAuth") &&
+      productionContract.includes("Graph Memory") &&
+      productionContract.includes("Presence and Reports") &&
+      productionContract.includes("Quotes and PDF"),
+    "agentic, MCP, graph, presence and quotes sections",
+  )
 
   const login = await fetchText("/login")
   const server = login.response.headers.get("server") || ""
