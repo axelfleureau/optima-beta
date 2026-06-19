@@ -578,12 +578,65 @@ async function callTool(name: string, args: any, db: any, principal: any) {
         nodeType: String(args?.nodeType || ""),
         limit: Number(args?.limit || 25),
       })
+      const snapshot = await getAgenticGraphSnapshot(db, principal)
+      const nodeTypes = new Set(nodes.map((node) => node.nodeType))
+      const sourceTypes = new Set(nodes.map((node) => node.sourceType))
+      const queryTerms = String(args?.query || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9àèéìòù\s-]/gi, " ")
+        .split(/\s+/)
+        .filter((term) => term.length >= 4)
+      const domains = snapshot.index.semanticDomains
+        .filter((domain) => {
+          const domainText = [
+            domain.id,
+            domain.label,
+            domain.description,
+            domain.action,
+            ...domain.nodeTypes,
+            ...domain.sourceTypes,
+          ]
+            .join(" ")
+            .toLowerCase()
+          return (
+            queryTerms.some((term) => domainText.includes(term)) ||
+            domain.nodeTypes.some((type) => nodeTypes.has(type)) ||
+            domain.sourceTypes.some((type) => sourceTypes.has(type))
+          )
+        })
+        .slice(0, 5)
+      const actions = snapshot.index.nodeActions
+        .filter((action) => {
+          const actionText = [action.id, action.label, action.description, ...action.nodeTypes, ...action.sourceTypes]
+            .join(" ")
+            .toLowerCase()
+          return (
+            queryTerms.some((term) => actionText.includes(term)) ||
+            action.nodeTypes.some((type) => nodeTypes.has(type)) ||
+            action.sourceTypes.some((type) => sourceTypes.has(type))
+          )
+        })
+        .slice(0, 4)
       const text = nodes.length
-        ? nodes
-            .map((node) => `- ${node.title} [${node.nodeType}/${node.confidence}] ${node.summary}`.trim())
+        ? [
+            `Indice Graphify: ${snapshot.stats.nodes} nodi, ${snapshot.stats.edges} archi, copertura ${snapshot.index.quality.completenessScore}/100.`,
+            domains.length
+              ? [
+                  "Domini operativi:",
+                  ...domains.map((domain) => {
+                    const coverage = domain.count ? Math.round((domain.connectedCount / domain.count) * 100) : 0
+                    return `- ${domain.label}: ${domain.count} nodi, ${coverage}% collegati. ${domain.action}`
+                  }),
+                ].join("\n")
+              : "",
+            actions.length ? ["Azioni consigliate:", ...actions.map((action) => `- ${action.label}: ${action.description}`)].join("\n") : "",
+            "Nodi trovati:",
+            ...nodes.map((node) => `- ${node.title} [${node.nodeType}/${node.confidence}] ${node.summary}`.trim()),
+          ]
+            .filter(Boolean)
             .join("\n")
         : "Nessun nodo trovato nella graph memory Optima."
-      return toolResult(text, { nodes })
+      return toolResult(text, { nodes, domains, actions, quality: snapshot.index.quality })
     }
 
     case "optima_graph_memory_upsert": {

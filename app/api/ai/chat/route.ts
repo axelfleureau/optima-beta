@@ -8,7 +8,12 @@ import { requireClerkUser } from "@/lib/server-clerk"
 import { OPENAI_CHAT_MODEL, OPENAI_FAST_MODEL } from "@/lib/ai/models"
 import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 import { buildOperationalContextSnapshot } from "@/lib/operational-context"
-import { listAgenticGraphNodes, upsertAgenticGraphNode, type AgenticGraphConfidence } from "@/lib/agentic-graph"
+import {
+  getAgenticGraphSnapshot,
+  listAgenticGraphNodes,
+  upsertAgenticGraphNode,
+  type AgenticGraphConfidence,
+} from "@/lib/agentic-graph"
 import { AGENT_ADMIN_ROLES } from "@/lib/agent-jobs"
 import { ensureWorkspacePrincipal, type WorkspacePrincipal } from "@/lib/workspace-db"
 
@@ -751,6 +756,7 @@ async function buildGraphContext(db: any, principal: WorkspacePrincipal, message
   if (!db) return { text: "", sources: [] as string[] }
 
   const terms = extractGraphSearchTerms(message)
+  const snapshot = await getAgenticGraphSnapshot(db, principal)
   const byId = new Map<string, Awaited<ReturnType<typeof listAgenticGraphNodes>>[number]>()
 
   for (const term of terms) {
@@ -764,18 +770,83 @@ async function buildGraphContext(db: any, principal: WorkspacePrincipal, message
   }
 
   const nodes = Array.from(byId.values()).slice(0, 10)
-  if (!nodes.length) return { text: "", sources: [] }
+  const normalizedTerms = terms.map((term) => term.toLowerCase())
+  const nodeTypes = new Set(nodes.map((node) => node.nodeType))
+  const sourceTypes = new Set(nodes.map((node) => node.sourceType))
+  const relevantDomains = snapshot.index.semanticDomains
+    .filter((domain) => {
+      const domainText = [
+        domain.id,
+        domain.label,
+        domain.description,
+        domain.action,
+        ...domain.nodeTypes,
+        ...domain.sourceTypes,
+      ]
+        .join(" ")
+        .toLowerCase()
+      return (
+        normalizedTerms.some((term) => domainText.includes(term)) ||
+        domain.nodeTypes.some((type) => nodeTypes.has(type)) ||
+        domain.sourceTypes.some((type) => sourceTypes.has(type))
+      )
+    })
+    .slice(0, 5)
+  const relevantActions = snapshot.index.nodeActions
+    .filter((action) => {
+      const actionText = [action.id, action.label, action.description, ...action.nodeTypes, ...action.sourceTypes]
+        .join(" ")
+        .toLowerCase()
+      return (
+        normalizedTerms.some((term) => actionText.includes(term)) ||
+        action.nodeTypes.some((type) => nodeTypes.has(type)) ||
+        action.sourceTypes.some((type) => sourceTypes.has(type))
+      )
+    })
+    .slice(0, 4)
+  const hubs = snapshot.index.hubs.slice(0, 5)
+
+  if (!nodes.length && !relevantDomains.length && !hubs.length) return { text: "", sources: [] }
 
   return {
     text: [
       "GRAPH MEMORY ÓPTIMA",
-      "Questi nodi sono contesto aziendale tenant-scoped. Usa confidence/source; non inventare relazioni mancanti.",
-      ...nodes.map(
-        (node) =>
-          `- ${node.title} | tipo ${node.nodeType} | source ${node.sourceType} | confidence ${node.confidence} | ${compact(node.summary, 260)}`,
-      ),
+      "Indice Graphify tenant-scoped: usa domini, hub, confidence/source e azioni consigliate; non inventare relazioni mancanti.",
+      `Copertura indice: ${snapshot.index.quality.completenessScore}/100; nodi ${snapshot.stats.nodes}; archi ${snapshot.stats.edges}; nodi isolati ${snapshot.index.quality.orphanNodes}.`,
+      relevantDomains.length
+        ? [
+            "DOMINI OPERATIVI RILEVANTI",
+            ...relevantDomains.map((domain) => {
+              const coverage = domain.count ? Math.round((domain.connectedCount / domain.count) * 100) : 0
+              return `- ${domain.label}: ${domain.count} nodi, ${coverage}% collegati. Azione: ${domain.action}`
+            }),
+          ].join("\n")
+        : "",
+      relevantActions.length
+        ? [
+            "AZIONI GRAFO DISPONIBILI",
+            ...relevantActions.map((action) => `- ${action.label}: ${action.description}`),
+          ].join("\n")
+        : "",
+      hubs.length
+        ? ["HUB CENTRALI", ...hubs.map((hub) => `- ${hub.title} [${hub.nodeType}/${hub.sourceType}] degree ${hub.degree}`)].join(
+            "\n",
+          )
+        : "",
+      nodes.length
+        ? [
+            "NODI RILEVANTI",
+            ...nodes.map(
+              (node) =>
+                `- ${node.title} | tipo ${node.nodeType} | source ${node.sourceType} | confidence ${node.confidence} | ${compact(node.summary, 260)}`,
+            ),
+          ].join("\n")
+        : "",
+      snapshot.index.quality.notes.length
+        ? ["NOTE QUALITA INDICE", ...snapshot.index.quality.notes.slice(0, 3).map((note) => `- ${note}`)].join("\n")
+        : "",
     ].join("\n"),
-    sources: ["agentic_graph"],
+    sources: ["agentic_graph", "graphify_index", ...relevantDomains.map((domain) => `graph_domain:${domain.id}`)],
   }
 }
 
