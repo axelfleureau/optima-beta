@@ -93,6 +93,8 @@ async function loadWorkspaceClients(db: any, organizationId: string): Promise<Cl
 function toEnrichedPromptData(body: any): EnrichedPromptData {
   return {
     projectType: body.projectType,
+    selectedPackageId: body.selectedPackageId || body.projectType,
+    pricingTemplateId: body.pricingTemplateId || body.projectType,
     projectTypeLabel: body.projectTypeLabel,
     sector: body.sector,
     sectorLabel: body.sectorLabel,

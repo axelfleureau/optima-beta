@@ -54,6 +54,8 @@ import {
 
 export interface EnrichedPromptData {
   projectType: string
+  selectedPackageId?: string
+  pricingTemplateId?: string
   projectTypeLabel: string
   sector: string
   sectorLabel: string
@@ -314,7 +316,9 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
         setIsCompleting(true)
         const budgetRange = normalizeBudgetInputs()
         const enrichedData: EnrichedPromptData = {
-          projectType: selectedProjectType?.pricingTemplateId || formData.projectType,
+          projectType: selectedProjectType?.id || formData.projectType,
+          selectedPackageId: selectedProjectType?.id || formData.projectType,
+          pricingTemplateId: selectedProjectType?.pricingTemplateId || formData.projectType,
           projectTypeLabel: selectedProjectType?.label || '',
           sector: formData.sector,
           sectorLabel: selectedSector?.name || '',

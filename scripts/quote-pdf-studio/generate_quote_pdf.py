@@ -561,6 +561,7 @@ class StudioQuotePDF:
             return []
 
         output: list[Any] = [
+            CondPageBreak(92 * mm),
             *self.section_title("dettaglio economico", "Voci di sviluppo"),
             Paragraph(
                 "Le voci sono raggruppate per mantenere il documento compatto e stampabile. "
@@ -572,7 +573,6 @@ class StudioQuotePDF:
         for index, item in enumerate(items, start=1):
             output.append(CondPageBreak(34 * mm))
             output.append(self.item_card(item, index))
-        output.append(PageBreak())
         return output
 
     def project_content(self) -> list[Any]:
@@ -587,7 +587,7 @@ class StudioQuotePDF:
             Paragraph("ATTIVITA PREVISTE", self.styles["kicker"]),
             Spacer(1, 5),
             *self.bullet_list(activities, "Attivita e deliverable da dettagliare nella fase di avvio."),
-            PageBreak(),
+            Spacer(1, 12),
         ]
         return output
 
@@ -597,6 +597,7 @@ class StudioQuotePDF:
         recurring = self.recurring_total()
         rows = [(clean_text(item.get("descrizione")), money(self.item_total(item))) for item in self.base_items()]
         output: list[Any] = [
+            CondPageBreak(105 * mm),
             *self.section_title("riepilogo", "Quadro economico"),
             self.price_table(rows, "TOTALE DOCUMENTO", money(development + vat)),
             Spacer(1, 10),
@@ -613,17 +614,30 @@ class StudioQuotePDF:
             Paragraph(ptext(self.data.get("condizioni", {}).get("paymentTerms") or "Pagamento e avvio secondo accordi confermati in fase di approvazione."), self.styles["body"]),
             Spacer(1, 8),
             Paragraph(ptext(self.data.get("terminiCondizioni") or "Eventuali attivita aggiuntive, estensioni funzionali o integrazioni non previste saranno oggetto di valutazione separata."), self.styles["body"]),
-            Spacer(1, 18),
+            Spacer(1, 10),
+            Paragraph("Accettazione e revisione possono avvenire tramite link condiviso Optima o conferma scritta.", self.styles["body_muted"]),
+            *(([
+                Spacer(1, 10),
+                CondPageBreak(24 * mm),
+                self.signature_table(),
+            ] if self.data.get("includeSignature") else [])),
+            Spacer(1, 10),
             GradientBar(self.content_width, 2),
-            Spacer(1, 12),
-            self.signature_table(),
         ]
         return output
 
     def signature_table(self) -> Table:
         data = [
-            [Paragraph(f"Per accettazione<br/>{ptext(self.client_name)}", self.styles["small"]), Paragraph("Per Righello S.R.L.<br/>Direzione", self.styles["small"])],
-            [Paragraph("______________________________<br/>Data e firma", self.styles["small"]), Paragraph("______________________________<br/>Data e firma", self.styles["small"])],
+            [
+                Paragraph(
+                    f"Per accettazione<br/>{ptext(self.client_name)}<br/><br/>______________________________<br/>Data e firma",
+                    self.styles["small"],
+                ),
+                Paragraph(
+                    "Per Righello S.R.L.<br/>Direzione<br/><br/>______________________________<br/>Data e firma",
+                    self.styles["small"],
+                ),
+            ],
         ]
         table = Table(data, colWidths=[self.content_width / 2, self.content_width / 2])
         table.setStyle(
@@ -631,8 +645,8 @@ class StudioQuotePDF:
                 [
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
                 ]
             )
         )

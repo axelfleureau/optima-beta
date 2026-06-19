@@ -21,6 +21,8 @@ const RIGHELLO_QUOTE_OPERATING_CONTEXT = buildRighelloQuoteOperatingContext()
 
 export interface EnrichedPromptData {
   projectType: string
+  selectedPackageId?: string
+  pricingTemplateId?: string
   projectTypeLabel: string
   sector: string
   sectorLabel: string
@@ -420,14 +422,21 @@ export async function generateQuoteFromEnrichedData(
 ): Promise<GeneratedQuoteData> {
   try {
     console.log("🎯 Generating quote with deterministic template-based pricing")
-    console.log("📊 Project Type:", enrichedData.projectType, "-", enrichedData.projectTypeLabel)
+    const pricingTemplateId = enrichedData.pricingTemplateId || enrichedData.projectType
+    const selectedProjectLabel =
+      enrichedData.projectTypeLabel?.trim() ||
+      enrichedData.selectedPackageId ||
+      pricingTemplateId
+
+    console.log("📊 Project Type:", enrichedData.projectType, "-", selectedProjectLabel)
+    console.log("💶 Pricing Template:", pricingTemplateId)
     console.log("🏢 Sector:", enrichedData.sector, "-", enrichedData.sectorLabel)
     
     const today = new Date().toISOString().split('T')[0]
     
     // STEP 1: Calculate DETERMINISTIC pricing from templates
     const templateResult = calculateQuoteWithExplicitParams(
-      enrichedData.projectType,
+      pricingTemplateId,
       enrichedData.sector,
       {
         recurringMonths: 12,
@@ -465,7 +474,7 @@ export async function generateQuoteFromEnrichedData(
       ...DEFAULT_QUOTE_DISCOVERY_QUESTIONS,
     ])
     const creativeDirection = inferCreativeDirection({
-      projectType: `${enrichedData.projectType} ${enrichedData.projectTypeLabel}`,
+      projectType: `${enrichedData.projectType} ${selectedProjectLabel} ${pricingTemplateId}`,
       sector: `${enrichedData.sector} ${enrichedData.sectorLabel}`,
       clientName: `${enrichedData.clientName} ${enrichedData.clientCompany || ""}`,
       description: enrichedData.description,
@@ -487,7 +496,8 @@ export async function generateQuoteFromEnrichedData(
     let aiPrompt = `Genera contenuti testuali personalizzati per questo preventivo Righello.
 
 INFORMAZIONI PROGETTO:
-- Tipo: ${enrichedData.projectTypeLabel}
+- Tipo selezionato: ${selectedProjectLabel}
+- Template prezzi: ${pricingTemplateId}
 - Settore: ${enrichedData.sectorLabel}
 - Descrizione: ${enrichedData.description}
 - Cliente: ${enrichedData.clientName}
@@ -575,7 +585,7 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
     if (!aiContent) {
       console.error("❌ Failed to get AI content after retries")
       
-      const projectTypeLabel = templateResult.template?.name || enrichedData.projectTypeLabel
+      const projectTypeLabel = selectedProjectLabel || templateResult.template?.name || "Proposta Righello"
       const sectorLabel = templateResult.sector?.name || enrichedData.sectorLabel || "settore"
       
       aiContent = {
@@ -601,11 +611,21 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
       attivita: aiContent.attivita.length,
       hasSitemap: !!aiContent.sitemap
     })
+
+    if (
+      pricingTemplateId === "website_180" &&
+      /360\s*°|a\s*360/i.test(aiContent.titolo)
+    ) {
+      aiContent = {
+        ...aiContent,
+        titolo: `${selectedProjectLabel} per ${enrichedData.clientName || enrichedData.clientCompany || "Cliente"}`,
+      }
+    }
     
     // STEP 4: Merge TEMPLATE DATA (prices) + AI DATA (texts)
     // ✅ USE TEMPLATE DATA DIRECTLY - NO RECALCULATION
     const finalQuote: GeneratedQuoteData = {
-      projectType: enrichedData.projectType, // ✅ Template type for PDF styling
+      projectType: enrichedData.selectedPackageId || enrichedData.projectType, // ✅ User-selected package for UX/PDF styling
       cliente: {
         nome: enrichedData.clientName,
         email: enrichedData.clientEmail || '',

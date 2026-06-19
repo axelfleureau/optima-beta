@@ -163,6 +163,8 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
           deadline: enrichedData.timeline,
           additionalRequirements: materialNotes,
           projectType: enrichedData.projectType,
+          selectedPackageId: enrichedData.selectedPackageId,
+          pricingTemplateId: enrichedData.pricingTemplateId,
           projectTypeLabel: enrichedData.projectTypeLabel,
           sector: enrichedData.sector,
           sectorLabel: enrichedData.sectorLabel,
@@ -360,6 +362,7 @@ export function AIQuoteGenerator({ open, onOpenChange, onQuoteGenerated }: AIQuo
             projectDescription: enrichedContext.description,
             sector: enrichedContext.sector,
             projectType: enrichedContext.projectType,
+            pricingTemplateId: enrichedContext.pricingTemplateId,
             projectTypeLabel: enrichedContext.projectTypeLabel,
             sectorLabel: enrichedContext.sectorLabel,
             currentData: (generatedQuote as any)[section]
