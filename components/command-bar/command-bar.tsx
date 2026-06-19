@@ -120,11 +120,11 @@ export function CommandBar() {
       <DialogContent
         stableViewport="top"
         className={cn(
-          "flex max-h-[calc(100svh-1rem)] w-[min(920px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden p-0",
+          "flex !top-[max(0.75rem,env(safe-area-inset-top))] !translate-y-0 sm:!top-[7vh]",
+          "max-h-[min(86svh,720px)] w-[min(880px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden p-0",
           "rounded-2xl bg-white dark:bg-slate-950",
           "border border-slate-200 shadow-2xl shadow-black/30 dark:border-slate-800",
-          "sm:max-h-[min(78svh,680px)]",
-          "motion-safe:duration-200 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0 motion-safe:data-[state=open]:zoom-in-95 motion-safe:data-[state=open]:slide-in-from-top-4 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-95 motion-safe:data-[state=closed]:slide-out-to-top-4"
+          "motion-safe:duration-150 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0 motion-safe:data-[state=open]:zoom-in-95 motion-safe:data-[state=open]:slide-in-from-top-2 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-98 motion-safe:data-[state=closed]:slide-out-to-top-2"
         )}
       >
         

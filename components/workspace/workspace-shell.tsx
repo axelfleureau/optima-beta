@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,7 +49,7 @@ import { getInternalWorkspaceClientIds, isInternalWorkspaceProject, isInternalWo
 import { KanbanBoard } from "./kanban-board"
 import { useWorkspaceLayout } from "@/hooks/use-workspace-layout"
 import { useIsMounted } from "@/hooks/use-is-mounted"
-import type { Project, Task } from "@/lib/types"
+import type { Client, Project, Task } from "@/lib/types"
 
 // Import Sheet dynamically with ssr: false to prevent hydration mismatch
 const MobileSheet = dynamic(
@@ -160,6 +160,53 @@ interface TaskAttachment {
   url: string
   type: string
   size: number
+}
+
+function isUsableClientRef(clientId?: string | null, clientName?: string | null) {
+  if (!clientId || clientId === "tenant" || clientId === "all") return false
+  return Boolean(clientName?.trim())
+}
+
+function deriveWorkspaceClients(
+  canonicalClients: Client[],
+  projects: Project[],
+  tasks: Task[],
+  tenantId?: string,
+) {
+  const clientsById = new Map<string, Client>()
+
+  for (const client of canonicalClients) {
+    clientsById.set(client.id, client)
+  }
+
+  const addFallbackClient = (clientId?: string | null, clientName?: string | null) => {
+    if (!isUsableClientRef(clientId, clientName) || clientsById.has(clientId!)) return
+
+    const now = new Date()
+    clientsById.set(clientId!, {
+      id: clientId!,
+      name: clientName!.trim(),
+      email: "",
+      contactEmail: "",
+      company: clientName!.trim(),
+      tenantId: tenantId || "",
+      status: "active",
+      source: "workspace-derived",
+      color: clientColors[clientsById.size % clientColors.length],
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+
+  for (const project of projects) {
+    addFallbackClient(project.clientId, project.clientName)
+  }
+
+  for (const task of tasks) {
+    addFallbackClient(task.clientId, task.clientName)
+  }
+
+  return Array.from(clientsById.values())
 }
 
 export function WorkspaceShell() {
@@ -279,7 +326,11 @@ export function WorkspaceShell() {
     rejectTaskAssignment,
   } = useWorkspaceData()
   const [pendingTaskFiles, setPendingTaskFiles] = useState<Array<{ id: string; file: File }>>([])
-  const internalClientIds = getInternalWorkspaceClientIds(clients, userData?.companyName)
+  const workspaceClients = useMemo(
+    () => deriveWorkspaceClients(clients, projects, allTasks, userData?.tenantId),
+    [clients, projects, allTasks, userData?.tenantId],
+  )
+  const internalClientIds = getInternalWorkspaceClientIds(workspaceClients, userData?.companyName)
 
   const tasks = allTasks.filter((task) => {
     if (showTenantWorkspace) {
@@ -581,7 +632,7 @@ export function WorkspaceShell() {
     }
 
     const targetClientId = showTenantWorkspace ? "tenant" : showAllClients ? "all" : selectedClientId
-    const selectedClient = clients.find((c) => c.id === selectedClientId)
+    const selectedClient = workspaceClients.find((c) => c.id === selectedClientId)
     const targetClientName = showTenantWorkspace ? "tenant" : showAllClients ? "all" : selectedClient?.name || ""
 
     if (!showTenantWorkspace && !selectedClientId && !showAllClients) {
@@ -727,7 +778,7 @@ export function WorkspaceShell() {
     }
   }
 
-  const selectedClient = clients.find((c) => c.id === selectedClientId)
+  const selectedClient = workspaceClients.find((c) => c.id === selectedClientId)
   const activeColumns = showTenantWorkspace ? tenantColumns : defaultColumns
 
   return (
@@ -736,7 +787,7 @@ export function WorkspaceShell() {
         {/* Desktop Sidebar - Hidden on mobile */}
         <div className="hidden lg:block">
           <ClientSidebar
-            clients={clients}
+            clients={workspaceClients}
             allTasks={allTasks}
             selectedClientId={selectedClientId}
             showAllClients={showAllClients}
@@ -755,7 +806,7 @@ export function WorkspaceShell() {
         <MobileSheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
           <SheetContent side="left" className="h-[100svh] max-h-[100svh] w-80 overflow-hidden bg-white/80 p-0 backdrop-blur-xl dark:bg-slate-800/80 lg:hidden">
             <ClientSidebar
-              clients={clients}
+              clients={workspaceClients}
               allTasks={allTasks}
               selectedClientId={selectedClientId}
               showAllClients={showAllClients}
