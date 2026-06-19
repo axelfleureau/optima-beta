@@ -29,6 +29,7 @@
     "SENDGRID_FROM_EMAIL": "info@wearerighello.com",
     "SENDGRID_FROM_NAME": "Optima by Righello",
     "BROWSER_MCP_GATEWAY_URL": "http://padel-vps.tailcd2fda.ts.net:8789",
+    "CODEX_TELEGRAM_BIN": "codex-chatgpt",
     "OPENAI_REASONING_MODEL": "gpt-5.2",
     "OPENAI_FAST_MODEL": "gpt-5-mini",
     "OPENAI_CHAT_MODEL": "gpt-5.2"
@@ -63,6 +64,7 @@
         "SENDGRID_FROM_EMAIL": "info@wearerighello.com",
         "SENDGRID_FROM_NAME": "Optima by Righello",
         "BROWSER_MCP_GATEWAY_URL": "http://padel-vps.tailcd2fda.ts.net:8789",
+        "CODEX_TELEGRAM_BIN": "codex-chatgpt",
         "OPENAI_REASONING_MODEL": "gpt-5.2",
         "OPENAI_FAST_MODEL": "gpt-5-mini",
         "OPENAI_CHAT_MODEL": "gpt-5.2"
@@ -105,6 +107,7 @@
         "SENDGRID_FROM_EMAIL": "info@wearerighello.com",
         "SENDGRID_FROM_NAME": "Optima by Righello",
         "BROWSER_MCP_GATEWAY_URL": "http://padel-vps.tailcd2fda.ts.net:8789",
+        "CODEX_TELEGRAM_BIN": "codex-chatgpt",
         "OPENAI_REASONING_MODEL": "gpt-5.2",
         "OPENAI_FAST_MODEL": "gpt-5-mini",
         "OPENAI_CHAT_MODEL": "gpt-5.2"
