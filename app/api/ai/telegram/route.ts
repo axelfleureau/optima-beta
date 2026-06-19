@@ -58,6 +58,66 @@ function compact(value: unknown, limit = 900) {
     .slice(0, limit)
 }
 
+function todayRomeIsoDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date())
+}
+
+function addDaysIsoDate(date: string, days: number) {
+  const cursor = new Date(`${date}T12:00:00Z`)
+  cursor.setUTCDate(cursor.getUTCDate() + days)
+  return cursor.toISOString().slice(0, 10)
+}
+
+function formatMinutesLabel(minutes: number) {
+  const safeMinutes = Math.max(0, Math.round(Number(minutes || 0)))
+  const hours = Math.floor(safeMinutes / 60)
+  const rest = safeMinutes % 60
+  if (hours && rest) return `${hours}h ${rest}m`
+  if (hours) return `${hours}h`
+  return `${rest}m`
+}
+
+function formatBusinessDate(date: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${date}T12:00:00Z`))
+}
+
+function resolvePersonalWorkSummaryDate(text: string) {
+  const lower = text.toLowerCase()
+  const asksPersonalWork =
+    /\b(cosa|che)\s+(ho|avevo)\s+fatt/.test(lower) ||
+    /\b(mie|mie[ei]|mio)\s+(attivit|task|lavor)/.test(lower) ||
+    /\b(riassum|riepilog).*\b(ieri|oggi|settimana|giornata)\b/.test(lower)
+
+  if (!asksPersonalWork) return null
+
+  const today = todayRomeIsoDate()
+  if (/l['’]altro ieri|altroieri/.test(lower)) return addDaysIsoDate(today, -2)
+  if (/\bieri\b/.test(lower)) return addDaysIsoDate(today, -1)
+  if (/\boggi\b/.test(lower)) return today
+
+  const explicitDate = lower.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/)
+  if (explicitDate) {
+    const currentYear = Number(today.slice(0, 4))
+    const day = explicitDate[1].padStart(2, "0")
+    const month = explicitDate[2].padStart(2, "0")
+    const rawYear = explicitDate[3]
+    const year = rawYear ? (rawYear.length === 2 ? `20${rawYear}` : rawYear) : String(currentYear)
+    return `${year}-${month}-${day}`
+  }
+
+  return null
+}
+
 function envList(name: string) {
   return String(process.env[name] || "")
     .split(",")
@@ -221,6 +281,54 @@ function buildOptimaOnlyReplyMarkup(): TelegramInlineKeyboard {
   return { inline_keyboard: [[{ text: "Apri Optima", url: appBaseUrl() }]] }
 }
 
+function publicTelegramReply(input: {
+  action: string
+  text: string
+  jobId?: string | null
+  confidence?: number
+}) {
+  let reply = compact(input.text, 3200)
+
+  if (!reply || (input.confidence && input.confidence < 70)) {
+    reply = "Ci sono. Dimmi cosa vuoi fare e ti aiuto dal punto giusto."
+  }
+
+  const technicalPatterns = [
+    /\bAPI\b/i,
+    /\bjob agentico\b/i,
+    /\bruntime\b/i,
+    /\bprovider\b/i,
+    /\bmodel route\b/i,
+    /\bcontesto Optima\b/i,
+    /\boutput revisionabile\b/i,
+    /\brunner\b/i,
+  ]
+
+  if (technicalPatterns.some((pattern) => pattern.test(reply))) {
+    if (input.action === "task_update") {
+      reply = "Ho capito la modifica sulla task. La preparo in Optima e ti chiedo conferma se manca qualche dettaglio."
+    } else if (input.action === "status" || input.action === "reminder") {
+      reply = "Controllo la giornata e ti segnalo cosa manca tra entrata, uscita, rapportino e task."
+    } else if (input.action === "query" || input.action === "archive" || input.action === "send_file") {
+      reply = "Cerco il documento o l'informazione richiesta. Se trovo un solo risultato utile te lo preparo qui; se ce ne sono diversi ti faccio scegliere."
+    } else if (input.action === "classify") {
+      reply = "Ho ricevuto il file. Lo preparo per la revisione prima di salvarlo in Optima."
+    } else {
+      reply = "Ci sono. Ho preso la richiesta e ti guido nel prossimo passaggio."
+    }
+  }
+
+  if (input.jobId) {
+    const suffix =
+      input.action === "task_update"
+        ? "Ho aperto una proposta in Optima da controllare prima di applicarla."
+        : "Ho preparato il passaggio in Optima per la verifica."
+    reply = `${reply}\n\n${suffix}`
+  }
+
+  return reply
+}
+
 function isStartCommand(text: unknown) {
   return /^\/start(?:@\w+)?(?:\s|$)/i.test(compact(text, 120))
 }
@@ -372,6 +480,105 @@ async function updateMemory(db: any, sessionId: string, principal: WorkspacePrin
   }
 }
 
+async function buildPersonalWorkSummaryReply(db: any, principal: WorkspacePrincipal, date: string) {
+  const [entriesResult, tasksResult] = await Promise.all([
+    db
+      .prepare(
+        `SELECT te.minutes, te.note, te.entry_date,
+                t.title AS task_title,
+                p.name AS project_name,
+                c.name AS client_name
+         FROM time_entries te
+         LEFT JOIN tasks t ON t.id = te.task_id AND t.organization_id = te.organization_id
+         LEFT JOIN projects p ON p.id = te.project_id AND p.organization_id = te.organization_id
+         LEFT JOIN clients c ON c.id = te.client_id AND c.organization_id = te.organization_id
+         WHERE te.organization_id = ?
+           AND te.member_id = ?
+           AND date(te.entry_date) = date(?)
+         ORDER BY te.created_at ASC
+         LIMIT 12`,
+      )
+      .bind(principal.organizationId, principal.memberId, date)
+      .all()
+      .catch(() => ({ results: [] })),
+    db
+      .prepare(
+        `SELECT t.title, t.status, t.column_id, t.actual_minutes, t.estimated_minutes,
+                t.client_name,
+                p.name AS project_name,
+                c.name AS canonical_client_name
+         FROM tasks t
+         LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+         LEFT JOIN clients c ON c.id = COALESCE(t.client_id, p.client_id) AND c.organization_id = t.organization_id
+         WHERE t.organization_id = ?
+           AND (t.assignee_member_id = ? OR t.created_by_member_id = ?)
+           AND (
+             date(t.created_at) = date(?)
+             OR date(t.updated_at) = date(?)
+             OR date(t.due_at) = date(?)
+             OR t.title LIKE ?
+           )
+         ORDER BY
+           CASE COALESCE(t.column_id, t.status)
+             WHEN 'done' THEN 0
+             WHEN 'completed' THEN 0
+             ELSE 1
+           END,
+           t.updated_at DESC
+         LIMIT 12`,
+      )
+      .bind(principal.organizationId, principal.memberId, principal.memberId, date, date, date, `${date}%`)
+      .all()
+      .catch(() => ({ results: [] })),
+  ])
+
+  const entries = (entriesResult.results || []) as any[]
+  const tasks = (tasksResult.results || []) as any[]
+  const totalMinutes = entries.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0)
+  const taskMinutes = tasks.reduce((sum, task) => {
+    const minutes = Number(task.actual_minutes || task.estimated_minutes || 0)
+    return sum + (Number.isFinite(minutes) ? minutes : 0)
+  }, 0)
+  const visibleMinutes = totalMinutes || taskMinutes
+
+  if (!entries.length && !tasks.length) {
+    return [
+      `Per ${formatBusinessDate(date)} non trovo ancora task o consuntivi collegati al tuo profilo.`,
+      "",
+      "Posso aiutarti a inserirli: scrivimi ad esempio “aggiungi rapportino per ieri: ...” oppure “crea task su Portopiccolo: ...”.",
+    ].join("\n")
+  }
+
+  const lines = [
+    `Per ${formatBusinessDate(date)} vedo ${formatMinutesLabel(visibleMinutes)} e ${tasks.length} task collegate.`,
+  ]
+
+  if (entries.length) {
+    lines.push("", "Consuntivi:")
+    for (const entry of entries.slice(0, 5)) {
+      const scope = [entry.client_name, entry.project_name].filter(Boolean).join(" · ")
+      lines.push(
+        `- ${formatMinutesLabel(Number(entry.minutes || 0))}${scope ? ` · ${compact(scope, 90)}` : ""}: ${compact(entry.task_title || entry.note || "Attivita registrata", 120)}`,
+      )
+    }
+  }
+
+  if (tasks.length) {
+    lines.push("", "Task:")
+    for (const task of tasks.slice(0, 6)) {
+      const scope = [task.canonical_client_name || task.client_name, task.project_name].filter(Boolean).join(" · ")
+      const state = compact(task.column_id || task.status || "stato non indicato", 40)
+      lines.push(`- ${compact(task.title, 120)}${scope ? ` · ${compact(scope, 90)}` : ""} · ${state}`)
+    }
+  }
+
+  if (tasks.length > 6 || entries.length > 5) {
+    lines.push("", "Ho mostrato i primi risultati. Posso prepararti il dettaglio completo in Optima.")
+  }
+
+  return lines.join("\n")
+}
+
 async function createTelegramReply(db: any, principal: WorkspacePrincipal, message: TelegramMessage): Promise<TelegramPreparedReply> {
   const text = compact(message.text || message.caption, 3600)
   const attachment = extractAttachment(message)
@@ -403,6 +610,23 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
 
   const userContent = text || `[${attachment?.kind || "allegato"}] ${attachment?.fileName || attachment?.fileId || ""}${mediaGroupId ? ` gruppo ${mediaGroupId}` : ""}`.trim()
   await saveChatMessage(db, sessionId, principal, "user", userContent)
+
+  const personalWorkDate = text ? resolvePersonalWorkSummaryDate(text) : null
+  if (personalWorkDate) {
+    const reply = await buildPersonalWorkSummaryReply(db, principal, personalWorkDate)
+    await saveChatMessage(db, sessionId, principal, "assistant", reply)
+    await updateMemory(db, sessionId, principal, sessionMemory, userContent, reply)
+    await saveTelegramAgentMemory(db, principal, chatId, agentMemory, userContent, reply, {
+      action: "status",
+      confidence: 92,
+      reply,
+      lastResult: { kind: "personal_work_summary", date: personalWorkDate },
+    }).catch(() => null)
+    return {
+      text: reply,
+      replyMarkup: buildTelegramReplyMarkup("status", null),
+    }
+  }
 
   const decision = inferTelegramTurnDecision({ text, memory: agentMemory, attachment })
 
@@ -464,16 +688,12 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
     jobId = job.id
   }
 
-  let reply = compact(decision.reply, 3200)
-  if (!decision.needsAgentJob && decision.confidence < 85) {
-    reply = "Ci sono. Dimmi cosa vuoi fare in Optima e ti aiuto a prepararlo nel modo giusto."
-  }
-
-  if (jobId) {
-    reply = `${reply}\n\nHo preparato una revisione in Optima.`
-  }
-
-  reply = reply || "Ho preso in carico la richiesta Telegram, ma mi serve un dettaglio in piu per procedere."
+  const reply = publicTelegramReply({
+    action: decision.action,
+    text: decision.reply,
+    jobId,
+    confidence: decision.confidence,
+  })
   await saveChatMessage(db, sessionId, principal, "assistant", reply)
   await updateMemory(db, sessionId, principal, sessionMemory, userContent, reply)
   await saveTelegramAgentMemory(db, principal, chatId, agentMemory, userContent, reply, decision).catch(() => null)
@@ -520,6 +740,20 @@ async function sendTelegramMessage(chatId: string | number, text: string, replyM
       }),
     })
   }
+}
+
+async function sendTelegramChatAction(chatId: string | number, action = "typing") {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) return
+
+  await fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      action,
+    }),
+  }).catch(() => null)
 }
 
 function webhookAuthorized(request: Request) {
@@ -580,6 +814,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await sendTelegramChatAction(chatId, extractAttachment(message) ? "upload_document" : "typing")
     const reply = await createTelegramReply(db, principal, message)
     if (reply.text.trim()) {
       await sendTelegramMessage(chatId, reply.text, reply.replyMarkup)

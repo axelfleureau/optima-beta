@@ -12,11 +12,13 @@ const cases = [
   ["Cosa abbiamo in scadenza nei prossimi 60 giorni?", "status"],
   ["Aggiungi deliverable alla task Portopiccolo: PDF finale", "task_update"],
   ["Ricordami se non faccio checkout e rapportino", "status"],
+  ["Cosa ho fatto l'altro ieri?", "status"],
 ]
 
 function infer(text, memory = {}) {
   const lower = String(text || "").toLowerCase()
   if (/^(ok|okay|grazie|perfetto|va bene|bene|thanks|👍)/i.test(text)) return "reply"
+  if (/\b(cosa|che)\s+(ho|avevo)\s+fatt/.test(lower)) return "status"
   if (/tropp[ioe] document|non mandarmi tutto|solo il documento|solo durc|solo dvr|solo quello corrente/.test(lower)) return "reply"
   if (/check\s*in|checkin|entrata|check\s*out|checkout|uscita|rapportino|fine giornata|timbr/.test(lower)) return "status"
   if (/\btask\b|deliverable|consegna|comment|commento|\bstato\b|\bdone\b|validation|assegna|priorit/.test(lower)) return "task_update"
