@@ -41,6 +41,15 @@ type TelegramUpdate = {
   edited_message?: TelegramMessage
 }
 
+type TelegramInlineKeyboard = {
+  inline_keyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>>
+}
+
+type TelegramPreparedReply = {
+  text: string
+  replyMarkup?: TelegramInlineKeyboard
+}
+
 function compact(value: unknown, limit = 900) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -176,6 +185,33 @@ function preferredModelRoute(action: string) {
   }
 }
 
+function appBaseUrl() {
+  return String(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || "https://appbeta.wearerighello.com").replace(/\/$/, "")
+}
+
+function buildTelegramReplyMarkup(action: string, jobId?: string | null): TelegramInlineKeyboard | undefined {
+  const baseUrl = appBaseUrl()
+  const rows: TelegramInlineKeyboard["inline_keyboard"] = []
+
+  if (jobId) {
+    rows.push([{ text: "Apri revisione in Optima", url: `${baseUrl}/agenti` }])
+  }
+
+  if (action === "task_update") {
+    rows.push([{ text: "Apri workspace", url: `${baseUrl}/workspace` }])
+  } else if (action === "status" || action === "reminder") {
+    rows.push([
+      { text: "Rapportino", url: `${baseUrl}/rapportini` },
+      { text: "Presenze", url: `${baseUrl}/presenze` },
+    ])
+  } else if (action === "query" || action === "archive" || action === "send_file" || action === "classify") {
+    rows.push([{ text: "AI Ops", url: `${baseUrl}/agenti` }])
+  }
+
+  rows.push([{ text: "Apri Optima", url: baseUrl }])
+  return rows.length ? { inline_keyboard: rows } : undefined
+}
+
 async function ensureTelegramSession(db: any, principal: WorkspacePrincipal, message: TelegramMessage) {
   const chatId = String(message.chat?.id || "unknown").slice(0, 80)
   const title = `Telegram ${chatId}`
@@ -284,7 +320,7 @@ async function updateMemory(db: any, sessionId: string, principal: WorkspacePrin
   }
 }
 
-async function createTelegramReply(db: any, principal: WorkspacePrincipal, message: TelegramMessage) {
+async function createTelegramReply(db: any, principal: WorkspacePrincipal, message: TelegramMessage): Promise<TelegramPreparedReply> {
   const text = compact(message.text || message.caption, 3600)
   const attachment = extractAttachment(message)
   const chatId = normalizeTelegramChatId(message.chat?.id)
@@ -379,15 +415,18 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
     // Usage logging should not block Telegram replies.
   }
 
-  return reply
+  return {
+    text: reply,
+    replyMarkup: buildTelegramReplyMarkup(decision.action, jobId),
+  }
 }
 
-async function sendTelegramMessage(chatId: string | number, text: string) {
+async function sendTelegramMessage(chatId: string | number, text: string, replyMarkup?: TelegramInlineKeyboard) {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) return
 
   const chunks = text.match(/[\s\S]{1,3800}/g) || [text]
-  for (const chunk of chunks) {
+  for (const [index, chunk] of chunks.entries()) {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -395,6 +434,7 @@ async function sendTelegramMessage(chatId: string | number, text: string) {
         chat_id: chatId,
         text: chunk,
         disable_web_page_preview: true,
+        ...(index === chunks.length - 1 && replyMarkup ? { reply_markup: replyMarkup } : {}),
       }),
     })
   }
@@ -451,7 +491,7 @@ export async function POST(request: Request) {
 
   try {
     const reply = await createTelegramReply(db, principal, message)
-    await sendTelegramMessage(chatId, reply)
+    await sendTelegramMessage(chatId, reply.text, reply.replyMarkup)
     return Response.json({ ok: true })
   } catch (error) {
     console.error("Telegram AI assistant error:", error)
