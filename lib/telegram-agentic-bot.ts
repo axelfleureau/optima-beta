@@ -17,6 +17,8 @@ export type TelegramAttachment = {
   fileName?: string
   mimeType?: string
   kind?: "document" | "photo" | "unknown"
+  mediaGroupId?: string
+  messageId?: string
 }
 
 export type TelegramAgentMemory = {
@@ -242,20 +244,28 @@ export function inferTelegramTurnDecision(input: {
   const learnedPreferences: Record<string, unknown> = {}
 
   if (input.attachment?.fileId) {
+    const grouped = Boolean(input.attachment.mediaGroupId)
     return {
       action: "classify",
       confidence: 88,
       needsAgentJob: true,
-      jobTitle: `Classifica documento Telegram ${input.attachment.fileName || input.attachment.kind || ""}`.trim(),
+      jobTitle: grouped
+        ? `Classifica gruppo allegati Telegram ${input.attachment.mediaGroupId}`
+        : `Classifica documento Telegram ${input.attachment.fileName || input.attachment.kind || ""}`.trim(),
       jobBrief: [
-        "Classifica il documento ricevuto via Telegram senza salvarlo definitivamente.",
+        grouped
+          ? "Classifica il gruppo di allegati ricevuto via Telegram senza salvarlo definitivamente. Considera tutti i file con lo stesso media_group_id come un unico lotto operativo."
+          : "Classifica il documento ricevuto via Telegram senza salvarlo definitivamente.",
         `File: ${input.attachment.fileName || "senza nome"}`,
         `Mime: ${input.attachment.mimeType || "non indicato"}`,
+        input.attachment.mediaGroupId ? `Media group: ${input.attachment.mediaGroupId}` : "",
         text ? `Caption/richiesta utente: ${text}` : "",
         "Output richiesto: tipo documento, riferimenti, date/scadenze, dati mancanti, confidenza e proposta review per Optima.",
       ].filter(Boolean).join("\n"),
-      reply: "Ho ricevuto il documento. Lo preparo come proposta in revisione: classificazione, scadenze e dati mancanti prima di salvarlo.",
-      lastResult: { kind: "document_proposal", fileName: input.attachment.fileName || null },
+      reply: grouped
+        ? "Ho ricevuto gli allegati. Li raccolgo in un'unica revisione prima di salvare qualsiasi dato in Optima."
+        : "Ho ricevuto il documento. Lo preparo in revisione prima di salvare qualsiasi dato in Optima.",
+      lastResult: { kind: grouped ? "document_group_proposal" : "document_proposal", fileName: input.attachment.fileName || null, mediaGroupId: input.attachment.mediaGroupId || null },
     }
   }
 
@@ -265,6 +275,14 @@ export function inferTelegramTurnDecision(input: {
 
   if (/^(ok|okay|grazie|perfetto|va bene|bene|thanks|👍)$/i.test(text)) {
     return { action: "reply", confidence: 95, reply: "Ok, tengo il contesto. Se serve procedo dal risultato precedente." }
+  }
+
+  if (/^(ciao|hey|ehi|salve|buongiorno|buonasera)(\s|!|\.)*$/i.test(text)) {
+    return {
+      action: "reply",
+      confidence: 96,
+      reply: "Ciao, ci sono. Puoi scrivermi task, rapportini, promemoria o richieste operative.",
+    }
   }
 
   if (/tropp[ioe] document|non mandarmi tutto|solo il documento|solo durc|solo dvr|solo quello corrente/.test(lower)) {
@@ -357,8 +375,8 @@ export async function createTelegramDocumentProposal(db: any, input: {
     .prepare(
       `INSERT INTO telegram_document_proposals (
         id, organization_id, member_id, chat_id, telegram_file_id, file_name, mime_type,
-        extracted_text, classification_json, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'review')`,
+        extracted_text, classification_json, status, media_group_id, telegram_message_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'review', ?, ?)`,
     )
     .bind(
       id,
@@ -373,8 +391,11 @@ export async function createTelegramDocumentProposal(db: any, input: {
         action: input.decision.action,
         confidence: input.decision.confidence,
         proposal: input.decision.reply,
+        mediaGroupId: input.attachment.mediaGroupId || null,
         createdBy: "telegram-agentic-bot",
       }),
+      input.attachment.mediaGroupId || null,
+      input.attachment.messageId || null,
     )
     .run()
   return id

@@ -27,6 +27,7 @@ type TelegramUser = {
 
 type TelegramMessage = {
   message_id?: number
+  media_group_id?: string
   text?: string
   caption?: string
   chat?: { id?: number | string; type?: string }
@@ -139,6 +140,8 @@ function extractAttachment(message: TelegramMessage): TelegramAttachment | null 
       fileId: message.document.file_id,
       fileName: message.document.file_name,
       mimeType: message.document.mime_type,
+      mediaGroupId: message.media_group_id,
+      messageId: message.message_id ? String(message.message_id) : undefined,
     }
   }
 
@@ -149,6 +152,8 @@ function extractAttachment(message: TelegramMessage): TelegramAttachment | null 
       fileId: photo.file_id,
       fileName: `telegram-photo-${photo.file_unique_id || photo.file_id}.jpg`,
       mimeType: "image/jpeg",
+      mediaGroupId: message.media_group_id,
+      messageId: message.message_id ? String(message.message_id) : undefined,
     }
   }
 
@@ -371,6 +376,7 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
   const text = compact(message.text || message.caption, 3600)
   const attachment = extractAttachment(message)
   const chatId = normalizeTelegramChatId(message.chat?.id)
+  const mediaGroupId = compact(attachment?.mediaGroupId, 140)
   const sessionId = await ensureTelegramSession(db, principal, message)
   const [history, sessionMemory, agentMemory, context] = await Promise.all([
     getHistory(db, sessionId, principal),
@@ -379,7 +385,23 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
     buildOperationalContextSnapshot(db, principal),
   ])
 
-  const userContent = text || `[${attachment?.kind || "allegato"}] ${attachment?.fileName || attachment?.fileId || ""}`.trim()
+  const existingGroupCount = mediaGroupId
+    ? Number(
+        (
+          await db
+            .prepare(
+              `SELECT COUNT(*) AS count
+               FROM telegram_document_proposals
+               WHERE organization_id = ? AND chat_id = ? AND media_group_id = ?`,
+            )
+            .bind(principal.organizationId, chatId, mediaGroupId)
+            .first()
+            .catch(() => ({ count: 0 }))
+        )?.count || 0,
+      )
+    : 0
+
+  const userContent = text || `[${attachment?.kind || "allegato"}] ${attachment?.fileName || attachment?.fileId || ""}${mediaGroupId ? ` gruppo ${mediaGroupId}` : ""}`.trim()
   await saveChatMessage(db, sessionId, principal, "user", userContent)
 
   const decision = inferTelegramTurnDecision({ text, memory: agentMemory, attachment })
@@ -392,6 +414,18 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
       decision,
       extractedText: text,
     }).catch(() => null)
+  }
+
+  if (mediaGroupId && existingGroupCount > 0) {
+    const quietReply = "Allegato aggiunto allo stesso gruppo. Lo considero nella revisione unica."
+    await updateMemory(db, sessionId, principal, sessionMemory, userContent, quietReply)
+    await saveTelegramAgentMemory(db, principal, chatId, agentMemory, userContent, quietReply, {
+      ...decision,
+      needsAgentJob: false,
+      reply: quietReply,
+      lastResult: { kind: "document_group_proposal", mediaGroupId, count: existingGroupCount + 1 },
+    }).catch(() => null)
+    return { text: "" }
   }
 
   let jobId: string | null = null
@@ -423,6 +457,7 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
         historyTurns: history.length,
         searchTerms: decision.searchTerms || [],
         attachment: attachment || null,
+        mediaGroup: mediaGroupId ? { id: mediaGroupId, knownItems: existingGroupCount + 1 } : null,
         telegramDownloadPolicy: attachment?.fileId ? "download_in_runner_from_secret_env_then_review" : null,
       },
     })
@@ -431,11 +466,11 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
 
   let reply = compact(decision.reply, 3200)
   if (!decision.needsAgentJob && decision.confidence < 85) {
-    reply = "Ho preso il contesto. Per farlo bene senza usare API a pagamento, trasformo la richiesta in un job agentico se vuoi procedere con un'azione reale."
+    reply = "Ci sono. Dimmi cosa vuoi fare in Optima e ti aiuto a prepararlo nel modo giusto."
   }
 
   if (jobId) {
-    reply = `${reply}\n\nHo creato un job revisionabile in Optima: ${jobId}.`
+    reply = `${reply}\n\nHo preparato una revisione in Optima.`
   }
 
   reply = reply || "Ho preso in carico la richiesta Telegram, ma mi serve un dettaglio in piu per procedere."
@@ -546,7 +581,9 @@ export async function POST(request: Request) {
 
   try {
     const reply = await createTelegramReply(db, principal, message)
-    await sendTelegramMessage(chatId, reply.text, reply.replyMarkup)
+    if (reply.text.trim()) {
+      await sendTelegramMessage(chatId, reply.text, reply.replyMarkup)
+    }
     return Response.json({ ok: true })
   } catch (error) {
     console.error("Telegram AI assistant error:", error)
