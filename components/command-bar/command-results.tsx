@@ -42,6 +42,8 @@ const iconMap: Record<string, any> = {
 
 export function CommandResults() {
   const { suggestions, inputValue, error, nlpResponse, status, searchResults } = useCommandBarStore()
+  const visibleSuggestions = suggestions.slice(0, 6)
+  const hiddenSuggestionCount = Math.max(suggestions.length - visibleSuggestions.length, 0)
 
   const showSuggestions = !inputValue && status === "idle" && searchResults.length === 0
   const showReadyState = inputValue.trim().length > 0 && status === "idle" && !error && !nlpResponse && searchResults.length === 0
@@ -160,10 +162,12 @@ export function CommandResults() {
         <div className="px-3 pb-3 sm:px-4">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Azioni rapide</p>
-            <p className="text-xs text-muted-foreground">Click per preparare il comando</p>
+            <p className="text-xs text-muted-foreground">
+              {hiddenSuggestionCount > 0 ? `+${hiddenSuggestionCount} tramite ricerca` : "Click o scrivi libero"}
+            </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {suggestions.map((suggestion: CommandSuggestion, index: number) => {
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleSuggestions.map((suggestion: CommandSuggestion, index: number) => {
               const Icon = iconMap[suggestion.icon || "FileText"]
               return (
                 <motion.button
@@ -177,7 +181,7 @@ export function CommandResults() {
                     setInput(suggestion.title)
                   }}
                   className={cn(
-                    "group flex min-h-[60px] items-start gap-3 rounded-lg px-3 py-2.5 text-left",
+                    "group flex min-h-[52px] items-start gap-2.5 rounded-lg px-3 py-2 text-left",
                     "border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
                     "hover:border-righello-pink/60 hover:bg-righello-pink/5",
                     "transition-all duration-200"
@@ -189,9 +193,9 @@ export function CommandResults() {
                     </span>
                   )}
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-slate-900 dark:text-slate-50">{suggestion.title}</span>
+                    <span className="block truncate text-sm font-bold text-slate-900 dark:text-slate-50">{suggestion.title}</span>
                     {suggestion.description && (
-                      <span className="mt-1 block text-xs leading-snug text-muted-foreground">{suggestion.description}</span>
+                      <span className="mt-0.5 block truncate text-xs leading-snug text-muted-foreground">{suggestion.description}</span>
                     )}
                   </span>
                 </motion.button>

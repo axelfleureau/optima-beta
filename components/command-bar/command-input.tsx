@@ -148,8 +148,8 @@ export function CommandInput() {
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className="relative p-3 pb-2 sm:p-4 sm:pb-2.5">
-        <div className="pointer-events-none absolute left-6 top-[1.55rem] sm:left-7 sm:top-[1.9rem]">
+      <div className="relative p-2.5 pb-2 sm:p-3 sm:pb-2">
+        <div className="pointer-events-none absolute left-5 top-[1.35rem] sm:left-6 sm:top-[1.55rem]">
           {isProcessing ? (
             <Loader2 className="h-4 w-4 text-righello-pink animate-spin" />
           ) : (
@@ -166,9 +166,9 @@ export function CommandInput() {
             debouncedSetInput(newValue)
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Chiedi qualsiasi cosa... es: 'crea task per cliente Acme con priorità alta'"
+          placeholder="Comando o richiesta... es: crea task urgente per G&M"
           className={cn(
-            "h-12 pl-10 pr-14 text-sm sm:h-12 sm:pl-11 sm:pr-24 sm:text-base",
+            "h-11 pl-9 pr-14 text-sm sm:h-11 sm:pl-10 sm:pr-24 sm:text-base",
             "border border-slate-300 dark:border-slate-700",
             "bg-white dark:bg-slate-900",
             "text-slate-950 dark:text-slate-50 placeholder:text-slate-400",
@@ -185,7 +185,7 @@ export function CommandInput() {
           type="submit"
           size="sm"
           disabled={isProcessing || !localInput.trim() || !context}
-          className="absolute right-5 top-[1.1rem] h-8 min-w-8 bg-righello-pink px-2 text-white hover:bg-righello-pink-dark sm:right-6 sm:top-[1.45rem] sm:px-3"
+          className="absolute right-4 top-[0.95rem] h-8 min-w-8 bg-righello-pink px-2 text-white hover:bg-righello-pink-dark sm:right-5 sm:top-[1.15rem] sm:px-3"
         >
           {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CornerDownLeft className="h-4 w-4" />}
           <span className="ml-1 hidden sm:inline">Esegui</span>
@@ -214,7 +214,7 @@ export function CommandInput() {
       )}
 
       {status === "idle" && !localInput && context && !actionState.isLoading && (
-        <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5 text-xs text-muted-foreground sm:px-4">
+        <div className="hidden flex-wrap items-center gap-2 px-3 pb-2.5 text-xs text-muted-foreground sm:flex sm:px-4">
           <span className="font-semibold text-slate-600 dark:text-slate-300">Prova:</span>
           <span>"crea task per G&M urgente"</span>
           <span className="hidden sm:inline">•</span>

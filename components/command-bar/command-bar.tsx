@@ -36,6 +36,11 @@ type CommandRuntimeReadiness = {
     runtimeStatus: string
     runtimeDetail: string
   }
+  graph?: {
+    runtimeStatus: string
+    runtimeDetail: string
+    domains: number
+  }
 }
 
 function statusTone(status?: string) {
@@ -115,10 +120,10 @@ export function CommandBar() {
       <DialogContent
         stableViewport="top"
         className={cn(
-          "flex max-h-[calc(100svh-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0",
+          "flex max-h-[calc(100svh-1rem)] w-[min(920px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden p-0",
           "rounded-2xl bg-white dark:bg-slate-950",
           "border border-slate-200 shadow-2xl shadow-black/30 dark:border-slate-800",
-          "sm:max-h-[min(72svh,640px)]",
+          "sm:max-h-[min(78svh,680px)]",
           "motion-safe:duration-200 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0 motion-safe:data-[state=open]:zoom-in-95 motion-safe:data-[state=open]:slide-in-from-top-4 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-95 motion-safe:data-[state=closed]:slide-out-to-top-4"
         )}
       >
@@ -165,16 +170,21 @@ export function CommandBar() {
           </motion.div>
         </AnimatePresence>
 
-        <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-900 sm:px-5 sm:py-3">
+        <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900 sm:px-4">
           <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center justify-center gap-2 sm:justify-start">
               <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ⌘K
               </kbd>
-              <span>command bar</span>
+              <span>Command</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
               <span className="font-medium text-emerald-600 dark:text-emerald-300">locale pronto</span>
+              {readiness?.graph && (
+                <span className={statusTone(readiness.graph.runtimeStatus)}>
+                  grafo {readiness.graph.domains} domini
+                </span>
+              )}
               {readiness?.chat && (
                 <span className={statusTone(readiness.chat.runtimeStatus)}>
                   chat {readiness.chat.providerId}
