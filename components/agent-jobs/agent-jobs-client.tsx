@@ -3412,13 +3412,13 @@ export function AgentJobsClient({
     },
     {
       key: "running",
-      label: "In corso",
+      label: "Coda/run",
       count: stats.queued + stats.running,
-      helper: "Solo job operativi: quelli in coda e quelli effettivamente presi dal runner.",
+      helper: "Job operativi: in coda per il runner o gia in esecuzione sul VPS.",
     },
     {
       key: "done",
-      label: "Storico",
+      label: "Chiusi",
       count: stats.done,
       helper: "Job chiusi: approvati, respinti, annullati o completati.",
     },
@@ -4451,7 +4451,7 @@ export function AgentJobsClient({
                           </span>
                         </div>
                         <p className="mt-2 truncate text-[11px] font-bold text-cyan-100">
-                          {primaryActionAvailable ? plan.primaryActionLabel : "Completa il prerequisito reale prima del job"}
+                          {primaryActionAvailable ? `Apri percorso: ${plan.primaryActionLabel}` : "Completa il prerequisito reale prima del job"}
                         </p>
                       </button>
                     ))}
@@ -5500,7 +5500,7 @@ export function AgentJobsClient({
                         className="mt-3 h-8 w-full rounded-lg bg-cyan-300/15 text-xs font-black text-cyan-50 hover:bg-cyan-300/25"
                       >
                         <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-                        {plan.primaryActionLabel}
+                        Apri percorso guidato
                       </Button>
                     </div>
                   )
@@ -5571,7 +5571,7 @@ export function AgentJobsClient({
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {[
             { label: "Aperti", value: stats.active, detail: "non chiusi" },
-            { label: "In run", value: stats.running, detail: `${stats.queued} in coda` },
+            { label: "Coda / run", value: stats.queued + stats.running, detail: `${stats.running} in esecuzione` },
             { label: "Da decidere", value: stats.review + stats.failed, detail: `${stats.failed} errori` },
             {
               label: "Stato VPS",
@@ -5725,6 +5725,19 @@ export function AgentJobsClient({
         </div>
 
         <div className="mt-5 grid gap-2">
+          <div className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.025] p-3 text-xs leading-5 text-slate-400 min-[640px]:grid-cols-4">
+            {[
+              ["1. Coda", "Richiesta pronta, il VPS puo prenderla quando il runner e abilitato."],
+              ["2. Run", "Il runner sta lavorando in sandbox e aggiorna heartbeat/output."],
+              ["3. Review", "La direzione approva, respinge o rimanda con istruzioni."],
+              ["4. Chiuso", "Esito archiviato: storico, audit e artefatti restano consultabili."],
+            ].map(([title, body]) => (
+              <div key={title} className="min-w-0 rounded-md border border-white/10 bg-[#050914] p-2">
+                <p className="font-black text-white">{title}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">{body}</p>
+              </div>
+            ))}
+          </div>
           <div className="grid grid-cols-5 gap-1 rounded-lg border border-white/10 bg-[#060a15] p-1">
             {jobFilters.map(({ key, label, count, helper }) => (
               <button
