@@ -534,6 +534,29 @@ html[data-financial-visible="true"] .financial-sensitive {
 }
 
 /* Command Bar Scrollbar Styling */
+.command-bar-scroll {
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.command-bar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.command-bar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.command-bar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(217, 70, 166, 0.35);
+  border-radius: 999px;
+}
+
+.command-bar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 70, 166, 0.55);
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   height: 4px;
 }

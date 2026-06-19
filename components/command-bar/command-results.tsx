@@ -42,7 +42,7 @@ const iconMap: Record<string, any> = {
 
 export function CommandResults() {
   const { suggestions, inputValue, error, nlpResponse, status, searchResults } = useCommandBarStore()
-  const visibleSuggestions = suggestions.slice(0, 6)
+  const visibleSuggestions = suggestions.slice(0, 4)
   const hiddenSuggestionCount = Math.max(suggestions.length - visibleSuggestions.length, 0)
 
   const showSuggestions = !inputValue && status === "idle" && searchResults.length === 0
@@ -57,7 +57,7 @@ export function CommandResults() {
         <motion.div
           initial={liquidFadeIn.initial}
           animate={liquidFadeIn.animate}
-          className="p-4 m-5 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900"
+          className="mx-3 mb-3 mt-1 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/30 sm:mx-4"
         >
           <div className="flex items-start gap-3">
             <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -73,7 +73,7 @@ export function CommandResults() {
         <motion.div
           initial={liquidFadeIn.initial}
           animate={liquidFadeIn.animate}
-          className="p-4 m-5 rounded-lg bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900"
+          className="mx-3 mb-3 mt-1 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30 sm:mx-4"
         >
           <div className="flex items-start gap-3">
             <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
@@ -101,7 +101,7 @@ export function CommandResults() {
       )}
 
       {showResults && (
-        <div className="p-4 pt-2">
+        <div className="px-3 pb-3 pt-1 sm:px-4">
           <div className="px-1 py-2">
             <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
               Risultati ({searchResults.length})
@@ -141,7 +141,7 @@ export function CommandResults() {
         <motion.div
           initial={liquidFadeIn.initial}
           animate={liquidFadeIn.animate}
-          className="mx-3 mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900 sm:mx-4"
+          className="mx-3 mb-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/80 sm:mx-4"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -166,7 +166,7 @@ export function CommandResults() {
               {hiddenSuggestionCount > 0 ? `+${hiddenSuggestionCount} tramite ricerca` : "Click o scrivi libero"}
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             {visibleSuggestions.map((suggestion: CommandSuggestion, index: number) => {
               const Icon = iconMap[suggestion.icon || "FileText"]
               return (
@@ -181,7 +181,7 @@ export function CommandResults() {
                     setInput(suggestion.title)
                   }}
                   className={cn(
-                    "group flex min-h-[52px] items-start gap-2.5 rounded-lg px-3 py-2 text-left",
+                    "group flex min-h-[50px] items-start gap-2.5 rounded-lg px-3 py-2 text-left",
                     "border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
                     "hover:border-righello-pink/60 hover:bg-righello-pink/5",
                     "transition-all duration-200"
@@ -206,7 +206,7 @@ export function CommandResults() {
       )}
 
       {status === "processing" && (
-        <div className="p-8 text-center">
+        <div className="px-4 py-5 text-center">
           <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
             <div className="relative h-4 w-4">
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-righello-pink via-pink-500 to-cyan-500 animate-spin" />

@@ -119,12 +119,13 @@ export function CommandBar() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
       <DialogContent
         stableViewport="top"
+        onOpenAutoFocus={(event) => event.preventDefault()}
         className={cn(
-          "flex !top-[max(0.75rem,env(safe-area-inset-top))] !translate-y-0 sm:!top-[7vh]",
-          "max-h-[min(86svh,720px)] w-[min(880px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden p-0",
-          "rounded-2xl bg-white dark:bg-slate-950",
-          "border border-slate-200 shadow-2xl shadow-black/30 dark:border-slate-800",
-          "motion-safe:duration-150 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0 motion-safe:data-[state=open]:zoom-in-95 motion-safe:data-[state=open]:slide-in-from-top-2 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-98 motion-safe:data-[state=closed]:slide-out-to-top-2"
+          "flex !top-[calc(env(safe-area-inset-top)+0.75rem)] !translate-y-0 sm:!top-[8vh]",
+          "max-h-[min(78svh,620px)] w-[min(760px,calc(100vw-1rem))] flex-col gap-0 overflow-hidden p-0",
+          "rounded-2xl bg-white/98 backdrop-blur-xl dark:bg-slate-950/98",
+          "border border-slate-200/80 shadow-2xl shadow-black/35 dark:border-slate-800/90",
+          "motion-safe:duration-150 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0 motion-safe:data-[state=open]:zoom-in-95 motion-safe:data-[state=open]:slide-in-from-top-3 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-98 motion-safe:data-[state=closed]:slide-out-to-top-3"
         )}
       >
         
@@ -146,18 +147,18 @@ export function CommandBar() {
               <div className="relative z-10 flex min-h-0 flex-1 flex-col">
                 <CommandInput />
                 
-                <div className="shrink-0 px-4 pb-3 sm:px-5 sm:pb-4">
+                <div className="shrink-0 px-3 pb-2 sm:px-4 sm:pb-3">
                   <OrchestrationFeedback />
                 </div>
 
                 {status === "gathering" && missingParams.length > 0 && (
-                  <div className="min-h-0 overflow-y-auto overscroll-contain border-t border-slate-200 p-4 dark:border-slate-800 sm:p-5">
+                  <div className="min-h-0 overflow-y-auto overscroll-contain border-t border-slate-200 p-3 command-bar-scroll dark:border-slate-800 sm:p-4">
                     <ContextForm />
                   </div>
                 )}
 
                 {status !== "gathering" && (
-                  <div className="min-h-0 overflow-y-auto overscroll-contain">
+                  <div className="min-h-0 overflow-y-auto overscroll-contain command-bar-scroll">
                     <CommandResults />
                   </div>
                 )}
@@ -170,15 +171,15 @@ export function CommandBar() {
           </motion.div>
         </AnimatePresence>
 
-        <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900 sm:px-4">
-          <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center justify-center gap-2 sm:justify-start">
+        <div className="shrink-0 border-t border-slate-200 bg-slate-50/95 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/95 sm:px-4">
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <div className="hidden items-center gap-2 sm:flex">
               <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ⌘K
               </kbd>
               <span>Command</span>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
               <span className="font-medium text-emerald-600 dark:text-emerald-300">locale pronto</span>
               {readiness?.graph && (
                 <span className={statusTone(readiness.graph.runtimeStatus)}>
@@ -201,7 +202,7 @@ export function CommandBar() {
                 </span>
               )}
             </div>
-            <div className="hidden items-center justify-end gap-2 sm:flex">
+            <div className="hidden shrink-0 items-center justify-end gap-2 sm:flex">
               <kbd className="px-2 py-1 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 font-mono text-xs">
                 ↵
               </kbd>
