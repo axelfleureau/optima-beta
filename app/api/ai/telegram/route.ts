@@ -1,20 +1,22 @@
 export const dynamic = "force-dynamic"
 
-import { generateText } from "ai"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
-import { OPENAI_CHAT_MODEL } from "@/lib/ai/models"
-import { createRuntimeOpenAI } from "@/lib/ai/openai-runtime"
 import { buildOperationalContextSnapshot } from "@/lib/operational-context"
 import type { WorkspacePrincipal } from "@/lib/workspace-db"
+import { createAgentJob } from "@/lib/agent-jobs"
+import {
+  buildChatIdReply,
+  createTelegramDocumentProposal,
+  findAuthorizedTelegramPrincipal,
+  inferTelegramTurnDecision,
+  isChatIdCommand,
+  loadTelegramAgentMemory,
+  normalizeTelegramChatId,
+  saveTelegramAgentMemory,
+  type TelegramAttachment,
+} from "@/lib/telegram-agentic-bot"
 
-const SYSTEM_PROMPT = `Sei l'assistente operativo Telegram di Optima per Righello.
-
-Comportamento:
-- Rispondi in italiano, in modo breve, operativo e concreto.
-- Usa il contesto Optima come fonte read-only: task, clienti, progetti, team, rapportini, repository e job.
-- Non inventare dati mancanti: se non vedi un dato nello snapshot, dillo.
-- Se una richiesta richiede azione reale o privilegi, proponi il prossimo passo e rimanda al control plane Optima.
-- Telegram e un canale conversazionale: non eseguire deploy, pagamenti o modifiche distruttive da chat.` 
+const TELEGRAM_AGENT_MODEL_LABEL = "telegram-agentic-router"
 
 type TelegramUser = {
   id?: number
@@ -26,8 +28,11 @@ type TelegramUser = {
 type TelegramMessage = {
   message_id?: number
   text?: string
+  caption?: string
   chat?: { id?: number | string; type?: string }
   from?: TelegramUser
+  document?: { file_id?: string; file_name?: string; mime_type?: string }
+  photo?: Array<{ file_id?: string; file_unique_id?: string; width?: number; height?: number }>
 }
 
 type TelegramUpdate = {
@@ -74,6 +79,9 @@ function isAllowedTelegramSender(message: TelegramMessage) {
 }
 
 async function findTelegramPrincipal(db: any, message: TelegramMessage): Promise<WorkspacePrincipal | null> {
+  const authorized = await findAuthorizedTelegramPrincipal(db, message)
+  if (authorized) return authorized
+
   const username = String(message.from?.username || "").toLowerCase()
   const chatId = String(message.chat?.id || "").toLowerCase()
   const emailMap = parseMemberEmailMap()
@@ -112,6 +120,59 @@ async function findTelegramPrincipal(db: any, message: TelegramMessage): Promise
     memberId: String(row.id),
     role: String(row.role || "member"),
     email: String(row.email || email),
+  }
+}
+
+function extractAttachment(message: TelegramMessage): TelegramAttachment | null {
+  if (message.document?.file_id) {
+    return {
+      kind: "document",
+      fileId: message.document.file_id,
+      fileName: message.document.file_name,
+      mimeType: message.document.mime_type,
+    }
+  }
+
+  const photo = message.photo?.[message.photo.length - 1]
+  if (photo?.file_id) {
+    return {
+      kind: "photo",
+      fileId: photo.file_id,
+      fileName: `telegram-photo-${photo.file_unique_id || photo.file_id}.jpg`,
+      mimeType: "image/jpeg",
+    }
+  }
+
+  return null
+}
+
+function preferredModelRoute(action: string) {
+  if (action === "status" || action === "reminder" || action === "classify" || action === "task_update") {
+    return {
+      lane: "operations",
+      providerId: "gemma-hosted",
+      model: "gemma-hosted",
+      policy: "local-first-vps",
+      fallback: "codex-chatgpt",
+    }
+  }
+
+  if (action === "query" || action === "archive" || action === "send_file") {
+    return {
+      lane: "research",
+      providerId: "qwen",
+      model: "qwen-long-context",
+      policy: "local-first-vps",
+      fallback: "codex-chatgpt",
+    }
+  }
+
+  return {
+    lane: "chat",
+    providerId: "gemma-hosted",
+    model: "gemma-hosted",
+    policy: "local-first-vps",
+    fallback: "codex-chatgpt",
   }
 }
 
@@ -195,7 +256,7 @@ async function saveChatMessage(db: any, sessionId: string, principal: WorkspaceP
          SET last_message = ?, updated_at = ?, model = ?, context_sources_json = ?
          WHERE id = ? AND organization_id = ? AND member_id = ?`,
       )
-      .bind(content.slice(0, 200), now, OPENAI_CHAT_MODEL, JSON.stringify(["telegram"]), sessionId, principal.organizationId, principal.memberId),
+      .bind(content.slice(0, 200), now, TELEGRAM_AGENT_MODEL_LABEL, JSON.stringify(["telegram"]), sessionId, principal.organizationId, principal.memberId),
   ])
 }
 
@@ -224,40 +285,80 @@ async function updateMemory(db: any, sessionId: string, principal: WorkspacePrin
 }
 
 async function createTelegramReply(db: any, principal: WorkspacePrincipal, message: TelegramMessage) {
-  const text = compact(message.text, 3600)
+  const text = compact(message.text || message.caption, 3600)
+  const attachment = extractAttachment(message)
+  const chatId = normalizeTelegramChatId(message.chat?.id)
   const sessionId = await ensureTelegramSession(db, principal, message)
-  const [history, memory, context] = await Promise.all([
+  const [history, sessionMemory, agentMemory, context] = await Promise.all([
     getHistory(db, sessionId, principal),
     getSessionMemory(db, sessionId, principal),
+    loadTelegramAgentMemory(db, principal, chatId),
     buildOperationalContextSnapshot(db, principal),
   ])
 
-  await saveChatMessage(db, sessionId, principal, "user", text)
+  const userContent = text || `[${attachment?.kind || "allegato"}] ${attachment?.fileName || attachment?.fileId || ""}`.trim()
+  await saveChatMessage(db, sessionId, principal, "user", userContent)
 
-  const openai = await createRuntimeOpenAI()
-  const result = await generateText({
-    model: openai(OPENAI_CHAT_MODEL),
-    maxTokens: 900,
-    temperature: 0.55,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "system",
-        content: [
-          memory ? `MEMORIA TELEGRAM/AI ASSISTANT:\n${memory}` : "",
-          `SNAPSHOT OPTIMA:\n${context.text}`,
-        ]
-          .filter(Boolean)
-          .join("\n\n"),
+  const decision = inferTelegramTurnDecision({ text, memory: agentMemory, attachment })
+
+  if (attachment?.fileId) {
+    await createTelegramDocumentProposal(db, {
+      principal,
+      chatId,
+      attachment,
+      decision,
+      extractedText: text,
+    }).catch(() => null)
+  }
+
+  let jobId: string | null = null
+  if (decision.needsAgentJob && decision.jobTitle && decision.jobBrief) {
+    const route = preferredModelRoute(decision.action)
+    const job = await createAgentJob(db, principal, {
+      title: decision.jobTitle,
+      jobType: decision.action === "task_update" ? "task_update" : "research",
+      priority: decision.action === "task_update" ? 2 : 3,
+      contextSummary: "Richiesta arrivata da Telegram. Output revisionabile prima di modifiche definitive.",
+      brief: [
+        decision.jobBrief,
+        "",
+        `Chat Telegram: ${chatId}`,
+        `Membro: ${principal.email}`,
+        `Memoria sintetica: ${agentMemory.summary || "nessuna memoria dedicata"}`,
+        `Contesto Optima sintetico:\n${compact(context.text, 1600)}`,
+        `Runtime preferito: ${route.providerId}/${route.model} (${route.policy}); fallback controllato: ${route.fallback}.`,
+        attachment?.fileId
+          ? "Se serve leggere il file, il runner deve usare TELEGRAM_BOT_TOKEN dal runtime autorizzato con getFile/download; non salvare token o contenuti sensibili in input_json."
+          : "",
+      ].join("\n"),
+      input: {
+        source: "telegram",
+        telegramChatId: chatId,
+        action: decision.action,
+        confidence: decision.confidence,
+        preferredModelRoute: route,
+        historyTurns: history.length,
+        searchTerms: decision.searchTerms || [],
+        attachment: attachment || null,
+        telegramDownloadPolicy: attachment?.fileId ? "download_in_runner_from_secret_env_then_review" : null,
       },
-      ...history,
-      { role: "user", content: text },
-    ],
-  })
+    })
+    jobId = job.id
+  }
 
-  const reply = compact(result.text, 3800) || "Non sono riuscito a generare una risposta utile."
+  let reply = compact(decision.reply, 3200)
+  if (!decision.needsAgentJob && decision.confidence < 85) {
+    reply = "Ho preso il contesto. Per farlo bene senza usare API a pagamento, trasformo la richiesta in un job agentico se vuoi procedere con un'azione reale."
+  }
+
+  if (jobId) {
+    reply = `${reply}\n\nHo creato un job revisionabile in Optima: ${jobId}.`
+  }
+
+  reply = reply || "Ho preso in carico la richiesta Telegram, ma mi serve un dettaglio in piu per procedere."
   await saveChatMessage(db, sessionId, principal, "assistant", reply)
-  await updateMemory(db, sessionId, principal, memory, text, reply)
+  await updateMemory(db, sessionId, principal, sessionMemory, userContent, reply)
+  await saveTelegramAgentMemory(db, principal, chatId, agentMemory, userContent, reply, decision).catch(() => null)
 
   try {
     await db
@@ -269,8 +370,8 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
         createId("ai"),
         principal.organizationId,
         principal.memberId,
-        OPENAI_CHAT_MODEL,
-        Math.ceil((text.length + context.text.length + memory.length) / 4),
+        TELEGRAM_AGENT_MODEL_LABEL,
+        Math.ceil((userContent.length + context.text.length + sessionMemory.length + agentMemory.summary.length) / 4),
         Math.ceil(reply.length / 3.5),
       )
       .run()
@@ -293,7 +394,6 @@ async function sendTelegramMessage(chatId: string | number, text: string) {
       body: JSON.stringify({
         chat_id: chatId,
         text: chunk,
-        parse_mode: "Markdown",
         disable_web_page_preview: true,
       }),
     })
@@ -318,16 +418,32 @@ export async function POST(request: Request) {
 
   const update = (await request.json().catch(() => null)) as TelegramUpdate | null
   const message = update?.message || update?.edited_message
-  const text = compact(message?.text, 3600)
+  const text = compact(message?.text || message?.caption, 3600)
   const chatId = message?.chat?.id
 
-  if (!message || !text || !chatId) return Response.json({ ok: true, ignored: true })
-  if (!isAllowedTelegramSender(message)) return Response.json({ ok: true, ignored: true, reason: "sender-not-allowed" })
+  if (!message || !chatId) return Response.json({ ok: true, ignored: true })
+
+  if (isChatIdCommand(text)) {
+    await sendTelegramMessage(
+      chatId,
+      buildChatIdReply({
+        chatId,
+        userId: message.from?.id,
+        username: message.from?.username,
+        firstName: message.from?.first_name,
+        lastName: message.from?.last_name,
+      }),
+    )
+    return Response.json({ ok: true, command: "chatid" })
+  }
+
+  if (!text && !extractAttachment(message)) return Response.json({ ok: true, ignored: true })
 
   const db = await getCloudflareDb()
   if (!db) return Response.json({ ok: false, error: "Database Cloudflare non disponibile." }, { status: 500 })
 
   const principal = await findTelegramPrincipal(db, message)
+  if (!principal && !isAllowedTelegramSender(message)) return Response.json({ ok: true, ignored: true, reason: "sender-not-allowed" })
   if (!principal) {
     await sendTelegramMessage(chatId, "Telegram e collegato, ma non ho trovato un membro Optima autorizzato per questo account.")
     return Response.json({ ok: true, ignored: true, reason: "principal-not-found" })
