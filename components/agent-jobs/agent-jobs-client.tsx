@@ -778,6 +778,16 @@ function providerPrimaryActionLabel(provider: AgenticCapabilities["providerCatal
   return "Percorso provider"
 }
 
+function providerCanRunHealthCheck(state: string) {
+  return state === "configured" || state === "healthy"
+}
+
+function providerHealthCheckLabel(state: string) {
+  if (state === "healthy") return "Riverifica runtime"
+  if (state === "configured") return "Health-check provider"
+  return "Prima salva percorso"
+}
+
 function providerCredentialLabel(secret: string) {
   if (secret === "AGENT_RUNNER_API_KEY") return "token interno runner"
   if (secret.endsWith("_API_KEY")) return "API key facoltativa"
@@ -3239,6 +3249,8 @@ export function AgentJobsClient({
   const selectedProvider =
     (capabilities?.providerCatalog ?? []).find((provider) => provider.id === selectedProviderId) ?? null
   const selectedProviderInstallation = selectedProvider ? providerInstallationsById.get(selectedProvider.id) ?? null : null
+  const selectedProviderInstallState = selectedProviderInstallation?.installState ?? "not_installed"
+  const selectedProviderCanVerify = providerCanRunHealthCheck(selectedProviderInstallState)
   const subagentsBySlug = new Map((capabilities?.subagents ?? []).map((item) => [item.slug, item]))
   const graphTypes = Object.entries(graphMemory?.stats.byType ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
@@ -4589,6 +4601,9 @@ export function AgentJobsClient({
                             no secret
                           </span>
                         )}
+                        <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
+                          {providerPrimaryActionLabel(provider)}
+                        </span>
                       </div>
                       <Button
                         type="button"
@@ -4599,7 +4614,7 @@ export function AgentJobsClient({
                         className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                       >
                         {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
-                        {providerPrimaryActionLabel(provider)}
+                        Apri percorso guidato
                       </Button>
                     </div>
                   )
@@ -5888,10 +5903,10 @@ export function AgentJobsClient({
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-xl font-black sm:text-2xl">
-                Configura provider {selectedProvider?.label ?? ""}
+                Percorso provider {selectedProvider?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Scegli prima il metodo reale. Optima salva policy e secret_ref; i job servono solo a verificare dopo il setup.
+                Prima scegli come collegarlo davvero. Optima salva policy e secret_ref; il job parte solo dopo per verificare runtime, OAuth o browser session.
               </DialogDescription>
             </DialogHeader>
 
@@ -5907,6 +5922,9 @@ export function AgentJobsClient({
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
                       {selectedProvider.lane} · {selectedProvider.defaultModel}
+                    </span>
+                    <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-bold text-cyan-100">
+                      {providerPrimaryActionLabel(selectedProvider)}
                     </span>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-slate-200">{selectedProvider.tenantUse}</p>
@@ -6003,16 +6021,25 @@ export function AgentJobsClient({
                   </section>
                 ) : null}
 
+                {!selectedProviderCanVerify ? (
+                  <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
+                    <p className="font-black">Nessun health-check ancora disponibile</p>
+                    <p className="mt-1 text-amber-100/90">
+                      Prima salva il percorso scelto o completa OAuth/runtime. Poi Optima potra creare un job di verifica revisionabile senza simulare un setup.
+                    </p>
+                  </section>
+                ) : null}
+
                 <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => createProviderSetupJob(selectedProvider)}
-                    disabled={setupAction === `provider-setup:${selectedProvider.id}`}
+                    disabled={!selectedProviderCanVerify || setupAction === `provider-setup:${selectedProvider.id}`}
                     className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                   >
                     {setupAction === `provider-setup:${selectedProvider.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-                    Verifica dopo setup
+                    {providerHealthCheckLabel(selectedProviderInstallState)}
                   </Button>
                   <Button
                     type="button"
