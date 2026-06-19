@@ -134,6 +134,7 @@ export function useQuotes() {
         iva: quoteData.iva,
         percentualeIva: quoteData.percentualeIva,
         brandMateriali: quoteData.brandMateriali,
+        sourceSnapshot: quoteData.sourceSnapshot,
         obiettivi: quoteData.obiettivi,
         attivita: quoteData.attivita,
         voci: quoteData.voci,

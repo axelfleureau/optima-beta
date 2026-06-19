@@ -5,6 +5,7 @@ import { z } from "zod"
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+import { sanitizeQuoteClient } from "@/lib/quote-data-quality"
 
 const quoteItemSchema = z.object({
   name: z.string().min(1, "Nome richiesto"),
@@ -55,6 +56,7 @@ const createQuoteSchema = z.object({
   voci: z.array(quoteVoiceSchema).optional().default([]),
   terminiCondizioni: z.string().optional(),
   validUntil: z.string().optional(),
+  sourceSnapshot: z.record(z.unknown()).optional(),
 }).refine(
   (data) => (data.status || "draft") === "draft" || Boolean(data.clientId || data.externalClientName || data.clientName),
   { message: "Serve un cliente piattaforma o un nome cliente esterno" },
@@ -91,8 +93,12 @@ export async function POST(request: NextRequest) {
     const total = data.total ?? Math.round((subtotal + vat) * 100) / 100
 
     let clientId = data.clientId || null
-    let clientName = data.clientName || data.externalClientName || "Cliente"
-    let clientEmail = data.clientEmail || data.externalClientEmail || ""
+    const requestedClient = sanitizeQuoteClient({
+      nome: data.clientName || data.externalClientName || "Cliente",
+      email: data.clientEmail || data.externalClientEmail || "",
+    })
+    let clientName = requestedClient.nome || "Cliente"
+    let clientEmail = requestedClient.email || ""
 
     if (clientId) {
       const client = await db
@@ -110,7 +116,7 @@ export async function POST(request: NextRequest) {
       }
 
       clientName = String(client.name || client.company || clientName)
-      clientEmail = String(client.email || clientEmail || "")
+      clientEmail = sanitizeQuoteClient({ email: String(client.email || clientEmail || "") }).email || ""
     }
 
     const voices = data.voci.length > 0
@@ -136,8 +142,8 @@ export async function POST(request: NextRequest) {
           external_client_name, external_client_email, status, currency, total_cents,
           subtotal_cents, vat_cents, vat_rate, valid_until, items_json, voices_json,
           objectives_json, activities_json, brand_materials_json, terms_conditions,
-          created_by_member_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          source_type, source_snapshot_json, created_by_member_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         quoteId,
@@ -147,8 +153,8 @@ export async function POST(request: NextRequest) {
         data.description || "",
         clientName,
         clientEmail,
-        data.externalClientName || null,
-        data.externalClientEmail || null,
+        sanitizeQuoteClient({ nome: data.externalClientName || undefined }).nome || null,
+        sanitizeQuoteClient({ email: data.externalClientEmail || undefined }).email || null,
         status,
         currency,
         toCents(total),
@@ -162,6 +168,8 @@ export async function POST(request: NextRequest) {
         stringify(data.attivita),
         data.brandMateriali ? stringify(data.brandMateriali) : null,
         data.terminiCondizioni || null,
+        data.sourceSnapshot ? "ai_quote_generation" : null,
+        data.sourceSnapshot ? stringify(data.sourceSnapshot) : null,
         principal.memberId,
         now,
         now,

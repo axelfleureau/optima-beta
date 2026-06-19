@@ -6,6 +6,18 @@ export interface QuoteItem {
   total: number
 }
 
+export interface QuoteCommercialContext {
+  selectedPackageId?: string
+  pricingTemplateId?: string
+  projectTypeLabel?: string
+  projectType?: string
+  sector?: string
+  sectorLabel?: string
+  complexity?: string
+  budgetRange?: { min?: number; max?: number }
+  timeline?: string
+}
+
 export interface Quote {
   id: string
   title: string
@@ -54,7 +66,9 @@ export interface Quote {
   sourceType?: string
   sourceId?: string
   sourceUrl?: string
-  sourceSnapshot?: Record<string, unknown>
+  sourceSnapshot?: Record<string, unknown> & {
+    quoteContext?: QuoteCommercialContext
+  }
   
   // Public sharing and approval fields
   shareToken?: string

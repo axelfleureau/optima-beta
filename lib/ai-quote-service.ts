@@ -16,6 +16,7 @@ import {
 } from "@/lib/righello-quote-creative-system"
 import { buildRighelloQuoteOperatingContext } from "@/lib/righello-quote-operating-model"
 import { applyQuoteClientDataQuality, type QuoteDataQuality } from "@/lib/quote-data-quality"
+import { buildQuoteSourceSnapshot, resolveQuoteDisplayTitle, type QuoteSourceSnapshot } from "@/lib/quote-commercial-context"
 
 const RIGHELLO_QUOTE_OPERATING_CONTEXT = buildRighelloQuoteOperatingContext()
 
@@ -89,6 +90,7 @@ export interface Quote {
   createdBy: string
   shareToken?: string
   brandMateriali?: GeneratedQuoteData["brandMateriali"]
+  sourceSnapshot?: QuoteSourceSnapshot
 }
 
 export interface QuoteGenerationData {
@@ -103,6 +105,17 @@ export interface QuoteGenerationData {
 
 export interface GeneratedQuoteData {
   projectType?: string
+  quoteContext?: {
+    selectedPackageId?: string
+    pricingTemplateId?: string
+    projectTypeLabel?: string
+    projectType?: string
+    sector?: string
+    sectorLabel?: string
+    complexity?: string
+    budgetRange?: { min: number; max: number }
+    timeline?: string
+  }
   cliente: {
     nome: string
     email?: string
@@ -612,13 +625,26 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
       hasSitemap: !!aiContent.sitemap
     })
 
-    if (
-      pricingTemplateId === "website_180" &&
-      /360\s*°|a\s*360/i.test(aiContent.titolo)
-    ) {
+    const normalizedTitle = resolveQuoteDisplayTitle({
+      title: aiContent.titolo,
+      clientName: enrichedData.clientName || enrichedData.clientCompany || "Cliente",
+      sourceSnapshot: buildQuoteSourceSnapshot({
+        selectedPackageId: enrichedData.selectedPackageId || enrichedData.projectType,
+        pricingTemplateId,
+        projectTypeLabel: selectedProjectLabel,
+        projectType: enrichedData.projectType,
+        sector: enrichedData.sector,
+        sectorLabel: enrichedData.sectorLabel,
+        complexity: enrichedData.complexity,
+        budgetRange: enrichedData.budgetRange,
+        timeline: enrichedData.timeline,
+      }),
+    })
+
+    if (normalizedTitle !== aiContent.titolo) {
       aiContent = {
         ...aiContent,
-        titolo: `${selectedProjectLabel} per ${enrichedData.clientName || enrichedData.clientCompany || "Cliente"}`,
+        titolo: normalizedTitle,
       }
     }
     
@@ -626,6 +652,17 @@ Restituisci SOLO JSON con: titolo, descrizione, obiettivi, attivita${isWebsite ?
     // ✅ USE TEMPLATE DATA DIRECTLY - NO RECALCULATION
     const finalQuote: GeneratedQuoteData = {
       projectType: enrichedData.selectedPackageId || enrichedData.projectType, // ✅ User-selected package for UX/PDF styling
+      quoteContext: {
+        selectedPackageId: enrichedData.selectedPackageId || enrichedData.projectType,
+        pricingTemplateId,
+        projectTypeLabel: selectedProjectLabel,
+        projectType: enrichedData.projectType,
+        sector: enrichedData.sector,
+        sectorLabel: enrichedData.sectorLabel,
+        complexity: enrichedData.complexity,
+        budgetRange: enrichedData.budgetRange,
+        timeline: enrichedData.timeline,
+      },
       cliente: {
         nome: enrichedData.clientName,
         email: enrichedData.clientEmail || '',
@@ -904,6 +941,9 @@ export function convertToQuoteFormat(
   }))
 
   const validityDays = quoteData.preventivo.validitaGiorni || quoteData.condizioni?.validityDays || 60
+  const sourceSnapshot = quoteData.quoteContext
+    ? buildQuoteSourceSnapshot(quoteData.quoteContext)
+    : undefined
 
   const baseQuote = {
     title: quoteData.preventivo.titolo,
@@ -925,7 +965,8 @@ export function convertToQuoteFormat(
     updatedAt: new Date(),
     tenantId,
     createdBy,
-    brandMateriali: quoteData.brandMateriali
+    brandMateriali: quoteData.brandMateriali,
+    sourceSnapshot,
   }
 
   // DUAL CLIENT MODE: Set appropriate fields based on client type

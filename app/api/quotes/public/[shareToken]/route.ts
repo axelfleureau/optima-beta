@@ -18,6 +18,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from "next/server"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { sanitizeQuoteClient } from "@/lib/quote-data-quality"
+import { extractQuoteCommercialContext, resolveQuoteDisplayTitle } from "@/lib/quote-commercial-context"
 import { validateShareToken, isQuoteExpired } from "@/lib/quote-utils"
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
@@ -129,12 +130,19 @@ export async function GET(
       nome: quoteData.external_client_name,
       email: quoteData.external_client_email || quoteData.client_email || quoteData.linked_client_email,
     })
+    const sourceSnapshot = parseJson(quoteData.source_snapshot_json, undefined) as Record<string, unknown> | undefined
+    const quoteContext = extractQuoteCommercialContext(sourceSnapshot)
+    const title = resolveQuoteDisplayTitle({
+      title: String(quoteData.title || ""),
+      clientName: externalClient.nome || platformClient.nome || "Cliente",
+      sourceSnapshot,
+    })
 
     // Return public-safe quote data (NO sensitive tenant info)
     // DUAL CLIENT MODE: Include both platform and external client data
     return NextResponse.json({
       id: quoteData.id,
-      title: quoteData.title || '',
+      title,
       description: quoteData.description,
       // Platform client fields
       clientId: quoteData.client_id, // Safe to expose for display logic
@@ -148,6 +156,8 @@ export async function GET(
       validUntil: validUntil.toISOString(),
       status: quoteData.status || 'draft',
       paymentPlan: parseJson(quoteData.payment_plan_json, undefined),
+      projectTypeLabel: quoteContext.projectTypeLabel,
+      selectedPackageId: quoteContext.selectedPackageId,
       // Internal fields excluded: tenantId, createdBy, shareToken, etc.
     })
   } catch (error) {

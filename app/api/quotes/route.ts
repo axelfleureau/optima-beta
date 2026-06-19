@@ -4,6 +4,7 @@ import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 import { sanitizeQuoteClient } from "@/lib/quote-data-quality"
+import { extractQuoteCommercialContext, resolveQuoteDisplayTitle } from "@/lib/quote-commercial-context"
 
 function parseJson(value: unknown, fallback: unknown) {
   if (typeof value !== "string" || !value.trim()) return fallback
@@ -43,10 +44,17 @@ function mapQuote(row: any) {
     nome: row.external_client_name || undefined,
     email: row.external_client_email || undefined,
   })
+  const sourceSnapshot = parseJson(row.source_snapshot_json, undefined) as Record<string, unknown> | undefined
+  const title = resolveQuoteDisplayTitle({
+    title: String(row.title || ""),
+    clientName: externalClient.nome || client.nome || "Cliente",
+    sourceSnapshot,
+  })
+  const quoteContext = extractQuoteCommercialContext(sourceSnapshot)
 
   return {
     id: String(row.id),
-    title: String(row.title || ""),
+    title,
     description: row.description || "",
     clientId: row.client_id || undefined,
     clientName: client.nome || "Cliente",
@@ -77,7 +85,10 @@ function mapQuote(row: any) {
     sourceType: row.source_type || undefined,
     sourceId: row.source_id || undefined,
     sourceUrl: row.source_url || undefined,
-    sourceSnapshot: parseJson(row.source_snapshot_json, undefined),
+    sourceSnapshot,
+    projectTypeLabel: quoteContext.projectTypeLabel,
+    pricingTemplateId: quoteContext.pricingTemplateId,
+    selectedPackageId: quoteContext.selectedPackageId,
   }
 }
 

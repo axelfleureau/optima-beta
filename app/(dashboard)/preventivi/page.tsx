@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { getRighelloQuoteAreaLabels, RIGHELLO_QUOTE_FLOW_STEPS } from "@/lib/righello-quote-operating-model"
 import { applyQuoteClientDataQuality } from "@/lib/quote-data-quality"
+import { extractQuoteCommercialContext, resolveQuoteDisplayTitle } from "@/lib/quote-commercial-context"
 import { cn } from "@/lib/utils"
 import type { GeneratedQuoteData } from "@/lib/ai-quote-service"
 import type { Quote } from "@/types/quote"
@@ -169,10 +170,29 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
   const subtotale = quote.subtotale && quote.subtotale > 0 ? quote.subtotale : inferredSubtotal || quote.total || 0
   const percentualeIva = quote.percentualeIva ?? 22
   const iva = quote.iva && quote.iva > 0 ? quote.iva : Math.round(subtotale * (percentualeIva / 100) * 100) / 100
+  const quoteContext = extractQuoteCommercialContext(quote.sourceSnapshot)
+  const clientName = quote.externalClientName || quote.clientName || "Cliente"
+  const title = resolveQuoteDisplayTitle({
+    title: quote.title,
+    clientName,
+    sourceSnapshot: quote.sourceSnapshot,
+  })
 
   return applyQuoteClientDataQuality({
+    projectType: quoteContext.selectedPackageId || quoteContext.projectType,
+    quoteContext: {
+      selectedPackageId: quoteContext.selectedPackageId,
+      pricingTemplateId: quoteContext.pricingTemplateId,
+      projectTypeLabel: quoteContext.projectTypeLabel,
+      projectType: quoteContext.projectType,
+      sector: quoteContext.sector,
+      sectorLabel: quoteContext.sectorLabel,
+      complexity: quoteContext.complexity as "basic" | "standard" | "advanced" | undefined,
+      budgetRange: quoteContext.budgetRange as { min: number; max: number } | undefined,
+      timeline: quoteContext.timeline,
+    },
     cliente: {
-      nome: quote.externalClientName || quote.clientName || "Cliente",
+      nome: clientName,
       email: quote.externalClientEmail || quote.clientEmail || "",
       azienda: quote.clientName || "",
       telefono: "",
@@ -180,7 +200,7 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       partitaIva: "",
     },
     preventivo: {
-      titolo: quote.title || "Preventivo",
+      titolo: title,
       descrizione: quote.description || "",
       numeroPreventivo: quote.id.slice(0, 8).toUpperCase(),
       dataCreazione: createdAt.toISOString().split("T")[0],
