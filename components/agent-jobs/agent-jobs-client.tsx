@@ -3294,12 +3294,12 @@ export function AgentJobsClient({
     const installation = connectorInstallationsById.get(connector.id)
     const setupStatus = connectorSetupStatusesById.get(connector.id)
     const plan = connectorSetupPlan(connector, installation, setupStatus)
-    const ready =
-      !plan.blockedReason &&
-      plan.healthOk &&
-      (plan.state === "configured" || plan.state === "healthy")
+    const operationalState = setupStatus?.operationalState ?? (plan.healthOk ? "needs_review" : "ready_to_connect")
+    const operationalLabel = setupStatus?.operationalLabel ?? plan.primaryIntent
+    const primaryActionAvailable = setupStatus?.primaryActionAvailable !== false
+    const ready = operationalState === "connected"
 
-    return { connector, installation, setupStatus, plan, ready }
+    return { connector, installation, setupStatus, plan, operationalState, operationalLabel, primaryActionAvailable, ready }
   })
   const connectorLaneSummary = ([
     {
@@ -3338,29 +3338,32 @@ export function AgentJobsClient({
       ...lane,
       total: plans.length,
       ready: plans.filter((item) => item.ready).length,
-      blocked: plans.filter((item) => Boolean(item.plan.blockedReason)).length,
+      blocked: plans.filter((item) => item.operationalState === "blocked" || item.operationalState === "needs_runtime").length,
     }
   }).filter((lane) => lane.total > 0)
   const connectorNextFixes = connectorPlans
     .filter((item) => !item.ready)
     .sort((a, b) => {
-      const aBlocked = a.plan.blockedReason ? 0 : 1
-      const bBlocked = b.plan.blockedReason ? 0 : 1
+      const statePriority: Record<string, number> = {
+        blocked: 0,
+        needs_runtime: 1,
+        ready_to_connect: 2,
+        needs_review: 3,
+        connected: 4,
+      }
+      const aBlocked = statePriority[a.operationalState] ?? 9
+      const bBlocked = statePriority[b.operationalState] ?? 9
       if (aBlocked !== bBlocked) return aBlocked - bBlocked
-      const aHealth = a.plan.healthOk ? 1 : 0
-      const bHealth = b.plan.healthOk ? 1 : 0
+      const aHealth = a.primaryActionAvailable ? 1 : 0
+      const bHealth = b.primaryActionAvailable ? 1 : 0
       if (aHealth !== bHealth) return aHealth - bHealth
       return a.connector.label.localeCompare(b.connector.label)
     })
   const connectorReadyPlans = connectorPlans.filter((item) => item.ready)
-  const configuredConnectorCount =
-    capabilities?.connectorInstallations.filter((item) => item.connectorId !== "hermes-agent" && item.installState !== "not_installed").length ?? 0
-  const verifiedExternalConnectorCount =
-    capabilities?.connectorInstallations.filter((item) =>
-      item.connectorId !== "hermes-agent" &&
-      (item.installState === "configured" || item.installState === "healthy") &&
-      Boolean(item.secretRef || item.oauthSubject || item.lastHealthStatus === "ok"),
-    ).length ?? 0
+  const connectorNeedsRuntimeCount = connectorPlans.filter((item) => item.operationalState === "needs_runtime").length
+  const connectorNeedsReviewCount = connectorPlans.filter((item) => item.operationalState === "needs_review").length
+  const connectorReadyToConnectCount = connectorPlans.filter((item) => item.operationalState === "ready_to_connect").length
+  const verifiedExternalConnectorCount = connectorReadyPlans.length
   const mcpAuthMode = productionReadiness?.metrics?.mcpAuthMode ?? "unknown"
   const mcpOAuthConfigured = Boolean(productionReadiness?.metrics?.mcpOAuthAuthorizationCodeConfigured)
   const mcpServiceTokenConfigured = Boolean(productionReadiness?.metrics?.mcpServiceTokenConfigured)
@@ -4355,11 +4358,12 @@ export function AgentJobsClient({
                   {mcpOAuthConfigured ? "OAuth utente attivo" : mcpServiceTokenConfigured ? "service token" : "setup richiesto"}
                 </span>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 {[
                   ["Auth MCP", mcpAuthMode, mcpOAuthConfigured ? "OAuth/PKCE configurato" : "non e OAuth utente"],
-                  ["Connector verificati", `${verifiedExternalConnectorCount}/${operationalMcpConnectors.length}`, "GitHub, Notion, Cloudflare, SendGrid..."],
-                  ["Setup salvati", `${configuredConnectorCount}/${operationalMcpConnectors.length}`, "include guide/policy non ancora operative"],
+                  ["Collegati", `${verifiedExternalConnectorCount}/${operationalMcpConnectors.length}`, "servizi con soggetto/sessione verificata"],
+                  ["Da collegare", `${connectorReadyToConnectCount}`, "consenso, login o policy da completare"],
+                  ["Runtime/review", `${connectorNeedsRuntimeCount + connectorNeedsReviewCount}`, "mancano gateway, env o verifica owner"],
                 ].map(([label, value, detail]) => (
                   <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
                     <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
@@ -4424,7 +4428,7 @@ export function AgentJobsClient({
                     </span>
                   </div>
                   <div className="mt-2 grid gap-2">
-                    {connectorNextFixes.slice(0, 6).map(({ connector, plan }) => (
+                    {connectorNextFixes.slice(0, 6).map(({ connector, plan, operationalState, operationalLabel, primaryActionAvailable }) => (
                       <button
                         key={`next-fix-${connector.id}`}
                         type="button"
@@ -4435,14 +4439,20 @@ export function AgentJobsClient({
                           <div className="min-w-0">
                             <p className="truncate text-sm font-black text-white">{connector.label}</p>
                             <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
-                              {plan.blockedReason ?? plan.shortNextAction}
+                              {!primaryActionAvailable ? plan.blockedReason ?? plan.missingLabel : plan.shortNextAction}
                             </p>
                           </div>
-                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(plan.kind)}`}>
-                            {connectorSetupKindLabel(plan.kind)}
+                          <span
+                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                              connectorOperationalTone[operationalState] ?? connectorOperationalTone.ready_to_connect
+                            }`}
+                          >
+                            {operationalLabel}
                           </span>
                         </div>
-                        <p className="mt-2 truncate text-[11px] font-bold text-cyan-100">{plan.primaryActionLabel}</p>
+                        <p className="mt-2 truncate text-[11px] font-bold text-cyan-100">
+                          {primaryActionAvailable ? plan.primaryActionLabel : "Completa il prerequisito reale prima del job"}
+                        </p>
                       </button>
                     ))}
                     {connectorNextFixes.length === 0 ? (
@@ -4455,9 +4465,9 @@ export function AgentJobsClient({
 
                 <div className="rounded-lg border border-white/10 bg-black/20 p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-white">Già usabili</p>
+                    <p className="text-sm font-black text-white">Collegati davvero</p>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                      health ok
+                      operativi
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -5424,7 +5434,7 @@ export function AgentJobsClient({
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-                  {configuredConnectorCount}/{operationalMcpConnectors.length}
+                  {verifiedExternalConnectorCount}/{operationalMcpConnectors.length} collegati
                 </span>
               </div>
               <div className="mt-3 grid gap-2">
