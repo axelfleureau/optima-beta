@@ -35,6 +35,8 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import type { AgentJob, AgentJobArtifact, AgentJobEvent, AgentRunnerHeartbeat } from "@/lib/agent-jobs"
 
+type ConnectorSetupKind = "oauth" | "browser" | "github_owner" | "runtime" | "service_account" | "secret_ref"
+
 interface AgentRunnerControlState {
   enabled: boolean
   status: "enabled" | "suspended"
@@ -135,6 +137,33 @@ interface AgenticCapabilities {
     lastHealthAt?: string | null
     lastHealthStatus?: string | null
     updatedAt: string
+  }>
+  connectorSetupStatuses?: Array<{
+    connectorId: string
+    label: string
+    category: string
+    setupKind: ConnectorSetupKind
+    authMethod: string
+    installState: string
+    catalogStatus: string
+    healthOk: boolean
+    healthLabel: string
+    primaryAction: string
+    primaryActionLabel: string
+    primaryIntent: string
+    verifyActionLabel: string
+    nextAction: string
+    requirementLabel: string
+    blockedReason: string | null
+    canStartOauth: boolean
+    canStartBrowserPairing: boolean
+    canRunHealthCheck: boolean
+    requiredEnv: string[]
+    missingRuntimeEnv: string[]
+    lastHealthAt: string | null
+    lastHealthStatus: string | null
+    secretRef: string | null
+    oauthSubject: string | null
   }>
   modelRuntime: {
     hosts: Array<{
@@ -2273,8 +2302,6 @@ export function AgentJobsClient({
     return connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth"
   }
 
-  type ConnectorSetupKind = "oauth" | "browser" | "github_owner" | "runtime" | "service_account" | "secret_ref"
-
   function connectorSetupKind(connector: AgenticCapabilities["mcpConnectorCatalog"][number]): ConnectorSetupKind {
     if (connector.id === "browser") return "browser"
     if (connector.id === "github") return "github_owner"
@@ -2354,7 +2381,26 @@ export function AgentJobsClient({
   function connectorSetupPlan(
     connector: AgenticCapabilities["mcpConnectorCatalog"][number],
     installation?: AgenticCapabilities["connectorInstallations"][number] | null,
+    setupStatus?: NonNullable<AgenticCapabilities["connectorSetupStatuses"]>[number] | null,
   ) {
+    if (setupStatus) {
+      return {
+        kind: setupStatus.setupKind,
+        state: setupStatus.installState,
+        healthOk: setupStatus.healthOk,
+        healthLabel: setupStatus.healthLabel,
+        primaryActionLabel: setupStatus.primaryActionLabel,
+        primaryIntent: setupStatus.primaryIntent,
+        shortNextAction: setupStatus.nextAction,
+        missingLabel: setupStatus.requirementLabel,
+        verifyActionLabel: setupStatus.verifyActionLabel,
+        blockedReason: setupStatus.blockedReason,
+        canStartOauth: setupStatus.canStartOauth,
+        canStartBrowserPairing: setupStatus.canStartBrowserPairing,
+        canRunHealthCheck: setupStatus.canRunHealthCheck,
+      }
+    }
+
     const kind = connectorSetupKind(connector)
     const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
     const healthOk = installation?.lastHealthStatus === "ok" || state === "healthy" || state === "configured"
@@ -2363,13 +2409,21 @@ export function AgentJobsClient({
     const missingLabel = hasRuntimeRequirement
       ? `Richiede runtime: ${connector.requiredEnv.slice(0, 3).join(", ")}${connector.requiredEnv.length > 3 ? "..." : ""}`
       : "Nessun segreto obbligatorio dichiarato nel catalogo."
+    const basePlan = {
+      kind,
+      state,
+      healthOk,
+      healthLabel,
+      blockedReason: null as string | null,
+      canStartOauth: false,
+      canStartBrowserPairing: false,
+      canRunHealthCheck: state !== "not_installed" || connector.status !== "missing",
+    }
 
     if (kind === "oauth") {
       return {
-        kind,
-        state,
-        healthOk,
-        healthLabel,
+        ...basePlan,
+        canStartOauth: connector.status !== "missing",
         primaryActionLabel: "Apri consenso OAuth",
         primaryIntent: "Consenso provider",
         shortNextAction:
@@ -2382,10 +2436,8 @@ export function AgentJobsClient({
     }
     if (kind === "browser") {
       return {
-        kind,
-        state,
-        healthOk,
-        healthLabel,
+        ...basePlan,
+        canStartBrowserPairing: connector.status !== "missing",
         primaryActionLabel: "Prepara login browser",
         primaryIntent: "Sessione controllata",
         shortNextAction:
@@ -2398,10 +2450,7 @@ export function AgentJobsClient({
     }
     if (kind === "github_owner") {
       return {
-        kind,
-        state,
-        healthOk,
-        healthLabel,
+        ...basePlan,
         primaryActionLabel: "Apri policy GitHub",
         primaryIntent: "Owner approval",
         shortNextAction:
@@ -2412,10 +2461,7 @@ export function AgentJobsClient({
     }
     if (kind === "runtime") {
       return {
-        kind,
-        state,
-        healthOk,
-        healthLabel,
+        ...basePlan,
         primaryActionLabel: "Verifica runtime CLI",
         primaryIntent: "Runner/VPS",
         shortNextAction:
@@ -2426,10 +2472,7 @@ export function AgentJobsClient({
     }
     if (kind === "service_account") {
       return {
-        kind,
-        state,
-        healthOk,
-        healthLabel,
+        ...basePlan,
         primaryActionLabel: "Collega service token",
         primaryIntent: "Service account",
         shortNextAction:
@@ -2439,10 +2482,7 @@ export function AgentJobsClient({
       }
     }
     return {
-      kind,
-      state,
-      healthOk,
-      healthLabel,
+      ...basePlan,
       primaryActionLabel: "Salva secret_ref",
       primaryIntent: "Fallback controllato",
       shortNextAction:
@@ -3029,10 +3069,12 @@ export function AgentJobsClient({
   const activeReviewJob = reviewDetails?.job ?? jobs.find((job) => job.id === reviewJobId) ?? null
   const providerInstallationsById = new Map((capabilities?.providerInstallations ?? []).map((item) => [item.providerId, item]))
   const connectorInstallationsById = new Map((capabilities?.connectorInstallations ?? []).map((item) => [item.connectorId, item]))
+  const connectorSetupStatusesById = new Map((capabilities?.connectorSetupStatuses ?? []).map((item) => [item.connectorId, item]))
   const selectedConnector =
     (capabilities?.mcpConnectorCatalog ?? []).find((connector) => connector.id === selectedConnectorId) ?? null
   const selectedConnectorInstallation = selectedConnector ? connectorInstallationsById.get(selectedConnector.id) ?? null : null
-  const selectedConnectorPlan = selectedConnector ? connectorSetupPlan(selectedConnector, selectedConnectorInstallation) : null
+  const selectedConnectorSetupStatus = selectedConnector ? connectorSetupStatusesById.get(selectedConnector.id) ?? null : null
+  const selectedConnectorPlan = selectedConnector ? connectorSetupPlan(selectedConnector, selectedConnectorInstallation, selectedConnectorSetupStatus) : null
   const selectedBrowserPairingSession =
     selectedConnector?.id === "browser"
       ? browserPairingSession ?? (asRecord(selectedConnectorInstallation?.config?.activePairingSession) as BrowserMcpSession | null)
@@ -5068,7 +5110,8 @@ export function AgentJobsClient({
               <div className="mt-3 grid gap-2">
                 {operationalMcpConnectors.map((connector) => {
                   const installation = connectorInstallationsById.get(connector.id)
-                  const plan = connectorSetupPlan(connector, installation)
+                  const setupStatus = connectorSetupStatusesById.get(connector.id)
+                  const plan = connectorSetupPlan(connector, installation, setupStatus)
                   return (
                     <div key={connector.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-start justify-between gap-3">
@@ -5099,6 +5142,9 @@ export function AgentJobsClient({
                         </div>
                         <p className="line-clamp-2 text-[11px] leading-5 text-slate-300">{plan.shortNextAction}</p>
                         <p className="line-clamp-1 text-[10px] font-bold text-slate-500">{plan.missingLabel}</p>
+                        {plan.blockedReason ? (
+                          <p className="line-clamp-1 text-[10px] font-black text-amber-100">{plan.blockedReason}</p>
+                        ) : null}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {connector.graphUse.slice(0, 4).map((scope) => (
@@ -5680,6 +5726,11 @@ export function AgentJobsClient({
                   <p className="mt-2 text-sm leading-6 text-pink-50/90">
                     {selectedConnectorPlan?.shortNextAction ?? connectorNextActionCopy(selectedConnector)}
                   </p>
+                  {selectedConnectorPlan?.blockedReason ? (
+                    <p className="mt-2 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm font-bold leading-6 text-amber-50">
+                      Blocco reale: {selectedConnectorPlan.blockedReason}
+                    </p>
+                  ) : null}
                   <p className="mt-2 rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-300">
                     {connectorNextActionCopy(selectedConnector)}
                   </p>
@@ -5787,7 +5838,7 @@ export function AgentJobsClient({
                           type="button"
                           variant="outline"
                           onClick={() => startBrowserMcpLogin(target)}
-                          disabled={Boolean(browserPairingAction)}
+                          disabled={Boolean(browserPairingAction) || selectedConnectorPlan?.canStartBrowserPairing === false}
                           className="rounded-lg border-purple-200/20 bg-black/20 text-purple-50 hover:bg-purple-300/10"
                         >
                           {browserPairingAction === target ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />}
@@ -6089,11 +6140,11 @@ export function AgentJobsClient({
                     <Button
                       type="button"
                       onClick={() => startConnectorOAuth(selectedConnector)}
-                      disabled={oauthAction === `connector-oauth:${selectedConnector.id}`}
+                      disabled={oauthAction === `connector-oauth:${selectedConnector.id}` || selectedConnectorPlan?.canStartOauth === false}
                       className="rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400"
                     >
                       {oauthAction === `connector-oauth:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                      {selectedConnectorPlan?.primaryActionLabel ?? "Apri consenso OAuth"}
+                      {selectedConnectorPlan?.canStartOauth === false ? "Configura OAuth app" : selectedConnectorPlan?.primaryActionLabel ?? "Apri consenso OAuth"}
                     </Button>
                   ) : null}
                   <Button

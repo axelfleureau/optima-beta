@@ -1,6 +1,6 @@
 import { createId } from "@/lib/cloudflare-db"
 import type { WorkspacePrincipal } from "@/lib/workspace-db"
-import { getStrategicMcpConnectors } from "@/lib/mcp-connectors"
+import { getStrategicMcpConnectors, type StrategicMcpConnector } from "@/lib/mcp-connectors"
 import { safeAll } from "@/lib/operational-context"
 import { getRuntimeSecret } from "@/lib/ai/openai-runtime"
 import { getHermesBlueprint } from "@/lib/hermes-reference"
@@ -163,6 +163,42 @@ export interface McpConnectorInstallation {
   updatedAt: string
 }
 
+export type AgenticConnectorSetupKind =
+  | "oauth"
+  | "browser"
+  | "github_owner"
+  | "runtime"
+  | "service_account"
+  | "secret_ref"
+
+export interface AgenticConnectorSetupStatus {
+  connectorId: string
+  label: string
+  category: string
+  setupKind: AgenticConnectorSetupKind
+  authMethod: AgenticAuthMethod
+  installState: AgenticInstallState
+  catalogStatus: string
+  healthOk: boolean
+  healthLabel: string
+  primaryAction: "open_oauth" | "open_browser_pairing" | "open_github_policy" | "run_health_check" | "save_secret_ref"
+  primaryActionLabel: string
+  primaryIntent: string
+  verifyActionLabel: string
+  nextAction: string
+  requirementLabel: string
+  blockedReason: string | null
+  canStartOauth: boolean
+  canStartBrowserPairing: boolean
+  canRunHealthCheck: boolean
+  requiredEnv: string[]
+  missingRuntimeEnv: string[]
+  lastHealthAt: string | null
+  lastHealthStatus: string | null
+  secretRef: string | null
+  oauthSubject: string | null
+}
+
 export interface AgentSubagent {
   id: string
   organizationId: string
@@ -186,6 +222,7 @@ export interface AgenticCapabilitySnapshot {
   mcpConnectorCatalog: ReturnType<typeof getStrategicMcpConnectors>
   providerInstallations: AgenticProviderInstallation[]
   connectorInstallations: McpConnectorInstallation[]
+  connectorSetupStatuses: AgenticConnectorSetupStatus[]
   subagents: AgentSubagent[]
   modelRuntime: AgenticModelRuntimeSnapshot
   oauthGuidance: {
@@ -421,6 +458,10 @@ function parseJsonArray(value: unknown): string[] {
 
 function stringifyJson(value: unknown) {
   return JSON.stringify(value && typeof value === "object" ? value : {})
+}
+
+function hasRuntimeEnv(name: string) {
+  return Boolean(process.env[name]?.trim())
 }
 
 function mapProviderInstallation(row: any): AgenticProviderInstallation {
@@ -780,6 +821,152 @@ export async function listSubagents(db: any, organizationId: string) {
   return rows.map(mapSubagent)
 }
 
+function connectorSetupKind(connector: StrategicMcpConnector): AgenticConnectorSetupKind {
+  if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") return "oauth"
+  if (connector.authMethod === "browser_session_oauth") return "browser"
+  if (connector.authMethod === "github_app") return "github_owner"
+  if (connector.authMethod === "runner_env") return "runtime"
+  if (connector.authMethod === "service_account") return "service_account"
+  return "secret_ref"
+}
+
+function connectorSetupCopy(
+  connector: StrategicMcpConnector,
+  installation: McpConnectorInstallation | null,
+): Pick<
+  AgenticConnectorSetupStatus,
+  "primaryAction" | "primaryActionLabel" | "primaryIntent" | "verifyActionLabel" | "nextAction" | "requirementLabel" | "blockedReason"
+> {
+  const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
+  const missingRuntimeEnv = connector.requiredEnv.filter((env) => !hasRuntimeEnv(env))
+  const hasMissingRuntime = missingRuntimeEnv.length > 0
+  const joinedMissing = missingRuntimeEnv.slice(0, 4).join(", ")
+
+  switch (connectorSetupKind(connector)) {
+    case "oauth":
+      return {
+        primaryAction: "open_oauth",
+        primaryActionLabel: "Apri consenso OAuth",
+        primaryIntent: "Consenso provider",
+        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna health-check" : "Verifica collegamento",
+        nextAction:
+          state === "healthy" || state === "configured"
+            ? "OAuth registrato: aggiorna il controllo permessi prima di usarlo in produzione."
+            : "Apri il consenso ufficiale del provider. Se il consenso non parte, manca la app developer o il redirect URI.",
+        requirementLabel: hasMissingRuntime
+          ? `Configura app OAuth/runtime: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
+          : "App OAuth pronta lato runtime: apri il consenso, poi verifica.",
+        blockedReason: hasMissingRuntime ? "OAuth app o secret_ref runtime mancanti." : null,
+      }
+    case "browser":
+      return {
+        primaryAction: "open_browser_pairing",
+        primaryActionLabel: "Prepara login browser",
+        primaryIntent: "Sessione controllata",
+        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna sessione" : "Verifica gateway/sessione",
+        nextAction:
+          state === "healthy" || state === "configured"
+            ? "Sessione browser registrata: aggiorna stato o health-check prima di assegnarla ai subagenti."
+            : "Crea una sessione Browser MCP, completa il login nel Chromium isolato e poi conferma lo stato.",
+        requirementLabel: hasMissingRuntime
+          ? `Gateway Browser MCP mancante: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
+          : "Gateway Browser MCP disponibile: crea pairing per ChatGPT, Gemini, Perplexity o Claude.",
+        blockedReason: hasMissingRuntime ? "Gateway Browser MCP non configurato nel runtime." : null,
+      }
+    case "github_owner":
+      return {
+        primaryAction: "open_github_policy",
+        primaryActionLabel: "Apri policy GitHub",
+        primaryIntent: "Owner approval",
+        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna dry-run GitHub" : "Verifica permessi GitHub",
+        nextAction:
+          "Solo Axel autorizza repository, commit, PR e deploy. Dopo la policy esegui un dry-run read-only.",
+        requirementLabel: hasMissingRuntime
+          ? `Serve GitHub App/token owner-scoped nel runtime: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
+          : "Policy owner-scoped pronta: collega repository allowlist e permessi distinti.",
+        blockedReason: hasMissingRuntime ? "Credenziali GitHub owner-scoped non presenti nel runtime." : null,
+      }
+    case "runtime":
+      return {
+        primaryAction: "run_health_check",
+        primaryActionLabel: "Verifica runtime CLI",
+        primaryIntent: "Runner/VPS",
+        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna prova runtime" : "Health-check runtime",
+        nextAction:
+          "Configura wrapper, CODEX_HOME o runtime sul VPS autorizzato. Optima deve vedere heartbeat e comando funzionante.",
+        requirementLabel: hasMissingRuntime
+          ? `Runtime incompleto: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
+          : "Runtime configurato: esegui health-check revisionabile prima dell'uso.",
+        blockedReason: hasMissingRuntime ? "Env/runtime richiesti non presenti." : null,
+      }
+    case "service_account":
+      return {
+        primaryAction: "run_health_check",
+        primaryActionLabel: "Verifica service token",
+        primaryIntent: "Service account",
+        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna service check" : "Verifica service token",
+        nextAction:
+          "Salva solo secret_ref e policy nel runtime sicuro, poi verifica con una chiamata read-only.",
+        requirementLabel: hasMissingRuntime
+          ? `Service runtime incompleto: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
+          : "Service account pronto per health-check read-only.",
+        blockedReason: hasMissingRuntime ? "Service token o runtime non configurati." : null,
+      }
+    default:
+      return {
+        primaryAction: "save_secret_ref",
+        primaryActionLabel: "Salva secret_ref",
+        primaryIntent: "Fallback controllato",
+        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna verifica" : "Verifica secret_ref",
+        nextAction:
+          "API key e token sono fallback facoltativi: salva solo riferimenti protetti, poi verifica quote e permessi minimi.",
+        requirementLabel: hasMissingRuntime
+          ? `Secret runtime richiesti: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
+          : "Nessun env mancante dal catalogo: registra policy e verifica.",
+        blockedReason: hasMissingRuntime ? "Secret runtime richiesti non presenti." : null,
+      }
+  }
+}
+
+export function getConnectorSetupStatuses(
+  connectors: StrategicMcpConnector[],
+  installations: McpConnectorInstallation[],
+): AgenticConnectorSetupStatus[] {
+  const installationsById = new Map(installations.map((installation) => [installation.connectorId, installation]))
+
+  return connectors.map((connector) => {
+    const installation = installationsById.get(connector.id) ?? null
+    const setupKind = connectorSetupKind(connector)
+    const installState = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
+    const lastHealthStatus = installation?.lastHealthStatus ?? null
+    const healthOk = lastHealthStatus === "ok" || installState === "healthy" || installState === "configured"
+    const missingRuntimeEnv = connector.requiredEnv.filter((env) => !hasRuntimeEnv(env))
+    const copy = connectorSetupCopy(connector, installation)
+
+    return {
+      connectorId: connector.id,
+      label: connector.label,
+      category: connector.category,
+      setupKind,
+      authMethod: connector.authMethod as AgenticAuthMethod,
+      installState,
+      catalogStatus: connector.status,
+      healthOk,
+      healthLabel: lastHealthStatus ? `Health: ${lastHealthStatus}` : "Health-check non eseguito",
+      canStartOauth: setupKind === "oauth" && missingRuntimeEnv.length === 0,
+      canStartBrowserPairing: setupKind === "browser" && missingRuntimeEnv.length === 0,
+      canRunHealthCheck: installState !== "not_installed" || connector.status !== "missing",
+      requiredEnv: connector.requiredEnv,
+      missingRuntimeEnv,
+      lastHealthAt: installation?.lastHealthAt ?? null,
+      lastHealthStatus,
+      secretRef: installation?.secretRef ?? null,
+      oauthSubject: installation?.oauthSubject ?? null,
+      ...copy,
+    }
+  })
+}
+
 export async function getAgenticCapabilitySnapshot(
   db: any,
   principal: WorkspacePrincipal,
@@ -790,11 +977,14 @@ export async function getAgenticCapabilitySnapshot(
     listSubagents(db, principal.organizationId),
   ])
 
+  const mcpConnectorCatalog = getStrategicMcpConnectors()
+
   return {
     providerCatalog: getAgenticProviderCatalog(),
-    mcpConnectorCatalog: getStrategicMcpConnectors(),
+    mcpConnectorCatalog,
     providerInstallations,
     connectorInstallations,
+    connectorSetupStatuses: getConnectorSetupStatuses(mcpConnectorCatalog, connectorInstallations),
     subagents,
     modelRuntime: await getAgenticModelRuntimeSnapshot(db, principal),
     oauthGuidance: getOAuthGuidance(),
