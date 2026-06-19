@@ -3055,7 +3055,7 @@ export function AgentJobsClient({
     },
     {
       key: "running",
-      label: "Coda/Run",
+      label: "In corso",
       count: stats.queued + stats.running,
       helper: "Solo job operativi: quelli in coda e quelli effettivamente presi dal runner.",
     },
@@ -3070,6 +3070,54 @@ export function AgentJobsClient({
       label: "Tutti",
       count: jobs.length,
       helper: "Vista completa della coda, utile per audit e diagnosi.",
+    },
+  ]
+  const controlDeckCards = [
+    {
+      title: "Lavori agentici",
+      value: stats.review ? `${stats.review} review` : `${stats.queued + stats.running} in corso`,
+      detail: stats.review
+        ? "Output pronti da approvare, respingere o rimandare al runner."
+        : "Coda runner, job in esecuzione e storico revisionabile.",
+      action: stats.review ? "Apri review" : "Apri coda",
+      tone: "pink",
+      onClick: () => {
+        setMobilePanel("jobs")
+        setJobFilter(stats.review ? "review" : "active")
+      },
+    },
+    {
+      title: "Connessioni",
+      value: `${verifiedExternalConnectorCount}/${operationalMcpConnectors.length}`,
+      detail: "OAuth, Browser MCP, GitHub owner, runtime CLI e service token separati.",
+      action: "Collega servizi",
+      tone: "cyan",
+      onClick: () => {
+        setMobilePanel("stack")
+        setStackSection("providers")
+      },
+    },
+    {
+      title: "Memoria a grafo",
+      value: `${graphMemory?.stats.nodes ?? 0} nodi`,
+      detail: "Graphify normalizzato, scibile, Obsidian vault e relazioni aziendali.",
+      action: "Apri grafo",
+      tone: "violet",
+      onClick: () => {
+        setMobilePanel("stack")
+        setStackSection("graph")
+      },
+    },
+    {
+      title: "Autonomia",
+      value: productionReadiness ? `${productionReadiness.summary.score}/100` : agenticRecovery ? `${agenticRecovery.score}/100` : "--",
+      detail: "Readiness reale: runner, MCP, runtime, subagenti, Telegram e self-improvement.",
+      action: "Piano recovery",
+      tone: "emerald",
+      onClick: () => {
+        setMobilePanel("stack")
+        setStackSection("overview")
+      },
     },
   ]
   const selectedJobFilter = jobFilters.find((filter) => filter.key === jobFilter) ?? jobFilters[0]
@@ -3267,6 +3315,13 @@ export function AgentJobsClient({
         : "border border-white/10 bg-[#060a15] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"
     }`
 
+  const controlDeckTone = (tone: string) => {
+    if (tone === "pink") return "border-righello-pink/25 bg-righello-pink/[0.08] text-pink-50"
+    if (tone === "cyan") return "border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-50"
+    if (tone === "violet") return "border-violet-300/25 bg-violet-300/[0.08] text-violet-50"
+    return "border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-50"
+  }
+
   const approvalCreatesPublishJob = (job: AgentJob) =>
     Boolean(
       job.repoUrl &&
@@ -3284,7 +3339,7 @@ export function AgentJobsClient({
           className={mobileTabClass("jobs")}
         >
           <ClipboardList className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 truncate">Coda</span>
+          <span className="min-w-0 truncate">Lavori</span>
         </Button>
         <Button
           type="button"
@@ -3293,7 +3348,7 @@ export function AgentJobsClient({
           className={mobileTabClass("create")}
         >
           <Plus className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 truncate">Crea</span>
+          <span className="min-w-0 truncate">Nuovo</span>
         </Button>
         <Button
           type="button"
@@ -3302,7 +3357,7 @@ export function AgentJobsClient({
           className={mobileTabClass("stack")}
         >
           <Network className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 truncate">Agenti</span>
+          <span className="min-w-0 truncate">Sistema</span>
         </Button>
       </div>
 
@@ -3485,9 +3540,9 @@ export function AgentJobsClient({
         <div className="flex min-w-0 flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Agentic OS</p>
-            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Control room agentica</h2>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Sistema agentico</h2>
             <p className="mt-2 break-words text-sm leading-6 text-slate-400">
-              Connessioni reali, runtime, subagenti e memoria a grafo. Prima colleghi OAuth/browser/secret_ref, poi verifichi, poi usi il tool in azioni revisionabili.
+              Gestisci lavori, connessioni, runtime, subagenti e memoria. Prima colleghi un servizio, poi lo verifichi, poi Optima lo usa in azioni revisionabili.
             </p>
           </div>
           <span className="w-fit max-w-full rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">
@@ -3497,21 +3552,47 @@ export function AgentJobsClient({
 
         <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
           <button type="button" onClick={() => setStackSection("overview")} className={stackSectionClass("overview")}>
-            Sintesi
+            Stato
           </button>
           <button type="button" onClick={() => setStackSection("providers")} className={stackSectionClass("providers")}>
-            Connessioni
+            Collega
           </button>
           <button type="button" onClick={() => setStackSection("graph")} className={stackSectionClass("graph")}>
-            Memoria
+            Grafo
           </button>
           <button type="button" onClick={() => setStackSection("sources")} className={stackSectionClass("sources")}>
-            Scibile
+            Fonti
           </button>
         </div>
 
         <div className={stackSection === "overview" ? "grid gap-4" : "hidden"}>
-          <div className="mt-4 rounded-lg border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(14,165,233,0.10),rgba(7,9,18,0.96))] p-3 sm:p-4">
+          <div className="mt-4 grid gap-3 lg:grid-cols-4">
+            {controlDeckCards.map((card) => (
+              <button
+                key={card.title}
+                type="button"
+                onClick={card.onClick}
+                className={`min-w-0 rounded-lg border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/[0.06] ${controlDeckTone(card.tone)}`}
+              >
+                <p className="truncate text-[11px] font-black uppercase tracking-[0.14em] opacity-70">{card.title}</p>
+                <p className="mt-2 truncate text-2xl font-black text-white">{card.value}</p>
+                <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-slate-300">{card.detail}</p>
+                <span className="mt-3 inline-flex rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[11px] font-black text-white">
+                  {card.action}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <details className="rounded-lg border border-white/10 bg-[#060a15]/70 p-3 sm:p-4">
+            <summary className="cursor-pointer list-none text-sm font-black text-white">
+              Diagnostica avanzata e recovery
+              <span className="ml-2 text-xs font-medium text-slate-500">
+                Apri solo quando devi verificare readiness, tenant, Obsidian o setup profondi.
+              </span>
+            </summary>
+            <div className="mt-4 grid gap-4">
+          <div className="rounded-lg border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(14,165,233,0.10),rgba(7,9,18,0.96))] p-3 sm:p-4">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">Flusso corretto</p>
@@ -3887,6 +3968,8 @@ export function AgentJobsClient({
             </div>
           ) : null}
         </div>
+            </div>
+          </details>
         </div>
 
         <div
