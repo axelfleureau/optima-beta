@@ -15,7 +15,6 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -28,8 +27,6 @@ import {
   Globe,
   UserPlus,
   AlertCircle,
-  Eye,
-  EyeOff,
   Upload,
   X,
   FileText,
@@ -210,8 +207,8 @@ function deriveWorkspaceClients(
 }
 
 export function WorkspaceShell() {
-  const { user, userData } = useAuth()
-  const { clients } = useClients()
+  const { userData } = useAuth()
+  const { clients, createClient } = useClients()
   const [searchTerm, setSearchTerm] = useState("")
   const [showClientDialog, setShowClientDialog] = useState(false)
   const [showTaskDialog, setShowTaskDialog] = useState(false)
@@ -219,7 +216,6 @@ export function WorkspaceShell() {
   const [showTaskDetailDialog, setShowTaskDetailDialog] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showWorkspaceAlert, setShowWorkspaceAlert] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
   const [isCreatingClient, setIsCreatingClient] = useState(false)
   const [uploadingFiles, setUploadingFiles] = useState(false)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
@@ -245,8 +241,6 @@ export function WorkspaceShell() {
     contactEmail: "",
     contactPhone: "",
     address: "",
-    password: "",
-    sendWelcomeEmail: true,
   })
 
   const [taskForm, setTaskForm] = useState({
@@ -410,15 +404,6 @@ export function WorkspaceShell() {
     return "bg-emerald-100 text-emerald-700"
   }
 
-  const generatePassword = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
-    let password = ""
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    setClientForm({ ...clientForm, password })
-  }
-
   const handleFileUpload = async (files: FileList) => {
     if (!files || files.length === 0) return
 
@@ -495,98 +480,19 @@ export function WorkspaceShell() {
       return
     }
 
-    if (!clientForm.contactEmail.trim()) {
-      toast({
-        title: "Errore",
-        description: "L'email del cliente è obbligatoria",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!clientForm.password.trim()) {
-      toast({
-        title: "Errore",
-        description: "La password è obbligatoria",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (clientForm.password.length < 6) {
-      toast({
-        title: "Errore",
-        description: "La password deve essere di almeno 6 caratteri",
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsCreatingClient(true)
 
     try {
-      const { auth, db } = await import("@/lib/firebase")
-      const { createUserWithEmailAndPassword } = await import("firebase/auth")
-      const { collection, addDoc, doc, setDoc } = await import("firebase/firestore")
-
-      const userCredential = await createUserWithEmailAndPassword(auth, clientForm.contactEmail, clientForm.password)
-      const clientUser = userCredential.user
-      const clientTenantId = clientUser.uid
-
-      await setDoc(doc(db, "users", clientUser.uid), {
-        firstName: clientForm.name.split(" ")[0] || clientForm.name,
-        lastName: clientForm.name.split(" ").slice(1).join(" ") || "",
-        email: clientForm.contactEmail,
-        companyName: clientForm.name,
-        tenantId: clientTenantId,
-        plan: "client",
-        role: "client",
-        parentTenantId: user?.uid,
-        aiTokensUsed: 0,
-        aiTokensLimit: 10000,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-
-      const randomColor = clientColors[Math.floor(Math.random() * clientColors.length)]
-      const clientRef = await addDoc(collection(db, "clients"), {
+      const createdClient = await createClient({
         name: clientForm.name,
-        industry: clientForm.industry,
+        company: clientForm.name,
         contactEmail: clientForm.contactEmail,
-        contactPhone: clientForm.contactPhone,
-        address: clientForm.address,
-        color: randomColor,
-        tenantId: user?.uid,
-        clientTenantId: clientTenantId,
         status: "active",
-        createdAt: new Date(),
-        updatedAt: new Date(),
       })
-
-      if (clientForm.sendWelcomeEmail) {
-        try {
-          await fetch("/api/send-welcome-email", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              clientName: clientForm.name,
-              clientEmail: clientForm.contactEmail,
-              password: clientForm.password,
-              agencyName: userData?.companyName || "Optima Platform",
-            }),
-          })
-        } catch (emailError) {
-          console.error("Error sending welcome email:", emailError)
-        }
-      }
 
       toast({
-        title: "Successo",
-        description: `Cliente ${clientForm.name} aggiunto con successo${
-          clientForm.sendWelcomeEmail ? " e email di benvenuto inviata" : ""
-        }`,
+        title: "Cliente creato",
+        description: `${createdClient.name} è ora disponibile nel workspace.`,
       })
 
       setShowClientDialog(false)
@@ -596,24 +502,14 @@ export function WorkspaceShell() {
         contactEmail: "",
         contactPhone: "",
         address: "",
-        password: "",
-        sendWelcomeEmail: true,
       })
     } catch (error: any) {
       console.error("Error adding client:", error)
       let errorMessage = "Errore durante l'aggiunta del cliente"
 
-      if (error.code === "auth/email-already-in-use") {
-        errorMessage = "Questa email è già in uso"
-      } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Email non valida"
-      } else if (error.code === "auth/weak-password") {
-        errorMessage = "Password troppo debole"
-      }
-
       toast({
         title: "Errore",
-        description: errorMessage,
+        description: error instanceof Error ? error.message : errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -631,12 +527,21 @@ export function WorkspaceShell() {
       return
     }
 
-    const targetClientId = showTenantWorkspace ? "tenant" : showAllClients ? "all" : selectedClientId
+    const targetClientId = showTenantWorkspace ? "tenant" : showAllClients ? null : selectedClientId
     const selectedClient = workspaceClients.find((c) => c.id === selectedClientId)
-    const targetClientName = showTenantWorkspace ? "tenant" : showAllClients ? "all" : selectedClient?.name || ""
+    const targetClientName = showTenantWorkspace ? "tenant" : showAllClients ? "" : selectedClient?.name || ""
 
     if (!showTenantWorkspace && !selectedClientId && !showAllClients) {
       setShowWorkspaceAlert(true)
+      return
+    }
+
+    if (showAllClients && !taskForm.projectId) {
+      toast({
+        title: "Scegli un progetto",
+        description: "Nella vista globale collega la task a un progetto, cosi Optima sa a quale cliente appartiene.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -655,7 +560,7 @@ export function WorkspaceShell() {
         status: taskForm.columnId,
         assignee: taskForm.assignee,
         assignedUserId: assignedUserId,
-        clientId: targetClientId,
+        clientId: targetClientId || undefined,
         clientName: targetClientName,
         projectId: taskForm.projectId || null,
         projectName: selectedProject?.name || "",
@@ -1369,7 +1274,7 @@ export function WorkspaceShell() {
                 Aggiungi Nuovo Cliente
               </DialogTitle>
               <DialogDescription className="text-slate-600 dark:text-slate-400">
-                Inserisci i dettagli del nuovo cliente. Verrà creato automaticamente un account per l'accesso.
+                Crea il cliente operativo da collegare a progetti, task, preventivi e rapportini. L'accesso cliente si abilita separatamente quando serve.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 sm:max-h-[60vh] sm:overflow-y-auto">
@@ -1399,7 +1304,7 @@ export function WorkspaceShell() {
               </div>
               <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                 <Label htmlFor="contactEmail" className="font-medium sm:text-right">
-                  Email *
+                  Email
                 </Label>
                 <Input
                   id="contactEmail"
@@ -1434,53 +1339,6 @@ export function WorkspaceShell() {
                   placeholder="Indirizzo completo..."
                   rows={2}
                 />
-              </div>
-              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-                <Label htmlFor="password" className="font-medium sm:text-right">
-                  Password *
-                </Label>
-                <div className="flex flex-col gap-2 sm:col-span-3 sm:flex-row">
-                  <div className="relative flex-1">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={clientForm.password}
-                      onChange={(e) => setClientForm({ ...clientForm, password: e.target.value })}
-                      className="bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50 pr-10"
-                      placeholder="Password per l'accesso..."
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={generatePassword}
-                    className="bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-slate-200/50 dark:border-slate-600/50"
-                  >
-                    Genera
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-                <Label className="font-medium sm:text-right">Email di benvenuto</Label>
-                <div className="flex items-center space-x-2 sm:col-span-3">
-                  <Switch
-                    checked={clientForm.sendWelcomeEmail}
-                    onCheckedChange={(checked) => setClientForm({ ...clientForm, sendWelcomeEmail: checked })}
-                  />
-                  <Label className="text-sm text-slate-600 dark:text-slate-400">
-                    Invia email di benvenuto con le credenziali
-                  </Label>
-                </div>
               </div>
             </div>
             <DialogFooter>

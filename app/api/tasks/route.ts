@@ -36,10 +36,20 @@ export async function GET() {
                FROM tasks t
                LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
                WHERE t.organization_id = ?
-                 AND (t.assignee_member_id = ? OR t.created_by_member_id = ?)
+                 AND (
+                   t.assignee_member_id = ?
+                   OR t.created_by_member_id = ?
+                   OR EXISTS (
+                     SELECT 1
+                     FROM project_members pm
+                     WHERE pm.organization_id = t.organization_id
+                       AND pm.project_id = t.project_id
+                       AND pm.member_id = ?
+                   )
+                 )
                ORDER BY t.updated_at DESC`,
             )
-            .bind(principal.organizationId, principal.memberId, principal.memberId)
+            .bind(principal.organizationId, principal.memberId, principal.memberId, principal.memberId)
         : principal.role === "client"
           ? db
               .prepare(

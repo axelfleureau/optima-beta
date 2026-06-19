@@ -3,7 +3,34 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import type { Client } from "@/lib/types"
-import { useLiveRefresh } from "@/hooks/use-live-refresh"
+import { notifyOperationalDataChanged, useLiveRefresh } from "@/hooks/use-live-refresh"
+
+type ClientInput = {
+  name: string
+  company?: string
+  email?: string
+  contactEmail?: string
+  status?: string
+}
+
+async function parseClientResponse(response: Response) {
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Operazione cliente non riuscita")
+  }
+
+  return payload
+}
+
+function normalizeClient(client: Client): Client {
+  return {
+    ...client,
+    createdAt: client.createdAt ? new Date(client.createdAt as any) : new Date(),
+    updatedAt: client.updatedAt ? new Date(client.updatedAt as any) : new Date(),
+    lastActivity: client.lastActivity ? new Date(client.lastActivity as any) : undefined,
+  }
+}
 
 export function useClients() {
   const [clients, setClients] = useState<Client[]>([])
@@ -29,18 +56,8 @@ export function useClients() {
         headers: { Accept: "application/json" },
         cache: "no-store",
       })
-      const payload = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Errore nel caricamento dei clienti")
-      }
-
-      setClients((payload.clients || []).map((client: Client) => ({
-        ...client,
-        createdAt: client.createdAt ? new Date(client.createdAt as any) : new Date(),
-        updatedAt: client.updatedAt ? new Date(client.updatedAt as any) : new Date(),
-        lastActivity: client.lastActivity ? new Date(client.lastActivity as any) : undefined,
-      })))
+      const payload = await parseClientResponse(response)
+      setClients((payload.clients || []).map(normalizeClient))
     } catch (err) {
       console.error("Error fetching clients:", err)
       setError(err instanceof Error ? err.message : "Errore nel caricamento dei clienti")
@@ -60,10 +77,34 @@ export function useClients() {
     intervalMs: 30000,
   })
 
+  const createClient = async (client: ClientInput) => {
+    try {
+      const response = await fetch("/api/clients", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(client),
+      })
+
+      const payload = await parseClientResponse(response)
+      const createdClient = normalizeClient(payload.client)
+      setClients((current) => [createdClient, ...current])
+      notifyOperationalDataChanged()
+      return createdClient
+    } catch (err) {
+      console.error("Error creating client:", err)
+      setError(err instanceof Error ? err.message : "Errore durante la creazione del cliente")
+      throw err
+    }
+  }
+
   return {
     clients,
     loading,
     error,
     refreshClients,
+    createClient,
   }
 }

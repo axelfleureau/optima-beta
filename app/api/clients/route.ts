@@ -1,10 +1,16 @@
 export const dynamic = "force-dynamic"
 
 import { getCloudflareDb } from "@/lib/cloudflare-db"
+import type { NextRequest } from "next/server"
+import { createId } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
 const CLIENT_MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
+
+function normalizeClientStatus(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "active"
+}
 
 export async function GET() {
   try {
@@ -20,7 +26,18 @@ export async function GET() {
 
     const principal = await ensureWorkspacePrincipal(db, user)
     const canViewAllClients = CLIENT_MANAGER_ROLES.has(principal.role)
-    const canBrowseClientDirectory = principal.role !== "client"
+    const canBrowseClientDirectory = canViewAllClients
+    const memberScopedVisibilitySql = `(
+      t.assignee_member_id = ?
+      OR t.created_by_member_id = ?
+      OR EXISTS (
+        SELECT 1
+        FROM project_members tpm
+        WHERE tpm.organization_id = t.organization_id
+          AND tpm.project_id = t.project_id
+          AND tpm.member_id = ?
+      )
+    )`
     const result = await db
       .prepare(
         `SELECT id, name, email, company, status, created_at, updated_at,
@@ -41,7 +58,7 @@ export async function GET() {
                    AND tp.organization_id = t.organization_id
                   WHERE t.organization_id = clients.organization_id
                     AND (t.client_id = clients.id OR tp.client_id = clients.id)
-                    AND (? = 1 OR t.assignee_member_id = ? OR t.created_by_member_id = ?)
+                    AND (? = 1 OR ${memberScopedVisibilitySql})
                     AND COALESCE(t.column_id, t.status) IN (
                       'to-do', 'todo', 'urgenze', 'in-corso', 'in-progress',
                       'active', 'validation', 'review', 'backlog', 'planning'
@@ -55,7 +72,7 @@ export async function GET() {
                    AND tp.organization_id = t.organization_id
                   WHERE t.organization_id = clients.organization_id
                     AND (t.client_id = clients.id OR tp.client_id = clients.id)
-                    AND (? = 1 OR t.assignee_member_id = ? OR t.created_by_member_id = ?)
+                    AND (? = 1 OR ${memberScopedVisibilitySql})
                     AND COALESCE(t.column_id, t.status) IN ('done', 'completed')
                 ) AS completed_tasks_count,
                 (
@@ -80,12 +97,12 @@ export async function GET() {
                      AND tp.organization_id = t.organization_id
                     WHERE t.organization_id = clients.organization_id
                       AND (t.client_id = clients.id OR tp.client_id = clients.id)
-                      AND (? = 1 OR t.assignee_member_id = ? OR t.created_by_member_id = ?)
+                      AND (? = 1 OR ${memberScopedVisibilitySql})
                   ), clients.updated_at)
                 ) AS last_activity_at
          FROM clients
          WHERE organization_id = ?
-           AND (
+          AND (
              ? = 1
              OR EXISTS (
                SELECT 1
@@ -96,6 +113,19 @@ export async function GET() {
                WHERE vt.organization_id = clients.organization_id
                  AND vt.assignee_member_id = ?
                  AND (vt.client_id = clients.id OR vtp.client_id = clients.id)
+             )
+             OR EXISTS (
+               SELECT 1
+               FROM tasks ct
+               LEFT JOIN projects ctp
+                 ON ctp.id = ct.project_id
+                AND ctp.organization_id = ct.organization_id
+               JOIN project_members ctpm
+                 ON ctpm.project_id = ct.project_id
+                AND ctpm.organization_id = ct.organization_id
+               WHERE ct.organization_id = clients.organization_id
+                 AND ctpm.member_id = ?
+                 AND (ct.client_id = clients.id OR ctp.client_id = clients.id)
              )
              OR EXISTS (
                SELECT 1
@@ -114,14 +144,18 @@ export async function GET() {
         canViewAllClients ? 1 : 0,
         principal.memberId,
         principal.memberId,
+        principal.memberId,
         canViewAllClients ? 1 : 0,
         principal.memberId,
         principal.memberId,
+        principal.memberId,
         canViewAllClients ? 1 : 0,
+        principal.memberId,
         principal.memberId,
         principal.memberId,
         principal.organizationId,
         canBrowseClientDirectory ? 1 : 0,
+        principal.memberId,
         principal.memberId,
         principal.memberId,
       )
@@ -167,5 +201,84 @@ export async function GET() {
   } catch (error) {
     console.error("Clients GET error:", error)
     return Response.json({ error: "Errore nel caricamento dei clienti" }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const user = await requireClerkUser()
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const db = await getCloudflareDb()
+    if (!db) {
+      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+    }
+
+    const principal = await ensureWorkspacePrincipal(db, user)
+    if (!CLIENT_MANAGER_ROLES.has(principal.role)) {
+      return Response.json({ error: "Permessi insufficienti" }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const name = typeof body.name === "string" ? body.name.trim() : ""
+    if (!name) {
+      return Response.json({ error: "Il nome del cliente è obbligatorio" }, { status: 400 })
+    }
+
+    const clientId = createId("client")
+    const now = new Date().toISOString()
+    const email =
+      typeof body.contactEmail === "string" && body.contactEmail.trim()
+        ? body.contactEmail.trim()
+        : typeof body.email === "string"
+          ? body.email.trim()
+          : ""
+
+    await db
+      .prepare(
+        `INSERT INTO clients (id, organization_id, name, email, company, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        clientId,
+        principal.organizationId,
+        name,
+        email,
+        typeof body.company === "string" && body.company.trim() ? body.company.trim() : name,
+        normalizeClientStatus(body.status),
+        now,
+        now,
+      )
+      .run()
+
+    return Response.json(
+      {
+        client: {
+          id: clientId,
+          name,
+          email,
+          contactEmail: email,
+          company: typeof body.company === "string" && body.company.trim() ? body.company.trim() : name,
+          tenantId: principal.organizationId,
+          status: normalizeClientStatus(body.status),
+          color: "bg-gradient-to-br from-righello-pink to-righello-cyan",
+          projectsCount: 0,
+          activeTasksCount: 0,
+          completedTasksCount: 0,
+          totalValue: 0,
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+      { status: 201 },
+    )
+  } catch (error) {
+    console.error("Clients POST error:", error)
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Errore durante la creazione del cliente" },
+      { status: 500 },
+    )
   }
 }
