@@ -2304,12 +2304,51 @@ export function AgentJobsClient({
 
   function connectorPrimaryActionLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     const kind = connectorSetupKind(connector)
-    if (kind === "github_owner") return "Governance GitHub"
-    if (kind === "browser") return "Login browser"
-    if (kind === "oauth") return "Apri OAuth"
+    if (kind === "github_owner") return "Gestisci permessi GitHub"
+    if (kind === "browser") return "Apri login browser"
+    if (kind === "oauth") return "Apri consenso OAuth"
     if (kind === "runtime") return "Configura runtime"
-    if (kind === "service_account") return "Configura service token"
-    return "Configura secret_ref"
+    if (kind === "service_account") return "Verifica service token"
+    return "Salva secret_ref"
+  }
+
+  function connectorRequirementsLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    const kind = connectorSetupKind(connector)
+    if (kind === "oauth") return "OAuth app / runtime"
+    if (kind === "browser") return "Sessione browser"
+    if (kind === "github_owner") return "Permessi GitHub"
+    if (kind === "runtime") return "Runtime richiesto"
+    if (kind === "service_account") return "Service token"
+    return "Secret_ref / fallback"
+  }
+
+  function connectorEmptyRequirementCopy(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    const kind = connectorSetupKind(connector)
+    if (kind === "oauth") return "Nessun env obbligatorio nel catalogo. Se il consenso non parte, manca la OAuth app nel runtime."
+    if (kind === "browser") return "Nessun token da inserire in Optima: serve una sessione browser collegata e verificata."
+    if (kind === "github_owner") return "Gestione separata: owner Axel o GitHub App allowlist, mai account personale condiviso."
+    if (kind === "runtime") return "Configura il comando/runtime sul VPS o nodo autorizzato."
+    return "Nessuna credenziale obbligatoria dichiarata."
+  }
+
+  function connectorNextActionCopy(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    const kind = connectorSetupKind(connector)
+    if (kind === "oauth") {
+      return "Apri il consenso OAuth reale. Se Optima segnala env mancanti, configura prima l'app developer e il redirect URI: non creare un job al posto del login."
+    }
+    if (kind === "browser") {
+      return "Prepara una sessione browser controllata, completa il login tu, poi aggiorna lo stato. Questo serve per ChatGPT/Gemini/Perplexity/Claude senza API key come prima scelta."
+    }
+    if (kind === "github_owner") {
+      return "Configura autorizzazioni owner-scoped: solo Axel decide repository, commit, PR e deploy. I job usano permessi verificati e non l'account personale condiviso."
+    }
+    if (kind === "runtime") {
+      return "Configura il runtime/CLI sul runner autorizzato e poi lancia un health-check. Il job non puo inventarsi un login o una credenziale."
+    }
+    if (kind === "service_account") {
+      return "Salva il riferimento al service token nel runtime sicuro e verifica con un check read-only prima di abilitarlo ai subagenti."
+    }
+    return "Salva solo policy e secret_ref, poi verifica. API key e token sono fallback controllati, non il percorso principale quando esiste OAuth o Browser MCP."
   }
 
   function connectorSetupHint(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
@@ -2331,8 +2370,8 @@ export function AgentJobsClient({
   async function configureConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     const saved = await mutateCapabilities(getConnectorInstallBody(connector), `connector-config:${connector.id}`)
     if (saved) {
-      toast.success("Stato connector salvato", {
-        description: `${connector.label}: Optima ha registrato policy e percorso. Collega OAuth/browser/secret nel runtime, poi verifica.`,
+      toast.success("Setup registrato", {
+        description: `${connector.label}: Optima ha salvato policy e percorso. Completa il collegamento reale e poi verifica.`,
       })
     }
   }
@@ -2531,15 +2570,15 @@ export function AgentJobsClient({
   async function createConnectorSetupJob(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     await createCapabilitySetupJob({
       actionKey: `connector-setup:${connector.id}`,
-      title: `Verifica connessione ${connector.label}`,
+      title: `Health-check connessione ${connector.label}`,
       contextSummary: `MCP ${connector.category}`,
       brief: [
-        `Verifica e completa in Optima il connector MCP ${connector.label} come capability tenant-scoped del core agentico nativo di Optima.`,
+        `Esegui health-check e audit in Optima del connector MCP ${connector.label} come capability tenant-scoped del core agentico nativo di Optima.`,
         `Scopo: ${connector.purpose}`,
         `Scope grafo: ${connector.graphUse.join(", ") || "nessuno"}.`,
         `Env richieste: ${connector.requiredEnv.length ? connector.requiredEnv.join(", ") : "OAuth/reference senza env obbligatorie"}.`,
         `Env opzionali: ${connector.optionalEnv?.length ? connector.optionalEnv.join(", ") : "nessuna"}.`,
-        "Output richiesto: metodo reale di collegamento, OAuth/secret_ref/runtime/browser status, health check, errori da mostrare in UI e patch necessaria. Non avviare login finti e non salvare token in chiaro.",
+        "Output richiesto: metodo reale di collegamento, OAuth/secret_ref/runtime/browser status, health check, errori da mostrare in UI e patch necessaria. Non avviare login finti, non chiedere API key se esiste OAuth/browser e non salvare token in chiaro.",
       ].join("\n\n"),
       metadata: {
         connector,
@@ -3047,8 +3086,8 @@ export function AgentJobsClient({
     {
       title: "Provider base",
       detail: `${priorityProviderConfiguredCount}/${priorityProviderIds.length} pronti`,
-      body: "Apri i wizard per Codex, OpenAI, Qwen, Gemma hosted e MiniMax. I job servono solo come health-check dopo la configurazione.",
-      action: "Apri provider",
+      body: "Collega prima il metodo reale: Codex ChatGPT su VPS, OAuth quando esiste, modello locale/hosted o API solo come fallback facoltativo.",
+      action: "Configura connessioni",
       busyKey: "stack-section:providers",
       onClick: () => setStackSection("providers"),
       complete: priorityProviderConfiguredCount >= priorityProviderIds.length,
@@ -3056,8 +3095,8 @@ export function AgentJobsClient({
     {
       title: "MCP prioritari",
       detail: `${priorityConnectorConfiguredCount}/${priorityConnectorIds.length} collegati`,
-      body: "Configura MCP con OAuth/secret_ref o Browser MCP. GitHub resta owner-scoped su Axel.",
-      action: "Apri MCP",
+      body: "Ogni servizio deve dichiarare il suo canale: OAuth, Browser MCP, GitHub owner-scoped, runtime CLI, service token o secret_ref.",
+      action: "Collega servizi",
       busyKey: "stack-section:providers",
       onClick: () => setStackSection("providers"),
       complete: priorityConnectorConfiguredCount >= priorityConnectorIds.length,
@@ -3065,8 +3104,8 @@ export function AgentJobsClient({
     {
       title: "Runtime hosted",
       detail: `${readyRuntimeCount}/${capabilities?.modelRuntime?.hosts.length ?? 0} ready`,
-      body: "Crea un job setup per route tenant e health dei runtime Qwen, Gemma, MiniMax e OpenAI.",
-      action: "Job runtime",
+      body: "Qwen/Gemma/MiniMax/OpenAI devono avere route tenant, limiti, health-check e fallback dichiarati prima di essere usati dai subagenti.",
+      action: "Verifica runtime",
       busyKey: "stack-setup:runtime",
       onClick: () => createStackSetupJob("runtime"),
       complete: readyRuntimeCount > 0,
@@ -3472,6 +3511,47 @@ export function AgentJobsClient({
         </div>
 
         <div className={stackSection === "overview" ? "grid gap-4" : "hidden"}>
+          <div className="mt-4 rounded-lg border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(14,165,233,0.10),rgba(7,9,18,0.96))] p-3 sm:p-4">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">Flusso corretto</p>
+                <h3 className="mt-1 text-lg font-black text-white">Collega, verifica, poi usa</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  La pagina agenti non deve piu confondere installazioni, login e job. Un connector diventa utilizzabile solo quando ha un soggetto autorizzato, un runtime controllato o un secret_ref verificato.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStackSection("providers")}
+                className="h-10 w-full shrink-0 rounded-lg border-cyan-300/25 bg-cyan-300/10 text-xs font-black text-cyan-50 hover:bg-cyan-300/15 sm:w-auto"
+              >
+                Apri connessioni
+              </Button>
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-3">
+              {[
+                [
+                  "1. Collega",
+                  "OAuth apre il consenso del provider. Browser MCP apre il login controllato. Codex usa il wrapper ChatGPT sul VPS. Le API key restano fallback facoltativo.",
+                ],
+                [
+                  "2. Verifica",
+                  "Health-check separato: scope, soggetto, heartbeat, screenshot o query dry-run. Un job serve qui, non per inserire credenziali.",
+                ],
+                [
+                  "3. Usa",
+                  "Subagenti e command bar possono usare solo capability verificate, tenant-scoped e con azioni esterne revisionabili.",
+                ],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                  <p className="text-sm font-black text-white">{title}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-400">{body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-4 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
@@ -5398,9 +5478,15 @@ export function AgentJobsClient({
                   </p>
                 </section>
 
+                <section className="rounded-lg border border-righello-pink/25 bg-righello-pink/[0.07] p-3 sm:p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Prossima azione reale</p>
+                  <h3 className="mt-2 text-lg font-black text-white">{connectorPrimaryActionLabel(selectedConnector)}</h3>
+                  <p className="mt-2 text-sm leading-6 text-pink-50/90">{connectorNextActionCopy(selectedConnector)}</p>
+                </section>
+
                 <section className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Secret richiesti</p>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{connectorRequirementsLabel(selectedConnector)}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedConnector.requiredEnv.length ? (
                         selectedConnector.requiredEnv.map((env) => (
@@ -5409,7 +5495,7 @@ export function AgentJobsClient({
                           </span>
                         ))
                       ) : (
-                        <span className="text-sm text-slate-500">Nessun env obbligatorio.</span>
+                        <span className="text-sm leading-6 text-slate-500">{connectorEmptyRequirementCopy(selectedConnector)}</span>
                       )}
                     </div>
                   </div>
@@ -5799,10 +5885,10 @@ export function AgentJobsClient({
                     </Button>
                   ) : null}
                   {isStandardOAuthConnector(selectedConnector) ? (
-	                    <Button
-	                      type="button"
-	                      onClick={() => startConnectorOAuth(selectedConnector)}
-	                      disabled={oauthAction === `connector-oauth:${selectedConnector.id}`}
+                    <Button
+                      type="button"
+                      onClick={() => startConnectorOAuth(selectedConnector)}
+                      disabled={oauthAction === `connector-oauth:${selectedConnector.id}`}
 	                      className="rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400"
 	                    >
 	                      {oauthAction === `connector-oauth:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
@@ -5817,7 +5903,7 @@ export function AgentJobsClient({
                     className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                   >
                     {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-	                    Verifica dopo setup
+                    Job health-check
                   </Button>
                   <Button
                     type="button"
@@ -5826,7 +5912,7 @@ export function AgentJobsClient({
                     className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                   >
                     {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-	                    Salva configurazione
+                    Salva policy
                   </Button>
                 </div>
               </div>
