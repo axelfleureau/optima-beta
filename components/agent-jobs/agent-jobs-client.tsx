@@ -3143,6 +3143,69 @@ export function AgentJobsClient({
   const readyRuntimeCount = capabilities?.modelRuntime?.hosts.filter((host) => host.runtimeStatus === "ready").length ?? 0
   const configuredProviderCount = capabilities?.providerInstallations.filter((item) => item.installState !== "not_installed").length ?? 0
   const operationalMcpConnectors = (capabilities?.mcpConnectorCatalog ?? []).filter((connector) => connector.id !== "hermes-agent")
+  const connectorPlans = operationalMcpConnectors.map((connector) => {
+    const installation = connectorInstallationsById.get(connector.id)
+    const setupStatus = connectorSetupStatusesById.get(connector.id)
+    const plan = connectorSetupPlan(connector, installation, setupStatus)
+    const ready =
+      !plan.blockedReason &&
+      plan.healthOk &&
+      (plan.state === "configured" || plan.state === "healthy")
+
+    return { connector, installation, setupStatus, plan, ready }
+  })
+  const connectorLaneSummary = ([
+    {
+      kind: "oauth" as ConnectorSetupKind,
+      label: "OAuth ufficiale",
+      body: "Consenso provider con redirect, scope minimi e soggetto autorizzato.",
+    },
+    {
+      kind: "browser" as ConnectorSetupKind,
+      label: "Browser controllato",
+      body: "Login umano in Chromium isolato per servizi web senza API come prima scelta.",
+    },
+    {
+      kind: "github_owner" as ConnectorSetupKind,
+      label: "Owner GitHub",
+      body: "Repository, commit, PR e deploy sotto policy Axel e dry-run verificabile.",
+    },
+    {
+      kind: "runtime" as ConnectorSetupKind,
+      label: "Runtime / CLI",
+      body: "Wrapper, env e heartbeat sul VPS o nodo autorizzato.",
+    },
+    {
+      kind: "service_account" as ConnectorSetupKind,
+      label: "Service token",
+      body: "Account tecnico con secret_ref e verifica read-only.",
+    },
+    {
+      kind: "secret_ref" as ConnectorSetupKind,
+      label: "Fallback API",
+      body: "Chiavi solo se inevitabili, con budget e scope controllati.",
+    },
+  ]).map((lane) => {
+    const plans = connectorPlans.filter((item) => item.plan.kind === lane.kind)
+    return {
+      ...lane,
+      total: plans.length,
+      ready: plans.filter((item) => item.ready).length,
+      blocked: plans.filter((item) => Boolean(item.plan.blockedReason)).length,
+    }
+  }).filter((lane) => lane.total > 0)
+  const connectorNextFixes = connectorPlans
+    .filter((item) => !item.ready)
+    .sort((a, b) => {
+      const aBlocked = a.plan.blockedReason ? 0 : 1
+      const bBlocked = b.plan.blockedReason ? 0 : 1
+      if (aBlocked !== bBlocked) return aBlocked - bBlocked
+      const aHealth = a.plan.healthOk ? 1 : 0
+      const bHealth = b.plan.healthOk ? 1 : 0
+      if (aHealth !== bHealth) return aHealth - bHealth
+      return a.connector.label.localeCompare(b.connector.label)
+    })
+  const connectorReadyPlans = connectorPlans.filter((item) => item.ready)
   const configuredConnectorCount =
     capabilities?.connectorInstallations.filter((item) => item.connectorId !== "hermes-agent" && item.installState !== "not_installed").length ?? 0
   const verifiedExternalConnectorCount =
@@ -4159,9 +4222,119 @@ export function AgentJobsClient({
                 ))}
               </div>
               <p className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-300">
-                Nota operativa: io ho predisposto catalogo, tabelle, policy, service-token runtime e job di setup. Non ho configurato OAuth GitHub/Notion/Cloudflare al posto tuo: quello deve passare da installazione guidata o secret_ref approvato da Axel.
+                Optima abilita un servizio solo quando vede un collegamento verificato: OAuth con soggetto autorizzato, Browser MCP collegato, policy GitHub owner, runtime CLI funzionante o secret_ref approvato.
               </p>
             </div>
+
+            <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Control room connessioni</p>
+                  <h3 className="mt-1 text-lg font-black text-white">Prima collega, poi verifica, poi usa nei job</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Questa è la vista operativa: niente setup finti. Ogni card sotto indica il metodo reale e apre il wizard giusto.
+                  </p>
+                </div>
+                <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-64">
+                  <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100">Pronti</p>
+                    <p className="mt-1 text-2xl font-black text-white">{connectorReadyPlans.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-300/20 bg-amber-300/10 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">Da finire</p>
+                    <p className="mt-1 text-2xl font-black text-white">{connectorNextFixes.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {connectorLaneSummary.map((lane) => (
+                  <div key={lane.kind} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">{lane.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">{lane.body}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(lane.kind)}`}>
+                        {lane.ready}/{lane.total}
+                      </span>
+                    </div>
+                    {lane.blocked ? (
+                      <p className="mt-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.06] px-2.5 py-1.5 text-[11px] font-bold text-amber-100">
+                        {lane.blocked} con prerequisiti mancanti
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+                <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-black text-white">Da sbloccare ora</p>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                      priorità
+                    </span>
+                  </div>
+                  <div className="mt-2 grid gap-2">
+                    {connectorNextFixes.slice(0, 6).map(({ connector, plan }) => (
+                      <button
+                        key={`next-fix-${connector.id}`}
+                        type="button"
+                        onClick={() => setSelectedConnectorId(connector.id)}
+                        className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-white">{connector.label}</p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
+                              {plan.blockedReason ?? plan.shortNextAction}
+                            </p>
+                          </div>
+                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(plan.kind)}`}>
+                            {connectorSetupKindLabel(plan.kind)}
+                          </span>
+                        </div>
+                        <p className="mt-2 truncate text-[11px] font-bold text-cyan-100">{plan.primaryActionLabel}</p>
+                      </button>
+                    ))}
+                    {connectorNextFixes.length === 0 ? (
+                      <p className="rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] p-3 text-sm leading-6 text-emerald-50">
+                        Tutti i connector visibili risultano verificati.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-black text-white">Già usabili</p>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                      health ok
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {connectorReadyPlans.slice(0, 10).map(({ connector, plan }) => (
+                      <button
+                        key={`ready-connector-${connector.id}`}
+                        type="button"
+                        onClick={() => setSelectedConnectorId(connector.id)}
+                        className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-xs font-bold text-emerald-100 transition hover:bg-emerald-300/15"
+                        title={`${connector.label}: ${plan.healthLabel}`}
+                      >
+                        {connector.label}
+                      </button>
+                    ))}
+                    {connectorReadyPlans.length === 0 ? (
+                      <p className="text-sm leading-6 text-slate-400">
+                        Nessun connector esterno è ancora pronto per azioni produttive.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
