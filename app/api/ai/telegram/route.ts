@@ -212,6 +212,53 @@ function buildTelegramReplyMarkup(action: string, jobId?: string | null): Telegr
   return rows.length ? { inline_keyboard: rows } : undefined
 }
 
+function buildOptimaOnlyReplyMarkup(): TelegramInlineKeyboard {
+  return { inline_keyboard: [[{ text: "Apri Optima", url: appBaseUrl() }]] }
+}
+
+function isStartCommand(text: unknown) {
+  return /^\/start(?:@\w+)?(?:\s|$)/i.test(compact(text, 120))
+}
+
+function telegramIdentityLines(message: TelegramMessage, chatId: string | number) {
+  const name = [message.from?.first_name, message.from?.last_name].map((item) => compact(item, 80)).filter(Boolean).join(" ")
+  return [
+    `chat_id: ${chatId}`,
+    message.from?.id ? `telegram_user_id: ${compact(message.from.id, 80)}` : "",
+    message.from?.username ? `username: @${compact(message.from.username, 80).replace(/^@/, "")}` : "",
+    name ? `nome: ${name}` : "",
+  ].filter(Boolean)
+}
+
+function buildStartReply(message: TelegramMessage, chatId: string | number) {
+  return [
+    "Optima Assistant e' attivo.",
+    "",
+    "Per sicurezza questa chat puo usare dati aziendali solo dopo autorizzazione in Optima.",
+    "",
+    "Dati da autorizzare:",
+    ...telegramIdentityLines(message, chatId),
+    "",
+    "Cosa fare ora:",
+    "1. Invia /chatid se vuoi ricopiare l'ID.",
+    "2. Fai autorizzare questo chat_id in Optima per il tuo profilo.",
+    "3. Dopo l'autorizzazione posso aiutarti con check-in, check-out, rapportini, task, deliverable e promemoria.",
+    "",
+    "Se sei gia autorizzato, scrivimi direttamente la richiesta operativa.",
+  ].join("\n")
+}
+
+function buildUnauthorizedReply(message: TelegramMessage, chatId: string | number) {
+  return [
+    "Chat Telegram non ancora autorizzata per Optima.",
+    "",
+    "Non posso leggere o modificare dati aziendali da questa chat finche non viene collegata a un membro autorizzato.",
+    "",
+    "Invia /chatid e autorizza questo ID in Optima:",
+    ...telegramIdentityLines(message, chatId),
+  ].join("\n")
+}
+
 async function ensureTelegramSession(db: any, principal: WorkspacePrincipal, message: TelegramMessage) {
   const chatId = String(message.chat?.id || "unknown").slice(0, 80)
   const title = `Telegram ${chatId}`
@@ -477,13 +524,21 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, command: "chatid" })
   }
 
+  if (isStartCommand(text)) {
+    await sendTelegramMessage(chatId, buildStartReply(message, chatId), buildOptimaOnlyReplyMarkup())
+    return Response.json({ ok: true, command: "start" })
+  }
+
   if (!text && !extractAttachment(message)) return Response.json({ ok: true, ignored: true })
 
   const db = await getCloudflareDb()
   if (!db) return Response.json({ ok: false, error: "Database Cloudflare non disponibile." }, { status: 500 })
 
   const principal = await findTelegramPrincipal(db, message)
-  if (!principal && !isAllowedTelegramSender(message)) return Response.json({ ok: true, ignored: true, reason: "sender-not-allowed" })
+  if (!principal && !isAllowedTelegramSender(message)) {
+    await sendTelegramMessage(chatId, buildUnauthorizedReply(message, chatId), buildOptimaOnlyReplyMarkup())
+    return Response.json({ ok: true, ignored: true, reason: "sender-not-allowed" })
+  }
   if (!principal) {
     await sendTelegramMessage(chatId, "Telegram e collegato, ma non ho trovato un membro Optima autorizzato per questo account.")
     return Response.json({ ok: true, ignored: true, reason: "principal-not-found" })
