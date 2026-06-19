@@ -115,6 +115,46 @@ function extractTitle(message: string, clientName?: string) {
   return title || "Nuova task"
 }
 
+function formatGraphIndexForPrompt(context: CommandContext) {
+  const graph = context.graphIndex
+  if (!graph) return "Indice Graphify: non disponibile in questo comando."
+
+  const domains = graph.domains.length
+    ? graph.domains
+        .slice(0, 6)
+        .map((domain) => {
+          const coverage = domain.count ? Math.round((domain.connectedCount / domain.count) * 100) : 0
+          return `- ${domain.label}: ${domain.count} nodi, ${coverage}% collegati. Azione: ${domain.action}`
+        })
+        .join("\n")
+    : "- nessun dominio operativo indicizzato"
+  const hubs = graph.hubs.length
+    ? graph.hubs
+        .slice(0, 6)
+        .map((hub) => `- ${hub.title} [${hub.nodeType}/${hub.sourceType}] degree ${hub.degree}`)
+        .join("\n")
+    : "- nessun hub disponibile"
+  const actions = graph.actions.length
+    ? graph.actions
+        .slice(0, 4)
+        .map((action) => `- ${action.label}: ${action.description}`)
+        .join("\n")
+    : "- nessuna azione indicizzata"
+  const quality = graph.qualityNotes.length ? graph.qualityNotes.slice(0, 3).map((note) => `- ${note}`).join("\n") : "- indice coerente"
+
+  return [
+    `Indice Graphify/Optima: ${graph.stats.nodes} nodi, ${graph.stats.edges} archi, copertura ${graph.stats.completenessScore}/100, isolati ${graph.stats.orphanNodes}.`,
+    "Domini operativi:",
+    domains,
+    "Hub centrali:",
+    hubs,
+    "Azioni grafo disponibili:",
+    actions,
+    "Qualita indice:",
+    quality,
+  ].join("\n")
+}
+
 function deterministicIntent(message: string, context: CommandContext): DeterministicIntent | null {
   const normalized = normalizeText(message)
   if (!normalized) return null
@@ -242,6 +282,7 @@ export async function recognizeIntent(
   const userNames =
     context.availableUsers?.map((u) => `${u.firstName} ${u.lastName}`).join(", ") || "nessun utente"
   const currentDate = formatDateForCommand(new Date())
+  const graphIndexContext = formatGraphIndexForPrompt(context)
 
   const systemPrompt = `Sei un assistente AI per la piattaforma di marketing Optima. 
 Analizza i comandi dell'utente ed estrai:
@@ -355,6 +396,14 @@ Contesto disponibile:
 - Current view: ${context.currentView || "unknown"}
 - Clienti disponibili: ${clientNames}
 - Team members: ${userNames}
+
+Graph memory e indice operativo:
+${graphIndexContext}
+
+Regole graph-aware:
+- Usa l'indice Graphify/Optima per capire dominio, cliente, progetto, sorgente o azione più probabile.
+- Se il comando riguarda conoscenza, preventivi, clienti, repository o sorgenti esterne, preferisci SEARCH_GLOBAL o NAVIGATE se non ci sono parametri sufficienti per creare task.
+- Non inventare clienti, task o permessi non presenti: chiedi parametro mancante o suggerisci di salvare/revisionare il nodo grafo.
 
 Esempi TASK:
 - "crea task per Acme con priorità alta" → CREATE_TASK, entities: {clientName: "Acme", priority: "high"}

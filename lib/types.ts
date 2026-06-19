@@ -477,6 +477,32 @@ export interface CommandContext {
   selectedClient?: string
   availableClients?: Client[]
   availableUsers?: User[]
+  graphIndex?: {
+    stats: {
+      nodes: number
+      edges: number
+      completenessScore: number
+      orphanNodes: number
+    }
+    domains: Array<{
+      id: string
+      label: string
+      count: number
+      connectedCount: number
+      action: string
+    }>
+    hubs: Array<{
+      title: string
+      nodeType: string
+      sourceType: string
+      degree: number
+    }>
+    actions: Array<{
+      label: string
+      description: string
+    }>
+    qualityNotes: string[]
+  }
 }
 
 export interface NLPResponse {

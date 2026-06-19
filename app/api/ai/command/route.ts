@@ -10,8 +10,39 @@ import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 import { hasOpenAIApiKey } from "@/lib/ai/openai-runtime"
 import { resolveAgenticModelRuntime } from "@/lib/ai/agentic-model-runtime"
+import { getAgenticGraphSnapshot } from "@/lib/agentic-graph"
 
 const COMMAND_TIMEOUT_MS = 18000
+
+async function buildCommandGraphIndex(db: any, principal: Awaited<ReturnType<typeof ensureWorkspacePrincipal>>) {
+  const snapshot = await getAgenticGraphSnapshot(db, principal)
+  return {
+    stats: {
+      nodes: snapshot.stats.nodes,
+      edges: snapshot.stats.edges,
+      completenessScore: snapshot.index.quality.completenessScore,
+      orphanNodes: snapshot.index.quality.orphanNodes,
+    },
+    domains: snapshot.index.semanticDomains.slice(0, 8).map((domain) => ({
+      id: domain.id,
+      label: domain.label,
+      count: domain.count,
+      connectedCount: domain.connectedCount,
+      action: domain.action,
+    })),
+    hubs: snapshot.index.hubs.slice(0, 8).map((hub) => ({
+      title: hub.title,
+      nodeType: hub.nodeType,
+      sourceType: hub.sourceType,
+      degree: hub.degree,
+    })),
+    actions: snapshot.index.nodeActions.slice(0, 6).map((action) => ({
+      label: action.label,
+      description: action.description,
+    })),
+    qualityNotes: snapshot.index.quality.notes.slice(0, 4),
+  }
+}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs = COMMAND_TIMEOUT_MS): Promise<T> {
   return Promise.race([
@@ -33,17 +64,29 @@ export async function GET() {
     if (!db) return NextResponse.json({ error: "Database Cloudflare non disponibile." }, { status: 500 })
 
     const principal = await ensureWorkspacePrincipal(db, user)
-    const [openaiConfigured, chatRuntime, researchRuntime, codeRuntime] = await Promise.all([
+    const [openaiConfigured, chatRuntime, researchRuntime, codeRuntime, graphIndex] = await Promise.all([
       hasOpenAIApiKey().catch(() => false),
       resolveAgenticModelRuntime(db, principal, "chat").catch(() => null),
       resolveAgenticModelRuntime(db, principal, "research").catch(() => null),
       resolveAgenticModelRuntime(db, principal, "code").catch(() => null),
+      buildCommandGraphIndex(db, principal).catch(() => null),
     ])
 
     return NextResponse.json(
       {
         deterministicReady: true,
         commandBarReady: true,
+        graph: graphIndex
+          ? {
+              runtimeStatus: graphIndex.stats.completenessScore >= 70 ? "ready" : "needs_curation",
+              runtimeDetail: `${graphIndex.stats.nodes} nodi, ${graphIndex.stats.edges} archi, copertura ${graphIndex.stats.completenessScore}/100.`,
+              domains: graphIndex.domains.length,
+            }
+          : {
+              runtimeStatus: "unavailable",
+              runtimeDetail: "Indice Graphify non disponibile per la command bar.",
+              domains: 0,
+            },
         chat: {
           providerId: chatRuntime?.providerId ?? "openai",
           model: chatRuntime?.model ?? "gpt-5.2",
@@ -118,7 +161,10 @@ export async function POST(request: Request) {
     if (!db) return NextResponse.json({ error: "Database Cloudflare non disponibile." }, { status: 500 })
 
     const principal = await ensureWorkspacePrincipal(db, user)
-    const operationalContext = await buildOperationalContextSnapshot(db, principal)
+    const [operationalContext, graphIndex] = await Promise.all([
+      buildOperationalContextSnapshot(db, principal),
+      buildCommandGraphIndex(db, principal).catch(() => undefined),
+    ])
     const serverContext: CommandContext = {
       ...(context || {}),
       tenantId: principal.organizationId,
@@ -126,13 +172,14 @@ export async function POST(request: Request) {
       userRole: principal.role,
       availableClients: (operationalContext.commandContext.availableClients as CommandContext["availableClients"]) || context?.availableClients || [],
       availableUsers: (operationalContext.commandContext.availableUsers as CommandContext["availableUsers"]) || context?.availableUsers || [],
+      graphIndex,
     }
 
     const nlpResponse = await withTimeout(recognizeIntent(message, serverContext))
 
     return NextResponse.json({
       ...nlpResponse,
-      contextSources: operationalContext.sources,
+      contextSources: graphIndex ? [...operationalContext.sources, "agentic_graph", "graphify_index"] : operationalContext.sources,
     })
   } catch (error: any) {
     console.error("❌ Command API error:", error)

@@ -81,16 +81,39 @@ export function ClientSidebar({
     client.name.toLowerCase().includes(clientSearchTerm.toLowerCase()),
   )
 
-  const getClientTaskCount = (clientId: string) => {
-    const clientTasks = allTasks.filter((task) => task.clientId === clientId)
-    return countTasks(clientTasks)
+  const getClientTaskCount = (client: Client) => {
+    const clientTasks = allTasks.filter((task) => task.clientId === client.id)
+    const localCount = countTasks(clientTasks)
+    const apiCount = {
+      active: Number(client.activeTasksCount || 0),
+      completed: Number(client.completedTasksCount || 0),
+    }
+
+    if (localCount.active + localCount.completed > 0) {
+      return localCount
+    }
+
+    return apiCount
   }
 
   const getAllClientsTaskCount = () => {
     const allClientTasks = allTasks.filter(
       (task) => !isInternalWorkspaceTask(task, internalClientIds, userData?.companyName),
     )
-    return countTasks(allClientTasks)
+    const localCount = countTasks(allClientTasks)
+    const apiCount = visibleClients.reduce(
+      (acc, client) => ({
+        active: acc.active + Number(client.activeTasksCount || 0),
+        completed: acc.completed + Number(client.completedTasksCount || 0),
+      }),
+      { active: 0, completed: 0 },
+    )
+
+    if (localCount.active + localCount.completed > 0) {
+      return localCount
+    }
+
+    return apiCount
   }
 
   if (collapsed) {
@@ -193,7 +216,7 @@ export function ClientSidebar({
           </button>
 
           {filteredClients.map((client) => {
-            const taskCount = getClientTaskCount(client.id)
+            const taskCount = getClientTaskCount(client)
             return (
               <button
                 key={client.id}
