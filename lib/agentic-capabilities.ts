@@ -171,6 +171,13 @@ export type AgenticConnectorSetupKind =
   | "service_account"
   | "secret_ref"
 
+export type AgenticConnectorOperationalState =
+  | "connected"
+  | "ready_to_connect"
+  | "needs_runtime"
+  | "needs_review"
+  | "blocked"
+
 export interface AgenticConnectorSetupStatus {
   connectorId: string
   label: string
@@ -178,11 +185,14 @@ export interface AgenticConnectorSetupStatus {
   setupKind: AgenticConnectorSetupKind
   authMethod: AgenticAuthMethod
   installState: AgenticInstallState
+  operationalState: AgenticConnectorOperationalState
+  operationalLabel: string
   catalogStatus: string
   healthOk: boolean
   healthLabel: string
   primaryAction: "open_oauth" | "open_browser_pairing" | "open_github_policy" | "run_health_check" | "save_secret_ref"
   primaryActionLabel: string
+  primaryActionAvailable: boolean
   primaryIntent: string
   verifyActionLabel: string
   nextAction: string
@@ -928,6 +938,107 @@ function connectorSetupCopy(
   }
 }
 
+function connectorOperationalState(input: {
+  connector: StrategicMcpConnector
+  setupKind: AgenticConnectorSetupKind
+  installation: McpConnectorInstallation | null
+  installState: AgenticInstallState
+  healthOk: boolean
+  missingRuntimeEnv: string[]
+}): {
+  operationalState: AgenticConnectorOperationalState
+  operationalLabel: string
+  primaryActionAvailable: boolean
+} {
+  const { connector, setupKind, installation, installState, healthOk, missingRuntimeEnv } = input
+
+  if (installState === "blocked") {
+    return {
+      operationalState: "blocked",
+      operationalLabel: "Bloccato",
+      primaryActionAvailable: false,
+    }
+  }
+
+  if (missingRuntimeEnv.length > 0) {
+    return {
+      operationalState: "needs_runtime",
+      operationalLabel:
+        setupKind === "oauth"
+          ? "OAuth app mancante"
+          : setupKind === "browser"
+            ? "Gateway mancante"
+            : "Runtime incompleto",
+      primaryActionAvailable: false,
+    }
+  }
+
+  if (setupKind === "oauth") {
+    if (healthOk && installation?.oauthSubject) {
+      return {
+        operationalState: "connected",
+        operationalLabel: "OAuth collegato",
+        primaryActionAvailable: true,
+      }
+    }
+
+    return {
+      operationalState: "ready_to_connect",
+      operationalLabel: "Pronto al consenso",
+      primaryActionAvailable: true,
+    }
+  }
+
+  if (setupKind === "browser") {
+    const connectedSessions = Array.isArray(installation?.config?.connectedSessions)
+      ? installation?.config.connectedSessions
+      : []
+    if (healthOk && connectedSessions.length > 0) {
+      return {
+        operationalState: "connected",
+        operationalLabel: "Browser collegato",
+        primaryActionAvailable: true,
+      }
+    }
+
+    return {
+      operationalState: "ready_to_connect",
+      operationalLabel: "Pronto al login",
+      primaryActionAvailable: true,
+    }
+  }
+
+  if (setupKind === "github_owner") {
+    if (healthOk && (installation?.secretRef || connector.status === "enabled")) {
+      return {
+        operationalState: "needs_review",
+        operationalLabel: "Policy owner da verificare",
+        primaryActionAvailable: true,
+      }
+    }
+
+    return {
+      operationalState: "ready_to_connect",
+      operationalLabel: "Policy da definire",
+      primaryActionAvailable: true,
+    }
+  }
+
+  if (healthOk) {
+    return {
+      operationalState: "needs_review",
+      operationalLabel: setupKind === "runtime" ? "Runtime da verificare" : "Secret da verificare",
+      primaryActionAvailable: true,
+    }
+  }
+
+  return {
+    operationalState: "ready_to_connect",
+    operationalLabel: setupKind === "runtime" ? "Pronto a health-check" : "Pronto a verifica",
+    primaryActionAvailable: true,
+  }
+}
+
 export function getConnectorSetupStatuses(
   connectors: StrategicMcpConnector[],
   installations: McpConnectorInstallation[],
@@ -942,6 +1053,14 @@ export function getConnectorSetupStatuses(
     const healthOk = lastHealthStatus === "ok" || installState === "healthy" || installState === "configured"
     const missingRuntimeEnv = connector.requiredEnv.filter((env) => !hasRuntimeEnv(env))
     const copy = connectorSetupCopy(connector, installation)
+    const operational = connectorOperationalState({
+      connector,
+      setupKind,
+      installation,
+      installState,
+      healthOk,
+      missingRuntimeEnv,
+    })
 
     return {
       connectorId: connector.id,
@@ -950,9 +1069,12 @@ export function getConnectorSetupStatuses(
       setupKind,
       authMethod: connector.authMethod as AgenticAuthMethod,
       installState,
+      operationalState: operational.operationalState,
+      operationalLabel: operational.operationalLabel,
       catalogStatus: connector.status,
       healthOk,
       healthLabel: lastHealthStatus ? `Health: ${lastHealthStatus}` : "Health-check non eseguito",
+      primaryActionAvailable: operational.primaryActionAvailable,
       canStartOauth: setupKind === "oauth" && missingRuntimeEnv.length === 0,
       canStartBrowserPairing: setupKind === "browser" && missingRuntimeEnv.length === 0,
       canRunHealthCheck: installState !== "not_installed" || connector.status !== "missing",

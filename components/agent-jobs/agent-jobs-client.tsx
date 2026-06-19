@@ -145,11 +145,14 @@ interface AgenticCapabilities {
     setupKind: ConnectorSetupKind
     authMethod: string
     installState: string
+    operationalState?: "connected" | "ready_to_connect" | "needs_runtime" | "needs_review" | "blocked"
+    operationalLabel?: string
     catalogStatus: string
     healthOk: boolean
     healthLabel: string
     primaryAction: string
     primaryActionLabel: string
+    primaryActionAvailable?: boolean
     primaryIntent: string
     verifyActionLabel: string
     nextAction: string
@@ -620,6 +623,14 @@ const installStateTone: Record<string, string> = {
   guide_required: "border-amber-300/25 bg-amber-300/10 text-amber-100",
   configured: "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
   healthy: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+  blocked: "border-red-300/25 bg-red-300/10 text-red-100",
+}
+
+const connectorOperationalTone: Record<string, string> = {
+  connected: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+  ready_to_connect: "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
+  needs_runtime: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+  needs_review: "border-purple-300/25 bg-purple-300/10 text-purple-100",
   blocked: "border-red-300/25 bg-red-300/10 text-red-100",
 }
 
@@ -3207,6 +3218,10 @@ export function AgentJobsClient({
   const selectedConnectorInstallation = selectedConnector ? connectorInstallationsById.get(selectedConnector.id) ?? null : null
   const selectedConnectorSetupStatus = selectedConnector ? connectorSetupStatusesById.get(selectedConnector.id) ?? null : null
   const selectedConnectorPlan = selectedConnector ? connectorSetupPlan(selectedConnector, selectedConnectorInstallation, selectedConnectorSetupStatus) : null
+  const selectedConnectorOperationalState = selectedConnectorSetupStatus?.operationalState ?? (selectedConnectorPlan?.healthOk ? "needs_review" : "ready_to_connect")
+  const selectedConnectorOperationalLabel =
+    selectedConnectorSetupStatus?.operationalLabel ?? selectedConnectorPlan?.primaryIntent ?? "Da collegare"
+  const selectedConnectorPrimaryActionAvailable = selectedConnectorSetupStatus?.primaryActionAvailable !== false
   const selectedBrowserPairingSession =
     selectedConnector?.id === "browser"
       ? browserPairingSession ?? (asRecord(selectedConnectorInstallation?.config?.activePairingSession) as BrowserMcpSession | null)
@@ -5427,8 +5442,12 @@ export function AgentJobsClient({
                           </p>
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${installTone(plan.state)}`}>
-                            {installLabel(plan.state)}
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                              connectorOperationalTone[setupStatus?.operationalState ?? "ready_to_connect"] ?? connectorOperationalTone.ready_to_connect
+                            }`}
+                          >
+                            {setupStatus?.operationalLabel ?? installLabel(plan.state)}
                           </span>
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(plan.kind)}`}>
                             {connectorSetupKindLabel(plan.kind)}
@@ -5438,15 +5457,21 @@ export function AgentJobsClient({
                       <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{connector.purpose}</p>
                       <div className="mt-2 grid gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.045] p-2">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-black text-cyan-100">
-                            {plan.primaryIntent}
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                              connectorOperationalTone[setupStatus?.operationalState ?? "ready_to_connect"] ?? connectorOperationalTone.ready_to_connect
+                            }`}
+                          >
+                            {setupStatus?.operationalLabel ?? plan.primaryIntent}
                           </span>
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${plan.healthOk ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100"}`}>
                             {plan.healthLabel}
                           </span>
                         </div>
                         <p className="line-clamp-2 text-[11px] leading-5 text-slate-300">{plan.shortNextAction}</p>
-                        <p className="line-clamp-1 text-[10px] font-bold text-slate-500">{plan.missingLabel}</p>
+                        <p className="line-clamp-1 text-[10px] font-bold text-slate-500">
+                          {setupStatus?.primaryActionAvailable === false ? "Azione non disponibile finche il runtime non e pronto." : plan.missingLabel}
+                        </p>
                         {plan.blockedReason ? (
                           <p className="line-clamp-1 text-[10px] font-black text-amber-100">{plan.blockedReason}</p>
                         ) : null}
@@ -6004,11 +6029,18 @@ export function AgentJobsClient({
                     <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-50">
                       {connectorAuthLabel(selectedConnector.authMethod)}
                     </span>
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedConnectorPlan?.state ?? "not_installed")}`}>
-                      {installLabel(selectedConnectorPlan?.state ?? "not_installed")}
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-xs font-black ${
+                        connectorOperationalTone[selectedConnectorOperationalState] ?? connectorOperationalTone.ready_to_connect
+                      }`}
+                    >
+                      {selectedConnectorOperationalLabel}
                     </span>
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${selectedConnectorPlan?.healthOk ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100"}`}>
                       {selectedConnectorPlan?.healthLabel ?? "Health-check non eseguito"}
+                    </span>
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedConnectorPlan?.state ?? "not_installed")}`}>
+                      Setup: {installLabel(selectedConnectorPlan?.state ?? "not_installed")}
                     </span>
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${connectorSetupKindTone(selectedConnectorPlan?.kind ?? connectorSetupKind(selectedConnector))}`}>
                       {connectorSetupKindLabel(selectedConnectorPlan?.kind ?? connectorSetupKind(selectedConnector))}
@@ -6026,13 +6058,23 @@ export function AgentJobsClient({
                       <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Wizard collegamento</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <h3 className="text-lg font-black text-white">{selectedConnectorPlan?.primaryActionLabel ?? connectorPrimaryActionLabel(selectedConnector)}</h3>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-pink-50">
-                          {selectedConnectorPlan?.primaryIntent ?? connectorSetupKindLabel(connectorSetupKind(selectedConnector))}
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-xs font-black ${
+                            connectorOperationalTone[selectedConnectorOperationalState] ?? connectorOperationalTone.ready_to_connect
+                          }`}
+                        >
+                          {selectedConnectorOperationalLabel}
                         </span>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-pink-50/90">
                         {connectorOperationalCopy(selectedConnector)}
                       </p>
+                      {!selectedConnectorPrimaryActionAvailable ? (
+                        <p className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/[0.08] p-3 text-sm font-bold leading-6 text-amber-50">
+                          Prima completa il requisito reale: {selectedConnectorSetupStatus?.requirementLabel ?? selectedConnectorPlan?.missingLabel ?? "runtime non pronto"}.
+                          Qui non lancio un job generico per simulare una configurazione.
+                        </p>
+                      ) : null}
                     </div>
                     <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-72 lg:grid-cols-1">
                       {selectedConnector.id === "github" ? (
@@ -6052,11 +6094,15 @@ export function AgentJobsClient({
                         <Button
                           type="button"
                           onClick={() => startConnectorOAuth(selectedConnector)}
-                          disabled={oauthAction === `connector-oauth:${selectedConnector.id}` || selectedConnectorPlan?.canStartOauth === false}
+                          disabled={
+                            oauthAction === `connector-oauth:${selectedConnector.id}` ||
+                            selectedConnectorPlan?.canStartOauth === false ||
+                            !selectedConnectorPrimaryActionAvailable
+                          }
                           className="min-h-11 rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400"
                         >
                           {oauthAction === `connector-oauth:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                          {selectedConnectorPlan?.canStartOauth === false ? "OAuth app mancante" : "Apri consenso OAuth"}
+                          {selectedConnectorPlan?.canStartOauth === false || !selectedConnectorPrimaryActionAvailable ? "OAuth app mancante" : "Apri consenso OAuth"}
                         </Button>
                       ) : null}
                       {selectedConnector.id !== "browser" && !isStandardOAuthConnector(selectedConnector) && selectedConnector.id !== "github" ? (
@@ -6064,11 +6110,11 @@ export function AgentJobsClient({
                           type="button"
                           variant="outline"
                           onClick={() => createConnectorSetupJob(selectedConnector)}
-                          disabled={setupAction === `connector-setup:${selectedConnector.id}`}
+                          disabled={setupAction === `connector-setup:${selectedConnector.id}` || !selectedConnectorPrimaryActionAvailable}
                           className="min-h-11 rounded-lg border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
                         >
                           {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-                          {selectedConnectorPlan?.verifyActionLabel ?? "Verifica runtime"}
+                          {!selectedConnectorPrimaryActionAvailable ? "Completa runtime prima" : selectedConnectorPlan?.verifyActionLabel ?? "Verifica runtime"}
                         </Button>
                       ) : null}
                     </div>
@@ -6199,11 +6245,15 @@ export function AgentJobsClient({
                           type="button"
                           variant="outline"
                           onClick={() => startBrowserMcpLogin(target)}
-                          disabled={Boolean(browserPairingAction) || selectedConnectorPlan?.canStartBrowserPairing === false}
+                          disabled={
+                            Boolean(browserPairingAction) ||
+                            selectedConnectorPlan?.canStartBrowserPairing === false ||
+                            !selectedConnectorPrimaryActionAvailable
+                          }
                           className="rounded-lg border-purple-200/20 bg-black/20 text-purple-50 hover:bg-purple-300/10"
                         >
                           {browserPairingAction === target ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />}
-                          Prepara {label}
+                          {!selectedConnectorPrimaryActionAvailable ? "Gateway mancante" : `Prepara ${label}`}
 	                        </Button>
                       ))}
                     </div>
