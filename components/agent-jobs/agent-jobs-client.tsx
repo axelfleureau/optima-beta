@@ -2350,16 +2350,6 @@ export function AgentJobsClient({
     return "border-slate-300/20 bg-slate-300/10 text-slate-200"
   }
 
-  function connectorPrimaryActionLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const kind = connectorSetupKind(connector)
-    if (kind === "github_owner") return "Gestisci permessi GitHub"
-    if (kind === "browser") return "Apri login browser"
-    if (kind === "oauth") return "Apri consenso OAuth"
-    if (kind === "runtime") return "Configura runtime"
-    if (kind === "service_account") return "Verifica service token"
-    return "Salva secret_ref"
-  }
-
   function connectorRequirementsLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     const kind = connectorSetupKind(connector)
     if (kind === "oauth") return "OAuth app / runtime"
@@ -2660,14 +2650,34 @@ export function AgentJobsClient({
     ]
   }
 
-  function connectorOperationalCopy(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+  function connectorPrimaryActionExplanation(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     const kind = connectorSetupKind(connector)
-    if (kind === "oauth") return "Qui deve aprirsi un consenso OAuth reale. Se non si apre, manca configurazione developer del provider."
-    if (kind === "browser") return "Qui non c'e OAuth: prepari una sessione browser isolata e fai login nel profilo controllabile."
-    if (kind === "github_owner") return "Qui non si fa login generico: si governa la policy GitHub owner-scoped di Axel."
-    if (kind === "runtime") return "Qui non si autorizza da mobile: si verifica un runtime/CLI gia installato sul nodo autorizzato."
-    if (kind === "service_account") return "Qui si collega un account tecnico con secret_ref, poi si verifica con un controllo read-only."
-    return "Qui registri un fallback protetto. API key e token restano facoltativi e fuori da D1."
+    if (kind === "oauth") {
+      return "Apre la pagina di consenso del provider. Se il provider non ha ancora client_id/redirect URI configurati, Optima deve dirtelo chiaramente e fermarsi."
+    }
+    if (kind === "browser") {
+      return "Prepara un profilo browser isolato sul VPS. Prima completi il login, poi Optima lo verifica e lo usa solo per azioni allowlist."
+    }
+    if (kind === "github_owner") {
+      return "Apre la governance GitHub: repository, branch, PR, commit e deploy restano controllati dall'owner Axel."
+    }
+    if (kind === "runtime") {
+      return "Controlla che il comando sul runner autorizzato esista davvero. Per Codex va usato il wrapper ChatGPT, non il profilo API-key."
+    }
+    if (kind === "service_account") {
+      return "Verifica un account tecnico gia salvato come secret_ref nel runtime sicuro. Non inserire token in chiaro in Optima."
+    }
+    return "Registra un fallback protetto solo quando OAuth, Browser MCP o runtime non bastano. Deve restare facoltativo e revisionabile."
+  }
+
+  function connectorPrimaryActionTitle(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    const kind = connectorSetupKind(connector)
+    if (kind === "oauth") return "Consenso OAuth reale"
+    if (kind === "browser") return "Login browser controllato"
+    if (kind === "github_owner") return "Policy owner GitHub"
+    if (kind === "runtime") return "Runtime/CLI verificato"
+    if (kind === "service_account") return "Service account verificato"
+    return "Fallback secret_ref"
   }
 
   async function configureConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
@@ -6277,9 +6287,9 @@ export function AgentJobsClient({
                 <section className="rounded-lg border border-righello-pink/25 bg-righello-pink/[0.07] p-3 sm:p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Wizard collegamento</p>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Azione primaria reale</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-black text-white">{selectedConnectorPlan?.primaryActionLabel ?? connectorPrimaryActionLabel(selectedConnector)}</h3>
+                        <h3 className="text-lg font-black text-white">{connectorPrimaryActionTitle(selectedConnector)}</h3>
                         <span
                           className={`rounded-full border px-2.5 py-1 text-xs font-black ${
                             connectorOperationalTone[selectedConnectorOperationalState] ?? connectorOperationalTone.ready_to_connect
@@ -6289,7 +6299,7 @@ export function AgentJobsClient({
                         </span>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-pink-50/90">
-                        {connectorOperationalCopy(selectedConnector)}
+                        {connectorPrimaryActionExplanation(selectedConnector)}
                       </p>
                       {!selectedConnectorPrimaryActionAvailable ? (
                         <p className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/[0.08] p-3 text-sm font-bold leading-6 text-amber-50">
@@ -6299,6 +6309,37 @@ export function AgentJobsClient({
                       ) : null}
                     </div>
                     <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-72 lg:grid-cols-1">
+                      {selectedConnector.id === "browser" ? (
+                        <>
+                          <Button
+                            type="button"
+                            onClick={() => startBrowserMcpLogin("chatgpt")}
+                            disabled={
+                              Boolean(browserPairingAction) ||
+                              selectedConnectorPlan?.canStartBrowserPairing === false ||
+                              !selectedConnectorPrimaryActionAvailable
+                            }
+                            className="min-h-11 rounded-lg bg-purple-500 text-white hover:bg-purple-500/90"
+                          >
+                            {browserPairingAction === "chatgpt" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
+                            Prepara ChatGPT
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => startBrowserMcpLogin("gemini")}
+                            disabled={
+                              Boolean(browserPairingAction) ||
+                              selectedConnectorPlan?.canStartBrowserPairing === false ||
+                              !selectedConnectorPrimaryActionAvailable
+                            }
+                            className="min-h-11 rounded-lg border-purple-200/20 bg-purple-300/10 text-purple-50 hover:bg-purple-300/15"
+                          >
+                            {browserPairingAction === "gemini" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
+                            Prepara Gemini
+                          </Button>
+                        </>
+                      ) : null}
                       {selectedConnector.id === "github" ? (
                         <Button
                           type="button"
@@ -6332,11 +6373,11 @@ export function AgentJobsClient({
                           type="button"
                           variant="outline"
                           onClick={() => createConnectorSetupJob(selectedConnector)}
-                          disabled={setupAction === `connector-setup:${selectedConnector.id}` || !selectedConnectorPrimaryActionAvailable}
+                          disabled={setupAction === `connector-setup:${selectedConnector.id}` || !selectedConnectorCanCreateVerification}
                           className="min-h-11 rounded-lg border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
                         >
                           {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-                          {!selectedConnectorPrimaryActionAvailable ? "Completa runtime prima" : selectedConnectorPlan?.verifyActionLabel ?? "Verifica runtime"}
+                          {!selectedConnectorCanCreateVerification ? connectorVerificationBlockedLabel(selectedConnectorKind) : selectedConnectorPlan?.verifyActionLabel ?? "Verifica runtime"}
                         </Button>
                       ) : null}
                     </div>
