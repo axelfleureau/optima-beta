@@ -2333,12 +2333,12 @@ export function AgentJobsClient({
   }
 
   function connectorSetupKindLabel(kind: ConnectorSetupKind) {
-    if (kind === "oauth") return "OAuth provider"
-    if (kind === "browser") return "Login browser"
+    if (kind === "oauth") return "OAuth diretto"
+    if (kind === "browser") return "Browser login"
     if (kind === "github_owner") return "Owner GitHub"
-    if (kind === "runtime") return "Runtime CLI"
+    if (kind === "runtime") return "CLI/VPS"
     if (kind === "service_account") return "Service token"
-    return "Secret ref"
+    return "API key opzionale"
   }
 
   function connectorSetupKindTone(kind: ConnectorSetupKind) {
@@ -2390,10 +2390,10 @@ export function AgentJobsClient({
   }
 
   function connectorVerificationBlockedLabel(kind: ConnectorSetupKind | null) {
-    if (kind === "oauth") return "Collega OAuth prima"
-    if (kind === "browser") return "Completa login prima"
+    if (kind === "oauth") return "Apri e completa OAuth"
+    if (kind === "browser") return "Completa login browser"
     if (kind === "github_owner") return "Definisci policy owner"
-    if (kind === "runtime") return "Prepara runtime"
+    if (kind === "runtime") return "Verifica CLI/VPS"
     if (kind === "service_account") return "Collega service token"
     return "Salva secret_ref"
   }
@@ -2684,7 +2684,7 @@ export function AgentJobsClient({
     const saved = await mutateCapabilities(getConnectorInstallBody(connector), `connector-config:${connector.id}`)
     if (saved) {
       toast.info("Percorso salvato", {
-        description: `${connector.label}: resta non operativo finche collegamento reale e verifica non risultano validi.`,
+        description: `${connector.label}: checklist salvata. Resta non operativo finche collegamento reale e health-check non risultano validi.`,
       })
     }
   }
@@ -3273,14 +3273,25 @@ export function AgentJobsClient({
           .map((session) => session as unknown as BrowserMcpSession)
       : []
   const selectedConnectorHasBrowserLogin = selectedBrowserConnectedSessions.length > 0
+  const selectedConnectorRealPrerequisiteMet = Boolean(
+    selectedConnector &&
+      (selectedConnectorKind === "oauth"
+        ? selectedConnectorHasCompletedOAuth
+        : selectedConnectorKind === "browser"
+          ? selectedConnectorHasBrowserLogin
+          : selectedConnectorKind === "github_owner"
+            ? selectedConnectorInstallState === "configured" || selectedConnectorInstallState === "healthy"
+            : selectedConnectorKind === "runtime"
+              ? selectedConnectorInstallState === "configured" ||
+                selectedConnectorInstallState === "healthy" ||
+                selectedConnector.status === "enabled"
+              : selectedConnectorInstallState === "configured" || selectedConnectorInstallState === "healthy"),
+  )
   const selectedConnectorCanCreateVerification = Boolean(
     selectedConnector &&
       selectedConnectorPrimaryActionAvailable &&
-      (selectedConnectorSetupStatus?.canRunHealthCheck ||
-        selectedConnectorInstallState === "configured" ||
-        selectedConnectorInstallState === "healthy" ||
-        (selectedConnectorKind === "oauth" && selectedConnectorHasCompletedOAuth) ||
-        (selectedConnectorKind === "browser" && selectedConnectorHasBrowserLogin)),
+      selectedConnectorRealPrerequisiteMet &&
+      (selectedConnectorSetupStatus?.canRunHealthCheck ?? true),
   )
   const selectedProvider =
     (capabilities?.providerCatalog ?? []).find((provider) => provider.id === selectedProviderId) ?? null
@@ -5719,7 +5730,7 @@ export function AgentJobsClient({
                         className="mt-3 h-8 w-full rounded-lg bg-cyan-300/15 text-xs font-black text-cyan-50 hover:bg-cyan-300/25"
                       >
                         <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-                        Configura connector
+                        Apri collegamento
                       </Button>
                     </div>
                   )
@@ -6273,7 +6284,7 @@ export function AgentJobsClient({
                 Collega {selectedConnector?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Ogni servizio ha un percorso proprio: OAuth provider, login browser, policy GitHub, runtime o secret_ref. Prima colleghi, poi verifichi, poi i subagenti possono usarlo.
+                Ogni servizio ha un percorso proprio. Prima apri il collegamento reale, poi esegui un health-check, poi abiliti i subagenti. Le checklist non collegano account.
               </DialogDescription>
             </DialogHeader>
 
@@ -6310,7 +6321,7 @@ export function AgentJobsClient({
                 <section className="rounded-lg border border-righello-pink/25 bg-righello-pink/[0.07] p-3 sm:p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Azione primaria reale</p>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Collegamento reale</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <h3 className="text-lg font-black text-white">{connectorPrimaryActionTitle(selectedConnector)}</h3>
                         <span
@@ -6327,7 +6338,7 @@ export function AgentJobsClient({
                       {!selectedConnectorPrimaryActionAvailable ? (
                         <p className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/[0.08] p-3 text-sm font-bold leading-6 text-amber-50">
                           Prima completa il requisito reale: {selectedConnectorSetupStatus?.requirementLabel ?? selectedConnectorPlan?.missingLabel ?? "runtime non pronto"}.
-                          Qui non lancio un job generico per simulare una configurazione.
+                          Optima non crea job di setup per simulare un login o una credenziale mancante.
                         </p>
                       ) : null}
                     </div>
@@ -6824,11 +6835,11 @@ export function AgentJobsClient({
                     <div className="min-w-0">
                       <p className="font-black text-white">Dopo il collegamento</p>
                       <p className="mt-1 text-xs leading-5 text-slate-400">
-                        La verifica parte solo dopo il requisito reale: OAuth, login browser, policy owner o runtime pronto.
+                        L'health-check parte solo dopo il requisito reale: OAuth, login browser, policy owner o runtime pronto.
                       </p>
                       {!selectedConnectorCanCreateVerification ? (
                         <p className="mt-2 rounded-md border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-xs font-bold leading-5 text-amber-50">
-                          {connectorVerificationBlockedLabel(selectedConnectorKind)}. Puoi salvare il percorso guidato, ma Optima non crea verifiche finte.
+                          {connectorVerificationBlockedLabel(selectedConnectorKind)}. Puoi salvare una checklist, ma Optima non crea health-check finti.
                         </p>
                       ) : null}
                     </div>
@@ -6842,7 +6853,7 @@ export function AgentJobsClient({
                       >
                         {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
                         {selectedConnectorCanCreateVerification
-                          ? selectedConnectorPlan?.verifyActionLabel ?? "Verifica collegamento"
+                          ? selectedConnectorPlan?.verifyActionLabel ?? "Crea health-check"
                           : connectorVerificationBlockedLabel(selectedConnectorKind)}
                       </Button>
                       <Button
@@ -6853,7 +6864,7 @@ export function AgentJobsClient({
                         className="rounded-lg border-righello-pink/30 bg-righello-pink/10 text-pink-50 hover:bg-righello-pink/15"
                       >
                         {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                        Salva percorso, non abilitare
+                        Salva checklist
                       </Button>
                     </div>
                   </div>
