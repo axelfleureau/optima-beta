@@ -756,6 +756,24 @@ async function sendTelegramChatAction(chatId: string | number, action = "typing"
   }).catch(() => null)
 }
 
+function startTelegramChatActionLoop(chatId: string | number, action = "typing") {
+  let stopped = false
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const tick = async () => {
+    if (stopped) return
+    await sendTelegramChatAction(chatId, action)
+    if (!stopped) timer = setTimeout(tick, 4000)
+  }
+
+  void tick()
+
+  return () => {
+    stopped = true
+    if (timer) clearTimeout(timer)
+  }
+}
+
 function webhookAuthorized(request: Request) {
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET
   if (!expected) return true
@@ -814,15 +832,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    await sendTelegramChatAction(chatId, extractAttachment(message) ? "upload_document" : "typing")
-    const reply = await createTelegramReply(db, principal, message)
-    if (reply.text.trim()) {
-      await sendTelegramMessage(chatId, reply.text, reply.replyMarkup)
+    const stopTyping = startTelegramChatActionLoop(chatId, "typing")
+    try {
+      const reply = await createTelegramReply(db, principal, message)
+      if (reply.text.trim()) {
+        await sendTelegramMessage(chatId, reply.text, reply.replyMarkup)
+      }
+    } finally {
+      stopTyping()
     }
     return Response.json({ ok: true })
   } catch (error) {
     console.error("Telegram AI assistant error:", error)
-    await sendTelegramMessage(chatId, "Errore nel canale Telegram di Optima. Controllo log e configurazione.")
+    await sendTelegramMessage(chatId, "Non sono riuscito a completare la richiesta. Riprova tra poco o apri Optima per verificare lo stato.")
     return Response.json({ ok: false, error: "Errore AI Telegram." }, { status: 500 })
   }
 }
