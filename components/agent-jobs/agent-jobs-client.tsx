@@ -3450,7 +3450,7 @@ export function AgentJobsClient({
     },
     {
       key: "running",
-      label: "Coda/run",
+      label: "In lavoro",
       count: stats.queued + stats.running,
       helper: "Job operativi: in coda per il runner o gia in esecuzione sul VPS.",
     },
@@ -3470,7 +3470,7 @@ export function AgentJobsClient({
   const controlDeckCards = [
     {
       title: "Lavori agentici",
-      value: stats.review ? `${stats.review} review` : `${stats.queued + stats.running} in corso`,
+      value: stats.review ? `${stats.review} da decidere` : `${stats.queued + stats.running} in lavoro`,
       detail: stats.review
         ? "Output pronti da approvare, respingere o rimandare al runner."
         : "Coda runner, job in esecuzione e storico revisionabile.",
@@ -3504,14 +3504,85 @@ export function AgentJobsClient({
       },
     },
     {
-      title: "Autonomia",
+      title: "Readiness",
       value: productionReadiness ? `${productionReadiness.summary.score}/100` : agenticRecovery ? `${agenticRecovery.score}/100` : "--",
       detail: "Readiness reale: runner, MCP, runtime, subagenti, Telegram e self-improvement.",
-      action: "Piano recovery",
+      action: "Stato operativo",
       tone: "emerald",
       onClick: () => {
         setMobilePanel("stack")
         setStackSection("overview")
+      },
+    },
+  ]
+  const operationalPathSteps = [
+    {
+      title: "1. Lavori e review",
+      status: stats.review ? "Da decidere" : stats.queued + stats.running ? "In lavoro" : "Pulito",
+      detail: stats.review
+        ? `${stats.review} output richiedono approvazione, rifiuto o istruzioni di revisione.`
+        : stats.queued + stats.running
+          ? `${stats.queued + stats.running} job sono in coda o in esecuzione.`
+          : "Nessun lavoro bloccante nella control room.",
+      action: stats.review ? "Apri review" : "Apri coda",
+      complete: stats.review === 0,
+      onClick: () => {
+        setMobilePanel("jobs")
+        setJobFilter(stats.review ? "review" : "active")
+      },
+    },
+    {
+      title: "2. Runner VPS",
+      status: runnerControl.enabled ? (runnerHealth.isOnline ? "Online" : "Da verificare") : "Sospeso",
+      detail: runnerControl.enabled
+        ? runnerHealth.isOnline
+          ? `${runnerHealth.label}: job in polling controllato.`
+          : "Il runner e abilitato, ma heartbeat o raggiungibilita vanno controllati."
+        : "Il claim e sospeso lato server: i job restano in coda finche non viene riattivato.",
+      action: "Vedi runner",
+      complete: runnerControl.enabled && runnerHealth.isOnline,
+      onClick: () => {
+        setMobilePanel("jobs")
+        setJobFilter("running")
+      },
+    },
+    {
+      title: "3. Connessioni MCP",
+      status: `${verifiedExternalConnectorCount}/${operationalMcpConnectors.length}`,
+      detail: verifiedExternalConnectorCount
+        ? "Alcuni servizi hanno soggetto, sessione, runtime o secret_ref verificati."
+        : "Nessun connector esterno e ancora pronto per azioni produttive.",
+      action: "Collega servizi",
+      complete: verifiedExternalConnectorCount > 0 && connectorNextFixes.length === 0,
+      onClick: () => {
+        setMobilePanel("stack")
+        setStackSection("providers")
+      },
+    },
+    {
+      title: "4. Runtime AI",
+      status: `${readyRuntimeCount}/${capabilities?.modelRuntime?.hosts.length ?? 0}`,
+      detail: readyRuntimeCount
+        ? "Almeno un runtime e disponibile per subagenti e command bar."
+        : "Qwen, Gemma, Codex o provider esterni non risultano ancora verificati.",
+      action: "Runtime",
+      complete: readyRuntimeCount > 0,
+      onClick: () => {
+        setMobilePanel("stack")
+        setStackSection("providers")
+      },
+    },
+    {
+      title: "5. Grafo e scibile",
+      status: `${graphMemory?.stats.nodes ?? 0} nodi`,
+      detail: graphReady
+        ? "Graphify, know-how e Obsidian alimentano il contesto operativo."
+        : "Il grafo non ha ancora abbastanza dati per guidare azioni affidabili.",
+      action: "Apri grafo",
+      complete: graphReady,
+      onClick: () => {
+        setMobilePanel("stack")
+        setStackSection("graph")
       },
     },
   ]
@@ -3577,18 +3648,18 @@ export function AgentJobsClient({
       body:
         selfImprovement?.summary ??
         "Legge usage, feedback, job agentici e workspace per creare un job Codex revisionabile.",
-      action: "Crea job",
+      action: "Avvia analisi",
       busyKey: "self-improvement:create",
       onClick: createSelfImprovementJob,
       complete: Boolean(selfImprovement && selfImprovement.signals.length === 0),
     },
     {
-      title: "Recovery agentico",
+      title: "Diagnostica agentica",
       detail: agenticRecovery ? `${agenticRecovery.score}/100` : "da valutare",
       body:
         agenticRecovery?.headline ??
         "Ricompone runner, MCP/OAuth, grafo, runtime, Obsidian e superfici aziendali in un piano Codex unico.",
-      action: agenticRecovery?.metrics.recoveryJobActive ? "Apri coda" : "Crea recovery",
+      action: agenticRecovery?.metrics.recoveryJobActive ? "Apri coda" : "Analizza blocchi",
       busyKey: "agentic-recovery:create",
       onClick: createAgenticRecoveryJob,
       complete: Boolean(agenticRecovery && agenticRecovery.score >= 85),
@@ -3935,9 +4006,9 @@ export function AgentJobsClient({
         <div className="flex min-w-0 flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Agentic OS</p>
-            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Sistema agentico</h2>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Control room agentica</h2>
             <p className="mt-2 break-words text-sm leading-6 text-slate-400">
-              Gestisci lavori, connessioni, runtime, subagenti e memoria. Prima colleghi un servizio, poi lo verifichi, poi Optima lo usa in azioni revisionabili.
+              Una vista sola per capire cosa puo fare Optima adesso: lavori, connessioni, runtime AI, grafo e revisioni. Le azioni esterne restano tenant-scoped e approvate.
             </p>
           </div>
           <span className="w-fit max-w-full rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">
@@ -3950,7 +4021,7 @@ export function AgentJobsClient({
             Stato
           </button>
           <button type="button" onClick={() => setStackSection("providers")} className={stackSectionClass("providers")}>
-            Collega
+            Connessioni
           </button>
           <button type="button" onClick={() => setStackSection("graph")} className={stackSectionClass("graph")}>
             Grafo
@@ -3961,7 +4032,51 @@ export function AgentJobsClient({
         </div>
 
         <div className={stackSection === "overview" ? "grid gap-4" : "hidden"}>
-          <div className="mt-4 grid gap-3 lg:grid-cols-4">
+          <div className="mt-4 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_12%_0%,rgba(34,211,238,0.14),transparent_34%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Percorso operativo</p>
+                <h3 className="mt-1 text-lg font-black text-white">Da richiesta a risultato approvato</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Il flusso corretto non parte da un job di setup generico: prima si collega un servizio con il metodo giusto, poi si verifica, poi i subagenti possono usarlo in output revisionabili.
+                </p>
+              </div>
+              <span className="w-fit shrink-0 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-50">
+                {operationalPathSteps.filter((step) => step.complete).length}/{operationalPathSteps.length} pronti
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 lg:grid-cols-5">
+              {operationalPathSteps.map((step) => (
+                <button
+                  key={step.title}
+                  type="button"
+                  onClick={step.onClick}
+                  className={`min-w-0 rounded-lg border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/[0.06] ${
+                    step.complete ? "border-emerald-300/20 bg-emerald-300/[0.07]" : "border-amber-300/20 bg-amber-300/[0.06]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 text-sm font-black text-white">{step.title}</p>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                        step.complete
+                          ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                          : "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                      }`}
+                    >
+                      {step.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-slate-400">{step.detail}</p>
+                  <span className="mt-3 inline-flex rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[11px] font-black text-white">
+                    {step.action}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-4">
             {controlDeckCards.map((card) => (
               <button
                 key={card.title}
@@ -3981,7 +4096,7 @@ export function AgentJobsClient({
 
           <details className="rounded-lg border border-white/10 bg-[#060a15]/70 p-3 sm:p-4">
             <summary className="cursor-pointer list-none text-sm font-black text-white">
-              Diagnostica avanzata e recovery
+              Diagnostica tecnica avanzata
               <span className="ml-2 text-xs font-medium text-slate-500">
                 Apri solo quando devi verificare readiness, tenant, Obsidian o setup profondi.
               </span>
@@ -4105,8 +4220,8 @@ export function AgentJobsClient({
         <div className="mt-4 rounded-lg border border-fuchsia-300/20 bg-[radial-gradient(circle_at_16%_0%,rgba(219,39,119,0.18),transparent_34%),linear-gradient(135deg,rgba(31,11,28,0.86),rgba(7,9,18,0.96))] p-3 sm:p-4">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-righello-pink">Autonomia agentica</p>
-              <h3 className="mt-1 text-lg font-black text-white">Cosa impedisce a Optima di lavorare da sola</h3>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-righello-pink">Diagnostica agentica</p>
+              <h3 className="mt-1 text-lg font-black text-white">Blocchi tecnici da risolvere</h3>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 {agenticRecovery?.headline ??
                   "Diagnostica runner, MCP/OAuth, Graphify, Obsidian, runtime AI, subagenti e pagine core per capire cosa manca prima di affidare lavoro produttivo a Optima."}
@@ -4120,12 +4235,12 @@ export function AgentJobsClient({
               className="h-11 w-full shrink-0 rounded-lg border-righello-pink/25 bg-righello-pink/15 px-3 text-xs font-black text-white hover:bg-righello-pink/25 sm:w-auto"
             >
               {isCreatingAgenticRecovery ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
-              {agenticRecovery?.metrics.recoveryJobActive ? "Job recovery in coda" : "Crea job di recupero"}
+              {agenticRecovery?.metrics.recoveryJobActive ? "Diagnostica in coda" : "Analizza blocchi"}
             </Button>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
             {[
-              ["Autonomia", agenticRecovery?.score ?? "--", "/100"],
+              ["Stato", agenticRecovery?.score ?? "--", "/100"],
               ["Readiness", agenticRecovery?.metrics.readinessScore ?? "--", "/100"],
               ["Grafo", agenticRecovery?.metrics.graphNodes ?? graphMemory?.stats.nodes ?? "--", "nodi"],
               ["Scibile", agenticRecovery?.metrics.knowhowNodes ?? knowhowNodeCount, "nodi"],
