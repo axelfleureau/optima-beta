@@ -1976,6 +1976,7 @@ export function AgentJobsClient({
   const [oauthAction, setOauthAction] = useState<string | null>(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
   const [connectorLaneFilter, setConnectorLaneFilter] = useState<ConnectorSetupKind | "all">("all")
+  const [connectorSearch, setConnectorSearch] = useState("")
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [browserPairingAction, setBrowserPairingAction] = useState<string | null>(null)
   const [browserPairingSession, setBrowserPairingSession] = useState<BrowserMcpSession | null>(null)
@@ -3420,10 +3421,49 @@ export function AgentJobsClient({
       return a.connector.label.localeCompare(b.connector.label)
     })
   const connectorReadyPlans = connectorPlans.filter((item) => item.ready)
-  const visibleConnectorNextFixes =
+  const connectorSearchTerm = connectorSearch.trim().toLowerCase()
+  const connectorPlansForLane =
     connectorLaneFilter === "all"
-      ? connectorNextFixes
-      : connectorNextFixes.filter((item) => item.plan.kind === connectorLaneFilter)
+      ? connectorPlans
+      : connectorPlans.filter((item) => item.plan.kind === connectorLaneFilter)
+  const connectorPlanMatchesSearch = (item: (typeof connectorPlans)[number]) => {
+    if (!connectorSearchTerm) return true
+    const searchable = [
+      item.connector.id,
+      item.connector.label,
+      item.connector.category,
+      item.connector.authMethod,
+      item.connector.purpose,
+      item.plan.primaryIntent,
+      item.plan.shortNextAction,
+      item.operationalLabel,
+      ...item.connector.graphUse,
+      ...item.connector.requiredEnv,
+    ]
+      .join(" ")
+      .toLowerCase()
+    return searchable.includes(connectorSearchTerm)
+  }
+  const visibleConnectorPlans = connectorPlansForLane
+    .filter(connectorPlanMatchesSearch)
+    .sort((a, b) => {
+      if (a.ready !== b.ready) return a.ready ? 1 : -1
+      const statePriority: Record<string, number> = {
+        blocked: 0,
+        needs_runtime: 1,
+        ready_to_connect: 2,
+        needs_review: 3,
+        connected: 4,
+      }
+      const aState = statePriority[a.operationalState] ?? 9
+      const bState = statePriority[b.operationalState] ?? 9
+      if (aState !== bState) return aState - bState
+      return a.connector.label.localeCompare(b.connector.label)
+    })
+  const visibleConnectorNextFixes =
+    connectorSearchTerm || connectorLaneFilter !== "all"
+      ? visibleConnectorPlans.filter((item) => !item.ready)
+      : connectorNextFixes
   const selectedConnectorLane =
     connectorLaneFilter === "all" ? null : connectorLaneSummary.find((lane) => lane.kind === connectorLaneFilter) ?? null
   const connectorMethodCards = connectorLaneSummary.map((lane) => {
@@ -4611,53 +4651,122 @@ export function AgentJobsClient({
                 ))}
               </div>
 
-              <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {connectorMethodCards.map((lane) => (
-                  <button
-                    key={lane.kind}
-                    type="button"
-                    onClick={() => {
-                      setConnectorLaneFilter((current) => (current === lane.kind ? "all" : lane.kind))
-                    }}
-                    className={`min-w-0 rounded-lg border p-3 text-left transition ${
-                      connectorLaneFilter === lane.kind
-                        ? "border-cyan-300/45 bg-cyan-300/[0.11] shadow-lg shadow-cyan-950/20"
-                        : "border-white/10 bg-[#060a15]/75 hover:border-cyan-300/35 hover:bg-cyan-300/[0.06]"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-white">{lane.label}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-400">{lane.body}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(lane.kind)}`}>
-                        {lane.ready}/{lane.total}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-[11px] font-bold leading-5 text-cyan-100">{lane.actionHint}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {lane.readyExamples.map(({ connector }) => (
-                        <span key={`${lane.kind}-ready-${connector.id}`} className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100">
-                          {connector.label}
-                        </span>
-                      ))}
-                      {lane.pendingExamples.map(({ connector }) => (
-                        <span key={`${lane.kind}-pending-${connector.id}`} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                          {connector.label}
-                        </span>
-                      ))}
-                    </div>
-                    {lane.blocked ? (
-                      <p className="mt-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.06] px-2.5 py-1.5 text-[11px] font-bold text-amber-100">
-                        {lane.blocked} con prerequisiti mancanti
-                      </p>
-                    ) : null}
-                    <p className="mt-2 text-[11px] font-black text-white">
-                      {connectorLaneFilter === lane.kind ? "Filtro attivo" : lane.nextPlan ? `Mostra: ${lane.actionLabel}` : "Nessuna azione"}
+              <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white">Scegli il servizio da collegare</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      Cerca il servizio o usa le priorità qui sotto. La scheda successiva ti dice se serve OAuth, login browser, policy GitHub, runtime VPS o secret_ref.
                     </p>
-                  </button>
-                ))}
+                  </div>
+                  <div className="min-w-0 lg:w-80">
+                    <label htmlFor="connector-search" className="sr-only">
+                      Cerca connector MCP
+                    </label>
+                    <input
+                      id="connector-search"
+                      value={connectorSearch}
+                      onChange={(event) => setConnectorSearch(event.target.value)}
+                      placeholder="Cerca GitHub, Browser, Cloudflare, Telegram..."
+                      className="h-11 w-full rounded-lg border border-white/10 bg-[#050914] px-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/45 focus:ring-2 focus:ring-cyan-300/10"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {visibleConnectorPlans.slice(0, 9).map(({ connector, plan, operationalState, operationalLabel, primaryActionAvailable, ready }) => (
+                    <button
+                      key={`connector-picker-${connector.id}`}
+                      type="button"
+                      onClick={() => setSelectedConnectorId(connector.id)}
+                      className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                        ready
+                          ? "border-emerald-300/20 bg-emerald-300/[0.055] hover:bg-emerald-300/10"
+                          : primaryActionAvailable
+                            ? "border-cyan-300/20 bg-cyan-300/[0.06] hover:bg-cyan-300/[0.1]"
+                            : "border-amber-300/20 bg-amber-300/[0.055] hover:bg-amber-300/[0.09]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-white">{connector.label}</p>
+                          <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{connector.id} · {connectorSetupKindLabel(plan.kind)}</p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                            connectorOperationalTone[operationalState] ?? connectorOperationalTone.ready_to_connect
+                          }`}
+                        >
+                          {operationalLabel}
+                        </span>
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-300">
+                        {ready ? plan.healthLabel : primaryActionAvailable ? plan.shortNextAction : plan.blockedReason ?? plan.missingLabel}
+                      </p>
+                      <p className="mt-2 text-[11px] font-black text-cyan-100">
+                        Apri percorso: {plan.primaryActionLabel}
+                      </p>
+                    </button>
+                  ))}
+                  {visibleConnectorPlans.length === 0 ? (
+                    <p className="rounded-lg border border-amber-300/20 bg-amber-300/[0.07] p-3 text-sm leading-6 text-amber-50 md:col-span-2 xl:col-span-3">
+                      Nessun servizio corrisponde alla ricerca o al filtro attivo.
+                    </p>
+                  ) : null}
+                </div>
               </div>
+
+              <details className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                <summary className="cursor-pointer text-sm font-black text-slate-200">
+                  Metodi tecnici e filtri avanzati
+                </summary>
+                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {connectorMethodCards.map((lane) => (
+                    <button
+                      key={lane.kind}
+                      type="button"
+                      onClick={() => {
+                        setConnectorLaneFilter((current) => (current === lane.kind ? "all" : lane.kind))
+                      }}
+                      className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                        connectorLaneFilter === lane.kind
+                          ? "border-cyan-300/45 bg-cyan-300/[0.11] shadow-lg shadow-cyan-950/20"
+                          : "border-white/10 bg-[#060a15]/75 hover:border-cyan-300/35 hover:bg-cyan-300/[0.06]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-white">{lane.label}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">{lane.body}</p>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(lane.kind)}`}>
+                          {lane.ready}/{lane.total}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[11px] font-bold leading-5 text-cyan-100">{lane.actionHint}</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {lane.readyExamples.map(({ connector }) => (
+                          <span key={`${lane.kind}-ready-${connector.id}`} className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100">
+                            {connector.label}
+                          </span>
+                        ))}
+                        {lane.pendingExamples.map(({ connector }) => (
+                          <span key={`${lane.kind}-pending-${connector.id}`} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                            {connector.label}
+                          </span>
+                        ))}
+                      </div>
+                      {lane.blocked ? (
+                        <p className="mt-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.06] px-2.5 py-1.5 text-[11px] font-bold text-amber-100">
+                          {lane.blocked} con prerequisiti mancanti
+                        </p>
+                      ) : null}
+                      <p className="mt-2 text-[11px] font-black text-white">
+                        {connectorLaneFilter === lane.kind ? "Filtro attivo" : lane.nextPlan ? `Mostra: ${lane.actionLabel}` : "Nessuna azione"}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </details>
 
               <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
                 <div className="rounded-lg border border-white/10 bg-black/20 p-3">
