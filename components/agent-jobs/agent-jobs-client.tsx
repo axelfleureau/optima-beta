@@ -745,7 +745,7 @@ function installLabel(state: string) {
 
 function providerSetupHint(provider: AgenticCapabilities["providerCatalog"][number]) {
   if (provider.authMethod === "runner_env") {
-    return "Configura env sul VPS runner e su Cloudflare quando serve. Poi esegui un health-check: se heartbeat, CLI e secret sono ok, Optima puo usarlo."
+    return "Configura env sul VPS runner e su Cloudflare quando serve. Poi esegui una verifica: se heartbeat, CLI e secret sono ok, Optima puo usarlo."
   }
   if (provider.authMethod === "local_install") {
     return "Installa il runtime/CLI nella macchina runner autorizzata. Optima deve solo vedere policy e health check, non password o token in chiaro."
@@ -756,7 +756,7 @@ function providerSetupHint(provider: AgenticCapabilities["providerCatalog"][numb
   if (provider.authMethod === "none") {
     return "Non richiede segreti: va attivato con policy tenant e prova di esecuzione locale."
   }
-  return "Usa installazione guidata, salva solo secret_ref e verifica con health check prima di dichiararlo operativo."
+  return "Usa installazione guidata, salva solo secret_ref e verifica prima di dichiararlo operativo."
 }
 
 function providerAuthLabel(method?: string) {
@@ -784,8 +784,8 @@ function providerCanRunHealthCheck(state: string) {
 
 function providerHealthCheckLabel(state: string) {
   if (state === "healthy") return "Riverifica runtime"
-  if (state === "configured") return "Health-check provider"
-  return "Prima salva percorso"
+  if (state === "configured") return "Verifica provider"
+  return "Prima collega"
 }
 
 function providerCredentialLabel(secret: string) {
@@ -802,28 +802,28 @@ function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][n
       "Verifica con `CODEX_HOME=/root/.codex-chatgpt codex login status` e `codex doctor`: deve risultare ChatGPT, API key false, token ChatGPT true.",
       "Crea o verifica il wrapper `codex-chatgpt` che esporta `CODEX_HOME=/root/.codex-chatgpt` e usa quello nei job Optima.",
       "Configura solo il token interno Optima necessario al polling, cioe AGENT_RUNNER_API_KEY. Non e una API key a consumo e non sostituisce il login Codex.",
-      "Esegui health-check: heartbeat runner, `codex-chatgpt exec` dry-run, artefatto revisionabile e nessun deploy automatico.",
+      "Esegui verifica: heartbeat runner, `codex-chatgpt exec` dry-run, artefatto revisionabile e nessun deploy automatico.",
     ]
   }
   if (provider.authMethod === "runner_env") {
     return [
       "Verifica il runner autorizzato e il perimetro tenant: workdir isolata, heartbeat recente e nessun accesso a servizi esterni non allowlist.",
       `Configura nel runtime solo i secret necessari: ${provider.requiredSecrets.length ? provider.requiredSecrets.join(", ") : "nessun secret obbligatorio"}.`,
-      "Salva in Optima policy e secret_ref, poi esegui health-check revisionabile prima di dichiarare il provider operativo.",
+      "Salva in Optima policy e secret_ref, poi esegui una verifica revisionabile prima di dichiarare il provider operativo.",
     ]
   }
   if (provider.authMethod === "api_key_secret") {
     return [
       "Prima prova un percorso senza consumo variabile: OAuth ufficiale, Browser MCP con login utente, modello locale o piano gia incluso.",
       "Se serve davvero una API key a pagamento, trattala come fallback facoltativo con tetto budget, scope minimi e quota controllata.",
-      "Salvala solo in Cloudflare secret, VPS env o tenant vault: Optima conserva secret_ref, stato installazione e health-check, non la chiave.",
+      "Salvala solo in Cloudflare secret, VPS env o tenant vault: Optima conserva secret_ref, stato installazione e verifica, non la chiave.",
     ]
   }
   if (provider.authMethod === "local_install") {
     return [
       "Installa runtime/CLI sul runner autorizzato o nodo privato.",
       "Esponi solo endpoint locale/Tailscale o comando controllato da policy.",
-      "Registra in Optima installazione, health-check e limiti d'uso per tenant.",
+      "Registra in Optima installazione, verifica e limiti d'uso per tenant.",
     ]
   }
   if (provider.authMethod === "oauth_pkce" || provider.authMethod === "external_oauth") {
@@ -833,7 +833,7 @@ function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][n
       "Salva token nel runtime autorizzato; Optima conserva subject, scope, stato e secret_ref.",
     ]
   }
-  return ["Salva policy tenant.", "Esegui health-check.", "Abilita il provider solo se il test e verificato."]
+  return ["Salva policy tenant.", "Esegui una verifica.", "Abilita il provider solo se il test e verificato."]
 }
 
 function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][number]) {
@@ -844,12 +844,12 @@ function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][n
     return "Per ChatGPT web, Gemini/Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. Le API key a consumo restano un fallback facoltativo, non il percorso principale."
   }
   if (provider.authMethod === "runner_env") {
-    return "Questo provider non si collega da telefono con OAuth: si abilita configurando il runner autorizzato e verificando heartbeat, CLI e secret."
+    return "Questo provider non usa OAuth utente: si abilita configurando il runner autorizzato e verificando heartbeat, CLI e secret. Il pulsante sotto non fa login, registra solo il percorso e abilita la verifica."
   }
   if (provider.authMethod === "api_key_secret") {
     return "Non partire dalla API key: e una modalita a consumo, facoltativa e da usare solo se OAuth/Browser MCP/local non bastano. Se la configuri, resta nel runtime autorizzato."
   }
-  return "La configurazione reale deve salvare stato, policy e secret_ref. Il job serve solo per health-check o audit, non per inserire credenziali."
+  return "La configurazione reale deve salvare stato, policy e secret_ref. Il job serve solo per verifica o audit, non per inserire credenziali."
 }
 
 function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][number]) {
@@ -2301,7 +2301,7 @@ export function AgentJobsClient({
         purpose: connector.purpose,
         notes: connector.notes,
         hermesPattern: {
-          catalog: "auth type dichiarato nel catalogo, installazione esplicita e health-check separato",
+          catalog: "auth type dichiarato nel catalogo, installazione esplicita e verifica separata",
           oauthManager: "token reload/reauth e 401 deduplication restano responsabilita del runtime autorizzato",
           secretBoundary: "Optima salva secret_ref/stato, non token OAuth o API key in chiaro",
         },
@@ -2333,8 +2333,8 @@ export function AgentJobsClient({
   }
 
   function connectorSetupKindLabel(kind: ConnectorSetupKind) {
-    if (kind === "oauth") return "OAuth reale"
-    if (kind === "browser") return "Browser login"
+    if (kind === "oauth") return "OAuth provider"
+    if (kind === "browser") return "Login browser"
     if (kind === "github_owner") return "Owner GitHub"
     if (kind === "runtime") return "Runtime CLI"
     if (kind === "service_account") return "Service token"
@@ -2391,7 +2391,7 @@ export function AgentJobsClient({
       return "Configura autorizzazioni owner-scoped: solo Axel decide repository, commit, PR e deploy. I job usano permessi verificati e non l'account personale condiviso."
     }
     if (kind === "runtime") {
-      return "Configura il runtime/CLI sul runner autorizzato e poi lancia un health-check. Il job non puo inventarsi un login o una credenziale."
+      return "Configura il runtime/CLI sul runner autorizzato e poi lancia una verifica. Il job non puo inventarsi un login o una credenziale."
     }
     if (kind === "service_account") {
       return "Salva il riferimento al service token nel runtime sicuro e verifica con un check read-only prima di abilitarlo ai subagenti."
@@ -2400,12 +2400,12 @@ export function AgentJobsClient({
   }
 
   function connectorVerificationBlockedLabel(kind: ConnectorSetupKind | null) {
-    if (kind === "oauth") return "Prima completa OAuth"
-    if (kind === "browser") return "Prima completa login"
-    if (kind === "github_owner") return "Prima policy owner"
-    if (kind === "runtime") return "Runtime non pronto"
-    if (kind === "service_account") return "Service token non pronto"
-    return "Secret_ref non pronto"
+    if (kind === "oauth") return "Collega OAuth prima"
+    if (kind === "browser") return "Completa login prima"
+    if (kind === "github_owner") return "Definisci policy owner"
+    if (kind === "runtime") return "Prepara runtime"
+    if (kind === "service_account") return "Collega service token"
+    return "Salva secret_ref"
   }
 
   function connectorSetupPlan(
@@ -2434,7 +2434,7 @@ export function AgentJobsClient({
     const kind = connectorSetupKind(connector)
     const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
     const healthOk = installation?.lastHealthStatus === "ok" || state === "healthy" || state === "configured"
-    const healthLabel = installation?.lastHealthStatus ? `Health: ${installation.lastHealthStatus}` : "Health-check non eseguito"
+    const healthLabel = installation?.lastHealthStatus ? `Verifica: ${installation.lastHealthStatus}` : "Verifica non eseguita"
     const hasRuntimeRequirement = connector.requiredEnv.length > 0
     const missingLabel = hasRuntimeRequirement
       ? `Richiede runtime: ${connector.requiredEnv.slice(0, 3).join(", ")}${connector.requiredEnv.length > 3 ? "..." : ""}`
@@ -2458,10 +2458,10 @@ export function AgentJobsClient({
         primaryIntent: "Consenso provider",
         shortNextAction:
           state === "configured" || state === "healthy"
-            ? "OAuth salvato: esegui o aggiorna health-check prima dell'uso operativo."
+            ? "OAuth salvato: esegui o aggiorna la verifica prima dell'uso operativo."
             : "Collega l'account dal consenso ufficiale del provider; il job serve solo dopo.",
         missingLabel,
-        verifyActionLabel: healthOk ? "Aggiorna health-check" : "Verifica collegamento",
+        verifyActionLabel: healthOk ? "Aggiorna verifica" : "Verifica collegamento",
       }
     }
     if (kind === "browser") {
@@ -2475,7 +2475,7 @@ export function AgentJobsClient({
             ? "Sessione browser registrata: aggiorna stato o verifica prima di usarla."
             : "Crea una sessione, fai login nel Chromium isolato e poi aggiorna stato.",
         missingLabel: "Serve gateway Browser MCP raggiungibile dal dispositivo o dal Mac su Tailscale.",
-        verifyActionLabel: healthOk ? "Aggiorna health-check" : "Verifica gateway/sessione",
+        verifyActionLabel: healthOk ? "Aggiorna verifica" : "Verifica gateway/sessione",
       }
     }
     if (kind === "github_owner") {
@@ -2497,7 +2497,7 @@ export function AgentJobsClient({
         shortNextAction:
           "Configura wrapper e env sul runner autorizzato; Optima deve vedere heartbeat e comando funzionante.",
         missingLabel,
-        verifyActionLabel: healthOk ? "Aggiorna prova runtime" : "Health-check runtime",
+        verifyActionLabel: healthOk ? "Aggiorna prova runtime" : "Verifica runtime",
       }
     }
     if (kind === "service_account") {
@@ -2524,13 +2524,13 @@ export function AgentJobsClient({
 
   function connectorSetupHint(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     if (connector.id === "github") {
-      return "GitHub e owner-scoped: solo Axel autorizza repository, commit, PR e deploy. Optima registra policy e health-check, non condivide l'account."
+      return "GitHub e owner-scoped: solo Axel autorizza repository, commit, PR e deploy. Optima registra policy e verifica, non condivide l'account."
     }
     if (connector.id === "browser") {
       return "Browser MCP usa Chromium/Playwright con profilo isolato per tenant. Non e un consenso OAuth del provider: e una sessione browser controllata, con profilo/audit e senza cookie o token salvati in D1."
     }
     if (isStandardOAuthConnector(connector)) {
-      return "Questo connector deve usare OAuth standard: app developer, redirect allowlist, state/PKCE, scope minimi e token nel runtime/secret vault. Il job serve solo per health-check o patch, non per fare login."
+      return "Questo connector deve usare OAuth standard: app developer, redirect allowlist, state/PKCE, scope minimi e token nel runtime/secret vault. Il job serve solo per verifica o patch, non per fare login."
     }
     if (connector.authMethod === "runner_env") {
       return "Runtime self-hosted: configurazione su VPS/runner, heartbeat e dry-run prima di dichiararlo operativo."
@@ -2611,7 +2611,7 @@ export function AgentJobsClient({
           body: "Optima salva stato e reference; token, auth.json e API key restano nel runtime sicuro.",
         },
         {
-          title: "Health-check",
+          title: "Verifica",
           body: "Esegui una prova read-only prima di assegnare il runtime a command bar, Telegram o job.",
         },
         {
@@ -2650,7 +2650,7 @@ export function AgentJobsClient({
         body: "In Optima salva solo secret_ref, policy, stato e audit. Mai token in chiaro.",
       },
       {
-        title: "Health-check",
+        title: "Verifica",
         body: "Verifica quote, permessi minimi e funzionamento prima di dichiararlo operativo.",
       },
       {
@@ -2666,15 +2666,15 @@ export function AgentJobsClient({
     if (kind === "browser") return "Qui non c'e OAuth: prepari una sessione browser isolata e fai login nel profilo controllabile."
     if (kind === "github_owner") return "Qui non si fa login generico: si governa la policy GitHub owner-scoped di Axel."
     if (kind === "runtime") return "Qui non si autorizza da mobile: si verifica un runtime/CLI gia installato sul nodo autorizzato."
-    if (kind === "service_account") return "Qui si collega un account tecnico con secret_ref, poi si verifica con health-check."
+    if (kind === "service_account") return "Qui si collega un account tecnico con secret_ref, poi si verifica con un controllo read-only."
     return "Qui registri un fallback protetto. API key e token restano facoltativi e fuori da D1."
   }
 
   async function configureConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     const saved = await mutateCapabilities(getConnectorInstallBody(connector), `connector-config:${connector.id}`)
     if (saved) {
-      toast.info("Checklist salvata", {
-        description: `${connector.label}: non e ancora operativo finche collegamento reale e health-check non risultano validi.`,
+      toast.info("Percorso salvato", {
+        description: `${connector.label}: resta non operativo finche collegamento reale e verifica non risultano validi.`,
       })
     }
   }
@@ -2789,7 +2789,7 @@ export function AgentJobsClient({
             "Repository operativo: Optima. Lavora in modo conservativo, produci patch o piano revisionabile e non fare deploy automatico.",
           ].join("\n\n"),
           input: {
-            requestedOutput: ["setup-plan", "health-check", "implementation-patch", "review-report"],
+            requestedOutput: ["connection-plan", "verification", "implementation-patch", "review-report"],
             hermesPattern: {
               source: "hermes-reference-audit",
               repository: hermesBlueprint?.reference.repository ?? "https://github.com/NousResearch/hermes-agent",
@@ -2840,12 +2840,12 @@ export function AgentJobsClient({
         }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore creazione job setup")
+      if (!response.ok) throw new Error(data?.error ?? "Errore creazione verifica")
       setJobs((current) => [data.job, ...current])
       setJobFilter("active")
       setMobilePanel("jobs")
     } catch (err: any) {
-      setError(err?.message ?? "Errore creazione job setup")
+      setError(err?.message ?? "Errore creazione verifica")
     } finally {
       setSetupAction(null)
     }
@@ -2861,7 +2861,7 @@ export function AgentJobsClient({
         `Default model: ${provider.defaultModel}. Auth: ${provider.authMethod}.`,
         `Segreti richiesti: ${provider.requiredSecrets.length ? provider.requiredSecrets.join(", ") : "nessuno"}.`,
         `MCP consigliati: ${provider.recommendedMcpConnectors.length ? provider.recommendedMcpConnectors.join(", ") : "nessuno"}.`,
-        "Output richiesto: stato reale, eventuali env/secret_ref mancanti, health check, patch Optima necessaria e stato review. Non tentare login al posto dell'utente e non dichiarare operativo finche il runtime non e verificato.",
+        "Output richiesto: stato reale, eventuali env/secret_ref mancanti, verifica, patch Optima necessaria e stato review. Non tentare login al posto dell'utente e non dichiarare operativo finche il runtime non e verificato.",
       ].join("\n\n"),
       metadata: {
         provider,
@@ -2873,15 +2873,15 @@ export function AgentJobsClient({
   async function createConnectorSetupJob(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     await createCapabilitySetupJob({
       actionKey: `connector-setup:${connector.id}`,
-      title: `Health-check connessione ${connector.label}`,
+      title: `Verifica connessione ${connector.label}`,
       contextSummary: `MCP ${connector.category}`,
       brief: [
-        `Esegui health-check e audit in Optima del connector MCP ${connector.label} come capability tenant-scoped del core agentico nativo di Optima.`,
+        `Esegui verifica e audit in Optima del connector MCP ${connector.label} come capability tenant-scoped del core agentico nativo di Optima.`,
         `Scopo: ${connector.purpose}`,
         `Scope grafo: ${connector.graphUse.join(", ") || "nessuno"}.`,
         `Env richieste: ${connector.requiredEnv.length ? connector.requiredEnv.join(", ") : "OAuth/reference senza env obbligatorie"}.`,
         `Env opzionali: ${connector.optionalEnv?.length ? connector.optionalEnv.join(", ") : "nessuna"}.`,
-        "Output richiesto: metodo reale di collegamento, OAuth/secret_ref/runtime/browser status, health check, errori da mostrare in UI e patch necessaria. Non avviare login finti, non chiedere API key se esiste OAuth/browser e non salvare token in chiaro.",
+        "Output richiesto: metodo reale di collegamento, OAuth/secret_ref/runtime/browser status, verifica, errori da mostrare in UI e patch necessaria. Non avviare login finti, non chiedere API key se esiste OAuth/browser e non salvare token in chiaro.",
       ].join("\n\n"),
       metadata: {
         connector,
@@ -3618,7 +3618,7 @@ export function AgentJobsClient({
     {
       title: "Runtime hosted",
       detail: `${readyRuntimeCount}/${capabilities?.modelRuntime?.hosts.length ?? 0} ready`,
-      body: "Qwen/Gemma/MiniMax/OpenAI devono avere route tenant, limiti, health-check e fallback dichiarati prima di essere usati dai subagenti.",
+      body: "Qwen/Gemma/MiniMax/OpenAI devono avere route tenant, limiti, verifiche e fallback dichiarati prima di essere usati dai subagenti.",
       action: "Verifica runtime",
       busyKey: "stack-setup:runtime",
       onClick: () => createStackSetupJob("runtime"),
@@ -4038,7 +4038,7 @@ export function AgentJobsClient({
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Percorso operativo</p>
                 <h3 className="mt-1 text-lg font-black text-white">Da richiesta a risultato approvato</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Il flusso corretto non parte da un job di setup generico: prima si collega un servizio con il metodo giusto, poi si verifica, poi i subagenti possono usarlo in output revisionabili.
+                  Il flusso corretto parte da una connessione reale: prima colleghi un servizio con il metodo giusto, poi lo verifichi, poi i subagenti possono usarlo in output revisionabili.
                 </p>
               </div>
               <span className="w-fit shrink-0 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-50">
@@ -4128,7 +4128,7 @@ export function AgentJobsClient({
                 ],
                 [
                   "2. Verifica",
-                  "Health-check separato: scope, soggetto, heartbeat, screenshot o query dry-run. Un job serve qui, non per inserire credenziali.",
+                  "Verifica separata: scope, soggetto, heartbeat, screenshot o query dry-run. Un job serve qui, non per inserire credenziali.",
                 ],
                 [
                   "3. Usa",
@@ -4380,7 +4380,7 @@ export function AgentJobsClient({
                     className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                   >
                     {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ClipboardList className="mr-1.5 h-3.5 w-3.5" />}
-                    Crea job
+                    Prepara verifica
                   </Button>
                 </div>
               )
@@ -4391,9 +4391,9 @@ export function AgentJobsClient({
         <div className="mt-4 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3 sm:p-4">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="font-black text-cyan-50">Checklist operativa</p>
+              <p className="font-black text-cyan-50">Percorso operativo</p>
               <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                Porta lo stack in stato usabile: provider, MCP, runtime, subagenti e grafo. I bottoni provider/MCP/runtime creano job di setup revisionabili, non fingono installazioni.
+                Porta Optima da configurazione a uso reale: connessioni, runtime, subagenti e grafo. I pulsanti aprono la schermata corretta; le verifiche agentiche partono solo dopo un requisito reale.
               </p>
             </div>
             <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
@@ -4536,7 +4536,7 @@ export function AgentJobsClient({
                   <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Control room connessioni</p>
                   <h3 className="mt-1 text-lg font-black text-white">Prima collega, poi verifica, poi usa nei job</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Questa è la vista operativa: niente setup finti. Ogni card sotto indica il metodo reale e apre il wizard giusto.
+                    Questa è la vista operativa: niente setup finti e niente API key come prima risposta. Ogni card indica il metodo reale e apre il percorso giusto.
                   </p>
                 </div>
                 <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-64">
@@ -4675,7 +4675,7 @@ export function AgentJobsClient({
                     body: "Codex CLI, OpenCode, Cloudflare o Hostinger richiedono profilo runtime, wrapper, service token o secret_ref verificato.",
                   },
                   {
-                    title: "Health-check",
+                    title: "Verifica",
                     badge: "dopo setup",
                     body: "Il job agentico non fa login: verifica credenziali, scope e permessi dopo che il collegamento e stato configurato.",
                   },
@@ -4704,7 +4704,7 @@ export function AgentJobsClient({
               <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-amber-50">
                 <p className="font-black text-amber-100">Come si configura davvero</p>
                 <p className="mt-1">
-                  Il pulsante apre il percorso corretto. Non lancia un login finto: salva policy e stato, apre OAuth quando esiste, indirizza al Browser MCP per strumenti web e usa job solo per verificare a setup completato.
+                  Il pulsante apre il percorso corretto. Non lancia login finti: se esiste OAuth apre il provider, se e un sito web usa Browser MCP, se e CLI/runtime mostra cosa manca prima della verifica.
                 </p>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -4773,7 +4773,7 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-emerald-50">Runtime modelli hosted</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                    Route tenant per Qwen, Gemma, OpenAI e MiniMax. Prima si crea il job setup/health; poi si salvano le route quando il runtime e verificato.
+                    Route tenant per Qwen, Gemma, OpenAI e MiniMax. Prima si verifica il runtime; poi si salvano le route quando il provider e davvero disponibile.
                   </p>
                 </div>
                 <Button
@@ -4785,7 +4785,7 @@ export function AgentJobsClient({
                   className="h-8 w-full shrink-0 rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
                 >
                   {setupAction === "stack-setup:runtime" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Radio className="mr-1.5 h-3.5 w-3.5" />}
-                  Job runtime
+                  Verifica runtime
                 </Button>
               </div>
 
@@ -6047,7 +6047,7 @@ export function AgentJobsClient({
                 Percorso provider {selectedProvider?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Prima scegli come collegarlo davvero. Optima salva policy e secret_ref; il job parte solo dopo per verificare runtime, OAuth o browser session.
+                Scegli il metodo reale prima di abilitarlo. Optima salva policy e secret_ref; la verifica parte solo dopo runtime, OAuth o sessione browser completati.
               </DialogDescription>
             </DialogHeader>
 
@@ -6164,9 +6164,9 @@ export function AgentJobsClient({
 
                 {!selectedProviderCanVerify ? (
                   <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
-                    <p className="font-black">Nessun health-check ancora disponibile</p>
+                    <p className="font-black">Nessuna verifica ancora disponibile</p>
                     <p className="mt-1 text-amber-100/90">
-                      Prima salva il percorso scelto o completa OAuth/runtime. Poi Optima potra creare un job di verifica revisionabile senza simulare un setup.
+                      Prima salva il percorso scelto o completa OAuth/runtime. Poi Optima potra creare una verifica revisionabile senza simulare un setup.
                     </p>
                   </section>
                 ) : null}
@@ -6189,7 +6189,7 @@ export function AgentJobsClient({
                     className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                   >
                     {capabilityAction === `provider-config:${selectedProvider.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                    Salva percorso
+                    Salva percorso, non abilitare
                   </Button>
                 </div>
               </div>
@@ -6209,7 +6209,7 @@ export function AgentJobsClient({
                 Collega {selectedConnector?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                OAuth, Browser MCP, GitHub owner, runtime e secret_ref sono percorsi diversi. Prima colleghi davvero, poi Optima verifica e usa il servizio in azioni revisionabili.
+                Ogni servizio ha un percorso proprio: OAuth provider, login browser, policy GitHub, runtime o secret_ref. Prima colleghi, poi verifichi, poi i subagenti possono usarlo.
               </DialogDescription>
             </DialogHeader>
 
@@ -6228,7 +6228,7 @@ export function AgentJobsClient({
                       {selectedConnectorOperationalLabel}
                     </span>
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${selectedConnectorPlan?.healthOk ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100"}`}>
-                      {selectedConnectorPlan?.healthLabel ?? "Health-check non eseguito"}
+                      {selectedConnectorPlan?.healthLabel ?? "Verifica non eseguita"}
                     </span>
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedConnectorPlan?.state ?? "not_installed")}`}>
                       Setup: {installLabel(selectedConnectorPlan?.state ?? "not_installed")}
@@ -6293,7 +6293,7 @@ export function AgentJobsClient({
                           className="min-h-11 rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400"
                         >
                           {oauthAction === `connector-oauth:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                          {selectedConnectorPlan?.canStartOauth === false || !selectedConnectorPrimaryActionAvailable ? "OAuth app mancante" : "Apri consenso OAuth"}
+                          {selectedConnectorPlan?.canStartOauth === false || !selectedConnectorPrimaryActionAvailable ? "Configura app OAuth" : "Apri OAuth provider"}
                         </Button>
                       ) : null}
                       {selectedConnector.id !== "browser" && !isStandardOAuthConnector(selectedConnector) && selectedConnector.id !== "github" ? (
@@ -6390,7 +6390,7 @@ export function AgentJobsClient({
                   <div className="mt-3 grid gap-2">
                     {(selectedConnector.setupSteps?.length
                       ? selectedConnector.setupSteps
-                      : ["Definire credenziali nel runtime autorizzato.", "Salvare in Optima solo stato e secret_ref.", "Eseguire health-check prima di usare il connector."]
+                      : ["Definire credenziali nel runtime autorizzato.", "Salvare in Optima solo stato e secret_ref.", "Eseguire una verifica prima di usare il connector."]
                     ).map((step, index) => (
                       <div key={`${selectedConnector.id}-step-${index}`} className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200">
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
@@ -6403,7 +6403,7 @@ export function AgentJobsClient({
                 </section>
 
                 <section className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.05] p-3 sm:p-4">
-                  <p className="font-black text-emerald-50">Health-check prima della produzione</p>
+                  <p className="font-black text-emerald-50">Verifica prima della produzione</p>
                   <p className="mt-2 text-sm leading-6 text-emerald-100">
                     {selectedConnector.healthCheck ?? "Verifica credenziali, permessi minimi e audit log prima di dichiarare il connector operativo."}
                   </p>
@@ -6453,7 +6453,7 @@ export function AgentJobsClient({
                         <div className="min-w-0">
                           <p className="font-black text-cyan-50">Stato collegamenti web</p>
                           <p className="mt-1 text-sm leading-6 text-cyan-100/80">
-                            Dopo il login premi “Aggiorna stato”. Se vedi ChatGPT o Gemini qui sotto, il profilo browser e pronto per job e assistente. La verifica finale resta un health-check, non un nuovo login.
+                            Dopo il login premi “Aggiorna stato”. Se vedi ChatGPT o Gemini qui sotto, il profilo browser e pronto per job e assistente. La verifica finale resta una prova controllata, non un nuovo login.
                           </p>
                         </div>
                         <Button
@@ -6733,7 +6733,7 @@ export function AgentJobsClient({
                       </p>
                       {!selectedConnectorCanCreateVerification ? (
                         <p className="mt-2 rounded-md border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-xs font-bold leading-5 text-amber-50">
-                          {connectorVerificationBlockedLabel(selectedConnectorKind)}. Puoi salvare il percorso guidato, ma non creo un job che simula il collegamento.
+                          {connectorVerificationBlockedLabel(selectedConnectorKind)}. Puoi salvare il percorso guidato, ma Optima non crea verifiche finte.
                         </p>
                       ) : null}
                     </div>
@@ -6747,7 +6747,7 @@ export function AgentJobsClient({
                       >
                         {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
                         {selectedConnectorCanCreateVerification
-                          ? selectedConnectorPlan?.verifyActionLabel ?? "Crea verifica"
+                          ? selectedConnectorPlan?.verifyActionLabel ?? "Verifica collegamento"
                           : connectorVerificationBlockedLabel(selectedConnectorKind)}
                       </Button>
                       <Button
@@ -6758,7 +6758,7 @@ export function AgentJobsClient({
                         className="rounded-lg border-righello-pink/30 bg-righello-pink/10 text-pink-50 hover:bg-righello-pink/15"
                       >
                         {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                        Salva percorso guidato
+                        Salva percorso, non abilitare
                       </Button>
                     </div>
                   </div>
