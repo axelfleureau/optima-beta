@@ -1950,7 +1950,7 @@ export function AgentJobsClient({
   const [isLoadingReview, setIsLoadingReview] = useState(false)
   const [revisionMessage, setRevisionMessage] = useState("")
   const [mobilePanel, setMobilePanel] = useState<"jobs" | "create" | "stack">("jobs")
-  const [stackSection, setStackSection] = useState<"overview" | "providers" | "graph" | "sources">("overview")
+  const [stackSection, setStackSection] = useState<"overview" | "providers" | "graph" | "sources">("providers")
   const [jobFilter, setJobFilter] = useState<JobFilter>("active")
   const [lastControlPlaneRefreshAt, setLastControlPlaneRefreshAt] = useState(() => new Date().toISOString())
   const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
@@ -1975,6 +1975,7 @@ export function AgentJobsClient({
   const [setupAction, setSetupAction] = useState<string | null>(null)
   const [oauthAction, setOauthAction] = useState<string | null>(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
+  const [connectorLaneFilter, setConnectorLaneFilter] = useState<ConnectorSetupKind | "all">("all")
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [browserPairingAction, setBrowserPairingAction] = useState<string | null>(null)
   const [browserPairingSession, setBrowserPairingSession] = useState<BrowserMcpSession | null>(null)
@@ -3419,6 +3420,12 @@ export function AgentJobsClient({
       return a.connector.label.localeCompare(b.connector.label)
     })
   const connectorReadyPlans = connectorPlans.filter((item) => item.ready)
+  const visibleConnectorNextFixes =
+    connectorLaneFilter === "all"
+      ? connectorNextFixes
+      : connectorNextFixes.filter((item) => item.plan.kind === connectorLaneFilter)
+  const selectedConnectorLane =
+    connectorLaneFilter === "all" ? null : connectorLaneSummary.find((lane) => lane.kind === connectorLaneFilter) ?? null
   const connectorMethodCards = connectorLaneSummary.map((lane) => {
     const lanePlans = connectorPlans.filter((item) => item.plan.kind === lane.kind)
     const nextPlan = connectorNextFixes.find((item) => item.plan.kind === lane.kind) ?? lanePlans[0]
@@ -4610,9 +4617,13 @@ export function AgentJobsClient({
                     key={lane.kind}
                     type="button"
                     onClick={() => {
-                      if (lane.nextPlan?.connector?.id) setSelectedConnectorId(lane.nextPlan.connector.id)
+                      setConnectorLaneFilter((current) => (current === lane.kind ? "all" : lane.kind))
                     }}
-                    className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3 text-left transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.06]"
+                    className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                      connectorLaneFilter === lane.kind
+                        ? "border-cyan-300/45 bg-cyan-300/[0.11] shadow-lg shadow-cyan-950/20"
+                        : "border-white/10 bg-[#060a15]/75 hover:border-cyan-300/35 hover:bg-cyan-300/[0.06]"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -4641,21 +4652,38 @@ export function AgentJobsClient({
                         {lane.blocked} con prerequisiti mancanti
                       </p>
                     ) : null}
-                    <p className="mt-2 text-[11px] font-black text-white">{lane.nextPlan ? lane.actionLabel : "Nessuna azione"}</p>
+                    <p className="mt-2 text-[11px] font-black text-white">
+                      {connectorLaneFilter === lane.kind ? "Filtro attivo" : lane.nextPlan ? `Mostra: ${lane.actionLabel}` : "Nessuna azione"}
+                    </p>
                   </button>
                 ))}
               </div>
 
               <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
                 <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-white">Da sbloccare ora</p>
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                      priorità
-                    </span>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white">Da collegare ora</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        {selectedConnectorLane
+                          ? `${selectedConnectorLane.label}: mostra solo i connector con questo metodo.`
+                          : "Ordine operativo: prima prerequisito reale, poi verifica read-only, poi uso agentico."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setConnectorLaneFilter("all")}
+                      className={`w-fit rounded-full border px-2 py-0.5 text-[10px] font-bold transition ${
+                        connectorLaneFilter === "all"
+                          ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+                          : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                      }`}
+                    >
+                      tutti i metodi
+                    </button>
                   </div>
                   <div className="mt-2 grid gap-2">
-                    {connectorNextFixes.slice(0, 6).map(({ connector, plan, operationalState, operationalLabel, primaryActionAvailable }) => (
+                    {visibleConnectorNextFixes.slice(0, 6).map(({ connector, plan, operationalState, operationalLabel, primaryActionAvailable }) => (
                       <button
                         key={`next-fix-${connector.id}`}
                         type="button"
@@ -4682,9 +4710,11 @@ export function AgentJobsClient({
                         </p>
                       </button>
                     ))}
-                    {connectorNextFixes.length === 0 ? (
+                    {visibleConnectorNextFixes.length === 0 ? (
                       <p className="rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] p-3 text-sm leading-6 text-emerald-50">
-                        Tutti i connector visibili risultano verificati.
+                        {selectedConnectorLane
+                          ? `Nessun connector ${selectedConnectorLane.label.toLowerCase()} da sbloccare.`
+                          : "Tutti i connector visibili risultano verificati."}
                       </p>
                     ) : null}
                   </div>
