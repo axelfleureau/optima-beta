@@ -2399,6 +2399,15 @@ export function AgentJobsClient({
     return "Salva solo policy e secret_ref, poi verifica. API key e token sono fallback controllati, non il percorso principale quando esiste OAuth o Browser MCP."
   }
 
+  function connectorVerificationBlockedLabel(kind: ConnectorSetupKind | null) {
+    if (kind === "oauth") return "Prima completa OAuth"
+    if (kind === "browser") return "Prima completa login"
+    if (kind === "github_owner") return "Prima policy owner"
+    if (kind === "runtime") return "Runtime non pronto"
+    if (kind === "service_account") return "Service token non pronto"
+    return "Secret_ref non pronto"
+  }
+
   function connectorSetupPlan(
     connector: AgenticCapabilities["mcpConnectorCatalog"][number],
     installation?: AgenticCapabilities["connectorInstallations"][number] | null,
@@ -3228,10 +3237,17 @@ export function AgentJobsClient({
   const selectedConnectorInstallation = selectedConnector ? connectorInstallationsById.get(selectedConnector.id) ?? null : null
   const selectedConnectorSetupStatus = selectedConnector ? connectorSetupStatusesById.get(selectedConnector.id) ?? null : null
   const selectedConnectorPlan = selectedConnector ? connectorSetupPlan(selectedConnector, selectedConnectorInstallation, selectedConnectorSetupStatus) : null
+  const selectedConnectorKind = selectedConnectorPlan?.kind ?? (selectedConnector ? connectorSetupKind(selectedConnector) : null)
+  const selectedConnectorInstallState = selectedConnectorSetupStatus?.installState ?? selectedConnectorPlan?.state ?? "not_installed"
   const selectedConnectorOperationalState = selectedConnectorSetupStatus?.operationalState ?? (selectedConnectorPlan?.healthOk ? "needs_review" : "ready_to_connect")
   const selectedConnectorOperationalLabel =
     selectedConnectorSetupStatus?.operationalLabel ?? selectedConnectorPlan?.primaryIntent ?? "Da collegare"
   const selectedConnectorPrimaryActionAvailable = selectedConnectorSetupStatus?.primaryActionAvailable !== false
+  const selectedConnectorHasCompletedOAuth = Boolean(
+    selectedConnectorSetupStatus?.oauthSubject ||
+      (asRecord(selectedConnectorInstallation?.config)?.oauthSubject as string | undefined) ||
+      (asRecord(selectedConnectorInstallation?.config)?.accountEmail as string | undefined),
+  )
   const selectedBrowserPairingSession =
     selectedConnector?.id === "browser"
       ? browserPairingSession ?? (asRecord(selectedConnectorInstallation?.config?.activePairingSession) as BrowserMcpSession | null)
@@ -3246,6 +3262,16 @@ export function AgentJobsClient({
           .filter((session): session is Record<string, unknown> => Boolean(session))
           .map((session) => session as unknown as BrowserMcpSession)
       : []
+  const selectedConnectorHasBrowserLogin = selectedBrowserConnectedSessions.length > 0
+  const selectedConnectorCanCreateVerification = Boolean(
+    selectedConnector &&
+      selectedConnectorPrimaryActionAvailable &&
+      (selectedConnectorSetupStatus?.canRunHealthCheck ||
+        selectedConnectorInstallState === "configured" ||
+        selectedConnectorInstallState === "healthy" ||
+        (selectedConnectorKind === "oauth" && selectedConnectorHasCompletedOAuth) ||
+        (selectedConnectorKind === "browser" && selectedConnectorHasBrowserLogin)),
+  )
   const selectedProvider =
     (capabilities?.providerCatalog ?? []).find((provider) => provider.id === selectedProviderId) ?? null
   const selectedProviderInstallation = selectedProvider ? providerInstallationsById.get(selectedProvider.id) ?? null : null
@@ -6586,32 +6612,39 @@ export function AgentJobsClient({
                 <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <p className="font-black text-white">Verifica e checklist</p>
+                      <p className="font-black text-white">Dopo il collegamento</p>
                       <p className="mt-1 text-xs leading-5 text-slate-400">
-                        Usa queste azioni dopo il collegamento reale. Non sostituiscono OAuth, login browser o policy owner.
+                        La verifica parte solo dopo il requisito reale: OAuth, login browser, policy owner o runtime pronto.
                       </p>
+                      {!selectedConnectorCanCreateVerification ? (
+                        <p className="mt-2 rounded-md border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-xs font-bold leading-5 text-amber-50">
+                          {connectorVerificationBlockedLabel(selectedConnectorKind)}. Puoi salvare il percorso guidato, ma non creo un job che simula il collegamento.
+                        </p>
+                      ) : null}
                     </div>
                     <div className="grid shrink-0 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => createConnectorSetupJob(selectedConnector)}
-                    disabled={setupAction === `connector-setup:${selectedConnector.id}`}
-                    className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
-                  >
-                    {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-                    {selectedConnectorPlan?.verifyActionLabel ?? "Crea verifica"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => configureConnector(selectedConnector)}
-                    disabled={capabilityAction === `connector-config:${selectedConnector.id}`}
-                    className="rounded-lg border-righello-pink/30 bg-righello-pink/10 text-pink-50 hover:bg-righello-pink/15"
-                  >
-                    {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                    Salva checklist
-                  </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => createConnectorSetupJob(selectedConnector)}
+                        disabled={setupAction === `connector-setup:${selectedConnector.id}` || !selectedConnectorCanCreateVerification}
+                        className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-55"
+                      >
+                        {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
+                        {selectedConnectorCanCreateVerification
+                          ? selectedConnectorPlan?.verifyActionLabel ?? "Crea verifica"
+                          : connectorVerificationBlockedLabel(selectedConnectorKind)}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => configureConnector(selectedConnector)}
+                        disabled={capabilityAction === `connector-config:${selectedConnector.id}`}
+                        className="rounded-lg border-righello-pink/30 bg-righello-pink/10 text-pink-50 hover:bg-righello-pink/15"
+                      >
+                        {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
+                        Salva percorso guidato
+                      </Button>
                     </div>
                   </div>
                 </div>
