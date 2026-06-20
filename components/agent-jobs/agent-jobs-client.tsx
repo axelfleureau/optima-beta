@@ -3458,6 +3458,13 @@ export function AgentJobsClient({
       const aState = statePriority[a.operationalState] ?? 9
       const bState = statePriority[b.operationalState] ?? 9
       if (aState !== bState) return aState - bState
+      const aPriority = priorityConnectorIds.indexOf(a.connector.id)
+      const bPriority = priorityConnectorIds.indexOf(b.connector.id)
+      if (aPriority !== bPriority) {
+        if (aPriority === -1) return 1
+        if (bPriority === -1) return -1
+        return aPriority - bPriority
+      }
       return a.connector.label.localeCompare(b.connector.label)
     })
   const visibleConnectorNextFixes =
@@ -3501,6 +3508,10 @@ export function AgentJobsClient({
   const connectorNeedsReviewCount = connectorPlans.filter((item) => item.operationalState === "needs_review").length
   const connectorReadyToConnectCount = connectorPlans.filter((item) => item.operationalState === "ready_to_connect").length
   const verifiedExternalConnectorCount = connectorReadyPlans.length
+  const connectorMainActionPlans = visibleConnectorNextFixes.length
+    ? visibleConnectorNextFixes.slice(0, 4)
+    : visibleConnectorPlans.slice(0, 4)
+  const connectorReadyPreviewPlans = connectorReadyPlans.slice(0, 8)
   const mcpAuthMode = productionReadiness?.metrics?.mcpAuthMode ?? "unknown"
   const mcpOAuthConfigured = Boolean(productionReadiness?.metrics?.mcpOAuthAuthorizationCodeConfigured)
   const mcpServiceTokenConfigured = Boolean(productionReadiness?.metrics?.mcpServiceTokenConfigured)
@@ -4595,10 +4606,10 @@ export function AgentJobsClient({
             <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
               <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Collegamenti operativi</p>
-                  <h3 className="mt-1 text-lg font-black text-white">Scegli prima il servizio, poi il metodo corretto</h3>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Control room collegamenti</p>
+                  <h3 className="mt-1 text-lg font-black text-white">Collega servizi reali, poi abilita i subagenti</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Ogni servizio ha un percorso verificabile: OAuth apre il provider, Browser apre il login controllato, GitHub resta owner-scoped, runtime e token si verificano solo dopo il prerequisito.
+                    Qui non si lanciano job al buio: Optima apre OAuth quando esiste, prepara un browser controllato quando serve login umano, e usa CLI/VPS solo dopo verifica.
                   </p>
                 </div>
                 <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-72">
@@ -4607,56 +4618,103 @@ export function AgentJobsClient({
                     <p className="mt-1 text-2xl font-black text-white">{connectorReadyPlans.length}</p>
                   </div>
                   <div className="rounded-lg border border-amber-300/20 bg-amber-300/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">Da collegare</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">Azioni aperte</p>
                     <p className="mt-1 text-2xl font-black text-white">{connectorNextFixes.length}</p>
                   </div>
                   <div className="rounded-lg border border-purple-300/20 bg-purple-300/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-purple-100">OAuth</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-purple-100">OAuth app</p>
                     <p className="mt-1 text-sm font-black text-white">{mcpOAuthConfigured ? "configurato" : "da fare"}</p>
                   </div>
                   <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100">MCP</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100">Auth server</p>
                     <p className="mt-1 text-sm font-black text-white">{mcpAuthMode}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-2 md:grid-cols-3">
-                {[
-                  {
-                    step: "1",
-                    title: "Collega",
-                    body: "Apri OAuth, login browser o policy owner. Nessun job deve sostituire il consenso o il login reale.",
-                  },
-                  {
-                    step: "2",
-                    title: "Verifica",
-                    body: "Solo dopo il collegamento parte un health-check read-only: scope, sessione, heartbeat o permessi.",
-                  },
-                  {
-                    step: "3",
-                    title: "Usa",
-                    body: "I subagenti usano il servizio solo con policy tenant, audit e review per azioni pubbliche o irreversibili.",
-                  },
-                ].map((item) => (
-                  <div key={item.step} className="flex gap-3 rounded-lg border border-white/10 bg-black/25 p-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
-                      {item.step}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-black text-white">{item.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-400">{item.body}</p>
-                    </div>
+              <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white">Prossime azioni consigliate</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      Parti da qui: ogni scheda apre il wizard giusto e spiega se serve OAuth, login browser, policy owner, runtime o token tecnico.
+                    </p>
                   </div>
-                ))}
+                  <span className="w-fit shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black text-cyan-100">
+                    nessun login simulato
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 lg:grid-cols-4">
+                  {connectorMainActionPlans.map(({ connector, plan, operationalState, operationalLabel, primaryActionAvailable, ready }) => (
+                    <button
+                      key={`connector-main-action-${connector.id}`}
+                      type="button"
+                      onClick={() => setSelectedConnectorId(connector.id)}
+                      className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                        ready
+                          ? "border-emerald-300/25 bg-emerald-300/[0.075] hover:bg-emerald-300/[0.12]"
+                          : primaryActionAvailable
+                            ? "border-righello-pink/30 bg-righello-pink/[0.08] hover:bg-righello-pink/[0.12]"
+                            : "border-amber-300/25 bg-amber-300/[0.08] hover:bg-amber-300/[0.12]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-white">{connector.label}</p>
+                          <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{connectorSetupKindLabel(plan.kind)}</p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                            connectorOperationalTone[operationalState] ?? connectorOperationalTone.ready_to_connect
+                          }`}
+                        >
+                          {operationalLabel}
+                        </span>
+                      </div>
+                      <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-300">
+                        {ready ? plan.healthLabel : primaryActionAvailable ? plan.shortNextAction : plan.blockedReason ?? plan.missingLabel}
+                      </p>
+                      <p className="mt-3 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-black text-white">
+                        {ready ? "Apri dettagli" : plan.primaryActionLabel}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-black text-emerald-50">Servizi gia utilizzabili</p>
+                    <span className="w-fit rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-black text-emerald-100">
+                      {connectorReadyPlans.length} verificati
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {connectorReadyPreviewPlans.length ? (
+                      connectorReadyPreviewPlans.map(({ connector, plan }) => (
+                        <button
+                          key={`ready-main-${connector.id}`}
+                          type="button"
+                          onClick={() => setSelectedConnectorId(connector.id)}
+                          className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-xs font-bold text-emerald-100 transition hover:bg-emerald-300/15"
+                          title={`${connector.label}: ${plan.healthLabel}`}
+                        >
+                          {connector.label}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-xs leading-5 text-emerald-100/80">
+                        Nessun servizio esterno e ancora pronto: completa prima una delle azioni consigliate.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-white">Scegli il servizio da collegare</p>
+                    <p className="text-sm font-black text-white">Tutti i servizi collegabili</p>
                     <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Cerca il servizio o usa le priorità qui sotto. La scheda successiva ti dice se serve OAuth, login browser, policy GitHub, runtime VPS o secret_ref.
+                      Usa questa lista quando devi collegare un servizio specifico. I più importanti per Optima sono ordinati prima.
                     </p>
                   </div>
                   <div className="min-w-0 lg:w-80">
@@ -4922,9 +4980,9 @@ export function AgentJobsClient({
             <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="font-black text-white">Catalogo provider AI</p>
+                  <p className="font-black text-white">Motori AI e runtime</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Motori AI e runtime disponibili. Qui non si fa OAuth: si sceglie come Optima usera il modello, poi si verifica il runtime o il fallback.
+                    Area tecnica per scegliere Qwen, Gemma, Codex, OpenAI o MiniMax. Gli account esterni si collegano sopra, non da qui.
                   </p>
                 </div>
                 <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
@@ -4933,9 +4991,9 @@ export function AgentJobsClient({
               </summary>
             <div className="mt-3 min-w-0">
               <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-amber-50">
-                <p className="font-black text-amber-100">Provider AI, non connector MCP</p>
+                <p className="font-black text-amber-100">Motori AI, non login account</p>
                 <p className="mt-1">
-                  Un provider decide quale motore usa Optima. OAuth, Browser MCP, GitHub e servizi esterni si collegano nella sezione MCP: qui si salva solo il percorso runtime e si verifica senza simulare login.
+                  Un motore decide come ragiona Optima. OAuth, Browser, GitHub e servizi esterni si collegano nel percorso principale: qui si verifica solo il runtime o il fallback.
                 </p>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -5003,9 +5061,9 @@ export function AgentJobsClient({
             <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="font-black text-white">Configurazione avanzata</p>
+                  <p className="font-black text-white">Policy e runtime avanzati</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Runtime modelli, policy tenant e pattern Hermes/Optima. Aprila quando devi fare setup tecnico, non per collegare un account.
+                    Blueprint, policy tenant e route dei modelli. Aprila solo per setup tecnico o audit, non per collegare un servizio.
                   </p>
                 </div>
                 <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
