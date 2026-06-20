@@ -4692,15 +4692,19 @@ export function AgentJobsClient({
                 ))}
               </div>
             </div>
-            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
-              <div className="flex items-start justify-between gap-3">
+            <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="font-black text-white">Provider AI e runtime</p>
+                  <p className="font-black text-white">Catalogo provider AI</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Scegli come rendere davvero usabile un modello o una CLI: OAuth/browser quando possibile, runtime locale o VPS quando serve, API key solo come fallback facoltativo.
+                    Modelli, CLI e fallback disponibili. Apri per configurare un provider specifico o controllare i suoi prerequisiti.
                   </p>
                 </div>
-              </div>
+                <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
+                  {capabilities?.providerCatalog.length ?? 0} provider
+                </span>
+              </summary>
+            <div className="mt-3 min-w-0">
               <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-amber-50">
                 <p className="font-black text-amber-100">Come si configura davvero</p>
                 <p className="mt-1">
@@ -4767,6 +4771,7 @@ export function AgentJobsClient({
                 </div>
               ) : null}
             </div>
+            </details>
 
             <div className="min-w-0 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3 sm:p-4">
               <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
@@ -5508,7 +5513,19 @@ export function AgentJobsClient({
 
           <div className={stackSection === "graph" ? "hidden" : "grid min-w-0 gap-3"}>
             <div className={stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"}>
-            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+            <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-white">Subagenti avanzati</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                    Profili operativi tenant-scoped. Apri solo quando devi creare o aggiornare ruoli AI specifici.
+                  </p>
+                </div>
+                <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
+                  {capabilities?.subagents.length ?? 0} attivi
+                </span>
+              </summary>
+            <div className="mt-3 min-w-0">
               <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
                 <div className="min-w-0">
                   <p className="font-black text-white">Subagenti</p>
@@ -5580,8 +5597,21 @@ export function AgentJobsClient({
                 ) : null}
               </div>
             </div>
+            </details>
 
-            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+            <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-white">Catalogo MCP completo</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                    Elenco tecnico di tutti i connector. La control room sopra resta il punto operativo principale.
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                  {verifiedExternalConnectorCount}/{operationalMcpConnectors.length} collegati
+                </span>
+              </summary>
+            <div className="mt-3 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-black text-white">Connessioni MCP aziendali</p>
@@ -5663,6 +5693,7 @@ export function AgentJobsClient({
                 })}
               </div>
             </div>
+            </details>
             </div>
 
             <div className={stackSection === "sources" ? "min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4" : "hidden"}>
