@@ -3408,6 +3408,37 @@ export function AgentJobsClient({
       return a.connector.label.localeCompare(b.connector.label)
     })
   const connectorReadyPlans = connectorPlans.filter((item) => item.ready)
+  const connectorMethodCards = connectorLaneSummary.map((lane) => {
+    const lanePlans = connectorPlans.filter((item) => item.plan.kind === lane.kind)
+    const nextPlan = connectorNextFixes.find((item) => item.plan.kind === lane.kind) ?? lanePlans[0]
+    const readyExamples = lanePlans.filter((item) => item.ready).slice(0, 3)
+    const pendingExamples = lanePlans.filter((item) => !item.ready).slice(0, 3)
+    const actionLabel =
+      lane.kind === "oauth"
+        ? "Apri consenso"
+        : lane.kind === "browser"
+          ? "Prepara login"
+          : lane.kind === "github_owner"
+            ? "Policy GitHub"
+            : lane.kind === "runtime"
+              ? "Verifica CLI"
+              : lane.kind === "service_account"
+                ? "Service token"
+                : "Secret ref"
+    const actionHint =
+      lane.kind === "oauth"
+        ? "Apre la pagina OAuth reale del provider."
+        : lane.kind === "browser"
+          ? "Crea sessione browser isolata, poi login umano."
+          : lane.kind === "github_owner"
+            ? "Solo Axel autorizza repo, PR, commit e deploy."
+            : lane.kind === "runtime"
+              ? "Controlla wrapper, heartbeat ed env sul VPS."
+              : lane.kind === "service_account"
+                ? "Usa credenziale tecnica con secret_ref."
+                : "Fallback facoltativo, non prima scelta."
+    return { ...lane, lanePlans, nextPlan, readyExamples, pendingExamples, actionLabel, actionHint }
+  })
   const connectorNeedsRuntimeCount = connectorPlans.filter((item) => item.operationalState === "needs_runtime").length
   const connectorNeedsReviewCount = connectorPlans.filter((item) => item.operationalState === "needs_review").length
   const connectorReadyToConnectCount = connectorPlans.filter((item) => item.operationalState === "ready_to_connect").length
@@ -3638,7 +3669,7 @@ export function AgentJobsClient({
       title: "Subagenti",
       detail: `${recommendedSubagentConfiguredCount}/${recommendedSubagents.length} attivi`,
       body: "Profili Codex Engineer, Research Analyst, Media Operator e Office Ops.",
-      action: "Crea set base",
+      action: "Prepara ruoli",
       busyKey: "subagents:base",
       onClick: createRecommendedSubagents,
       complete: recommendedSubagentConfiguredCount >= recommendedSubagents.length,
@@ -4503,67 +4534,45 @@ export function AgentJobsClient({
         >
           <div className="grid min-w-0 gap-3">
             <div className={stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"}>
-            <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-3 sm:p-4">
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-cyan-50">Stato reale MCP</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-300">
-                    Il server MCP di Optima risponde per automazioni interne, ma i connector esterni non sono OAuth-installati finche non esiste un soggetto OAuth, un secret_ref o un health check reale.
-                  </p>
-                </div>
-                <span className={`w-fit shrink-0 rounded-full border px-2.5 py-1 text-xs font-black ${
-                  mcpOAuthConfigured
-                    ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-                    : mcpServiceTokenConfigured
-                      ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
-                      : "border-amber-300/25 bg-amber-300/10 text-amber-100"
-                }`}>
-                  {mcpOAuthConfigured ? "OAuth utente attivo" : mcpServiceTokenConfigured ? "service token" : "setup richiesto"}
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {[
-                  ["Auth MCP", mcpAuthMode, mcpOAuthConfigured ? "OAuth/PKCE configurato" : "non e OAuth utente"],
-                  ["Collegati", `${verifiedExternalConnectorCount}/${operationalMcpConnectors.length}`, "servizi con soggetto/sessione verificata"],
-                  ["Da collegare", `${connectorReadyToConnectCount}`, "consenso, login o policy da completare"],
-                  ["Runtime/review", `${connectorNeedsRuntimeCount + connectorNeedsReviewCount}`, "mancano gateway, env o verifica owner"],
-                ].map(([label, value, detail]) => (
-                  <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                    <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-                    <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-300">
-                Optima abilita un servizio solo quando vede un collegamento verificato: OAuth con soggetto autorizzato, Browser MCP collegato, policy GitHub owner, runtime CLI funzionante o secret_ref approvato.
-              </p>
-            </div>
-
             <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
               <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Control room connessioni</p>
-                  <h3 className="mt-1 text-lg font-black text-white">Prima collega, poi verifica, poi usa nei job</h3>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Connessioni operative</p>
+                  <h3 className="mt-1 text-lg font-black text-white">Metodo chiaro, azione reale, verifica dopo</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Questa è la vista operativa: niente setup finti e niente API key come prima risposta. Ogni card indica il metodo reale e apre il percorso giusto.
+                    Questa pagina non deve piu sembrare un catalogo tecnico: ogni servizio mostra come si collega davvero. OAuth apre il provider, Browser MCP apre il login controllato, GitHub resta owner-scoped, runtime e token si verificano solo dopo il prerequisito.
                   </p>
                 </div>
-                <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-64">
+                <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-72">
                   <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100">Pronti</p>
                     <p className="mt-1 text-2xl font-black text-white">{connectorReadyPlans.length}</p>
                   </div>
                   <div className="rounded-lg border border-amber-300/20 bg-amber-300/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">Da finire</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">Da collegare</p>
                     <p className="mt-1 text-2xl font-black text-white">{connectorNextFixes.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-purple-300/20 bg-purple-300/10 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-purple-100">OAuth</p>
+                    <p className="mt-1 text-sm font-black text-white">{mcpOAuthConfigured ? "configurato" : "da fare"}</p>
+                  </div>
+                  <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100">MCP</p>
+                    <p className="mt-1 text-sm font-black text-white">{mcpAuthMode}</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {connectorLaneSummary.map((lane) => (
-                  <div key={lane.kind} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                {connectorMethodCards.map((lane) => (
+                  <button
+                    key={lane.kind}
+                    type="button"
+                    onClick={() => {
+                      if (lane.nextPlan?.connector?.id) setSelectedConnectorId(lane.nextPlan.connector.id)
+                    }}
+                    className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3 text-left transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.06]"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-black text-white">{lane.label}</p>
@@ -4573,12 +4582,26 @@ export function AgentJobsClient({
                         {lane.ready}/{lane.total}
                       </span>
                     </div>
+                    <p className="mt-2 text-[11px] font-bold leading-5 text-cyan-100">{lane.actionHint}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {lane.readyExamples.map(({ connector }) => (
+                        <span key={`${lane.kind}-ready-${connector.id}`} className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100">
+                          {connector.label}
+                        </span>
+                      ))}
+                      {lane.pendingExamples.map(({ connector }) => (
+                        <span key={`${lane.kind}-pending-${connector.id}`} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                          {connector.label}
+                        </span>
+                      ))}
+                    </div>
                     {lane.blocked ? (
                       <p className="mt-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.06] px-2.5 py-1.5 text-[11px] font-bold text-amber-100">
                         {lane.blocked} con prerequisiti mancanti
                       </p>
                     ) : null}
-                  </div>
+                    <p className="mt-2 text-[11px] font-black text-white">{lane.nextPlan ? lane.actionLabel : "Nessuna azione"}</p>
+                  </button>
                 ))}
               </div>
 
@@ -4653,21 +4676,20 @@ export function AgentJobsClient({
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-white">Percorsi di collegamento</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">
-                    Scegli il percorso giusto prima di creare job: OAuth apre consenso, Browser MCP apre login controllato, runtime configura CLI/VPS.
-                  </p>
+              <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-black text-white">Regole di produzione</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      Il job agentico non fa login al posto tuo: prepara output, verifica o usa un collegamento gia valido. Le credenziali reali restano fuori da D1.
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100">
+                    no token in D1
+                  </span>
                 </div>
-                <span className="w-fit rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100">
-                  no token in D1
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 {[
                   {
                     title: "OAuth standard",
@@ -4686,7 +4708,7 @@ export function AgentJobsClient({
                   },
                   {
                     title: "Verifica",
-                    badge: "dopo setup",
+                    badge: "dopo collegamento",
                     body: "Il job agentico non fa login: verifica credenziali, scope e permessi dopo che il collegamento e stato configurato.",
                   },
                 ].map((item) => (
@@ -4700,6 +4722,7 @@ export function AgentJobsClient({
                     <p className="mt-2 text-xs leading-5 text-slate-400">{item.body}</p>
                   </div>
                 ))}
+                </div>
               </div>
             </div>
             <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
@@ -4707,7 +4730,7 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-white">Catalogo provider AI</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Modelli, CLI e fallback disponibili. Apri per configurare un provider specifico o controllare i suoi prerequisiti.
+                Modelli, CLI e fallback disponibili. Apri per configurare un provider specifico o controllare i suoi prerequisiti.
                   </p>
                 </div>
                 <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
@@ -4769,7 +4792,7 @@ export function AgentJobsClient({
                         className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                       >
                         {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
-                        Apri percorso guidato
+                        Configura provider
                       </Button>
                     </div>
                   )
@@ -5474,7 +5497,7 @@ export function AgentJobsClient({
                 className="h-9 w-full shrink-0 rounded-lg border-emerald-300/25 bg-emerald-300/10 px-3 text-xs font-bold text-emerald-50 hover:bg-emerald-300/15 sm:w-auto"
               >
                 {isCreatingSelfImprovement ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
-                Crea job Codex
+                Proponi patch Codex
               </Button>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -5552,7 +5575,7 @@ export function AgentJobsClient({
                   className="h-8 w-full shrink-0 rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
                 >
                   {capabilityAction === "subagents:base" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
-                  Crea set base
+                  Prepara ruoli
                 </Button>
               </div>
               <div className="mt-3 grid gap-2">
@@ -5696,7 +5719,7 @@ export function AgentJobsClient({
                         className="mt-3 h-8 w-full rounded-lg bg-cyan-300/15 text-xs font-black text-cyan-50 hover:bg-cyan-300/25"
                       >
                         <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-                        Apri percorso guidato
+                        Configura connector
                       </Button>
                     </div>
                   )
