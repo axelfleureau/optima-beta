@@ -4120,13 +4120,13 @@ export function AgentJobsClient({
             Stato
           </button>
           <button type="button" onClick={() => setStackSection("providers")} className={stackSectionClass("providers")}>
-            Connessioni
+            Collega servizi
           </button>
           <button type="button" onClick={() => setStackSection("graph")} className={stackSectionClass("graph")}>
-            Grafo
+            Memoria
           </button>
           <button type="button" onClick={() => setStackSection("sources")} className={stackSectionClass("sources")}>
-            Fonti
+            Know-how
           </button>
         </div>
 
@@ -4595,10 +4595,10 @@ export function AgentJobsClient({
             <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
               <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Control room MCP</p>
-                  <h3 className="mt-1 text-lg font-black text-white">Scegli il collegamento, non un job generico</h3>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Collegamenti operativi</p>
+                  <h3 className="mt-1 text-lg font-black text-white">Scegli prima il servizio, poi il metodo corretto</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Ogni servizio deve avere un percorso reale e verificabile. OAuth apre il provider, Browser MCP apre il login controllato, GitHub resta owner-scoped, runtime e token si verificano solo dopo il prerequisito.
+                    Ogni servizio ha un percorso verificabile: OAuth apre il provider, Browser apre il login controllato, GitHub resta owner-scoped, runtime e token si verificano solo dopo il prerequisito.
                   </p>
                 </div>
                 <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-72">
@@ -4768,6 +4768,19 @@ export function AgentJobsClient({
                 </div>
               </details>
 
+              <details className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                <summary className="flex cursor-pointer list-none flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white">Diagnostica servizi e regole avanzate</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      Apri solo per controllare code, stato tecnico o policy. Il collegamento operativo parte dalle schede sopra.
+                    </p>
+                  </div>
+                  <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-black text-slate-300">
+                    {connectorNextFixes.length} da verificare
+                  </span>
+                </summary>
+
               <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
                 <div className="rounded-lg border border-white/10 bg-black/20 p-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -4904,6 +4917,7 @@ export function AgentJobsClient({
                 ))}
                 </div>
               </div>
+              </details>
             </div>
             <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
               <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -6467,10 +6481,10 @@ export function AgentJobsClient({
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-xl font-black sm:text-2xl">
-                Connector MCP: {selectedConnector?.label ?? ""}
+                Collegamento: {selectedConnector?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Segui tre passaggi distinti: collegamento reale, health-check read-only, uso da subagenti. Le checklist non collegano account e non simulano credenziali.
+                Prima colleghi davvero il servizio, poi Optima fa una verifica read-only, poi i subagenti possono usarlo con permessi e review.
               </DialogDescription>
             </DialogHeader>
 
