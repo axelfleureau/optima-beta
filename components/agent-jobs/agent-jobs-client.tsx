@@ -4741,7 +4741,7 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-white">Catalogo provider AI</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                Modelli, CLI e fallback disponibili. Apri per configurare un provider specifico o controllare i suoi prerequisiti.
+                    Motori AI e runtime disponibili. Qui non si fa OAuth: si sceglie come Optima usera il modello, poi si verifica il runtime o il fallback.
                   </p>
                 </div>
                 <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
@@ -4750,9 +4750,9 @@ export function AgentJobsClient({
               </summary>
             <div className="mt-3 min-w-0">
               <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-amber-50">
-                <p className="font-black text-amber-100">Come si configura davvero</p>
+                <p className="font-black text-amber-100">Provider AI, non connector MCP</p>
                 <p className="mt-1">
-                  Il pulsante apre il percorso corretto. Non lancia login finti: se esiste OAuth apre il provider, se e un sito web usa Browser MCP, se e CLI/runtime mostra cosa manca prima della verifica.
+                  Un provider decide quale motore usa Optima. OAuth, Browser MCP, GitHub e servizi esterni si collegano nella sezione MCP: qui si salva solo il percorso runtime e si verifica senza simulare login.
                 </p>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -4803,7 +4803,7 @@ export function AgentJobsClient({
                         className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
                       >
                         {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
-                        Configura provider
+                        Apri percorso provider
                       </Button>
                     </div>
                   )
@@ -5660,7 +5660,7 @@ export function AgentJobsClient({
                 <div className="min-w-0">
                   <p className="font-black text-white">Connessioni MCP aziendali</p>
                   <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Ogni servizio ha un metodo reale: OAuth, Browser MCP, GitHub owner, runtime CLI, service token o secret_ref. Il job parte solo dopo, per verificare o usare la connessione.
+                    Ogni servizio ha un metodo reale: OAuth, Browser MCP, GitHub owner, runtime CLI, service token o secret_ref. Prima si collega davvero, poi si verifica; la checklist non abilita niente da sola.
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
@@ -5730,7 +5730,7 @@ export function AgentJobsClient({
                         className="mt-3 h-8 w-full rounded-lg bg-cyan-300/15 text-xs font-black text-cyan-50 hover:bg-cyan-300/25"
                       >
                         <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-                        Apri collegamento
+	                        Configura collegamento
                       </Button>
                     </div>
                   )
@@ -6119,10 +6119,10 @@ export function AgentJobsClient({
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-xl font-black sm:text-2xl">
-                Percorso provider {selectedProvider?.label ?? ""}
+                Provider AI: {selectedProvider?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Scegli il metodo reale prima di abilitarlo. Optima salva policy e secret_ref; la verifica parte solo dopo runtime, OAuth o sessione browser completati.
+                Questo non e un consenso OAuth. Scegli il runtime o fallback del modello; account esterni e servizi web si collegano dalla sezione MCP.
               </DialogDescription>
             </DialogHeader>
 
@@ -6150,7 +6150,7 @@ export function AgentJobsClient({
                 </section>
 
                 <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
-                  <p className="font-black text-white">Modalita disponibili</p>
+                  <p className="font-black text-white">Modalita provider</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     {providerSetupModes(selectedProvider).map((mode) => (
                       <div key={mode.label} className={`rounded-lg border p-3 ${setupModeClass(mode.tone)}`}>
@@ -6162,7 +6162,7 @@ export function AgentJobsClient({
                 </section>
 
                 <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
-                  <p className="font-black text-white">Percorso consigliato</p>
+                  <p className="font-black text-white">Percorso consigliato per il motore</p>
                   <div className="mt-3 grid gap-2">
                     {providerInstallSteps(selectedProvider).map((step, index) => (
                       <div key={`${selectedProvider.id}-provider-step-${index}`} className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200">
@@ -6177,7 +6177,7 @@ export function AgentJobsClient({
 
                 <section className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Credenziali eventuali / fallback</p>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">API key / secret solo se scelto</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedProvider.requiredSecrets.length ? (
                         selectedProvider.requiredSecrets.map((secret) => (
@@ -6239,9 +6239,9 @@ export function AgentJobsClient({
 
                 {!selectedProviderCanVerify ? (
                   <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
-                    <p className="font-black">Nessuna verifica ancora disponibile</p>
+	                    <p className="font-black">Prima scegli o salva il runtime</p>
                     <p className="mt-1 text-amber-100/90">
-                      Prima salva il percorso scelto o completa OAuth/runtime. Poi Optima potra creare una verifica revisionabile senza simulare un setup.
+                      Il pulsante di verifica resta disabilitato finche Optima non ha un percorso reale da testare. Se ti serve un login account, apri il connector MCP corretto.
                     </p>
                   </section>
                 ) : null}
@@ -6264,7 +6264,7 @@ export function AgentJobsClient({
                     className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                   >
                     {capabilityAction === `provider-config:${selectedProvider.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                    Salva percorso, non abilitare
+                    Salva checklist provider
                   </Button>
                 </div>
               </div>
@@ -6281,10 +6281,10 @@ export function AgentJobsClient({
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-xl font-black sm:text-2xl">
-                Collega {selectedConnector?.label ?? ""}
+                Connector MCP: {selectedConnector?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Ogni servizio ha un percorso proprio. Prima apri il collegamento reale, poi esegui un health-check, poi abiliti i subagenti. Le checklist non collegano account.
+                Segui tre passaggi distinti: collegamento reale, health-check read-only, uso da subagenti. Le checklist non collegano account e non simulano credenziali.
               </DialogDescription>
             </DialogHeader>
 
@@ -6316,7 +6316,64 @@ export function AgentJobsClient({
                   <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
                     {connectorSetupHint(selectedConnector)}
                   </p>
-                </section>
+	                </section>
+
+	                <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+	                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+	                    <div className="min-w-0">
+	                      <p className="font-black text-white">Stato del flusso</p>
+	                      <p className="mt-1 text-sm leading-6 text-slate-400">
+	                        Optima usa il connector solo quando questi stati sono coerenti: niente job generici prima del login/configurazione reale.
+	                      </p>
+	                    </div>
+	                    <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+	                      {selectedConnectorOperationalLabel}
+	                    </span>
+	                  </div>
+	                  <div className="mt-3 grid gap-2 md:grid-cols-3">
+	                    <div
+	                      className={`rounded-lg border p-3 ${
+	                        selectedConnectorRealPrerequisiteMet
+	                          ? "border-emerald-300/25 bg-emerald-300/[0.07]"
+	                          : selectedConnectorPrimaryActionAvailable
+	                            ? "border-cyan-300/25 bg-cyan-300/[0.06]"
+	                            : "border-amber-300/25 bg-amber-300/[0.07]"
+	                      }`}
+	                    >
+	                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">1. Collegamento</p>
+	                      <p className="mt-1 text-sm font-black text-white">
+	                        {selectedConnectorRealPrerequisiteMet ? "Completato" : connectorVerificationBlockedLabel(selectedConnectorKind)}
+	                      </p>
+	                      <p className="mt-2 text-xs leading-5 text-slate-300">{selectedConnectorPlan?.primaryActionLabel ?? "Azione richiesta"}</p>
+	                    </div>
+	                    <div
+	                      className={`rounded-lg border p-3 ${
+	                        selectedConnectorCanCreateVerification
+	                          ? "border-cyan-300/25 bg-cyan-300/[0.06]"
+	                          : "border-white/10 bg-black/20"
+	                      }`}
+	                    >
+	                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">2. Verifica</p>
+	                      <p className="mt-1 text-sm font-black text-white">
+	                        {selectedConnectorCanCreateVerification ? "Health-check disponibile" : "Bloccata"}
+	                      </p>
+	                      <p className="mt-2 text-xs leading-5 text-slate-300">Solo read-only: controlla sessione, scope, heartbeat o permessi.</p>
+	                    </div>
+	                    <div
+	                      className={`rounded-lg border p-3 ${
+	                        selectedConnectorOperationalState === "connected"
+	                          ? "border-emerald-300/25 bg-emerald-300/[0.07]"
+	                          : "border-white/10 bg-black/20"
+	                      }`}
+	                    >
+	                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">3. Uso agentico</p>
+	                      <p className="mt-1 text-sm font-black text-white">
+	                        {selectedConnectorOperationalState === "connected" ? "Abilitabile" : "Non ancora"}
+	                      </p>
+	                      <p className="mt-2 text-xs leading-5 text-slate-300">I subagenti possono usarlo solo con policy, audit e review coerenti.</p>
+	                    </div>
+	                  </div>
+	                </section>
 
                 <section className="rounded-lg border border-righello-pink/25 bg-righello-pink/[0.07] p-3 sm:p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -6852,9 +6909,9 @@ export function AgentJobsClient({
                         className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-55"
                       >
                         {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-                        {selectedConnectorCanCreateVerification
-                          ? selectedConnectorPlan?.verifyActionLabel ?? "Crea health-check"
-                          : connectorVerificationBlockedLabel(selectedConnectorKind)}
+	                        {selectedConnectorCanCreateVerification
+	                          ? selectedConnectorPlan?.verifyActionLabel ?? "Crea health-check"
+	                          : `Prima: ${connectorVerificationBlockedLabel(selectedConnectorKind)}`}
                       </Button>
                       <Button
                         type="button"

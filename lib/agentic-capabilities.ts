@@ -1027,14 +1027,14 @@ function connectorOperationalState(input: {
   if (healthOk) {
     return {
       operationalState: "needs_review",
-      operationalLabel: setupKind === "runtime" ? "Runtime da verificare" : "Secret da verificare",
+      operationalLabel: setupKind === "runtime" ? "Runtime verificato, da approvare" : "Secret verificato, da approvare",
       primaryActionAvailable: true,
     }
   }
 
   return {
     operationalState: "ready_to_connect",
-    operationalLabel: setupKind === "runtime" ? "Pronto a health-check" : "Pronto a verifica",
+    operationalLabel: setupKind === "runtime" ? "Runtime da collegare" : "Secret_ref da collegare",
     primaryActionAvailable: true,
   }
 }
