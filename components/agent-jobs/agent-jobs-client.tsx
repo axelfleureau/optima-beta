@@ -3426,16 +3426,16 @@ export function AgentJobsClient({
     const pendingExamples = lanePlans.filter((item) => !item.ready).slice(0, 3)
     const actionLabel =
       lane.kind === "oauth"
-        ? "Apri consenso"
+        ? "Collega via OAuth"
         : lane.kind === "browser"
-          ? "Prepara login"
+          ? "Apri login browser"
           : lane.kind === "github_owner"
-            ? "Policy GitHub"
+            ? "Configura policy"
             : lane.kind === "runtime"
-              ? "Verifica CLI"
+              ? "Verifica CLI/VPS"
               : lane.kind === "service_account"
-                ? "Service token"
-                : "Secret ref"
+                ? "Collega service token"
+                : "Salva secret_ref"
     const actionHint =
       lane.kind === "oauth"
         ? "Apre la pagina OAuth reale del provider."
@@ -4548,10 +4548,10 @@ export function AgentJobsClient({
             <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
               <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Connessioni operative</p>
-                  <h3 className="mt-1 text-lg font-black text-white">Metodo chiaro, azione reale, verifica dopo</h3>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Control room MCP</p>
+                  <h3 className="mt-1 text-lg font-black text-white">Scegli il collegamento, non un job generico</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Questa pagina non deve piu sembrare un catalogo tecnico: ogni servizio mostra come si collega davvero. OAuth apre il provider, Browser MCP apre il login controllato, GitHub resta owner-scoped, runtime e token si verificano solo dopo il prerequisito.
+                    Ogni servizio deve avere un percorso reale e verificabile. OAuth apre il provider, Browser MCP apre il login controllato, GitHub resta owner-scoped, runtime e token si verificano solo dopo il prerequisito.
                   </p>
                 </div>
                 <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-72">
@@ -4572,6 +4572,36 @@ export function AgentJobsClient({
                     <p className="mt-1 text-sm font-black text-white">{mcpAuthMode}</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-3 grid gap-2 md:grid-cols-3">
+                {[
+                  {
+                    step: "1",
+                    title: "Collega",
+                    body: "Apri OAuth, login browser o policy owner. Nessun job deve sostituire il consenso o il login reale.",
+                  },
+                  {
+                    step: "2",
+                    title: "Verifica",
+                    body: "Solo dopo il collegamento parte un health-check read-only: scope, sessione, heartbeat o permessi.",
+                  },
+                  {
+                    step: "3",
+                    title: "Usa",
+                    body: "I subagenti usano il servizio solo con policy tenant, audit e review per azioni pubbliche o irreversibili.",
+                  },
+                ].map((item) => (
+                  <div key={item.step} className="flex gap-3 rounded-lg border border-white/10 bg-black/25 p-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
+                      {item.step}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-black text-white">{item.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">{item.body}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -4817,6 +4847,20 @@ export function AgentJobsClient({
             </div>
             </details>
 
+            <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-white">Configurazione avanzata</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                    Runtime modelli, policy tenant e pattern Hermes/Optima. Aprila quando devi fare setup tecnico, non per collegare un account.
+                  </p>
+                </div>
+                <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
+                  runtime · policy · blueprint
+                </span>
+              </summary>
+              <div className="mt-3 grid min-w-0 gap-3">
+
             <div className="min-w-0 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3 sm:p-4">
               <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
                 <div className="min-w-0">
@@ -4986,6 +5030,9 @@ export function AgentJobsClient({
                 ))}
               </div>
             </div>
+
+              </div>
+            </details>
 
             </div>
 
