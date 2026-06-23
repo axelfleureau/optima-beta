@@ -107,12 +107,17 @@ html {
   overflow-x: hidden;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* 2026-06-23: blocca il rubber-band scrolling di WebKit a livello viewport
+     quando l'utente arriva ai bordi della pagina (es. MacBook trackpad).
+     `contain` ferma la propagazione del bounce verso il viewport esterno
+     lasciando però il feedback visivo solo sul container scrollante. */
+  overscroll-behavior-y: contain;
 }
 
 body {
   min-height: 100dvh;
   overflow-x: hidden;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
   background-color: hsl(var(--background));
@@ -131,7 +136,7 @@ body:not([data-scroll-locked]) {
 .optima-app-surface {
   min-height: 100svh;
   overflow-x: hidden;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: contain;
   touch-action: pan-x pan-y;
 }
 
@@ -144,7 +149,7 @@ body:not([data-scroll-locked]) {
 
   html,
   body {
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: contain;
   }
 }
 
@@ -152,16 +157,23 @@ body:not([data-scroll-locked]) {
   min-height: 100svh;
   overflow-x: hidden;
   overflow-y: visible;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
 }
 
-@media (pointer: fine) {
-  [data-app-scroll-root],
-  .optima-app-surface {
-    overscroll-behavior: auto;
-  }
+/* 2026-06-23: rimosso il forcing di `overscroll-behavior: auto` su desktop.
+   Il bounce di WebKit arrivava anche sui pointer fine (trackpad MacBook)
+   perché le regole qui sotto annullavano il `contain` impostato sopra. */
+
+/* Quando un dialog Radix è aperto e il suo contenuto deve poter scrollare
+   internamente, consenti il bounce solo dentro al viewport della scroll-area
+   ma bloccalo a livello di pagina, così la sidebar e gli altri pannelli
+   non vengono trascinati durante lo scroll interno del dialog. */
+[data-radix-scroll-area-viewport] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
 }
 
 @supports (-webkit-touch-callout: none) {
@@ -171,16 +183,10 @@ body:not([data-scroll-locked]) {
   }
 }
 
-[data-radix-scroll-area-viewport] {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-x pan-y;
-}
-
 .mobile-scroll-container {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: contain;
   touch-action: pan-x pan-y;
 }
 
