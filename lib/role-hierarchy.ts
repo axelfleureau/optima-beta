@@ -21,14 +21,18 @@ export const ROLE_PERMISSIONS = {
   canDeleteUsers: ["super-admin", "admin"] as UserRole[],
   canModifyUserRoles: ["super-admin", "admin"] as UserRole[],
   
-  // Client management permissions  
+  // Client management permissions
   canCreateClients: ["super-admin", "admin", "direzione"] as UserRole[],
   canEditClients: ["super-admin", "admin", "direzione", "capo-reparto"] as UserRole[],
   canDeleteClients: ["super-admin", "admin", "direzione"] as UserRole[],
-  canViewAllClients: ["super-admin", "admin", "direzione", "capo-reparto"] as UserRole[],
-  
+  // I junior possono navigare l'anagrafica clienti per associare task operative
+  // anche quando il task non è legato a un progetto già assegnato.
+  canViewAllClients: ["super-admin", "admin", "direzione", "capo-reparto", "junior"] as UserRole[],
+
   // Task management permissions
-  canCreateTasks: ["super-admin", "admin", "direzione", "capo-reparto"] as UserRole[],
+  // I junior possono creare task operative; la colonna progetto resta opzionale
+  // perché spesso il task è "orphan" e va poi associato da capo-reparto/admin.
+  canCreateTasks: ["super-admin", "admin", "direzione", "capo-reparto", "junior"] as UserRole[],
   canDeleteTasks: ["super-admin", "admin", "direzione"] as UserRole[],
   canAssignTasks: ["super-admin", "admin", "direzione", "capo-reparto"] as UserRole[],
   canViewAllTasks: ["super-admin", "admin", "direzione", "capo-reparto"] as UserRole[],

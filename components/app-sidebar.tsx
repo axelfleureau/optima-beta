@@ -150,6 +150,11 @@ export function AppSidebar() {
       icon: Kanban,
     },
     {
+      title: "Clienti",
+      url: "/clienti",
+      icon: Users,
+    },
+    {
       title: "Rapportino",
       url: "/rapportini",
       icon: ClipboardList,
@@ -163,6 +168,11 @@ export function AppSidebar() {
       title: "Calendario Team",
       url: "/calendario-team",
       icon: CalendarClock,
+    },
+    {
+      title: "Importa Task",
+      url: "/importa-task",
+      icon: Upload,
     },
     {
       title: "AI Assistant",

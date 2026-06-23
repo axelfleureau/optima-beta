@@ -6,7 +6,13 @@ import { createId } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 
-const CLIENT_MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
+// Allineato con `lib/role-hierarchy.ts` -> `canViewAllClients`.
+// Aggiunto `junior` (2026-06-23): i junior possono consultare l'anagrafica
+// clienti per inserire task operative anche quando il task non è ancora
+// legato a un progetto. La creazione/modifica/eliminazione resta gated da
+// `CLIENT_MANAGER_WRITE_ROLES` qui sotto.
+const CLIENT_MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto", "junior"])
+const CLIENT_MANAGER_WRITE_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
 
 function normalizeClientStatus(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "active"
@@ -217,7 +223,7 @@ export async function POST(request: NextRequest) {
     }
 
     const principal = await ensureWorkspacePrincipal(db, user)
-    if (!CLIENT_MANAGER_ROLES.has(principal.role)) {
+    if (!CLIENT_MANAGER_WRITE_ROLES.has(principal.role)) {
       return Response.json({ error: "Permessi insufficienti" }, { status: 403 })
     }
 
