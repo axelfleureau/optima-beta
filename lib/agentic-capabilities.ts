@@ -19,8 +19,9 @@ export type AgenticAuthMethod =
   | "local_install"
   | "external_oauth"
   | "browser_session_oauth"
+  | "device_flow"
 
-export type AgenticInstallState = "not_installed" | "guide_required" | "configured" | "healthy" | "blocked"
+export type AgenticInstallState = "not_installed" | "guide_required" | "configured" | "healthy" | "blocked" | "installed"
 
 export interface AgenticProviderSpec {
   id: string

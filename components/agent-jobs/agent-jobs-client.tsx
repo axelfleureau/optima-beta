@@ -34,6 +34,9 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import type { AgentJob, AgentJobArtifact, AgentJobEvent, AgentRunnerHeartbeat } from "@/lib/agent-jobs"
+import { DeviceFlowConnector } from "@/components/agent-jobs/connectors/DeviceFlowConnector"
+import { ConnectorStates } from "@/components/agent-jobs/connectors/ConnectorStates"
+import { ConnectorWizardHeader } from "@/components/agent-jobs/connectors/ConnectorWizardHeader"
 
 type ConnectorSetupKind = "oauth" | "browser" | "github_owner" | "runtime" | "service_account" | "secret_ref"
 
@@ -2323,6 +2326,10 @@ export function AgentJobsClient({
 
   function isStandardOAuthConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
     return connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth"
+  }
+
+  function isDeviceFlowConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    return connector.authMethod === "device_flow"
   }
 
   function connectorSetupKind(connector: AgenticCapabilities["mcpConnectorCatalog"][number]): ConnectorSetupKind {
@@ -6548,90 +6555,40 @@ export function AgentJobsClient({
 
             {selectedConnector ? (
               <div className="grid min-w-0 gap-4">
-                <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-50">
-                      {connectorAuthLabel(selectedConnector.authMethod)}
-                    </span>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-xs font-black ${
-                        connectorOperationalTone[selectedConnectorOperationalState] ?? connectorOperationalTone.ready_to_connect
-                      }`}
-                    >
+                <ConnectorWizardHeader
+                  authLabel={connectorAuthLabel(selectedConnector.authMethod)}
+                  operationalState={selectedConnectorOperationalState}
+                  healthLabel={selectedConnectorPlan?.healthLabel ?? null}
+                  healthOk={selectedConnectorPlan?.healthOk ?? false}
+                  setupLabel={installLabel(selectedConnectorPlan?.state ?? "not_installed")}
+                  setupTone={installTone(selectedConnectorPlan?.state ?? "not_installed")}
+                  setupKindLabel={connectorSetupKindLabel(selectedConnectorPlan?.kind ?? connectorSetupKind(selectedConnector))}
+                  setupKindTone={connectorSetupKindTone(selectedConnectorPlan?.kind ?? connectorSetupKind(selectedConnector))}
+                  purpose={selectedConnector.purpose}
+                  setupHint={connectorSetupHint(selectedConnector)}
+                />
+
+                <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-black text-white">Stato del flusso</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                        Optima usa il connector solo quando questi stati sono coerenti: niente job generici prima del login/configurazione reale.
+                      </p>
+                    </div>
+                    <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
                       {selectedConnectorOperationalLabel}
                     </span>
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${selectedConnectorPlan?.healthOk ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100"}`}>
-                      {selectedConnectorPlan?.healthLabel ?? "Verifica non eseguita"}
-                    </span>
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedConnectorPlan?.state ?? "not_installed")}`}>
-                      Setup: {installLabel(selectedConnectorPlan?.state ?? "not_installed")}
-                    </span>
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${connectorSetupKindTone(selectedConnectorPlan?.kind ?? connectorSetupKind(selectedConnector))}`}>
-                      {connectorSetupKindLabel(selectedConnectorPlan?.kind ?? connectorSetupKind(selectedConnector))}
-                    </span>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-200">{selectedConnector.purpose}</p>
-                  <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
-                    {connectorSetupHint(selectedConnector)}
-                  </p>
-	                </section>
-
-	                <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
-	                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-	                    <div className="min-w-0">
-	                      <p className="font-black text-white">Stato del flusso</p>
-	                      <p className="mt-1 text-sm leading-6 text-slate-400">
-	                        Optima usa il connector solo quando questi stati sono coerenti: niente job generici prima del login/configurazione reale.
-	                      </p>
-	                    </div>
-	                    <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-	                      {selectedConnectorOperationalLabel}
-	                    </span>
-	                  </div>
-	                  <div className="mt-3 grid gap-2 md:grid-cols-3">
-	                    <div
-	                      className={`rounded-lg border p-3 ${
-	                        selectedConnectorRealPrerequisiteMet
-	                          ? "border-emerald-300/25 bg-emerald-300/[0.07]"
-	                          : selectedConnectorPrimaryActionAvailable
-	                            ? "border-cyan-300/25 bg-cyan-300/[0.06]"
-	                            : "border-amber-300/25 bg-amber-300/[0.07]"
-	                      }`}
-	                    >
-	                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">1. Collegamento</p>
-	                      <p className="mt-1 text-sm font-black text-white">
-	                        {selectedConnectorRealPrerequisiteMet ? "Completato" : connectorVerificationBlockedLabel(selectedConnectorKind)}
-	                      </p>
-	                      <p className="mt-2 text-xs leading-5 text-slate-300">{selectedConnectorPlan?.primaryActionLabel ?? "Azione richiesta"}</p>
-	                    </div>
-	                    <div
-	                      className={`rounded-lg border p-3 ${
-	                        selectedConnectorCanCreateVerification
-	                          ? "border-cyan-300/25 bg-cyan-300/[0.06]"
-	                          : "border-white/10 bg-black/20"
-	                      }`}
-	                    >
-	                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">2. Verifica</p>
-	                      <p className="mt-1 text-sm font-black text-white">
-	                        {selectedConnectorCanCreateVerification ? "Health-check disponibile" : "Bloccata"}
-	                      </p>
-	                      <p className="mt-2 text-xs leading-5 text-slate-300">Solo read-only: controlla sessione, scope, heartbeat o permessi.</p>
-	                    </div>
-	                    <div
-	                      className={`rounded-lg border p-3 ${
-	                        selectedConnectorOperationalState === "connected"
-	                          ? "border-emerald-300/25 bg-emerald-300/[0.07]"
-	                          : "border-white/10 bg-black/20"
-	                      }`}
-	                    >
-	                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">3. Uso agentico</p>
-	                      <p className="mt-1 text-sm font-black text-white">
-	                        {selectedConnectorOperationalState === "connected" ? "Abilitabile" : "Non ancora"}
-	                      </p>
-	                      <p className="mt-2 text-xs leading-5 text-slate-300">I subagenti possono usarlo solo con policy, audit e review coerenti.</p>
-	                    </div>
-	                  </div>
-	                </section>
+                  <ConnectorStates
+                    realPrerequisiteMet={selectedConnectorRealPrerequisiteMet}
+                    primaryActionAvailable={selectedConnectorPrimaryActionAvailable}
+                    canCreateVerification={selectedConnectorCanCreateVerification}
+                    operationalState={selectedConnectorOperationalState}
+                    verificationBlockedLabel={connectorVerificationBlockedLabel(selectedConnectorKind)}
+                    primaryActionLabel={selectedConnectorPlan?.primaryActionLabel ?? null}
+                  />
+                </section>
 
                 <section className="rounded-lg border border-righello-pink/25 bg-righello-pink/[0.07] p-3 sm:p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -6716,6 +6673,20 @@ export function AgentJobsClient({
                           {oauthAction === `connector-oauth:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
                           {selectedConnectorPlan?.canStartOauth === false || !selectedConnectorPrimaryActionAvailable ? "Configura app OAuth" : "Apri OAuth provider"}
                         </Button>
+                      ) : null}
+                      {isDeviceFlowConnector(selectedConnector) ? (
+                        <DeviceFlowConnector
+                          connectorId={selectedConnector.id}
+                          connectorLabel={selectedConnector.label}
+                          primaryActionAvailable={selectedConnectorPrimaryActionAvailable}
+                          primaryActionLabel={selectedConnectorPlan?.primaryActionLabel ?? undefined}
+                          primaryActionExplanation={null}
+                          oauthAction={oauthAction}
+                          setOauthAction={setOauthAction}
+                          onConnected={() => {
+                            void refreshCapabilitiesSnapshot()
+                          }}
+                        />
                       ) : null}
                       {selectedConnector.id !== "browser" && !isStandardOAuthConnector(selectedConnector) && selectedConnector.id !== "github" ? (
                         <Button

@@ -20,7 +20,7 @@ export type StrategicMcpConnector = {
   graphUse: string[]
   requiredEnv: string[]
   optionalEnv?: string[]
-  authMethod: "api_key_secret" | "oauth_pkce" | "github_app" | "runner_env" | "service_account" | "external_oauth" | "browser_session_oauth"
+  authMethod: "api_key_secret" | "oauth_pkce" | "github_app" | "runner_env" | "service_account" | "external_oauth" | "browser_session_oauth" | "device_flow"
   setupSteps: string[]
   healthCheck: string
   notes: string
@@ -41,9 +41,7 @@ const CONNECTORS: ConnectorSpec[] = [
     optionalEnv: ["SENDGRID_FROM_EMAIL", "SENDGRID_FROM_NAME"],
     authMethod: "api_key_secret",
     setupSteps: [
-      "Creare una API key SendGrid con scope Mail Send e statistiche minime.",
-      "Salvare la chiave come secret del runtime autorizzato, non nel database Optima.",
-      "Configurare mittente verificato e fallback di errore visibile in Optima.",
+      "1) `wrangler secret put SENDGRID_API_KEY` sul runtime autorizzato. 2) Redeploy. 3) `npm run connector:status sendgrid` per verificare.",
     ],
     healthCheck: "Invio dry-run o email di test verso un indirizzo interno autorizzato, con log di esito.",
     notes: "Usato da Optima per invii ordinati e tracciabili, non come canale generico non governato.",
@@ -58,9 +56,7 @@ const CONNECTORS: ConnectorSpec[] = [
     optionalEnv: ["TELEGRAM_WEBHOOK_SECRET", "TELEGRAM_ALLOWED_CHAT_IDS", "TELEGRAM_ALLOWED_USERNAMES", "TELEGRAM_MEMBER_EMAIL_MAP"],
     authMethod: "api_key_secret",
     setupSteps: [
-      "Creare o collegare il bot Telegram e salvare il token come secret runtime.",
-      "Definire allowlist chat/user e mappa Telegram -> membro Optima.",
-      "Attivare webhook firmato e salvare ogni messaggio nella conversazione Optima.",
+      "1) BotFather → /newbot → copia token. 2) `wrangler secret put TELEGRAM_BOT_TOKEN` + imposta TELEGRAM_DEFAULT_MEMBER_EMAIL. 3) Redeploy. 4) `npm run connector:status telegram`.",
     ],
     healthCheck: "Messaggio test da utente autorizzato, risposta asincrona e riga audit nella conversazione.",
     notes: "Il bot non bypassa Optima: ogni messaggio viene associato a un membro autorizzato e salvato nella cronologia AI Assistant.",
@@ -75,11 +71,7 @@ const CONNECTORS: ConnectorSpec[] = [
     optionalEnv: ["OPENAI_API_KEY", "OPENAI_FALLBACK_API_KEY"],
     authMethod: "runner_env",
     setupSteps: [
-      "Creare una CODEX_HOME separata per ChatGPT, per esempio /root/.codex-chatgpt, senza sovrascrivere il profilo Codex API-key esistente.",
-      "Autenticare quella home con ChatGPT/device-auth o auth.json gia valido, permessi 700/600, poi verificare codex login status e codex doctor.",
-      "Creare un wrapper esplicito, per esempio codex-chatgpt, e usarlo nei job che devono rientrare nel piano ChatGPT.",
-      "Configurare AGENT_RUNNER_API_KEY come token interno Optima-runner e AGENT_RUNNER_ENABLED=true solo quando si vuole eseguire.",
-      "Eseguire un job dry-run che produce artefatto revisionabile, senza deploy automatico e senza usare API key a consumo salvo override esplicito.",
+      "1) `wrangler secret put AGENT_RUNNER_API_KEY` (token interno Optima-runner). 2) Imposta AGENT_RUNNER_ENABLED=true + CODEX_HOME=/root/.codex-chatgpt. 3) Redeploy. 4) `npm run connector:status codex`.",
     ],
     healthCheck: "Heartbeat recente, codex-chatgpt login status ChatGPT, doctor senza API key, claim job dry-run, artefatto prodotto e stato review aggiornato.",
     notes: "Il runner deve fare polling verso Optima. AGENT_RUNNER_API_KEY e solo token interno; OPENAI_API_KEY e fallback a consumo, non percorso principale. I risultati tornano in review prima di diventare operativi.",
@@ -112,9 +104,7 @@ const CONNECTORS: ConnectorSpec[] = [
     optionalEnv: ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY"],
     authMethod: "api_key_secret",
     setupSteps: [
-      "Creare credenziali Cloudinary tenant-scoped o folder-scoped dove possibile.",
-      "Salvare CLOUDINARY_URL come secret runtime e definire naming/folder per clienti e campagne.",
-      "Collegare asset importati ai nodi cliente/progetto/task nel grafo.",
+      "1) Cloudinary Dashboard → Account Details → copia `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`. 2) `wrangler secret put CLOUDINARY_URL`. 3) Redeploy.",
     ],
     healthCheck: "Lookup account, upload o trasformazione test su asset non sensibile e salvataggio source_id.",
     notes: "Da usare come nodo media del grafo, con asset collegati a clienti, campagne e deliverable.",
@@ -234,16 +224,15 @@ const CONNECTORS: ConnectorSpec[] = [
     category: "code",
     purpose: "Repository, branch, pull request, commit, audit tecnico e collegamento codice-progetto.",
     graphUse: ["repository_links", "agent_jobs", "progetti", "task", "audit"],
-    requiredEnv: ["GITHUB_TOKEN"],
-    optionalEnv: ["GITHUB_APP_ID", "GITHUB_INSTALLATION_ID"],
-    authMethod: "github_app",
+    requiredEnv: ["GITHUB_OAUTH_CLIENT_ID"],
+    optionalEnv: ["GITHUB_TOKEN", "GITHUB_APP_ID", "GITHUB_INSTALLATION_ID"],
+    authMethod: "device_flow",
     setupSteps: [
-      "Autorizzare GitHub solo da owner Axel o GitHub App con repository allowlist.",
-      "Salvare token/installation id fuori da D1 e registrare in Optima solo secret_ref e policy.",
-      "Separare lettura repository, creazione branch/PR e deploy approval come permessi distinti.",
+      "Clicca 'Apri GitHub' in Optima: apri la pagina verification, inserisci il user_code, e il token arriva in automatico.",
+      "Per flusso programmatico (CI) o se preferisci GitHub App: salva GITHUB_TOKEN come secret runtime.",
     ],
-    healthCheck: "Lettura repository allowlist, dry-run branch/PR non distruttivo e audit owner-scoped.",
-    notes: "Connector owner-scoped: l'account GitHub aziendale personale di Axel non e condiviso. Commit, push e deploy richiedono owner GitHub esplicito.",
+    healthCheck: "Lettura repository allowlist via user autenticato, dry-run branch/PR non distruttivo e audit owner-scoped.",
+    notes: "1-click OAuth Device Flow (RFC 8628), stile npx wrangler login. Per App server-to-server mantenere GITHUB_TOKEN.",
   },
   {
     id: "notion",
@@ -276,16 +265,15 @@ const CONNECTORS: ConnectorSpec[] = [
     category: "cloud",
     purpose: "Runtime Optima, D1, R2, Workers, secret, cron, deploy e osservabilita.",
     graphUse: ["runtime", "database", "artifacts", "agent_jobs", "health"],
-    requiredEnv: ["APP_ENV"],
-    optionalEnv: ["NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_SITE_URL"],
-    authMethod: "service_account",
+    requiredEnv: ["CLOUDFLARE_OAUTH_CLIENT_ID"],
+    optionalEnv: ["APP_ENV", "NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_SITE_URL", "CLOUDFLARE_API_TOKEN"],
+    authMethod: "device_flow",
     setupSteps: [
-      "Configurare token Cloudflare con scope minimi per Worker, D1, R2 e secrets necessari.",
-      "Separare deploy production da preview e mantenere audit dei comandi eseguiti.",
-      "Verificare cron, D1 e artifact storage prima di dichiarare operativo.",
+      "Clicca 'Apri Cloudflare' in Optima: apri la pagina verification, inserisci il user_code, e Optima ottiene i permessi automaticamente.",
+      "Per uso programmatico (CI/script) puoi anche salvare CLOUDFLARE_API_TOKEN come secret runtime.",
     ],
     healthCheck: "Ping Worker, query D1 read-only, accesso R2 artifact e deploy dry-run o preview.",
-    notes: "Cloudflare e il piano operativo applicativo: deploy e dati devono restare verificabili.",
+    notes: "1-click OAuth Device Flow (RFC 8628), stile npx wrangler login. Il client_id OAuth pubblico deve solo essere configurato in Cloudflare.",
   },
   {
     id: "vercel",
@@ -314,9 +302,7 @@ const CONNECTORS: ConnectorSpec[] = [
     optionalEnv: ["OPTIMA_VPS_TAILSCALE_HOST", "OPTIMA_VPS_TAILSCALE_IP"],
     authMethod: "api_key_secret",
     setupSteps: [
-      "Salvare token Hostinger/Tailscale/SSH solo nel runtime autorizzato.",
-      "Definire area Optima sul VPS e vietare scritture su installazioni Hermes o soci senza consenso.",
-      "Monitorare disco, RAM, systemd e heartbeat runner in Optima.",
+      "1) `wrangler secret put HOSTINGER_API_TOKEN`. 2) Redeploy. 3) `npm run connector:status hostinger` per verificare health-check.",
     ],
     healthCheck: "Check Tailscale/SSH read-only, spazio disco, servizio runner e heartbeat recente.",
     notes: "Il VPS deve essere osservabile e gestito via servizio, non tramite sessione browser fragile.",
