@@ -2,7 +2,7 @@
 
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { Activity, AlarmClock, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, RefreshCw, Sparkles, TimerOff, UserCheck, Users, X, XCircle } from "lucide-react"
+import { Activity, AlarmClock, AlertCircle, ArrowRight, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Flame, Loader2, LogIn, LogOut, Minus, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Sparkles, TimerOff, UserCheck, Users, X, XCircle } from "lucide-react"
 import { gsap } from "gsap"
 import { toast } from "sonner"
 
@@ -40,6 +40,9 @@ type PersonPresence = {
   presenceSignal: "late" | "early-exit" | null
   coverageRatio: number
   activityRatio: number
+  taskCount: number
+  taskMinutes: number
+  taskTitles: string[]
   upcomingTasks: Array<{
     id: string
     title: string
@@ -501,6 +504,10 @@ export default function PresenzePage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
+  // 2026-06-24: quick-create task prima del check-out (richiesta Edis).
+  const [quickTaskOpen, setQuickTaskOpen] = useState(false)
+  const [quickTaskTitle, setQuickTaskTitle] = useState("")
+  const [quickTaskBusy, setQuickTaskBusy] = useState(false)
 
   const load = useCallback(async (mode: "initial" | "refresh" = "refresh") => {
     if (mode === "initial") setLoading(true)
@@ -579,6 +586,51 @@ export default function PresenzePage() {
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.error || "Errore aggiornamento presenza")
     await load("refresh")
+  }
+
+  // 2026-06-24: quick-create task prima del check-out (richiesta Edis).
+  // Crea una task operativa collegata al tenant corrente, con projectId nullo,
+  // e la aggancia al membro corrente. Solo le direzione e admin possono creare task
+  // (canCreateTasks) — gli altri utenti vedranno solo il reminder soft.
+  const submitQuickTask = async () => {
+    const title = quickTaskTitle.trim()
+    if (!title) {
+      toast.error("Scrivi prima cosa è stato fatto: diventa il titolo della task.")
+      return
+    }
+    setQuickTaskBusy(true)
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          projectId: null,
+          clientName: "Righello",
+          status: "to-do",
+          columnId: "to-do",
+          priority: "medium",
+          type: "Operations",
+          tags: ["presenze-quick"],
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || "Errore creazione task veloce")
+      }
+      toast.success("Task veloce creata", {
+        description: `“${title}” collegata a Righello. Ora puoi fare check-out.`,
+      })
+      setQuickTaskTitle("")
+      setQuickTaskOpen(false)
+      await load("refresh")
+    } catch (err) {
+      toast.error("Task veloce non creata", {
+        description: err instanceof Error ? err.message : "Errore sconosciuto",
+      })
+    } finally {
+      setQuickTaskBusy(false)
+    }
   }
 
   const mutateMemberAbsence = async (memberId: string, memberName: string) => {
@@ -696,6 +748,96 @@ export default function PresenzePage() {
                     className={cn("mt-3 h-10 rounded-[8px]", nativeDateTimeInputClass)}
                   />
                 </div>
+              </div>
+
+              {/* 2026-06-24: reminder task-count prima del check-out (richiesta Edis).
+                  Se non ci sono task oggi, mostro un banner soft + bottone "Aggiungi task veloce"
+                  che apre un dialog inline. Il check-out resta funzionante in entrambi i casi. */}
+              <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                      Task di oggi
+                    </p>
+                    <p className="mt-1 text-sm text-slate-300">
+                      {(self?.taskCount ?? 0) > 0 ? (
+                        <>
+                          <span className="font-black text-cyan-100">
+                            {self?.taskCount}
+                          </span>{" "}
+                          task collegata/e a questa giornata
+                          {self?.taskTitles?.length
+                            ? ` — ${self.taskTitles.slice(0, 3).join(" · ")}${self.taskTitles.length > 3 ? "…" : ""}`
+                            : ""}
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-black text-amber-200">
+                            Nessuna task registrata oggi
+                          </span>{" "}
+                          — il rapportino della giornata sarà vuoto se esci adesso.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  {self?.checkInAt && (self?.taskCount ?? 0) === 0 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setQuickTaskOpen(true)}
+                      className="border-cyan-300/30 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15"
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" /> Aggiungi task veloce
+                    </Button>
+                  ) : null}
+                </div>
+
+                {quickTaskOpen ? (
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      autoFocus
+                      placeholder="Cosa hai fatto oggi? (es. 'Revisione brief G&M')"
+                      value={quickTaskTitle}
+                      onChange={(e) => setQuickTaskTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !quickTaskBusy) {
+                          e.preventDefault()
+                          void submitQuickTask()
+                        }
+                      }}
+                      className="h-10 flex-1 border-white/10 bg-black/30 text-slate-100 placeholder:text-slate-500"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => void submitQuickTask()}
+                        disabled={quickTaskBusy}
+                        className="bg-cyan-500 text-slate-950 hover:bg-cyan-400"
+                      >
+                        {quickTaskBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          "Crea"
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setQuickTaskOpen(false)
+                          setQuickTaskTitle("")
+                        }}
+                        disabled={quickTaskBusy}
+                        className="border-white/10 bg-white/5 text-slate-200"
+                      >
+                        Annulla
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">

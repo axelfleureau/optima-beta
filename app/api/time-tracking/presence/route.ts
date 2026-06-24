@@ -303,6 +303,16 @@ function mapPresenceRow(row: any, upcomingRows: any[] = []) {
     const workflowState = String(task.column_id || task.status || "").toLowerCase()
     return priority === "urgent" || workflowState === "urgent"
   }).length
+  // 2026-06-24: taskCount + taskTitles di oggi per il reminder prima del check-out
+  // (richiesta Edis). Mostra quante task sono collegate al membro per la data
+  // corrente, anche se non sono "operational" (urgent/today). Così il reminder
+  // soft in /presenze può dire "0 task" o "N task collegate".
+  const todayTasks = Array.isArray(upcomingRows) ? upcomingRows : []
+  const taskCount = todayTasks.length
+  const taskTitles = todayTasks
+    .map((task) => String(task.title || "").trim())
+    .filter(Boolean)
+    .slice(0, 5)
 
   return {
     id: String(row.id),
@@ -332,6 +342,8 @@ function mapPresenceRow(row: any, upcomingRows: any[] = []) {
     nextTask: upcomingTasks[0] || null,
     plannedSoonMinutes,
     urgentSoonCount: urgentCount,
+    taskCount,
+    taskTitles,
     availability: operationalAvailability({
       status,
       plannedSoonMinutes,
