@@ -55,7 +55,11 @@ jobs:
       - name: Verify wrangler config sanity
         run: |
           node -e '
-            const cfg = require("./wrangler.jsonc");
+            const fs = require("fs");
+            // wrangler.jsonc is JSONC (no comments in our case but be safe): strip // and /* */ then JSON.parse
+            let raw = fs.readFileSync("./wrangler.jsonc", "utf8");
+            raw = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+            const cfg = JSON.parse(raw);
             if (!cfg.env || !cfg.env.production) {
               throw new Error("Manca env.production in wrangler.jsonc");
             }
@@ -101,5 +105,5 @@ jobs:
             echo "- URL: https://appbeta.wearerighello.com"
             echo "- Workers.dev: https://optima-beta-production.axel-15d.workers.dev"
             echo ""
-            echo "Verificato tramite `wrangler deploy` con route patch automatico."
+            echo "Verificato tramite wrangler deploy con route patch automatico."
           } >> "$GITHUB_STEP_SUMMARY"

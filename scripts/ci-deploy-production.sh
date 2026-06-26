@@ -41,7 +41,10 @@ echo "==> Patch routes (rimozione temporanea)"
 node -e '
 const fs = require("fs");
 const file = process.argv[1];
-const cfg = JSON.parse(fs.readFileSync(file, "utf8"));
+let raw = fs.readFileSync(file, "utf8");
+// JSONC: strip comments (line + block) prima di JSON.parse
+raw = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const cfg = JSON.parse(raw);
 if (cfg.env && cfg.env.production && Array.isArray(cfg.env.production.routes)) {
   cfg.env.production._routes_backup = cfg.env.production.routes;
   delete cfg.env.production.routes;
