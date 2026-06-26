@@ -4,12 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
   AlertTriangle,
+  BookOpen,
   Bot,
   CheckCircle2,
   ClipboardList,
   Clock,
-  FileSearch,
+  Copy,
+  ExternalLink,
   Eye,
+  FileSearch,
   FileText,
   GitBranch,
   Loader2,
@@ -29,6 +32,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -37,6 +41,13 @@ import type { AgentJob, AgentJobArtifact, AgentJobEvent, AgentRunnerHeartbeat } 
 import { DeviceFlowConnector } from "@/components/agent-jobs/connectors/DeviceFlowConnector"
 import { ConnectorStates } from "@/components/agent-jobs/connectors/ConnectorStates"
 import { ConnectorWizardHeader } from "@/components/agent-jobs/connectors/ConnectorWizardHeader"
+import {
+  connectorAuthLabel as connectorAuthLabelUtil,
+  connectorSetupKindLabel as connectorSetupKindLabelUtil,
+  connectorSetupKindTone as connectorSetupKindToneUtil,
+  isStandardOAuthConnector as isStandardOAuthConnectorUtil,
+  isDeviceFlowConnector as isDeviceFlowConnectorUtil,
+} from "@/components/agent-jobs/connectors/connector-utils"
 
 type ConnectorSetupKind = "oauth" | "browser" | "github_owner" | "runtime" | "service_account" | "secret_ref"
 
@@ -628,6 +639,9 @@ const installStateTone: Record<string, string> = {
   healthy: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
   blocked: "border-red-300/25 bg-red-300/10 text-red-100",
 }
+
+// 2026-06-25: estratte in connector-utils.ts (installLabel, installTone, connectorOperationalTone, ...)
+// Le costanti locali sono mantenute per compat con il codice esistente che le referenzia direttamente.
 
 const connectorOperationalTone: Record<string, string> = {
   connected: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
@@ -1978,6 +1992,8 @@ export function AgentJobsClient({
   const [setupAction, setSetupAction] = useState<string | null>(null)
   const [oauthAction, setOauthAction] = useState<string | null>(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
+  // 2026-06-25: setup info dialog (istruzioni operative per creare OAuth App)
+  const [setupInfo, setSetupInfo] = useState<null | { connectorId: string; loading: boolean; data: any | null }>(null)
   const [connectorLaneFilter, setConnectorLaneFilter] = useState<ConnectorSetupKind | "all">("all")
   const [connectorSearch, setConnectorSearch] = useState("")
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
@@ -2006,6 +2022,40 @@ export function AgentJobsClient({
     if (!response.ok) throw new Error(data?.error ?? "Errore refresh stack agentico")
     setCapabilities(data)
     return data as AgenticCapabilities
+  }
+
+  // 2026-06-25: apre il dialog delle istruzioni operative per creare le OAuth App
+  // (Google, Meta, LinkedIn, Notion, Vercel, GitHub, Cloudflare). 1-click copy
+  // per redirect URI e scope.
+  async function openSetupInfo(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+    setSetupInfo({ connectorId: connector.id, loading: true, data: null })
+    try {
+      const response = await fetch(
+        `/api/mcp/oauth/setup-info/${encodeURIComponent(connector.id)}`,
+        { cache: "no-store" },
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Errore caricamento istruzioni setup")
+      }
+      setSetupInfo({ connectorId: connector.id, loading: false, data })
+    } catch (err) {
+      toast.error("Istruzioni setup non disponibili", {
+        description: err instanceof Error ? err.message : "Errore sconosciuto",
+      })
+      setSetupInfo(null)
+    }
+  }
+
+  // 2026-06-25: helper per copiare snippet (redirect URI, scope, env vars) con
+  // feedback toast. Mai loggato in chiaro.
+  async function copyToClipboard(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success(label, { description: "Copiato negli appunti" })
+    } catch {
+      toast.error("Copia non riuscita")
+    }
   }
 
   useEffect(() => {
@@ -6537,6 +6587,169 @@ export function AgentJobsClient({
           </DialogContent>
         </Dialog>
 
+        {/* 2026-06-25: Dialog "Istruzioni setup" — mostra i passi operativi per creare
+            la OAuth App del provider (URL, scope, callback URI, env vars).
+            Bottoni "Copia" per redirect URI, scope, e ogni env var sensibile. */}
+        <Dialog
+          open={setupInfo !== null}
+          onOpenChange={(open) => {
+            if (!open) setSetupInfo(null)
+          }}
+        >
+          <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
+            <DialogHeader className="pr-8 text-left">
+              <DialogTitle className="flex items-center gap-2 text-xl font-black sm:text-2xl">
+                <BookOpen className="h-5 w-5 text-cyan-100" />
+                Istruzioni setup {setupInfo?.data?.connectorLabel ? `— ${setupInfo.data.connectorLabel}` : ""}
+              </DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Crea la OAuth App sul provider, salva le env come secret runtime, poi fai redeploy.
+              </DialogDescription>
+            </DialogHeader>
+
+            {setupInfo?.loading ? (
+              <div className="flex items-center justify-center gap-3 p-6 text-sm text-slate-300">
+                <Loader2 className="h-4 w-4 animate-spin" /> Caricamento istruzioni…
+              </div>
+            ) : setupInfo?.data ? (
+              <div className="grid min-w-0 gap-4">
+                <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
+                    Provider · {setupInfo.data.guide?.provider ?? "?"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
+                    {setupInfo.data.purpose}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-bold text-slate-300">
+                      {setupInfo.data.authMethod}
+                    </span>
+                    {setupInfo.data.guide?.oneClick ? (
+                      <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 font-bold text-emerald-100">
+                        1-click (wrangler-style)
+                      </span>
+                    ) : null}
+                  </div>
+                </section>
+
+                {setupInfo.data.guide?.redirectUri ? (
+                  <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                      Redirect URI da configurare sul provider
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <code className="flex-1 break-all rounded-md border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs text-cyan-100">
+                        {setupInfo.data.guide.redirectUri}
+                      </code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(setupInfo.data.guide.redirectUri, "Redirect URI copiato")}
+                        className="border-cyan-300/30 text-cyan-100 hover:bg-cyan-300/10"
+                      >
+                        <Copy className="mr-1 h-3.5 w-3.5" /> Copia
+                      </Button>
+                    </div>
+                  </section>
+                ) : null}
+
+                {Array.isArray(setupInfo.data.guide?.setupSteps) && setupInfo.data.guide.setupSteps.length ? (
+                  <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                      Passi operativi
+                    </p>
+                    <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-slate-200">
+                      {setupInfo.data.guide.setupSteps.map((step: string, idx: number) => (
+                        <li key={idx} className="break-words">
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                ) : null}
+
+                {Array.isArray(setupInfo.data.guide?.envVars) && setupInfo.data.guide.envVars.length ? (
+                  <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                      Env vars da salvare come secret runtime
+                    </p>
+                    <ul className="mt-2 space-y-2">
+                      {setupInfo.data.guide.envVars.map((env: { name: string; description: string; sensitive: boolean }, idx: number) => (
+                        <li
+                          key={idx}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/30 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-mono text-sm font-black text-cyan-100">{env.name}</p>
+                            <p className="mt-0.5 text-xs leading-5 text-slate-400">{env.description}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {env.sensitive ? (
+                              <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-[10px] font-black text-amber-100">
+                                secret
+                              </span>
+                            ) : null}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                copyToClipboard(
+                                  `wrangler secret put ${env.name}=<value>`,
+                                  "Comando copiato",
+                                )
+                              }
+                              className="text-slate-300 hover:text-white"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                {setupInfo.data.guide?.consentUrl ? (
+                  <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-sm leading-6 text-amber-50">
+                    <p className="font-black">Apri la console del provider:</p>
+                    <a
+                      href={setupInfo.data.guide.consentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber-100 underline"
+                    >
+                      {setupInfo.data.guide.consentUrl}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </section>
+                ) : null}
+
+                {setupInfo.data.notes ? (
+                  <section className="rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
+                    <p className="font-black text-slate-200">Note dal catalogo</p>
+                    <p className="mt-1 whitespace-pre-line">{setupInfo.data.notes}</p>
+                  </section>
+                ) : null}
+              </div>
+            ) : (
+              <div className="p-6 text-sm text-slate-400">Nessun dato disponibile.</div>
+            )}
+
+            <DialogFooter className="mt-2 flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSetupInfo(null)}
+                className="border-white/10 bg-white/[0.04] text-slate-200"
+              >
+                Chiudi
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Dialog
           open={Boolean(selectedConnector)}
           onOpenChange={(open) => {
@@ -6701,6 +6914,24 @@ export function AgentJobsClient({
                         </Button>
                       ) : null}
                     </div>
+                  </div>
+
+                  {/* 2026-06-25: bottone "Istruzioni setup" — apre un dialog con le
+                      istruzioni operative (URL provider, scope, callback URI, env vars).
+                      Sempre visibile per ogni connector, indipendentemente dallo stato. */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openSetupInfo(selectedConnector)}
+                      className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                    >
+                      <BookOpen className="mr-1.5 h-3.5 w-3.5" /> Istruzioni setup
+                    </Button>
+                    <span className="text-xs text-slate-500">
+                      {connectorAuthLabel(selectedConnector.authMethod)} · client_id + secret su runtime
+                    </span>
                   </div>
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">

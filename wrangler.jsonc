@@ -13,7 +13,7 @@
     "enabled": true
   },
   "triggers": {
-    "crons": ["0 9 * * *"]
+    "crons": ["0 9 * * *", "0 */6 * * *"]
   },
   "vars": {
     "APP_ENV": "production",
@@ -57,6 +57,7 @@
         "NEXT_PUBLIC_SITE_URL": "https://optima-beta-staging.axel-15d.workers.dev",
         "NEXT_PUBLIC_APP_URL": "https://optima-beta-staging.axel-15d.workers.dev",
         "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dmFsdWVkLWdsaWRlci0zMi5jbGVyay5hY2NvdW50cy5kZXYk",
+        "CRON_SECRET": "dev-cron-secret-staging",
         "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/login",
         "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "/register",
         "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/dashboard",
@@ -110,7 +111,8 @@
         "CODEX_TELEGRAM_BIN": "codex-chatgpt",
         "OPENAI_REASONING_MODEL": "gpt-5.2",
         "OPENAI_FAST_MODEL": "gpt-5-mini",
-        "OPENAI_CHAT_MODEL": "gpt-5.2"
+        "OPENAI_CHAT_MODEL": "gpt-5.2",
+        "CRON_SECRET": "dev-cron-secret-production"
       },
       "d1_databases": [
         {
