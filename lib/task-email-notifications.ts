@@ -1,25 +1,33 @@
-import { sendEmail } from "@/lib/sendgrid"
-import type { WorkspacePrincipal } from "@/lib/workspace-db"
+import {
+  appUrl,
+  escapeHtml,
+  renderBrandedEmail,
+  renderEmailPanel,
+  resolveEmailBrand,
+  type EmailBrand,
+} from "@/lib/email-branding";
+import { sendEmail } from "@/lib/sendgrid";
+import type { WorkspacePrincipal } from "@/lib/workspace-db";
 
 type WorkspaceActor = {
-  email?: string
-  firstName?: string
-  lastName?: string
-}
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+};
 
 type TaskNotificationInput = {
-  db: any
-  principal: WorkspacePrincipal
-  actor: WorkspaceActor
-  previousTask: any
-  updatedTask: any
-  changes: Record<string, unknown>
-}
+  db: any;
+  principal: WorkspacePrincipal;
+  actor: WorkspaceActor;
+  previousTask: any;
+  updatedTask: any;
+  changes: Record<string, unknown>;
+};
 
 type Recipient = {
-  email: string
-  name: string
-}
+  email: string;
+  name: string;
+};
 
 const CLIENT_VISIBLE_CHANGE_KEYS = new Set([
   "title",
@@ -34,100 +42,192 @@ const CLIENT_VISIBLE_CHANGE_KEYS = new Set([
   "comments",
   "attachments",
   "subItems",
-])
+]);
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;")
-}
-
-function appUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://optima-beta-staging.axel-15d.workers.dev"
+function normalizeEmail(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function actorName(actor: WorkspaceActor) {
-  return [actor.firstName, actor.lastName].filter(Boolean).join(" ").trim() || actor.email || "Utente Optima"
+  return (
+    [actor.firstName, actor.lastName].filter(Boolean).join(" ").trim() ||
+    actor.email ||
+    "Utente Optima"
+  );
 }
 
 function recipientName(row: any) {
-  return [row.first_name, row.last_name].filter(Boolean).join(" ").trim() || row.name || row.company || row.email || "Destinatario"
+  return (
+    [row.first_name, row.last_name].filter(Boolean).join(" ").trim() ||
+    row.name ||
+    row.company ||
+    row.email ||
+    "Destinatario"
+  );
 }
 
 function parseArray(value: unknown) {
-  if (Array.isArray(value)) return value
-  if (typeof value !== "string" || !value) return []
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value) return [];
   try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed : []
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return []
+    return [];
   }
 }
 
-function latestNewComment(previousTask: any, updatedTask: any, changes: Record<string, unknown>) {
-  if (!("comments" in changes)) return null
+function latestNewComment(
+  previousTask: any,
+  updatedTask: any,
+  changes: Record<string, unknown>,
+) {
+  if (!("comments" in changes)) return null;
 
-  const previousComments = parseArray(previousTask?.comments_json)
-  const updatedComments = parseArray(changes.comments ?? updatedTask?.comments_json)
-  if (updatedComments.length === 0) return null
+  const previousComments = parseArray(previousTask?.comments_json);
+  const updatedComments = parseArray(
+    changes.comments ?? updatedTask?.comments_json,
+  );
+  if (updatedComments.length === 0) return null;
 
-  const previousIds = new Set(previousComments.map((comment: any) => String(comment?.id || "")))
-  const comment = updatedComments.find((item: any) => !previousIds.has(String(item?.id || ""))) || updatedComments.at(-1)
-  if (!comment?.text) return null
+  const previousIds = new Set(
+    previousComments.map((comment: any) => String(comment?.id || "")),
+  );
+  const comment =
+    updatedComments.find(
+      (item: any) => !previousIds.has(String(item?.id || "")),
+    ) || updatedComments.at(-1);
+  if (!comment?.text) return null;
 
   return {
     text: String(comment.text),
     authorName: String(comment.authorName || comment.author_name || ""),
-  }
+    mentions: Array.isArray(comment.mentions) ? comment.mentions : [],
+  };
+}
+
+async function resolveMentionRecipients(
+  db: any,
+  organizationId: string,
+  latestComment: ReturnType<typeof latestNewComment>,
+): Promise<Recipient[]> {
+  const mentionIds = Array.from(
+    new Set(
+      (latestComment?.mentions || [])
+        .map((mention: any) => String(mention?.id || "").trim())
+        .filter(Boolean)
+        .slice(0, 20),
+    ),
+  );
+  if (!mentionIds.length) return [];
+
+  const placeholders = mentionIds.map(() => "?").join(",");
+  const result = await db
+    .prepare(
+      `SELECT id, email, first_name, last_name
+       FROM members
+       WHERE organization_id = ?
+         AND id IN (${placeholders})
+         AND COALESCE(status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled', 'inactive')`,
+    )
+    .bind(organizationId, ...mentionIds)
+    .all();
+
+  return (result.results || [])
+    .filter((member: any) => member.email)
+    .map((member: any) => ({
+      email: String(member.email),
+      name: recipientName(member),
+    }));
 }
 
 function hasClientVisibleChange(changes: Record<string, unknown>) {
-  return Object.keys(changes).some((key) => CLIENT_VISIBLE_CHANGE_KEYS.has(key))
+  return Object.keys(changes).some((key) =>
+    CLIENT_VISIBLE_CHANGE_KEYS.has(key),
+  );
 }
 
-function changeSummary(changes: Record<string, unknown>, latestComment: ReturnType<typeof latestNewComment>) {
-  if (latestComment) return "Nuovo commento"
-  if ("attachments" in changes) return "Allegati aggiornati"
-  if ("columnId" in changes || "status" in changes) return "Stato aggiornato"
-  if ("dueDate" in changes) return "Scadenza aggiornata"
-  if ("title" in changes) return "Titolo aggiornato"
-  if ("description" in changes || "richDescription" in changes) return "Descrizione aggiornata"
-  if ("subItems" in changes) return "Sotto-attivita aggiornate"
-  return "Task aggiornata"
+function changeSummary(
+  changes: Record<string, unknown>,
+  latestComment: ReturnType<typeof latestNewComment>,
+) {
+  if (latestComment) return "Nuovo commento";
+  if ("attachments" in changes) return "Allegati aggiornati";
+  if ("columnId" in changes || "status" in changes) return "Stato aggiornato";
+  if ("dueDate" in changes) return "Scadenza aggiornata";
+  if ("title" in changes) return "Titolo aggiornato";
+  if ("description" in changes || "richDescription" in changes)
+    return "Descrizione aggiornata";
+  if ("subItems" in changes) return "Sotto-attivita aggiornate";
+  if ("deleted" in changes) return "Task eliminata";
+  if ("assignmentAction" in changes) return "Assegnazione aggiornata";
+  return "Task aggiornata";
 }
 
-async function resolveMemberRecipient(db: any, organizationId: string, task: any): Promise<Recipient | null> {
-  const memberIds = [task?.assignee_member_id, task?.created_by_member_id].filter(Boolean)
+async function resolveTenantRecipient(
+  db: any,
+  organizationId: string,
+): Promise<Recipient> {
+  const organization = await db
+    .prepare(
+      `SELECT name
+       FROM organizations
+       WHERE id = ?
+       LIMIT 1`,
+    )
+    .bind(organizationId)
+    .first()
+    .catch(() => null);
 
-  for (const memberId of memberIds) {
-    const member = await db
-      .prepare(
-        `SELECT email, first_name, last_name
-         FROM members
-         WHERE organization_id = ? AND id = ?
-         LIMIT 1`,
-      )
-      .bind(organizationId, memberId)
-      .first()
+  const organizationName = String(organization?.name || "Righello").trim();
+  const configuredEmail =
+    process.env.TENANT_NOTIFICATION_EMAIL ||
+    process.env.TENANT_MAILBOX_EMAIL ||
+    "";
 
-    if (member?.email) {
-      return {
-        email: String(member.email),
-        name: recipientName(member),
-      }
-    }
-  }
-
-  return null
+  return {
+    email: configuredEmail.trim() || "hello@wearerighello.com",
+    name: organizationName ? `${organizationName} operations` : "Tenant",
+  };
 }
 
-async function resolveClientRecipient(db: any, organizationId: string, task: any): Promise<Recipient | null> {
-  const clientId = task?.client_id ? String(task.client_id) : ""
-  if (!clientId || clientId === "tenant" || clientId === "all") return null
+async function resolveAssigneeRecipient(
+  db: any,
+  organizationId: string,
+  task: any,
+): Promise<Recipient | null> {
+  const memberId = task?.assignee_member_id
+    ? String(task.assignee_member_id)
+    : "";
+  if (!memberId) return null;
+
+  const member = await db
+    .prepare(
+      `SELECT email, first_name, last_name
+       FROM members
+       WHERE organization_id = ? AND id = ?
+       LIMIT 1`,
+    )
+    .bind(organizationId, memberId)
+    .first();
+
+  if (!member?.email) return null;
+
+  return {
+    email: String(member.email),
+    name: recipientName(member),
+  };
+}
+
+async function resolveClientRecipient(
+  db: any,
+  organizationId: string,
+  task: any,
+): Promise<Recipient | null> {
+  const clientId = task?.client_id ? String(task.client_id) : "";
+  if (!clientId || clientId === "tenant" || clientId === "all") return null;
 
   const client = await db
     .prepare(
@@ -137,78 +237,116 @@ async function resolveClientRecipient(db: any, organizationId: string, task: any
        LIMIT 1`,
     )
     .bind(organizationId, clientId)
-    .first()
+    .first();
 
-  if (!client?.email) return null
+  if (!client?.email) return null;
 
   return {
     email: String(client.email),
     name: recipientName(client),
-  }
+  };
 }
 
 function sameMailbox(left?: string, right?: string) {
-  return Boolean(left && right && left.toLowerCase() === right.toLowerCase())
+  return Boolean(
+    left && right && normalizeEmail(left) === normalizeEmail(right),
+  );
 }
 
 function renderTaskEmail(params: {
-  preheader: string
-  heading: string
-  intro: string
-  taskTitle: string
-  taskMeta: string
-  commentText?: string
-  actionLabel: string
-  url: string
+  brand?: EmailBrand;
+  preheader: string;
+  heading: string;
+  intro: string;
+  taskTitle: string;
+  taskMeta: string;
+  commentText?: string;
+  actionLabel: string;
+  url: string;
 }) {
   const commentBlock = params.commentText
-    ? `<div style="margin:22px 0;padding:16px;border-left:4px solid #ec4899;background:#fdf2f8;color:#831843;white-space:pre-wrap">${escapeHtml(params.commentText)}</div>`
-    : ""
+    ? renderEmailPanel(
+        `<div style="color:#831843;white-space:pre-wrap">${escapeHtml(params.commentText)}</div>`,
+      )
+    : "";
 
-  return `
-    <div style="display:none;max-height:0;overflow:hidden">${escapeHtml(params.preheader)}</div>
-    <div style="font-family:Inter,Arial,sans-serif;max-width:640px;margin:0 auto;background:#f8fafc;color:#0f172a">
-      <div style="background:#050711;color:white;padding:30px;border-radius:16px 16px 0 0">
-        <div style="font-size:13px;color:#f472b6;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Optima</div>
-        <h1 style="margin:12px 0 0;font-size:27px;line-height:1.2">${escapeHtml(params.heading)}</h1>
-      </div>
-      <div style="background:white;padding:30px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 16px 16px">
-        <p style="font-size:16px;line-height:1.6;margin:0 0 18px">${escapeHtml(params.intro)}</p>
-        <div style="padding:18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc">
-          <div style="font-size:13px;color:#64748b;margin-bottom:6px">${escapeHtml(params.taskMeta)}</div>
-          <div style="font-size:18px;font-weight:800;color:#0f172a">${escapeHtml(params.taskTitle)}</div>
-        </div>
-        ${commentBlock}
-        <p style="margin:28px 0 0">
-          <a href="${params.url}" style="display:inline-block;background:#ec4899;color:white;padding:14px 22px;border-radius:10px;text-decoration:none;font-weight:800">${escapeHtml(params.actionLabel)}</a>
-        </p>
-      </div>
-    </div>
-  `
+  return renderBrandedEmail({
+    brand: params.brand,
+    preheader: params.preheader,
+    eyebrow: "Workspace",
+    title: params.heading,
+    intro: params.intro,
+    sections: [
+      {
+        title: "Task",
+        html: renderEmailPanel(
+          `<div style="font-size:13px;color:#64748b;margin-bottom:6px">${escapeHtml(params.taskMeta)}</div>
+           <div style="font-size:18px;font-weight:800;color:#0f172a">${escapeHtml(params.taskTitle)}</div>`,
+        ),
+      },
+      ...(commentBlock ? [{ title: "Messaggio", html: commentBlock }] : []),
+    ],
+    cta: { label: params.actionLabel, url: params.url },
+  });
+}
+
+function dedupeRecipients(recipients: Array<Recipient | null | undefined>) {
+  const seen = new Set<string>();
+  return recipients.filter((recipient): recipient is Recipient => {
+    const email = normalizeEmail(recipient?.email);
+    if (!email || seen.has(email)) return false;
+    seen.add(email);
+    return true;
+  });
 }
 
 export async function notifyTaskChange(input: TaskNotificationInput) {
-  const latestComment = latestNewComment(input.previousTask, input.updatedTask, input.changes)
-  const isClientActor = input.principal.role === "client"
-  const taskTitle = String(input.updatedTask?.title || input.previousTask?.title || "Task")
-  const taskUrl = `${appUrl()}/workspace`
-  const name = actorName(input.actor)
-  const summary = changeSummary(input.changes, latestComment)
+  const latestComment = latestNewComment(
+    input.previousTask,
+    input.updatedTask,
+    input.changes,
+  );
+  const isClientActor = input.principal.role === "client";
+  const taskTitle = String(
+    input.updatedTask?.title || input.previousTask?.title || "Task",
+  );
+  const taskUrl = `${appUrl()}/workspace`;
+  const name = actorName(input.actor);
+  const summary = changeSummary(input.changes, latestComment);
+  const commentText = latestComment?.text;
+  const brand = await resolveEmailBrand(
+    input.db,
+    input.principal.organizationId,
+  );
 
-  if (isClientActor) {
-    if (!latestComment && !("attachments" in input.changes)) return
+  const operationalRecipients = dedupeRecipients([
+    await resolveTenantRecipient(input.db, input.principal.organizationId),
+    await resolveAssigneeRecipient(
+      input.db,
+      input.principal.organizationId,
+      input.updatedTask,
+    ),
+    ...(await resolveMentionRecipients(
+      input.db,
+      input.principal.organizationId,
+      latestComment,
+    )),
+  ]);
 
-    const recipient = await resolveMemberRecipient(input.db, input.principal.organizationId, input.updatedTask)
-    if (!recipient || sameMailbox(recipient.email, input.actor.email)) return
-
-    const heading = latestComment ? "Nuovo commento cliente" : "Nuovo follow up cliente"
-    const intro = `${name} ha aggiornato la task lato cliente.`
-    const commentText = latestComment?.text
+  if (operationalRecipients.length > 0) {
+    const heading = latestComment
+      ? "Nuovo commento sulla task"
+      : "Task aggiornata";
+    const intro = `${name} ha aggiornato una task del workspace.`;
 
     await sendEmail({
-      to: { email: recipient.email, name: recipient.name },
-      subject: `${heading}: ${taskTitle}`,
+      to: operationalRecipients.map((recipient) => ({
+        email: recipient.email,
+        name: recipient.name,
+      })),
+      subject: `${summary}: ${taskTitle}`,
       html: renderTaskEmail({
+        brand,
         preheader: `${summary} su ${taskTitle}`,
         heading,
         intro,
@@ -218,27 +356,37 @@ export async function notifyTaskChange(input: TaskNotificationInput) {
         actionLabel: "Apri la task",
         url: taskUrl,
       }),
-      text: `${intro}\n\nTask: ${taskTitle}\n${commentText ? `\nCommento:\n${commentText}\n` : ""}\nApri Optima: ${taskUrl}`,
-      replyTo: input.actor.email ? { email: input.actor.email, name } : undefined,
-      categories: ["task-client-followup"],
-    })
-
-    return
+      text: `${intro}\n\nTask: ${taskTitle}\nAggiornamento: ${summary}\n${commentText ? `\nMessaggio:\n${commentText}\n` : ""}\nApri Optima: ${taskUrl}`,
+      replyTo: input.actor.email
+        ? { email: input.actor.email, name }
+        : undefined,
+      categories: ["task-operational-update"],
+    });
   }
 
-  if (!hasClientVisibleChange(input.changes)) return
+  if (isClientActor) {
+    return;
+  }
 
-  const recipient = await resolveClientRecipient(input.db, input.principal.organizationId, input.updatedTask)
-  if (!recipient || sameMailbox(recipient.email, input.actor.email)) return
+  if (!hasClientVisibleChange(input.changes)) return;
 
-  const heading = latestComment ? "Nuovo messaggio dal team Righello" : "Aggiornamento sulla tua task"
-  const intro = `${name} ha aggiornato una task che ti riguarda.`
-  const commentText = latestComment?.text
+  const recipient = await resolveClientRecipient(
+    input.db,
+    input.principal.organizationId,
+    input.updatedTask,
+  );
+  if (!recipient || sameMailbox(recipient.email, input.actor.email)) return;
+
+  const heading = latestComment
+    ? "Nuovo messaggio dal team Righello"
+    : "Aggiornamento sulla tua task";
+  const intro = `${name} ha aggiornato una task che ti riguarda.`;
 
   await sendEmail({
     to: { email: recipient.email, name: recipient.name },
     subject: `${summary}: ${taskTitle}`,
     html: renderTaskEmail({
+      brand,
       preheader: `${summary} su ${taskTitle}`,
       heading,
       intro,
@@ -251,5 +399,5 @@ export async function notifyTaskChange(input: TaskNotificationInput) {
     text: `${intro}\n\nTask: ${taskTitle}\nAggiornamento: ${summary}\n${commentText ? `\nMessaggio:\n${commentText}\n` : ""}\nApri Optima: ${taskUrl}`,
     replyTo: input.actor.email ? { email: input.actor.email, name } : undefined,
     categories: ["task-agency-update"],
-  })
+  });
 }

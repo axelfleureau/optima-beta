@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import dynamic from "next/dynamic"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import dynamic from "next/dynamic";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Users,
   Target,
@@ -14,31 +14,39 @@ import {
   Brain,
   TrendingUp,
   Sparkles,
-} from "lucide-react"
-import { useDashboardData } from "@/hooks/use-dashboard-data"
-import { useAuth } from "@/lib/auth-context"
-import { TokenUsageWidget } from "@/components/dashboard/token-usage-widget"
-import { StaffPremiereGuide } from "@/components/staff-premiere-guide"
+} from "lucide-react";
+import { useDashboardData } from "@/hooks/use-dashboard-data";
+import { useAuth } from "@/lib/auth-context";
+import { TokenUsageWidget } from "@/components/dashboard/token-usage-widget";
+import { StaffPremiereGuide } from "@/components/staff-premiere-guide";
 
 // Lazy load Technical Architect Dialog - reduces initial bundle size
 const TechnicalArchitectDialog = dynamic(
-  () => import("@/components/architect/technical-architect-dialog").then(mod => ({ default: mod.TechnicalArchitectDialog })),
+  () =>
+    import("@/components/architect/technical-architect-dialog").then((mod) => ({
+      default: mod.TechnicalArchitectDialog,
+    })),
   {
     loading: () => (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl border border-slate-200/50 dark:border-slate-700/50">
           <div className="animate-spin h-12 w-12 border-4 border-slate-600 dark:border-slate-400 border-t-transparent rounded-full" />
-          <p className="text-lg font-medium text-gray-900 dark:text-white animate-pulse">Caricamento...</p>
+          <p className="text-lg font-medium text-gray-900 dark:text-white animate-pulse">
+            Caricamento...
+          </p>
         </div>
       </div>
     ),
     ssr: false,
-  }
-)
+  },
+);
 
 // Lazy load Dashboard Command Input - reduces initial bundle (uses framer-motion, complex orchestration)
 const DashboardCommandInput = dynamic(
-  () => import("@/components/dashboard/dashboard-command-input").then(mod => ({ default: mod.DashboardCommandInput })),
+  () =>
+    import("@/components/dashboard/dashboard-command-input").then((mod) => ({
+      default: mod.DashboardCommandInput,
+    })),
   {
     loading: () => (
       <div className="optima-panel relative rounded-[1.5rem] p-6 md:p-8">
@@ -48,20 +56,19 @@ const DashboardCommandInput = dynamic(
       </div>
     ),
     ssr: false,
-  }
-)
+  },
+);
 
-const dashboardPageClass =
-  "min-h-[calc(100svh-73px)] w-full overflow-x-hidden bg-transparent md:min-h-screen"
+const dashboardPageClass = "optima-ops-page";
 
 export function DashboardClient() {
-  const { userData } = useAuth()
-  const { stats, recentActivities, loading } = useDashboardData()
+  const { userData } = useAuth();
+  const { stats, recentActivities, loading } = useDashboardData();
 
   if (loading) {
     return (
-      <div className={`optima-app-surface ${dashboardPageClass}`}>
-        <div className="container mx-auto px-4 py-4 md:px-6 md:py-8 max-w-7xl">
+      <div className={dashboardPageClass}>
+        <div className="optima-ops-container">
           <div className="space-y-6 md:space-y-8 animate-pulse">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-2xl bg-righello-pink/20"></div>
@@ -72,68 +79,76 @@ export function DashboardClient() {
             </div>
             <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-4">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 rounded-2xl border border-white/10 bg-white/[0.04]"></div>
+                <div
+                  key={i}
+                  className="h-32 rounded-2xl border border-white/10 bg-white/[0.04]"
+                ></div>
               ))}
             </div>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   const tokenUsagePercentage =
-    stats.aiTokensLimit > 0 ? Math.min((stats.aiTokensUsed / stats.aiTokensLimit) * 100, 100) : 0
+    stats.aiTokensLimit > 0
+      ? Math.min((stats.aiTokensUsed / stats.aiTokensLimit) * 100, 100)
+      : 0;
 
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "ai_usage":
-        return <Brain className="h-4 w-4 text-righello-pink" />
+        return <Brain className="h-4 w-4 text-righello-pink" />;
       case "task":
-        return <CheckCircle className="h-4 w-4 text-righello-cyan" />
+        return <CheckCircle className="h-4 w-4 text-righello-cyan" />;
       case "campaign":
-        return <Target className="h-4 w-4 text-righello-pink" />
+        return <Target className="h-4 w-4 text-righello-pink" />;
       case "quote":
-        return <FileText className="h-4 w-4 text-righello-cyan" />
+        return <FileText className="h-4 w-4 text-righello-cyan" />;
       case "client":
-        return <Users className="h-4 w-4 text-righello-pink" />
+        return <Users className="h-4 w-4 text-righello-pink" />;
       default:
-        return <Clock className="h-4 w-4 text-white/50" />
+        return <Clock className="h-4 w-4 text-white/50" />;
     }
-  }
+  };
 
   const getStatusBadge = (type: string, status?: string) => {
-    if (!status) return null
+    if (!status) return null;
 
     const getStatusColor = (status: string) => {
       switch (status) {
         case "completed":
         case "accepted":
-          return "bg-righello-cyan/10 text-righello-cyan"
+          return "bg-righello-cyan/10 text-righello-cyan";
         case "active":
         case "running":
         case "in_progress":
-          return "bg-righello-pink/10 text-righello-pink"
+          return "bg-righello-pink/10 text-righello-pink";
         case "pending":
         case "sent":
-          return "bg-white/8 text-white/70"
+          return "bg-white/8 text-white/70";
         case "rejected":
-          return "bg-red-500/10 text-red-300"
+          return "bg-red-500/10 text-red-300";
         default:
-          return "bg-white/8 text-white/70"
+          return "bg-white/8 text-white/70";
       }
-    }
+    };
 
     return (
-      <Badge variant="secondary" className={`text-xs ${getStatusColor(status)} border-0`}>
+      <Badge
+        variant="secondary"
+        className={`text-xs ${getStatusColor(status)} border-0`}
+      >
         {status}
       </Badge>
-    )
-  }
+    );
+  };
 
   return (
     <div className={dashboardPageClass}>
-      <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
-        <div className="space-y-6 md:space-y-8">
+      <div className="optima-ops-container">
+        <div className="optima-ops-stack md:gap-8">
           {/* Header Section */}
           <div className="optima-panel overflow-hidden rounded-[1.75rem] p-5 md:p-8">
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
@@ -146,7 +161,8 @@ export function DashboardClient() {
                   <span>Benvenuto, {userData?.firstName || "Utente"}.</span>
                 </h1>
                 <p className="max-w-2xl text-base text-slate-600 dark:text-white/58 md:text-lg">
-                  Cockpit operativo per stato lavori, clienti, preventivi, team e AI. {userData?.companyName} - Piano{" "}
+                  Cockpit operativo per stato lavori, clienti, preventivi, team
+                  e AI. {userData?.companyName} - Piano{" "}
                   {userData?.plan || "Base"}.
                 </p>
               </div>
@@ -178,8 +194,12 @@ export function DashboardClient() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-4xl font-black righello-text-gradient">{stats.totalClients}</div>
-                <p className="text-xs text-slate-500 dark:text-white/40">clienti attivi</p>
+                <div className="text-4xl font-black righello-text-gradient">
+                  {stats.totalClients}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-white/40">
+                  clienti attivi
+                </p>
               </CardContent>
             </Card>
 
@@ -191,8 +211,12 @@ export function DashboardClient() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-4xl font-black text-righello-cyan">{stats.activeCampaigns}</div>
-                <p className="text-xs text-slate-500 dark:text-white/40">in corso</p>
+                <div className="text-4xl font-black text-righello-cyan">
+                  {stats.activeCampaigns}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-white/40">
+                  in corso
+                </p>
               </CardContent>
             </Card>
 
@@ -204,8 +228,12 @@ export function DashboardClient() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-4xl font-black text-righello-pink">{stats.sentQuotes}</div>
-                <p className="text-xs text-slate-500 dark:text-white/40">in archivio</p>
+                <div className="text-4xl font-black text-righello-pink">
+                  {stats.sentQuotes}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-white/40">
+                  in archivio
+                </p>
               </CardContent>
             </Card>
 
@@ -217,8 +245,12 @@ export function DashboardClient() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-4xl font-black righello-text-gradient">{stats.completedTasks}</div>
-                <p className="text-xs text-slate-500 dark:text-white/40">questo mese</p>
+                <div className="text-4xl font-black righello-text-gradient">
+                  {stats.completedTasks}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-white/40">
+                  questo mese
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -233,8 +265,12 @@ export function DashboardClient() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-4xl font-black text-righello-pink">{stats.pendingTasks}</div>
-                <p className="text-xs text-slate-500 dark:text-white/40">da completare</p>
+                <div className="text-4xl font-black text-righello-pink">
+                  {stats.pendingTasks}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-white/40">
+                  da completare
+                </p>
               </CardContent>
             </Card>
 
@@ -249,7 +285,9 @@ export function DashboardClient() {
                 <div className="text-4xl font-black text-righello-cyan">
                   €{stats.totalRevenue.toLocaleString()}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-white/40">preventivi accettati</p>
+                <p className="text-xs text-slate-500 dark:text-white/40">
+                  preventivi accettati
+                </p>
               </CardContent>
             </Card>
 
@@ -280,20 +318,30 @@ export function DashboardClient() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-slate-950 dark:text-white">{activity.title}</p>
+                            <p className="text-sm font-semibold text-slate-950 dark:text-white">
+                              {activity.title}
+                            </p>
                             {getStatusBadge(activity.type, activity.status)}
                           </div>
                           {activity.details && (
-                            <p className="mt-1 truncate text-xs text-slate-600 dark:text-white/50">{activity.details}</p>
+                            <p className="mt-1 truncate text-xs text-slate-600 dark:text-white/50">
+                              {activity.details}
+                            </p>
                           )}
                           <div className="flex items-center justify-between mt-3">
                             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/40">
                               <span>
-                                {activity.timestamp?.toLocaleDateString("it-IT")} -{" "}
-                                {activity.timestamp?.toLocaleTimeString("it-IT", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
+                                {activity.timestamp?.toLocaleDateString(
+                                  "it-IT",
+                                )}{" "}
+                                -{" "}
+                                {activity.timestamp?.toLocaleTimeString(
+                                  "it-IT",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  },
+                                )}
                               </span>
                               {activity.client && (
                                 <>
@@ -320,9 +368,12 @@ export function DashboardClient() {
                     <div className="optima-icon-tile mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl">
                       <Clock className="h-8 w-8" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-white/70">Nessuna attività recente</p>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-white/70">
+                      Nessuna attività recente
+                    </p>
                     <p className="mt-1 text-xs text-slate-500 dark:text-white/40">
-                      Le tue attività appariranno qui quando inizierai a utilizzare la piattaforma
+                      Le tue attività appariranno qui quando inizierai a
+                      utilizzare la piattaforma
                     </p>
                   </div>
                 )}
@@ -343,18 +394,24 @@ export function DashboardClient() {
                   <div className="text-5xl font-black righello-text-gradient">
                     {Math.round(tokenUsagePercentage)}%
                   </div>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/50">Token utilizzati</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/50">
+                    Token utilizzati
+                  </p>
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex justify-between text-sm text-slate-700 dark:text-white/70">
                     <span>Utilizzo corrente</span>
-                    <span className="font-medium">{stats.aiTokensUsed.toLocaleString()} token</span>
+                    <span className="font-medium">
+                      {stats.aiTokensUsed.toLocaleString()} token
+                    </span>
                   </div>
                   <div className="h-3 w-full rounded-full bg-slate-200 dark:bg-white/10">
                     <div
                       className="h-3 rounded-full bg-righello-brand transition-all duration-500"
-                      style={{ width: `${Math.min(100, tokenUsagePercentage)}%` }}
+                      style={{
+                        width: `${Math.min(100, tokenUsagePercentage)}%`,
+                      }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-xs text-slate-500 dark:text-white/40">
@@ -368,7 +425,9 @@ export function DashboardClient() {
                     <div className="text-lg font-semibold text-righello-pink">
                       Piano {userData?.plan || "Base"}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-white/40">Piano attivo</p>
+                    <p className="text-xs text-slate-500 dark:text-white/40">
+                      Piano attivo
+                    </p>
                   </div>
                   <Button className="w-full rounded-full border-0 bg-righello-pink text-white shadow-lg shadow-righello-pink/20 hover:bg-righello-pink-dark">
                     Gestisci Piano
@@ -379,9 +438,9 @@ export function DashboardClient() {
           </div>
         </div>
       </div>
-      
+
       {/* Technical Architect Dialog */}
       <TechnicalArchitectDialog />
     </div>
-  )
+  );
 }

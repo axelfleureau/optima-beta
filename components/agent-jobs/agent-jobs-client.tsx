@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   BookOpen,
@@ -24,10 +24,11 @@ import {
   Radio,
   RefreshCw,
   ShieldCheck,
+  Terminal,
   XCircle,
-} from "lucide-react"
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -35,26 +36,37 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import type { AgentJob, AgentJobArtifact, AgentJobEvent, AgentRunnerHeartbeat } from "@/lib/agent-jobs"
-import { DeviceFlowConnector } from "@/components/agent-jobs/connectors/DeviceFlowConnector"
-import { ConnectorStates } from "@/components/agent-jobs/connectors/ConnectorStates"
-import { ConnectorWizardHeader } from "@/components/agent-jobs/connectors/ConnectorWizardHeader"
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import type {
+  AgentJob,
+  AgentJobArtifact,
+  AgentJobEvent,
+  AgentRunnerHeartbeat,
+} from "@/lib/agent-jobs";
+import { DeviceFlowConnector } from "@/components/agent-jobs/connectors/DeviceFlowConnector";
+import { ConnectorStates } from "@/components/agent-jobs/connectors/ConnectorStates";
+import { ConnectorWizardHeader } from "@/components/agent-jobs/connectors/ConnectorWizardHeader";
 import {
   connectorAuthLabel as connectorAuthLabelUtil,
   connectorSetupKindLabel as connectorSetupKindLabelUtil,
   connectorSetupKindTone as connectorSetupKindToneUtil,
   isStandardOAuthConnector as isStandardOAuthConnectorUtil,
   isDeviceFlowConnector as isDeviceFlowConnectorUtil,
-} from "@/components/agent-jobs/connectors/connector-utils"
+} from "@/components/agent-jobs/connectors/connector-utils";
 
-type ConnectorSetupKind = "oauth" | "browser" | "github_owner" | "runtime" | "service_account" | "secret_ref"
+type ConnectorSetupKind =
+  | "oauth"
+  | "browser"
+  | "github_owner"
+  | "runtime"
+  | "service_account"
+  | "secret_ref";
 
 interface AgentRunnerControlState {
-  enabled: boolean
-  status: "enabled" | "suspended"
-  reason: string | null
+  enabled: boolean;
+  status: "enabled" | "suspended";
+  reason: string | null;
 }
 
 const statusCopy: Record<string, string> = {
@@ -65,7 +77,7 @@ const statusCopy: Record<string, string> = {
   rejected: "Respinto",
   cancelled: "Annullato",
   failed: "Errore",
-}
+};
 
 const statusClass: Record<string, string> = {
   queued: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
@@ -75,414 +87,425 @@ const statusClass: Record<string, string> = {
   rejected: "border-red-300/30 bg-red-300/10 text-red-100",
   cancelled: "border-slate-500/30 bg-slate-500/10 text-slate-200",
   failed: "border-red-300/30 bg-red-300/10 text-red-100",
-}
+};
 
 interface AgentJobDetails {
-  job: AgentJob
-  artifacts: AgentJobArtifact[]
-  events: AgentJobEvent[]
+  job: AgentJob;
+  artifacts: AgentJobArtifact[];
+  events: AgentJobEvent[];
 }
 
 interface BrowserMcpSession {
-  id: string
-  status: string
-  target: string
-  targetLabel?: string
-  startUrl: string
-  gatewayUrl: string | null
-  gatewayHealthUrl?: string | null
-  fallbackGatewayUrl?: string | null
-  fallbackGatewayHealthUrl?: string | null
-  callbackUrl: string
-  pairingCode: string
-  expiresAt: string
-  connectedAt?: string
-  lastEventAt?: string
-  instructions: string[]
-  runnerCommand: string
-  installCommand?: string
-  missingEnv: string[]
+  id: string;
+  status: string;
+  target: string;
+  targetLabel?: string;
+  startUrl: string;
+  gatewayUrl: string | null;
+  gatewayHealthUrl?: string | null;
+  fallbackGatewayUrl?: string | null;
+  fallbackGatewayHealthUrl?: string | null;
+  callbackUrl: string;
+  pairingCode: string;
+  expiresAt: string;
+  connectedAt?: string;
+  lastEventAt?: string;
+  instructions: string[];
+  runnerCommand: string;
+  installCommand?: string;
+  missingEnv: string[];
 }
 
 interface AgenticCapabilities {
   providerCatalog: Array<{
-    id: string
-    label: string
-    kind: string
-    lane: string
-    authMethod: string
-    defaultModel: string
-    installPattern: string
-    tenantUse: string
-    strengths: string[]
-    requiredSecrets: string[]
-    recommendedMcpConnectors: string[]
-    notes: string
-  }>
+    id: string;
+    label: string;
+    kind: string;
+    lane: string;
+    authMethod: string;
+    defaultModel: string;
+    installPattern: string;
+    tenantUse: string;
+    strengths: string[];
+    requiredSecrets: string[];
+    recommendedMcpConnectors: string[];
+    notes: string;
+  }>;
   mcpConnectorCatalog: Array<{
-    id: string
-    label: string
-    status: string
-    category: string
-    purpose: string
-    graphUse: string[]
-    requiredEnv: string[]
-    optionalEnv?: string[]
-    authMethod?: string
-    setupSteps?: string[]
-    healthCheck?: string
-    notes: string
-  }>
+    id: string;
+    label: string;
+    status: string;
+    category: string;
+    purpose: string;
+    graphUse: string[];
+    requiredEnv: string[];
+    optionalEnv?: string[];
+    authMethod?: string;
+    setupSteps?: string[];
+    healthCheck?: string;
+    notes: string;
+  }>;
   providerInstallations: Array<{
-    providerId: string
-    installState: string
-    authMethod: string
-    secretRef: string | null
-    updatedAt: string
-  }>
+    providerId: string;
+    installState: string;
+    authMethod: string;
+    secretRef: string | null;
+    updatedAt: string;
+  }>;
   connectorInstallations: Array<{
-    connectorId: string
-    installState: string
-    authMethod: string
-    scopes: string[]
-    config?: Record<string, unknown>
-    secretRef: string | null
-    oauthSubject?: string | null
-    lastHealthAt?: string | null
-    lastHealthStatus?: string | null
-    updatedAt: string
-  }>
+    connectorId: string;
+    installState: string;
+    authMethod: string;
+    scopes: string[];
+    config?: Record<string, unknown>;
+    secretRef: string | null;
+    oauthSubject?: string | null;
+    lastHealthAt?: string | null;
+    lastHealthStatus?: string | null;
+    updatedAt: string;
+  }>;
   connectorSetupStatuses?: Array<{
-    connectorId: string
-    label: string
-    category: string
-    setupKind: ConnectorSetupKind
-    authMethod: string
-    installState: string
-    operationalState?: "connected" | "ready_to_connect" | "needs_runtime" | "needs_review" | "blocked"
-    operationalLabel?: string
-    catalogStatus: string
-    healthOk: boolean
-    healthLabel: string
-    primaryAction: string
-    primaryActionLabel: string
-    primaryActionAvailable?: boolean
-    primaryIntent: string
-    verifyActionLabel: string
-    nextAction: string
-    requirementLabel: string
-    blockedReason: string | null
-    canStartOauth: boolean
-    canStartBrowserPairing: boolean
-    canRunHealthCheck: boolean
-    requiredEnv: string[]
-    missingRuntimeEnv: string[]
-    lastHealthAt: string | null
-    lastHealthStatus: string | null
-    secretRef: string | null
-    oauthSubject: string | null
-  }>
+    connectorId: string;
+    label: string;
+    category: string;
+    setupKind: ConnectorSetupKind;
+    authMethod: string;
+    installState: string;
+    operationalState?:
+      | "connected"
+      | "ready_to_connect"
+      | "needs_runtime"
+      | "needs_review"
+      | "blocked";
+    operationalLabel?: string;
+    catalogStatus: string;
+    healthOk: boolean;
+    healthLabel: string;
+    primaryAction: string;
+    primaryActionLabel: string;
+    primaryActionAvailable?: boolean;
+    primaryIntent: string;
+    verifyActionLabel: string;
+    nextAction: string;
+    requirementLabel: string;
+    blockedReason: string | null;
+    canStartOauth: boolean;
+    canStartBrowserPairing: boolean;
+    canRunHealthCheck: boolean;
+    requiredEnv: string[];
+    missingRuntimeEnv: string[];
+    lastHealthAt: string | null;
+    lastHealthStatus: string | null;
+    secretRef: string | null;
+    oauthSubject: string | null;
+  }>;
   modelRuntime: {
     hosts: Array<{
-      id: string
-      label: string
-      providerId: string
-      lane: string
-      mode: string
-      defaultModel: string
-      runtimeAdapter: string
-      apiKeyEnv: string | null
-      baseUrlEnv: string | null
-      endpointEnv: string | null
-      secretRefHint: string | null
-      dataPolicy: string
-      installSteps: string[]
-      runtimeStatus: string
-      runtimeDetail: string
-    }>
+      id: string;
+      label: string;
+      providerId: string;
+      lane: string;
+      mode: string;
+      defaultModel: string;
+      runtimeAdapter: string;
+      apiKeyEnv: string | null;
+      baseUrlEnv: string | null;
+      endpointEnv: string | null;
+      secretRefHint: string | null;
+      dataPolicy: string;
+      installSteps: string[];
+      runtimeStatus: string;
+      runtimeDetail: string;
+    }>;
     routes: Array<{
-      id: string
-      lane: string
-      providerId: string
-      model: string
-      mode: string
-      status: string
-      priority: number
-      endpointRef: string | null
-      secretRef: string | null
-    }>
+      id: string;
+      lane: string;
+      providerId: string;
+      model: string;
+      mode: string;
+      status: string;
+      priority: number;
+      endpointRef: string | null;
+      secretRef: string | null;
+    }>;
     lanePlan: Array<{
-      lane: string
-      providerId: string
-      model: string
-      mode: string
-      source: string
-      status: string
-      runtimeStatus: string
-    }>
-  }
+      lane: string;
+      providerId: string;
+      model: string;
+      mode: string;
+      source: string;
+      status: string;
+      runtimeStatus: string;
+    }>;
+  };
   subagents: Array<{
-    id: string
-    name: string
-    slug: string
-    lane: string
-    status: string
-    primaryProviderId: string
-    modelHint: string | null
-    connectorIds: string[]
-  }>
+    id: string;
+    name: string;
+    slug: string;
+    lane: string;
+    status: string;
+    primaryProviderId: string;
+    modelHint: string | null;
+    connectorIds: string[];
+  }>;
   oauthGuidance: {
-    pattern: string
-    rules: string[]
-  }
+    pattern: string;
+    rules: string[];
+  };
   tenantIsolation: {
-    organizationId: string
-    memberId: string
-    secretBoundary: string
-    dataBoundary: string
-    runnerBoundary: string
-    graphBoundary: string
-    reviewBoundary: string
-    defaultBootstrapActions: string[]
-    warnings: string[]
-  }
+    organizationId: string;
+    memberId: string;
+    secretBoundary: string;
+    dataBoundary: string;
+    runnerBoundary: string;
+    graphBoundary: string;
+    reviewBoundary: string;
+    defaultBootstrapActions: string[];
+    warnings: string[];
+  };
   runtimePolicy: {
-    source: string
+    source: string;
     contexts: Array<{
-      id: string
-      label: string
-      allowedToolsets: string[]
-      blockedToolsets: string[]
-      requiredReview: string[]
-      notes: string
-    }>
+      id: string;
+      label: string;
+      allowedToolsets: string[];
+      blockedToolsets: string[];
+      requiredReview: string[];
+      notes: string;
+    }>;
     lanePolicies: Array<{
-      lane: string
-      defaultProviderId: string
-      allowedConnectors: string[]
-      blockedActions: string[]
-      fallbackProviderId: string | null
-    }>
-    rules: string[]
-  }
+      lane: string;
+      defaultProviderId: string;
+      allowedConnectors: string[];
+      blockedActions: string[];
+      fallbackProviderId: string | null;
+    }>;
+    rules: string[];
+  };
   hermesBlueprint: {
     reference: {
-      repository: string
-      localClone: string
-      auditedRevision: string
-      auditedTag: string
-      license: string
-      importPolicy: string
-      integrationRule: string
-    }
+      repository: string;
+      localClone: string;
+      auditedRevision: string;
+      auditedTag: string;
+      license: string;
+      importPolicy: string;
+      integrationRule: string;
+    };
     patterns: Array<{
-      id: string
-      lane: string
-      label: string
-      status: string
-      hermesFiles: string[]
-      optimaSurface: string[]
-      implementation: string
-      guardrails: string[]
-    }>
+      id: string;
+      lane: string;
+      label: string;
+      status: string;
+      hermesFiles: string[];
+      optimaSurface: string[];
+      implementation: string;
+      guardrails: string[];
+    }>;
     stats: {
-      total: number
-      byStatus: Record<string, number>
-      implementedOrPartial: number
-    }
-  }
+      total: number;
+      byStatus: Record<string, number>;
+      implementedOrPartial: number;
+    };
+  };
 }
 
 interface AgenticGraphSnapshot {
   stats: {
-    nodes: number
-    edges: number
-    sessions: number
-    byType: Record<string, number>
-    bySource?: Record<string, number>
-    byConfidence?: Record<string, number>
-    byEdgeType?: Record<string, number>
-    indexedNodes?: number
-    connectedNodes?: number
-    orphanNodes?: number
-    averageDegree?: number
-  }
+    nodes: number;
+    edges: number;
+    sessions: number;
+    byType: Record<string, number>;
+    bySource?: Record<string, number>;
+    byConfidence?: Record<string, number>;
+    byEdgeType?: Record<string, number>;
+    indexedNodes?: number;
+    connectedNodes?: number;
+    orphanNodes?: number;
+    averageDegree?: number;
+  };
   index?: {
-    hubs: Array<{ id: string; title: string; nodeType: string; sourceType: string; degree: number }>
-    sourceGroups: Array<{ sourceType: string; label: string; count: number }>
-    typeGroups: Array<{ nodeType: string; label: string; count: number }>
-    edgeGroups: Array<{ edgeType: string; label: string; count: number }>
+    hubs: Array<{
+      id: string;
+      title: string;
+      nodeType: string;
+      sourceType: string;
+      degree: number;
+    }>;
+    sourceGroups: Array<{ sourceType: string; label: string; count: number }>;
+    typeGroups: Array<{ nodeType: string; label: string; count: number }>;
+    edgeGroups: Array<{ edgeType: string; label: string; count: number }>;
     semanticDomains: Array<{
-      id: string
-      label: string
-      description: string
-      count: number
-      connectedCount: number
-      nodeTypes: string[]
-      sourceTypes: string[]
-      action: string
-    }>
+      id: string;
+      label: string;
+      description: string;
+      count: number;
+      connectedCount: number;
+      nodeTypes: string[];
+      sourceTypes: string[];
+      action: string;
+    }>;
     nodeActions: Array<{
-      id: string
-      label: string
-      description: string
-      nodeTypes: string[]
-      sourceTypes: string[]
-    }>
+      id: string;
+      label: string;
+      description: string;
+      nodeTypes: string[];
+      sourceTypes: string[];
+    }>;
     quality: {
-      completenessScore: number
-      indexedNodes: number
-      connectedNodes: number
-      orphanNodes: number
-      weakSourceNodes: number
-      ambiguousNodes: number
-      notes: string[]
-    }
-  }
+      completenessScore: number;
+      indexedNodes: number;
+      connectedNodes: number;
+      orphanNodes: number;
+      weakSourceNodes: number;
+      ambiguousNodes: number;
+      notes: string[];
+    };
+  };
   nodes: Array<{
-    id: string
-    nodeType: string
-    title: string
-    confidence: string
-    summary: string
-    sourceType: string
-    sourceId: string
-    sourceUrl: string | null
-    tags: string[]
-    properties: Record<string, unknown>
-  }>
+    id: string;
+    nodeType: string;
+    title: string;
+    confidence: string;
+    summary: string;
+    sourceType: string;
+    sourceId: string;
+    sourceUrl: string | null;
+    tags: string[];
+    properties: Record<string, unknown>;
+  }>;
   edges: Array<{
-    id: string
-    fromNodeId: string
-    toNodeId: string
-    edgeType: string
-    confidence: string
-    weight: number
-    properties: Record<string, unknown>
-  }>
+    id: string;
+    fromNodeId: string;
+    toNodeId: string;
+    edgeType: string;
+    confidence: string;
+    weight: number;
+    properties: Record<string, unknown>;
+  }>;
   referenceSources: Array<{
-    id: string
-    label: string
-    importPolicy: string
-    sourceType: string
-  }>
+    id: string;
+    label: string;
+    importPolicy: string;
+    sourceType: string;
+  }>;
 }
 
-type AgenticGraphNode = AgenticGraphSnapshot["nodes"][number]
-type AgenticGraphEdge = AgenticGraphSnapshot["edges"][number]
+type AgenticGraphNode = AgenticGraphSnapshot["nodes"][number];
+type AgenticGraphEdge = AgenticGraphSnapshot["edges"][number];
 
 interface AgenticGraphNodeDetail {
-  node: AgenticGraphNode
-  edges: AgenticGraphEdge[]
-  connectedNodes: AgenticGraphNode[]
+  node: AgenticGraphNode;
+  edges: AgenticGraphEdge[];
+  connectedNodes: AgenticGraphNode[];
 }
 
 interface AgenticReadinessGap {
-  id: string
-  area: string
-  label: string
-  status: "ready" | "partial" | "blocked" | "missing"
-  severity: "critical" | "high" | "medium" | "low"
-  current: string
-  target: string
-  nextActions: string[]
+  id: string;
+  area: string;
+  label: string;
+  status: "ready" | "partial" | "blocked" | "missing";
+  severity: "critical" | "high" | "medium" | "low";
+  current: string;
+  target: string;
+  nextActions: string[];
   jobHint?: {
-    title: string
-    brief: string
-  }
+    title: string;
+    brief: string;
+  };
 }
 
 interface AgenticProductionReadiness {
-  generatedAt: string
+  generatedAt: string;
   summary: {
-    coreReady: boolean
-    agenticReady: boolean
-    readyCount: number
-    partialCount: number
-    blockedCount: number
-    missingCount: number
-    score: number
-    headline: string
-    nextCriticalAction: string
-  }
+    coreReady: boolean;
+    agenticReady: boolean;
+    readyCount: number;
+    partialCount: number;
+    blockedCount: number;
+    missingCount: number;
+    score: number;
+    headline: string;
+    nextCriticalAction: string;
+  };
   metrics?: {
-    mcpAuthMode?: string
-    mcpAuthorizationConfigured?: boolean
-    mcpOAuthAuthorizationCodeConfigured?: boolean
-    mcpJwtBearerConfigured?: boolean
-    mcpServiceTokenConfigured?: boolean
-    connectorConfiguredCount?: number
-    connectorTotalCount?: number
-  }
-  gaps: AgenticReadinessGap[]
+    mcpAuthMode?: string;
+    mcpAuthorizationConfigured?: boolean;
+    mcpOAuthAuthorizationCodeConfigured?: boolean;
+    mcpJwtBearerConfigured?: boolean;
+    mcpServiceTokenConfigured?: boolean;
+    connectorConfiguredCount?: number;
+    connectorTotalCount?: number;
+  };
+  gaps: AgenticReadinessGap[];
 }
 
 interface SelfImprovementSnapshot {
-  generatedAt: string
-  windowDays: number
-  score: number
-  summary: string
+  generatedAt: string;
+  windowDays: number;
+  score: number;
+  summary: string;
   signals: Array<{
-    id: string
-    label: string
-    severity: "critical" | "high" | "medium" | "low"
-    count: number
-    detail: string
-  }>
+    id: string;
+    label: string;
+    severity: "critical" | "high" | "medium" | "low";
+    count: number;
+    detail: string;
+  }>;
   metrics: {
-    aiCalls: number
-    aiTokens: number
-    negativeFeedback: number
-    failedJobs: number
-    reviewJobs: number
-    staleQueuedJobs: number
-    recentTasks: number
-    recentQuotes: number
-  }
+    aiCalls: number;
+    aiTokens: number;
+    negativeFeedback: number;
+    failedJobs: number;
+    reviewJobs: number;
+    staleQueuedJobs: number;
+    recentTasks: number;
+    recentQuotes: number;
+  };
   recommendedJob: {
-    title: string
-    contextSummary: string
-    brief: string
-    priority: number
-  }
+    title: string;
+    contextSummary: string;
+    brief: string;
+    priority: number;
+  };
 }
 
 interface AgenticRecoverySnapshot {
-  generatedAt: string
-  score: number
-  headline: string
-  nextAction: string
+  generatedAt: string;
+  score: number;
+  headline: string;
+  nextAction: string;
   metrics: {
-    graphNodes: number
-    graphEdges: number
-    knowhowNodes: number
-    providerConfigured: number
-    providerTotal: number
-    connectorConfigured: number
-    connectorTotal: number
-    subagents: number
-    readyRuntimeHosts: number
-    runtimeHosts: number
-    readinessScore: number
-    selfImprovementScore: number | null
-    recoveryJobActive: boolean
-  }
+    graphNodes: number;
+    graphEdges: number;
+    knowhowNodes: number;
+    providerConfigured: number;
+    providerTotal: number;
+    connectorConfigured: number;
+    connectorTotal: number;
+    subagents: number;
+    readyRuntimeHosts: number;
+    runtimeHosts: number;
+    readinessScore: number;
+    selfImprovementScore: number | null;
+    recoveryJobActive: boolean;
+  };
   phases: Array<{
-    id: string
-    label: string
-    status: "healthy" | "recovering" | "blocked"
-    severity: "critical" | "high" | "medium" | "low"
-    score: number
-    current: string
-    target: string
-    actions: string[]
-  }>
+    id: string;
+    label: string;
+    status: "healthy" | "recovering" | "blocked";
+    severity: "critical" | "high" | "medium" | "low";
+    score: number;
+    current: string;
+    target: string;
+    actions: string[];
+  }>;
   recommendedJob: {
-    title: string
-    contextSummary: string
-    brief: string
-    priority: number
-  }
+    title: string;
+    contextSummary: string;
+    brief: string;
+    priority: number;
+  };
 }
 
 const initialForm = {
@@ -493,7 +516,7 @@ const initialForm = {
   repoBranch: "",
   contextSummary: "",
   brief: "",
-}
+};
 
 const initialManualGraphNodeForm = {
   nodeType: "knowledge_base",
@@ -503,15 +526,31 @@ const initialManualGraphNodeForm = {
   confidence: "manual",
   tags: "",
   sourceUrl: "",
-}
+};
 
-const jobTypesRequiringRepository = new Set(["codex_patch", "deploy"])
-const terminalJobStatuses = new Set(["approved", "rejected", "cancelled"])
-const OPTIMA_REPOSITORY_URL = "https://github.com/axelfleureau/optima-beta"
-const OPTIMA_REPOSITORY_BRANCH = "codex/pause-vps-runner"
-const priorityProviderIds = ["codex", "openai", "qwen", "gemma-hosted", "minimax"]
-const priorityConnectorIds = ["codex", "github", "notion", "browser", "cloudflare", "sendgrid", "telegram", "cloudinary", "hostinger"]
-type JobFilter = "active" | "review" | "running" | "done" | "all"
+const jobTypesRequiringRepository = new Set(["codex_patch", "deploy"]);
+const terminalJobStatuses = new Set(["approved", "rejected", "cancelled"]);
+const OPTIMA_REPOSITORY_URL = "https://github.com/axelfleureau/optima-beta";
+const OPTIMA_REPOSITORY_BRANCH = "codex/pause-vps-runner";
+const priorityProviderIds = [
+  "codex",
+  "openai",
+  "qwen",
+  "gemma-hosted",
+  "minimax",
+];
+const priorityConnectorIds = [
+  "codex",
+  "github",
+  "notion",
+  "browser",
+  "cloudflare",
+  "sendgrid",
+  "telegram",
+  "cloudinary",
+  "hostinger",
+];
+type JobFilter = "active" | "review" | "running" | "done" | "all";
 
 function compactJobCardOutput(value: string, maxLength = 360) {
   const normalized = value
@@ -523,11 +562,11 @@ function compactJobCardOutput(value: string, maxLength = 360) {
     .replace(/sandbox:\s*[^\n]+/gi, "")
     .replace(/approval:\s*\S+/gi, "")
     .replace(/\s+/g, " ")
-    .trim()
+    .trim();
 
-  if (!normalized) return "Output tecnico disponibile nella review room."
-  if (normalized.length <= maxLength) return normalized
-  return `${normalized.slice(0, maxLength).trim()}... Apri Revisiona per log completo, artefatti e azioni.`
+  if (!normalized) return "Output tecnico disponibile nella review room.";
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength).trim()}... Apri Revisiona per log completo, artefatti e azioni.`;
 }
 
 const quickJobTemplates = [
@@ -567,47 +606,70 @@ const quickJobTemplates = [
     brief:
       "Prepara deploy controllato: verifica stato git, migration, build, health check, runner VPS e rollback plan. Esegui solo le azioni autorizzate e rimanda output in review.",
   },
-] as const
+] as const;
 
-const graphNodeTypeVisual: Record<string, { fill: string; stroke: string; label: string }> = {
+const graphNodeTypeVisual: Record<
+  string,
+  { fill: string; stroke: string; label: string }
+> = {
   system: { fill: "#db2777", stroke: "#f9a8d4", label: "Sistema" },
   graph_domain: { fill: "#eab308", stroke: "#fef08a", label: "Dominio" },
   capability: { fill: "#0891b2", stroke: "#67e8f9", label: "Capability" },
   graph_engine: { fill: "#14b8a6", stroke: "#99f6e4", label: "Motore grafo" },
-  graph_workspace: { fill: "#a855f7", stroke: "#e9d5ff", label: "Workspace grafo" },
-  knowledge_base: { fill: "#7c3aed", stroke: "#c4b5fd", label: "Knowledge base" },
-  development_knowhow: { fill: "#475569", stroke: "#cbd5e1", label: "Know-how" },
+  graph_workspace: {
+    fill: "#a855f7",
+    stroke: "#e9d5ff",
+    label: "Workspace grafo",
+  },
+  knowledge_base: {
+    fill: "#7c3aed",
+    stroke: "#c4b5fd",
+    label: "Knowledge base",
+  },
+  development_knowhow: {
+    fill: "#475569",
+    stroke: "#cbd5e1",
+    label: "Know-how",
+  },
   reference_source: { fill: "#059669", stroke: "#6ee7b7", label: "Sorgente" },
   subagent: { fill: "#8b5cf6", stroke: "#ddd6fe", label: "Subagente" },
   connector: { fill: "#d97706", stroke: "#fcd34d", label: "Connector" },
   codex_skill: { fill: "#0ea5e9", stroke: "#bae6fd", label: "Skill Codex" },
   source_map: { fill: "#64748b", stroke: "#cbd5e1", label: "Mappa fonti" },
-  skill_metadata: { fill: "#38bdf8", stroke: "#e0f2fe", label: "Metadata skill" },
+  skill_metadata: {
+    fill: "#38bdf8",
+    stroke: "#e0f2fe",
+    label: "Metadata skill",
+  },
   operational_dossier: { fill: "#f43f5e", stroke: "#fecdd3", label: "Dossier" },
   repository: { fill: "#22c55e", stroke: "#bbf7d0", label: "Repository" },
   runtime_source: { fill: "#f97316", stroke: "#fed7aa", label: "Runtime" },
   operational_audit: { fill: "#f59e0b", stroke: "#fde68a", label: "Audit" },
   notion_database: { fill: "#2563eb", stroke: "#93c5fd", label: "DB Notion" },
   notion_task: { fill: "#1d4ed8", stroke: "#bfdbfe", label: "Task Notion" },
-  notion_client: { fill: "#0369a1", stroke: "#7dd3fc", label: "Cliente Notion" },
+  notion_client: {
+    fill: "#0369a1",
+    stroke: "#7dd3fc",
+    label: "Cliente Notion",
+  },
   hermes_memory: { fill: "#0d9488", stroke: "#5eead4", label: "Hermes" },
   hermes_skill: { fill: "#0f766e", stroke: "#99f6e4", label: "Skill Hermes" },
   obsidian_note: { fill: "#7e22ce", stroke: "#f0abfc", label: "Nota Obsidian" },
-}
+};
 
 const graphConfidenceStroke: Record<string, string> = {
   manual: "#f472b6",
   extracted: "#22d3ee",
   inferred: "#34d399",
   ambiguous: "#f59e0b",
-}
+};
 
 const graphConfidenceCopy: Record<string, string> = {
   manual: "manuale",
   extracted: "estratto",
   inferred: "inferito",
   ambiguous: "da verificare",
-}
+};
 
 const graphSourceCopy: Record<string, string> = {
   internal: "Optima",
@@ -622,7 +684,7 @@ const graphSourceCopy: Record<string, string> = {
   private_readonly_source: "Sorgente privata",
   local_tool: "Tool locale",
   obsidian_vault: "Obsidian Vault",
-}
+};
 
 const installStateCopy: Record<string, string> = {
   not_installed: "Da collegare",
@@ -630,7 +692,7 @@ const installStateCopy: Record<string, string> = {
   configured: "Policy salvata",
   healthy: "Env rilevata",
   blocked: "Bloccato",
-}
+};
 
 const installStateTone: Record<string, string> = {
   not_installed: "border-white/10 bg-white/5 text-slate-400",
@@ -638,7 +700,7 @@ const installStateTone: Record<string, string> = {
   configured: "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
   healthy: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
   blocked: "border-red-300/25 bg-red-300/10 text-red-100",
-}
+};
 
 // 2026-06-25: estratte in connector-utils.ts (installLabel, installTone, connectorOperationalTone, ...)
 // Le costanti locali sono mantenute per compat con il codice esistente che le referenzia direttamente.
@@ -649,35 +711,35 @@ const connectorOperationalTone: Record<string, string> = {
   needs_runtime: "border-amber-300/25 bg-amber-300/10 text-amber-100",
   needs_review: "border-purple-300/25 bg-purple-300/10 text-purple-100",
   blocked: "border-red-300/25 bg-red-300/10 text-red-100",
-}
+};
 
 const runtimeStatusTone: Record<string, string> = {
   ready: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
   needs_secret: "border-amber-300/25 bg-amber-300/10 text-amber-100",
   needs_endpoint: "border-amber-300/25 bg-amber-300/10 text-amber-100",
   reference_only: "border-white/10 bg-white/5 text-slate-400",
-}
+};
 
 const readinessStatusCopy: Record<AgenticReadinessGap["status"], string> = {
   ready: "Pronto",
   partial: "Parziale",
   blocked: "Bloccato",
   missing: "Manca",
-}
+};
 
 const readinessStatusTone: Record<AgenticReadinessGap["status"], string> = {
   ready: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
   partial: "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
   blocked: "border-amber-300/25 bg-amber-300/10 text-amber-100",
   missing: "border-red-300/25 bg-red-300/10 text-red-100",
-}
+};
 
 const readinessSeverityTone: Record<AgenticReadinessGap["severity"], string> = {
   critical: "text-red-100",
   high: "text-amber-100",
   medium: "text-cyan-100",
   low: "text-emerald-100",
-}
+};
 
 const recommendedSubagents = [
   {
@@ -687,8 +749,14 @@ const recommendedSubagents = [
     primaryProviderId: "codex",
     modelHint: "codex-cli",
     connectorIds: ["github", "cloudflare", "vercel", "hostinger", "cloudinary"],
-    systemPrompt: "Produce patch, report e PR in worktree isolato. Se il lavoro richiede asset media, apre handoff tracciato verso Media Operator/MiniMax invece di generare media fuori review.",
-    permissions: { canCreatePatch: true, canCreatePullRequest: true, canDeploy: false, requiresReview: true },
+    systemPrompt:
+      "Produce patch, report e PR in worktree isolato. Se il lavoro richiede asset media, apre handoff tracciato verso Media Operator/MiniMax invece di generare media fuori review.",
+    permissions: {
+      canCreatePatch: true,
+      canCreatePullRequest: true,
+      canDeploy: false,
+      requiresReview: true,
+    },
     handoffPolicy: {
       onMissingRepository: "ask_or_infer_from_graph",
       onRiskyAction: "return_to_review",
@@ -702,8 +770,13 @@ const recommendedSubagents = [
     primaryProviderId: "qwen",
     modelHint: "qwen-long-context",
     connectorIds: ["github", "notion", "cloudinary"],
-    systemPrompt: "Raccoglie contesto, fonti e sintesi operative. Non inventa dati: segnala lacune e produce output revisionabile.",
-    permissions: { canReadGraph: true, canWriteTasks: false, requiresSources: true },
+    systemPrompt:
+      "Raccoglie contesto, fonti e sintesi operative. Non inventa dati: segnala lacune e produce output revisionabile.",
+    permissions: {
+      canReadGraph: true,
+      canWriteTasks: false,
+      requiresSources: true,
+    },
     handoffPolicy: { onInsufficientSources: "return_to_review" },
   },
   {
@@ -713,8 +786,13 @@ const recommendedSubagents = [
     primaryProviderId: "minimax",
     modelHint: "minimax-media",
     connectorIds: ["cloudinary", "google-drive"],
-    systemPrompt: "Collabora con Codex Engineer quando patch, landing o automazioni richiedono asset. Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
-    permissions: { canCreateMedia: true, canMutateAssets: false, requiresReview: true },
+    systemPrompt:
+      "Collabora con Codex Engineer quando patch, landing o automazioni richiedono asset. Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
+    permissions: {
+      canCreateMedia: true,
+      canMutateAssets: false,
+      requiresReview: true,
+    },
     handoffPolicy: { onCopyrightRisk: "return_to_review" },
   },
   {
@@ -723,7 +801,14 @@ const recommendedSubagents = [
     lane: "operations",
     primaryProviderId: "gemma-hosted",
     modelHint: "gemma-hosted",
-    connectorIds: ["google-business-profile", "google-calendar", "meta-business-suite", "linkedin-pages", "google-drive", "cloudinary"],
+    connectorIds: [
+      "google-business-profile",
+      "google-calendar",
+      "meta-business-suite",
+      "linkedin-pages",
+      "google-drive",
+      "cloudinary",
+    ],
     systemPrompt:
       "Trasforma task e deliverable approvati in bozze editoriali, aggiornamenti Google Business Profile e pubblicazioni social. Non pubblica nulla e non modifica schede pubbliche senza approvazione cliente/responsabile.",
     permissions: {
@@ -746,130 +831,157 @@ const recommendedSubagents = [
     primaryProviderId: "gemma",
     modelHint: "gemma-local",
     connectorIds: ["notion", "sendgrid", "telegram"],
-    systemPrompt: "Classifica richieste operative, rapportini e comunicazioni interne con modello leggero o locale quando basta.",
-    permissions: { canSendEmail: false, canDraftEmail: true, canCreateJob: true, requiresReview: true },
+    systemPrompt:
+      "Classifica richieste operative, rapportini e comunicazioni interne con modello leggero o locale quando basta.",
+    permissions: {
+      canSendEmail: false,
+      canDraftEmail: true,
+      canCreateJob: true,
+      requiresReview: true,
+    },
     handoffPolicy: { onExternalMessage: "create_job_or_draft" },
   },
-]
+];
 
 function installTone(state: string) {
-  return installStateTone[state] ?? installStateTone.not_installed
+  return installStateTone[state] ?? installStateTone.not_installed;
 }
 
 function installLabel(state: string) {
-  return installStateCopy[state] ?? state
+  return installStateCopy[state] ?? state;
 }
 
-function providerSetupHint(provider: AgenticCapabilities["providerCatalog"][number]) {
+function providerSetupHint(
+  provider: AgenticCapabilities["providerCatalog"][number],
+) {
   if (provider.authMethod === "runner_env") {
-    return "Configura env sul VPS runner e su Cloudflare quando serve. Poi esegui una verifica: se heartbeat, CLI e secret sono ok, Optima puo usarlo."
+    return "Configura env sul VPS runner e su Cloudflare quando serve. Poi esegui una verifica: se heartbeat, CLI e secret sono ok, Optima puo usarlo.";
   }
   if (provider.authMethod === "local_install") {
-    return "Installa il runtime/CLI nella macchina runner autorizzata. Optima deve solo vedere policy e health check, non password o token in chiaro."
+    return "Installa il runtime/CLI nella macchina runner autorizzata. Optima deve solo vedere policy e health check, non password o token in chiaro.";
   }
   if (provider.authMethod === "api_key_secret") {
-    return "API key a consumo solo come ultima spiaggia e facoltativa: prima valuta OAuth, Browser MCP, modello locale o provider gia incluso. Se la usi, resta nel runtime come secret_ref."
+    return "API key a consumo solo come ultima spiaggia e facoltativa: prima valuta OAuth, Browser MCP, modello locale o provider gia incluso. Se la usi, resta nel runtime come secret_ref.";
   }
   if (provider.authMethod === "none") {
-    return "Non richiede segreti: va attivato con policy tenant e prova di esecuzione locale."
+    return "Non richiede segreti: va attivato con policy tenant e prova di esecuzione locale.";
   }
-  return "Usa installazione guidata, salva solo secret_ref e verifica prima di dichiararlo operativo."
+  return "Usa installazione guidata, salva solo secret_ref e verifica prima di dichiararlo operativo.";
 }
 
 function providerAuthLabel(method?: string) {
-  if (method === "oauth_pkce") return "OAuth / PKCE"
-  if (method === "external_oauth") return "OAuth esterno"
-  if (method === "runner_env") return "Runner env"
-  if (method === "local_install") return "Install locale"
-  if (method === "api_key_secret") return "API key opzionale / fallback"
-  return "Nessun segreto"
+  if (method === "oauth_pkce") return "OAuth / PKCE";
+  if (method === "external_oauth") return "OAuth esterno";
+  if (method === "runner_env") return "Runner env";
+  if (method === "local_install") return "Install locale";
+  if (method === "api_key_secret") return "API key opzionale / fallback";
+  return "Nessun segreto";
 }
 
-function providerPrimaryActionLabel(provider: AgenticCapabilities["providerCatalog"][number]) {
-  if (provider.id === "codex") return "Profilo Codex"
-  if (provider.id === "openai") return "Scelte AI"
-  if (provider.authMethod === "runner_env") return "Runtime VPS"
-  if (provider.authMethod === "local_install") return "Install locale"
-  if (provider.authMethod === "oauth_pkce" || provider.authMethod === "external_oauth") return "Apri OAuth"
-  if (provider.authMethod === "api_key_secret") return "Opzioni senza API"
-  return "Percorso provider"
+function providerPrimaryActionLabel(
+  provider: AgenticCapabilities["providerCatalog"][number],
+) {
+  if (provider.id === "codex") return "Profilo Codex";
+  if (provider.id === "openai") return "Scelte AI";
+  if (provider.authMethod === "runner_env") return "Runtime VPS";
+  if (provider.authMethod === "local_install") return "Install locale";
+  if (
+    provider.authMethod === "oauth_pkce" ||
+    provider.authMethod === "external_oauth"
+  )
+    return "Apri OAuth";
+  if (provider.authMethod === "api_key_secret") return "Opzioni senza API";
+  return "Percorso provider";
 }
 
 function providerCanRunHealthCheck(state: string) {
-  return state === "configured" || state === "healthy"
+  return state === "configured" || state === "healthy";
 }
 
 function providerHealthCheckLabel(state: string) {
-  if (state === "healthy") return "Riverifica runtime"
-  if (state === "configured") return "Verifica provider"
-  return "Prima collega"
+  if (state === "healthy") return "Riverifica runtime";
+  if (state === "configured") return "Verifica provider";
+  return "Prima collega";
 }
 
 function providerCredentialLabel(secret: string) {
-  if (secret === "AGENT_RUNNER_API_KEY") return "token interno runner"
-  if (secret.endsWith("_API_KEY")) return "API key facoltativa"
-  return "credential fallback"
+  if (secret === "AGENT_RUNNER_API_KEY") return "token interno runner";
+  if (secret.endsWith("_API_KEY")) return "API key facoltativa";
+  return "credential fallback";
 }
 
-function providerInstallSteps(provider: AgenticCapabilities["providerCatalog"][number]) {
+function providerInstallSteps(
+  provider: AgenticCapabilities["providerCatalog"][number],
+) {
   if (provider.id === "codex") {
     return [
       "Non modificare il profilo Codex esistente se usa API key. Crea una home separata, ad esempio `/root/.codex-chatgpt`.",
-      "Autentica quella home con ChatGPT/device-auth oppure con auth.json gia valido copiato nella home separata. Non stampare token o contenuti del file.",
-      "Verifica con `CODEX_HOME=/root/.codex-chatgpt codex login status` e `codex doctor`: deve risultare ChatGPT, API key false, token ChatGPT true.",
+      "Autentica quella home dal runner con `CODEX_HOME=/root/.codex-chatgpt codex login --device-auth`. Non stampare token o contenuti di auth.json.",
+      "Verifica con `printf 'Rispondi solo con: OK-CODEX-OAUTH\\n' | CODEX_HOME=/root/.codex-chatgpt codex exec --sandbox workspace-write --skip-git-repo-check -`.",
       "Crea o verifica il wrapper `codex-chatgpt` che esporta `CODEX_HOME=/root/.codex-chatgpt` e usa quello nei job Optima.",
       "Configura solo il token interno Optima necessario al polling, cioe AGENT_RUNNER_API_KEY. Non e una API key a consumo e non sostituisce il login Codex.",
       "Esegui verifica: heartbeat runner, `codex-chatgpt exec` dry-run, artefatto revisionabile e nessun deploy automatico.",
-    ]
+    ];
   }
   if (provider.authMethod === "runner_env") {
     return [
       "Verifica il runner autorizzato e il perimetro tenant: workdir isolata, heartbeat recente e nessun accesso a servizi esterni non allowlist.",
       `Configura nel runtime solo i secret necessari: ${provider.requiredSecrets.length ? provider.requiredSecrets.join(", ") : "nessun secret obbligatorio"}.`,
       "Salva in Optima policy e secret_ref, poi esegui una verifica revisionabile prima di dichiarare il provider operativo.",
-    ]
+    ];
   }
   if (provider.authMethod === "api_key_secret") {
     return [
       "Prima prova un percorso senza consumo variabile: OAuth ufficiale, Browser MCP con login utente, modello locale o piano gia incluso.",
       "Se serve davvero una API key a pagamento, trattala come fallback facoltativo con tetto budget, scope minimi e quota controllata.",
       "Salvala solo in Cloudflare secret, VPS env o tenant vault: Optima conserva secret_ref, stato installazione e verifica, non la chiave.",
-    ]
+    ];
   }
   if (provider.authMethod === "local_install") {
     return [
       "Installa runtime/CLI sul runner autorizzato o nodo privato.",
       "Esponi solo endpoint locale/Tailscale o comando controllato da policy.",
       "Registra in Optima installazione, verifica e limiti d'uso per tenant.",
-    ]
+    ];
   }
-  if (provider.authMethod === "oauth_pkce" || provider.authMethod === "external_oauth") {
+  if (
+    provider.authMethod === "oauth_pkce" ||
+    provider.authMethod === "external_oauth"
+  ) {
     return [
       "Apri installazione OAuth con state/PKCE e redirect allowlist.",
       "Autorizza solo scope minimi e account corretti.",
       "Salva token nel runtime autorizzato; Optima conserva subject, scope, stato e secret_ref.",
-    ]
+    ];
   }
-  return ["Salva policy tenant.", "Esegui una verifica.", "Abilita il provider solo se il test e verificato."]
+  return [
+    "Salva policy tenant.",
+    "Esegui una verifica.",
+    "Abilita il provider solo se il test e verificato.",
+  ];
 }
 
-function providerWizardNotice(provider: AgenticCapabilities["providerCatalog"][number]) {
+function providerWizardNotice(
+  provider: AgenticCapabilities["providerCatalog"][number],
+) {
   if (provider.id === "codex") {
-    return "Codex non deve rimandarti prima alle API key: la strada preferita e una CODEX_HOME separata autenticata ChatGPT sul VPS runner, richiamata da wrapper codex-chatgpt. API key a consumo o access token sono fallback facoltativi; AGENT_RUNNER_API_KEY e solo token interno Optima-runner."
+    return "Codex non deve rimandarti prima alle API key: la strada preferita e una CODEX_HOME separata autenticata con `codex login --device-auth` sul VPS runner, richiamata da wrapper codex-chatgpt. API key a consumo o access token sono fallback espliciti; AGENT_RUNNER_API_KEY e solo token interno Optima-runner.";
   }
   if (provider.id === "openai") {
-    return "Per ChatGPT web, Gemini/Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. Le API key a consumo restano un fallback facoltativo, non il percorso principale."
+    return "Per ChatGPT web, Gemini/Nano Banana o strumenti senza API la strada preferita e Browser MCP con pairing/login utente. Le API key a consumo restano un fallback facoltativo, non il percorso principale.";
   }
   if (provider.authMethod === "runner_env") {
-    return "Questo provider non usa OAuth utente: si abilita configurando il runner autorizzato e verificando heartbeat, CLI e secret. Il pulsante sotto non fa login, registra solo il percorso e abilita la verifica."
+    return "Questo provider non usa OAuth utente: si abilita configurando il runner autorizzato e verificando heartbeat, CLI e secret. Il pulsante sotto non fa login, registra solo il percorso e abilita la verifica.";
   }
   if (provider.authMethod === "api_key_secret") {
-    return "Non partire dalla API key: e una modalita a consumo, facoltativa e da usare solo se OAuth/Browser MCP/local non bastano. Se la configuri, resta nel runtime autorizzato."
+    return "Non partire dalla API key: e una modalita a consumo, facoltativa e da usare solo se OAuth/Browser MCP/local non bastano. Se la configuri, resta nel runtime autorizzato.";
   }
-  return "La configurazione reale deve salvare stato, policy e secret_ref. Il job serve solo per verifica o audit, non per inserire credenziali."
+  return "La configurazione reale deve salvare stato, policy e secret_ref. Il job serve solo per verifica o audit, non per inserire credenziali.";
 }
 
-function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][number]) {
+function providerSetupModes(
+  provider: AgenticCapabilities["providerCatalog"][number],
+) {
   if (provider.id === "codex") {
     return [
       {
@@ -887,7 +999,7 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
         tone: "fallback",
         body: "API key a consumo solo se inevitabile. AGENT_RUNNER_API_KEY invece e token interno Optima-runner, non billing provider.",
       },
-    ]
+    ];
   }
   if (provider.id === "openai") {
     return [
@@ -906,7 +1018,7 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
         tone: "fallback",
         body: "Ultima spiaggia per chiamate server-side ai modelli, con budget e quota. Non e la strada per usare account ChatGPT web.",
       },
-    ]
+    ];
   }
   if (provider.authMethod === "api_key_secret") {
     return [
@@ -920,7 +1032,7 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
         tone: "fallback",
         body: "Solo se non esistono OAuth, Browser MCP, modello locale o piano gia incluso. Deve avere budget/quote e secret_ref.",
       },
-    ]
+    ];
   }
   return [
     {
@@ -928,40 +1040,43 @@ function providerSetupModes(provider: AgenticCapabilities["providerCatalog"][num
       tone: "recommended",
       body: providerSetupHint(provider),
     },
-  ]
+  ];
 }
 
 function setupModeClass(tone: string) {
-  if (tone === "recommended") return "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-50"
-  if (tone === "oauth") return "border-cyan-300/20 bg-cyan-300/[0.07] text-cyan-50"
-  return "border-amber-300/20 bg-amber-300/[0.07] text-amber-50"
+  if (tone === "recommended")
+    return "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-50";
+  if (tone === "oauth")
+    return "border-cyan-300/20 bg-cyan-300/[0.07] text-cyan-50";
+  return "border-amber-300/20 bg-amber-300/[0.07] text-amber-50";
 }
 
 function runtimeTone(state: string) {
-  return runtimeStatusTone[state] ?? runtimeStatusTone.reference_only
+  return runtimeStatusTone[state] ?? runtimeStatusTone.reference_only;
 }
 
 function getRequestedOutput(jobType: string) {
-  if (jobType === "task_update") return ["report", "task-update", "sql-seed"]
-  if (jobType === "quote_pdf") return ["quote", "pdf", "report"]
-  if (jobType === "research") return ["report", "sources"]
-  return ["patch", "report", "pull-request", "task-update"]
+  if (jobType === "task_update") return ["report", "task-update", "sql-seed"];
+  if (jobType === "quote_pdf") return ["quote", "pdf", "report"];
+  if (jobType === "research") return ["report", "sources"];
+  return ["patch", "report", "pull-request", "task-update"];
 }
 
 function getTitlePlaceholder(jobType: string) {
-  if (jobType === "task_update") return "Es. Aggiorna task Axel da attivita GitHub"
-  if (jobType === "quote_pdf") return "Es. Genera preventivo DICO/SYSTEMDOC"
-  if (jobType === "research") return "Es. Analizza stato progetto Solero"
-  if (jobType === "deploy") return "Es. Deploy controllato Optima production"
-  return "Es. Patch UI rapportini"
+  if (jobType === "task_update")
+    return "Es. Aggiorna task Axel da attivita GitHub";
+  if (jobType === "quote_pdf") return "Es. Genera preventivo DICO/SYSTEMDOC";
+  if (jobType === "research") return "Es. Analizza stato progetto Solero";
+  if (jobType === "deploy") return "Es. Deploy controllato Optima production";
+  return "Es. Patch UI rapportini";
 }
 
 function getBriefPlaceholder(jobType: string) {
   if (jobType === "task_update") {
-    return "Es. Leggi le attivita GitHub di axelfleureau dall'ultimo aggiornamento task, raggruppale per progetto/cliente e produci uno script SQL idempotente con task e time entry da revisionare. Non fare deploy, commit o push."
+    return "Es. Leggi le attivita GitHub di axelfleureau dall'ultimo aggiornamento task, raggruppale per progetto/cliente e produci uno script SQL idempotente con task e time entry da revisionare. Non fare deploy, commit o push.";
   }
 
-  return "Descrivi cosa deve fare il runner, cosa deve produrre e quali limiti rispettare..."
+  return "Descrivi cosa deve fare il runner, cosa deve produrre e quali limiti rispettare...";
 }
 
 function getGraphNodeLayout(
@@ -985,82 +1100,131 @@ function getGraphNodeLayout(
     "hermes_skill",
     "obsidian_note",
     "development_knowhow",
-  ]
-  const limit = options.limit == null ? nodes.length : options.limit
-  const selectedNodeId = options.selectedNodeId ?? null
-  const degreeByNode = new Map<string, number>()
-  const neighborIds = new Set<string>()
+  ];
+  const limit = options.limit == null ? nodes.length : options.limit;
+  const selectedNodeId = options.selectedNodeId ?? null;
+  const degreeByNode = new Map<string, number>();
+  const neighborIds = new Set<string>();
   for (const edge of edges) {
-    degreeByNode.set(edge.fromNodeId, (degreeByNode.get(edge.fromNodeId) || 0) + 1)
-    degreeByNode.set(edge.toNodeId, (degreeByNode.get(edge.toNodeId) || 0) + 1)
-    if (selectedNodeId && edge.fromNodeId === selectedNodeId) neighborIds.add(edge.toNodeId)
-    if (selectedNodeId && edge.toNodeId === selectedNodeId) neighborIds.add(edge.fromNodeId)
+    degreeByNode.set(
+      edge.fromNodeId,
+      (degreeByNode.get(edge.fromNodeId) || 0) + 1,
+    );
+    degreeByNode.set(edge.toNodeId, (degreeByNode.get(edge.toNodeId) || 0) + 1);
+    if (selectedNodeId && edge.fromNodeId === selectedNodeId)
+      neighborIds.add(edge.toNodeId);
+    if (selectedNodeId && edge.toNodeId === selectedNodeId)
+      neighborIds.add(edge.fromNodeId);
   }
 
   const visibleNodes = [...nodes]
     .sort((a, b) => {
       if (selectedNodeId) {
-        if (a.id === selectedNodeId) return -1
-        if (b.id === selectedNodeId) return 1
-        const neighborDelta = Number(neighborIds.has(b.id)) - Number(neighborIds.has(a.id))
-        if (neighborDelta !== 0) return neighborDelta
+        if (a.id === selectedNodeId) return -1;
+        if (b.id === selectedNodeId) return 1;
+        const neighborDelta =
+          Number(neighborIds.has(b.id)) - Number(neighborIds.has(a.id));
+        if (neighborDelta !== 0) return neighborDelta;
       }
-      const degreeDelta = (degreeByNode.get(b.id) || 0) - (degreeByNode.get(a.id) || 0)
-      if (degreeDelta !== 0) return degreeDelta
-      const aType = typeOrder.includes(a.nodeType) ? typeOrder.indexOf(a.nodeType) : typeOrder.length
-      const bType = typeOrder.includes(b.nodeType) ? typeOrder.indexOf(b.nodeType) : typeOrder.length
-      const typeDelta = aType - bType
-      if (typeDelta !== 0) return typeDelta
-      return a.title.localeCompare(b.title)
+      const degreeDelta =
+        (degreeByNode.get(b.id) || 0) - (degreeByNode.get(a.id) || 0);
+      if (degreeDelta !== 0) return degreeDelta;
+      const aType = typeOrder.includes(a.nodeType)
+        ? typeOrder.indexOf(a.nodeType)
+        : typeOrder.length;
+      const bType = typeOrder.includes(b.nodeType)
+        ? typeOrder.indexOf(b.nodeType)
+        : typeOrder.length;
+      const typeDelta = aType - bType;
+      if (typeDelta !== 0) return typeDelta;
+      return a.title.localeCompare(b.title);
     })
-    .slice(0, limit)
+    .slice(0, limit);
 
-  const selectedIndex = visibleNodes.findIndex((node) => node.id === selectedNodeId)
-  const visibleNodeIds = new Set(visibleNodes.map((node) => node.id))
-  const visibleEdgeInputs = edges.filter((edge) => visibleNodeIds.has(edge.fromNodeId) && visibleNodeIds.has(edge.toNodeId))
+  const selectedIndex = visibleNodes.findIndex(
+    (node) => node.id === selectedNodeId,
+  );
+  const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+  const visibleEdgeInputs = edges.filter(
+    (edge) =>
+      visibleNodeIds.has(edge.fromNodeId) && visibleNodeIds.has(edge.toNodeId),
+  );
 
   const layout = visibleNodes.map((node, index) => {
-    const degree = degreeByNode.get(node.id) || 0
+    const degree = degreeByNode.get(node.id) || 0;
     const typeBoost =
       node.nodeType === "system" || node.nodeType === "knowledge_base"
         ? 1.8
-        : node.nodeType === "graph_engine" || node.nodeType === "graph_workspace"
+        : node.nodeType === "graph_engine" ||
+            node.nodeType === "graph_workspace"
           ? 1.35
           : node.nodeType === "capability"
             ? 0.9
-            : 0
-    const selectedBoost = node.id === selectedNodeId ? 1.5 : neighborIds.has(node.id) ? 0.6 : 0
-    const r = Math.max(0.75, Math.min(4.8, 0.95 + Math.sqrt(degree + 1) * 0.42 + typeBoost * 0.42 + selectedBoost * 0.34))
+            : 0;
+    const selectedBoost =
+      node.id === selectedNodeId ? 1.5 : neighborIds.has(node.id) ? 0.6 : 0;
+    const r = Math.max(
+      0.75,
+      Math.min(
+        4.8,
+        0.95 +
+          Math.sqrt(degree + 1) * 0.42 +
+          typeBoost * 0.42 +
+          selectedBoost * 0.34,
+      ),
+    );
 
-    let x: number
-    let y: number
-    const isSelected = node.id === selectedNodeId
-    const isNeighbor = neighborIds.has(node.id)
+    let x: number;
+    let y: number;
+    const isSelected = node.id === selectedNodeId;
+    const isNeighbor = neighborIds.has(node.id);
 
     if (selectedNodeId && selectedIndex >= 0) {
       if (isSelected) {
-        x = 50
-        y = 50
+        x = 50;
+        y = 50;
       } else if (isNeighbor) {
-        const neighbors = visibleNodes.filter((item) => neighborIds.has(item.id))
-        const neighborIndex = Math.max(0, neighbors.findIndex((item) => item.id === node.id))
-        const point = seededGraphPoint(`${node.id}:${neighborIndex}`, 12 + Math.min(17, neighbors.length * 0.34), -92 + (360 / Math.max(1, neighbors.length)) * neighborIndex)
-        x = point.x
-        y = point.y
+        const neighbors = visibleNodes.filter((item) =>
+          neighborIds.has(item.id),
+        );
+        const neighborIndex = Math.max(
+          0,
+          neighbors.findIndex((item) => item.id === node.id),
+        );
+        const point = seededGraphPoint(
+          `${node.id}:${neighborIndex}`,
+          12 + Math.min(17, neighbors.length * 0.34),
+          -92 + (360 / Math.max(1, neighbors.length)) * neighborIndex,
+        );
+        x = point.x;
+        y = point.y;
       } else {
-        const outerNodes = visibleNodes.filter((item) => item.id !== selectedNodeId && !neighborIds.has(item.id))
-        const outerIndex = Math.max(0, outerNodes.findIndex((item) => item.id === node.id))
-        const point = seededGraphPoint(`${node.id}:${outerIndex}`, 26 + (outerIndex % 9) * 2.7, outerIndex * 137.508 - 24)
-        x = point.x
-        y = point.y
+        const outerNodes = visibleNodes.filter(
+          (item) => item.id !== selectedNodeId && !neighborIds.has(item.id),
+        );
+        const outerIndex = Math.max(
+          0,
+          outerNodes.findIndex((item) => item.id === node.id),
+        );
+        const point = seededGraphPoint(
+          `${node.id}:${outerIndex}`,
+          26 + (outerIndex % 9) * 2.7,
+          outerIndex * 137.508 - 24,
+        );
+        x = point.x;
+        y = point.y;
       }
     } else if (index === 0) {
-      x = 50
-      y = 50
+      x = 50;
+      y = 50;
     } else {
-      const point = seededGraphPoint(`${node.id}:${index}`, 5 + Math.sqrt(index) * 4.9, index * 137.508 - 90)
-      x = point.x
-      y = point.y
+      const point = seededGraphPoint(
+        `${node.id}:${index}`,
+        5 + Math.sqrt(index) * 4.9,
+        index * 137.508 - 90,
+      );
+      x = point.x;
+      y = point.y;
     }
 
     return {
@@ -1073,105 +1237,122 @@ function getGraphNodeLayout(
       degree,
       isSelected,
       isNeighbor,
-      visual: graphNodeTypeVisual[node.nodeType] ?? { fill: "#334155", stroke: "#94a3b8", label: node.nodeType },
-    }
-  })
+      visual: graphNodeTypeVisual[node.nodeType] ?? {
+        fill: "#334155",
+        stroke: "#94a3b8",
+        label: node.nodeType,
+      },
+    };
+  });
 
-  const layoutById = new Map(layout.map((item) => [item.node.id, item]))
+  const layoutById = new Map(layout.map((item) => [item.node.id, item]));
   for (let pass = 0; pass < 118; pass += 1) {
-    const cooling = 1 - pass / 118
+    const cooling = 1 - pass / 118;
 
     for (let i = 0; i < layout.length; i += 1) {
       for (let j = i + 1; j < layout.length; j += 1) {
-        const a = layout[i]
-        const b = layout[j]
-        const dx = b.x - a.x
-        const dy = b.y - a.y
-        const distance = Math.max(0.001, Math.hypot(dx, dy))
-        const minDistance = a.r + b.r + 1.6
-        const charge = Math.min(4.8, (minDistance * minDistance) / (distance * 1.55)) * cooling
-        const ux = dx / distance
-        const uy = dy / distance
+        const a = layout[i];
+        const b = layout[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const distance = Math.max(0.001, Math.hypot(dx, dy));
+        const minDistance = a.r + b.r + 1.6;
+        const charge =
+          Math.min(4.8, (minDistance * minDistance) / (distance * 1.55)) *
+          cooling;
+        const ux = dx / distance;
+        const uy = dy / distance;
 
         if (!a.isSelected) {
-          a.vx -= ux * charge * 0.08
-          a.vy -= uy * charge * 0.08
+          a.vx -= ux * charge * 0.08;
+          a.vy -= uy * charge * 0.08;
         }
         if (!b.isSelected) {
-          b.vx += ux * charge * 0.08
-          b.vy += uy * charge * 0.08
+          b.vx += ux * charge * 0.08;
+          b.vy += uy * charge * 0.08;
         }
       }
     }
 
     for (const edge of visibleEdgeInputs) {
-      const from = layoutById.get(edge.fromNodeId)
-      const to = layoutById.get(edge.toNodeId)
-      if (!from || !to) continue
-      const selectedEdge = Boolean(selectedNodeId && (edge.fromNodeId === selectedNodeId || edge.toNodeId === selectedNodeId))
-      const dx = to.x - from.x
-      const dy = to.y - from.y
-      const distance = Math.max(0.001, Math.hypot(dx, dy))
-      const desiredDistance = selectedEdge ? 12 : Math.max(8, 17 - Math.min(6, Number(edge.weight || 1) * 2))
-      const force = (distance - desiredDistance) * (selectedEdge ? 0.023 : 0.012) * cooling
-      const ux = dx / distance
-      const uy = dy / distance
+      const from = layoutById.get(edge.fromNodeId);
+      const to = layoutById.get(edge.toNodeId);
+      if (!from || !to) continue;
+      const selectedEdge = Boolean(
+        selectedNodeId &&
+        (edge.fromNodeId === selectedNodeId ||
+          edge.toNodeId === selectedNodeId),
+      );
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const distance = Math.max(0.001, Math.hypot(dx, dy));
+      const desiredDistance = selectedEdge
+        ? 12
+        : Math.max(8, 17 - Math.min(6, Number(edge.weight || 1) * 2));
+      const force =
+        (distance - desiredDistance) * (selectedEdge ? 0.023 : 0.012) * cooling;
+      const ux = dx / distance;
+      const uy = dy / distance;
       if (!from.isSelected) {
-        from.vx += ux * force
-        from.vy += uy * force
+        from.vx += ux * force;
+        from.vy += uy * force;
       }
       if (!to.isSelected) {
-        to.vx -= ux * force
-        to.vy -= uy * force
+        to.vx -= ux * force;
+        to.vy -= uy * force;
       }
     }
 
     for (const item of layout) {
       if (item.isSelected) {
-        item.x = 50
-        item.y = 50
-        item.vx = 0
-        item.vy = 0
-        continue
+        item.x = 50;
+        item.y = 50;
+        item.vx = 0;
+        item.vy = 0;
+        continue;
       }
 
-      const gravity = selectedNodeId ? (item.isNeighbor ? 0.006 : 0.002) : 0.004
-      item.vx += (50 - item.x) * gravity * cooling
-      item.vy += (50 - item.y) * gravity * cooling
-      item.vx *= 0.82
-      item.vy *= 0.82
-      item.x = Math.max(6, Math.min(94, item.x + item.vx))
-      item.y = Math.max(7, Math.min(93, item.y + item.vy))
+      const gravity = selectedNodeId
+        ? item.isNeighbor
+          ? 0.006
+          : 0.002
+        : 0.004;
+      item.vx += (50 - item.x) * gravity * cooling;
+      item.vy += (50 - item.y) * gravity * cooling;
+      item.vx *= 0.82;
+      item.vy *= 0.82;
+      item.x = Math.max(6, Math.min(94, item.x + item.vx));
+      item.y = Math.max(7, Math.min(93, item.y + item.vy));
     }
   }
 
-  return layout
+  return layout;
 }
 
 function hashGraphValue(value: string) {
-  let hash = 2166136261
+  let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
   }
-  return hash >>> 0
+  return hash >>> 0;
 }
 
 function seededGraphPoint(seed: string, radius: number, baseAngle: number) {
-  const hash = hashGraphValue(seed)
-  const jitterAngle = ((hash % 41) - 20) * 0.9
-  const jitterRadius = (((hash >>> 8) % 100) / 100 - 0.5) * 5
-  const angle = (baseAngle + jitterAngle) * (Math.PI / 180)
-  const safeRadius = Math.max(4, Math.min(43, radius + jitterRadius))
+  const hash = hashGraphValue(seed);
+  const jitterAngle = ((hash % 41) - 20) * 0.9;
+  const jitterRadius = (((hash >>> 8) % 100) / 100 - 0.5) * 5;
+  const angle = (baseAngle + jitterAngle) * (Math.PI / 180);
+  const safeRadius = Math.max(4, Math.min(43, radius + jitterRadius));
   return {
     x: 50 + Math.cos(angle) * safeRadius,
     y: 50 + Math.sin(angle) * safeRadius * 0.78,
-  }
+  };
 }
 
 function compactGraphLabel(value: string) {
-  const clean = value.replace(/^Optima\s+/i, "").replace(/^Codex\s+/i, "")
-  return clean.length > 18 ? `${clean.slice(0, 16).trim()}...` : clean
+  const clean = value.replace(/^Optima\s+/i, "").replace(/^Codex\s+/i, "");
+  return clean.length > 18 ? `${clean.slice(0, 16).trim()}...` : clean;
 }
 
 function graphMapSummary({
@@ -1182,64 +1363,74 @@ function graphMapSummary({
   totalEdges,
   filtered,
 }: {
-  visibleNodes: number
-  loadedNodes: number
-  totalNodes: number
-  visibleEdges: number
-  totalEdges: number
-  filtered: boolean
+  visibleNodes: number;
+  loadedNodes: number;
+  totalNodes: number;
+  visibleEdges: number;
+  totalEdges: number;
+  filtered: boolean;
 }) {
-  const scope = filtered ? "filtrati" : "caricati"
-  return `${visibleNodes} visibili · ${loadedNodes}/${totalNodes} nodi ${scope} · ${visibleEdges}/${totalEdges} archi`
+  const scope = filtered ? "filtrati" : "caricati";
+  return `${visibleNodes} visibili · ${loadedNodes}/${totalNodes} nodi ${scope} · ${visibleEdges}/${totalEdges} archi`;
 }
 
-const GRAPH_MIN_ZOOM = 0.45
-const GRAPH_FIT_ZOOM = 0.62
-const GRAPH_MAX_ZOOM = 2.8
-const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1]
-const GRAPH_NODE_LIMIT_OPTIONS = [48, 96, 160, 240, 500, 1000]
-const OBSIDIAN_VAULT_NAME = "Optima Obsidian Vault"
-const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault"
-const OBSIDIAN_GRAPH_INDEX_FILE = "Optima Graph Memory.md"
-const OBSIDIAN_AGENTIC_DASHBOARD_FILE = "Dashboards/Agentic OS.md"
-const OBSIDIAN_VAULT_URI = obsidianOpenPath()
-const OBSIDIAN_GRAPH_INDEX_URI = obsidianOpenPath(OBSIDIAN_GRAPH_INDEX_FILE)
-const OBSIDIAN_AGENTIC_DASHBOARD_URI = obsidianOpenPath(OBSIDIAN_AGENTIC_DASHBOARD_FILE)
+const GRAPH_MIN_ZOOM = 0.45;
+const GRAPH_FIT_ZOOM = 0.62;
+const GRAPH_MAX_ZOOM = 2.8;
+const GRAPH_ZOOM_PRESETS = [0.5, 0.7, 0.85, 1];
+const GRAPH_NODE_LIMIT_OPTIONS = [48, 96, 160, 240, 500, 1000];
+const OBSIDIAN_VAULT_NAME = "Optima Obsidian Vault";
+const OBSIDIAN_VAULT_PATH = "/Users/axel/Documents/Optima Obsidian Vault";
+const OBSIDIAN_GRAPH_INDEX_FILE = "Optima Graph Memory.md";
+const OBSIDIAN_AGENTIC_DASHBOARD_FILE = "Dashboards/Agentic OS.md";
+const OBSIDIAN_VAULT_URI = obsidianOpenPath();
+const OBSIDIAN_GRAPH_INDEX_URI = obsidianOpenPath(OBSIDIAN_GRAPH_INDEX_FILE);
+const OBSIDIAN_AGENTIC_DASHBOARD_URI = obsidianOpenPath(
+  OBSIDIAN_AGENTIC_DASHBOARD_FILE,
+);
 
 function obsidianOpenPath(filePath = "") {
-  const localPath = filePath ? `${OBSIDIAN_VAULT_PATH}/${filePath}` : OBSIDIAN_VAULT_PATH
-  return `obsidian://open?path=${encodeURIComponent(localPath)}`
+  const localPath = filePath
+    ? `${OBSIDIAN_VAULT_PATH}/${filePath}`
+    : OBSIDIAN_VAULT_PATH;
+  return `obsidian://open?path=${encodeURIComponent(localPath)}`;
 }
 
 function copyObsidianPath(path = OBSIDIAN_VAULT_PATH) {
   if (typeof navigator === "undefined" || !navigator.clipboard) {
-    toast.info(`Path vault: ${path}`)
-    return
+    toast.info(`Path vault: ${path}`);
+    return;
   }
   navigator.clipboard
     .writeText(path)
     .then(() => toast.success("Path Obsidian copiato"))
-    .catch(() => toast.info(`Path vault: ${path}`))
+    .catch(() => toast.info(`Path vault: ${path}`));
 }
 
-function openObsidianUri(uri: string, label: string, path = OBSIDIAN_VAULT_PATH) {
-  if (typeof window === "undefined") return
+function openObsidianUri(
+  uri: string,
+  label: string,
+  path = OBSIDIAN_VAULT_PATH,
+) {
+  if (typeof window === "undefined") return;
 
-  const anchor = document.createElement("a")
-  anchor.href = uri
-  anchor.rel = "noreferrer"
-  anchor.style.display = "none"
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
+  const anchor = document.createElement("a");
+  anchor.href = uri;
+  anchor.rel = "noreferrer";
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 
   window.setTimeout(() => {
-    toast.info(`${label}: se non si apre, in Obsidian usa "Open folder as vault" con ${path}.`)
-  }, 1200)
+    toast.info(
+      `${label}: se non si apre, in Obsidian usa "Open folder as vault" con ${path}.`,
+    );
+  }, 1200);
 }
 
 function clampGraphZoom(value: number) {
-  return Math.max(GRAPH_MIN_ZOOM, Math.min(GRAPH_MAX_ZOOM, value))
+  return Math.max(GRAPH_MIN_ZOOM, Math.min(GRAPH_MAX_ZOOM, value));
 }
 
 function GraphMemoryMap({
@@ -1248,77 +1439,148 @@ function GraphMemoryMap({
   filtered = false,
   onSelectNode,
 }: {
-  graphMemory: AgenticGraphSnapshot | null
-  selectedNodeId?: string | null
-  filtered?: boolean
-  onSelectNode?: (node: AgenticGraphNode) => void
+  graphMemory: AgenticGraphSnapshot | null;
+  selectedNodeId?: string | null;
+  filtered?: boolean;
+  onSelectNode?: (node: AgenticGraphNode) => void;
 }) {
   type CanvasNode = ReturnType<typeof getGraphNodeLayout>[number] & {
-    stableX: number
-    stableY: number
-  }
+    stableX: number;
+    stableY: number;
+  };
   type CanvasDragState =
     | {
-        mode: "pan"
-        pointerId: number
-        startX: number
-        startY: number
-        startPan: { x: number; y: number }
+        mode: "pan";
+        pointerId: number;
+        startX: number;
+        startY: number;
+        startPan: { x: number; y: number };
       }
     | {
-        mode: "node"
-        pointerId: number
-        nodeId: string
-      }
+        mode: "node";
+        pointerId: number;
+        nodeId: string;
+      };
 
-  const [nodeLimit, setNodeLimit] = useState<number | "all">("all")
-  const [zoom, setZoom] = useState(GRAPH_FIT_ZOOM)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [dragState, setDragState] = useState<CanvasDragState | null>(null)
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const simNodesRef = useRef<CanvasNode[]>([])
-  const dragRef = useRef<CanvasDragState | null>(null)
-  const lastTapRef = useRef<{ nodeId: string | null; x: number; y: number; time: number } | null>(null)
+  const [nodeLimit, setNodeLimit] = useState<number | "all">("all");
+  const [zoom, setZoom] = useState(GRAPH_FIT_ZOOM);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragState, setDragState] = useState<CanvasDragState | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [isMobileGraphViewport, setIsMobileGraphViewport] = useState(false);
+  const [isPageVisible, setIsPageVisible] = useState(true);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const simNodesRef = useRef<CanvasNode[]>([]);
+  const dragRef = useRef<CanvasDragState | null>(null);
+  const lastTapRef = useRef<{
+    nodeId: string | null;
+    pointerId: number;
+    x: number;
+    y: number;
+    time: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateViewport = () => setIsMobileGraphViewport(mediaQuery.matches);
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const updateVisibility = () => setIsPageVisible(!document.hidden);
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", updateVisibility);
+  }, []);
+
+  const sourceNodeCount =
+    graphMemory?.stats.nodes ?? graphMemory?.nodes?.length ?? 0;
+  const allNodesLimit = isMobileGraphViewport
+    ? Math.min(sourceNodeCount, 160)
+    : Math.min(sourceNodeCount, 420);
+  const graphNodeLimit =
+    nodeLimit === "all"
+      ? sourceNodeCount > 0
+        ? allNodesLimit
+        : null
+      : nodeLimit;
 
   const layout = useMemo(
     () =>
       getGraphNodeLayout(graphMemory?.nodes ?? [], graphMemory?.edges ?? [], {
-        limit: nodeLimit === "all" ? null : nodeLimit,
+        limit: graphNodeLimit,
         selectedNodeId,
       }),
     [graphMemory?.nodes, graphMemory?.edges, nodeLimit, selectedNodeId],
-  )
-  const totalNodes = graphMemory?.stats.nodes ?? layout.length
-  const totalEdges = graphMemory?.stats.edges ?? graphMemory?.edges?.length ?? 0
-  const loadedNodes = graphMemory?.nodes.length ?? layout.length
-  const nodePosition = new Map(layout.map((item) => [item.node.id, item]))
-  const selectedLayoutNode = selectedNodeId ? nodePosition.get(selectedNodeId) : null
-  const hoveredLayoutNode = hoveredNodeId ? nodePosition.get(hoveredNodeId) : null
-  const focusLayoutNode = selectedLayoutNode ?? hoveredLayoutNode
-  const focusNodeId = selectedNodeId ?? hoveredNodeId
+  );
+  const totalNodes = graphMemory?.stats.nodes ?? layout.length;
+  const totalEdges =
+    graphMemory?.stats.edges ?? graphMemory?.edges?.length ?? 0;
+  const loadedNodes = graphMemory?.nodes.length ?? layout.length;
+  const nodePosition = new Map(layout.map((item) => [item.node.id, item]));
+  const selectedLayoutNode = selectedNodeId
+    ? nodePosition.get(selectedNodeId)
+    : null;
+  const hoveredLayoutNode = hoveredNodeId
+    ? nodePosition.get(hoveredNodeId)
+    : null;
+  const focusLayoutNode = selectedLayoutNode ?? hoveredLayoutNode;
+  const focusNodeId = selectedNodeId ?? hoveredNodeId;
   const sortedVisibleEdges = (graphMemory?.edges ?? [])
     .map((edge) => ({
       edge,
       from: nodePosition.get(edge.fromNodeId),
       to: nodePosition.get(edge.toNodeId),
     }))
-    .filter((item): item is { edge: AgenticGraphSnapshot["edges"][number]; from: (typeof layout)[number]; to: (typeof layout)[number] } =>
-      Boolean(item.from && item.to),
+    .filter(
+      (
+        item,
+      ): item is {
+        edge: AgenticGraphSnapshot["edges"][number];
+        from: (typeof layout)[number];
+        to: (typeof layout)[number];
+      } => Boolean(item.from && item.to),
     )
     .sort((a, b) => {
       if (selectedNodeId) {
-        const aSelected = a.edge.fromNodeId === selectedNodeId || a.edge.toNodeId === selectedNodeId
-        const bSelected = b.edge.fromNodeId === selectedNodeId || b.edge.toNodeId === selectedNodeId
-        const selectedDelta = Number(bSelected) - Number(aSelected)
-        if (selectedDelta !== 0) return selectedDelta
+        const aSelected =
+          a.edge.fromNodeId === selectedNodeId ||
+          a.edge.toNodeId === selectedNodeId;
+        const bSelected =
+          b.edge.fromNodeId === selectedNodeId ||
+          b.edge.toNodeId === selectedNodeId;
+        const selectedDelta = Number(bSelected) - Number(aSelected);
+        if (selectedDelta !== 0) return selectedDelta;
       }
-      return Number(b.edge.weight || 0) - Number(a.edge.weight || 0)
-    })
+      return Number(b.edge.weight || 0) - Number(a.edge.weight || 0);
+    });
+  const allEdgesLimit =
+    graphNodeLimit === null
+      ? 0
+      : Math.max(24, Math.min(480, graphNodeLimit * 2));
   const visibleEdges =
-    nodeLimit === "all" ? sortedVisibleEdges : sortedVisibleEdges.slice(0, Math.max(18, Math.min(360, nodeLimit * 4)))
-  const isPartialMap = totalNodes > layout.length || totalEdges > visibleEdges.length
-  const densityOptions = GRAPH_NODE_LIMIT_OPTIONS.filter((limit) => limit < Math.max(240, loadedNodes || 0))
+    nodeLimit === "all"
+      ? sortedVisibleEdges.slice(0, allEdgesLimit)
+      : sortedVisibleEdges.slice(0, Math.max(18, Math.min(360, nodeLimit * 4)));
+  const isPartialMap =
+    totalNodes > layout.length || totalEdges > visibleEdges.length;
+  const shouldAnimateGraph =
+    dragState?.mode === "node" ||
+    (!isMobileGraphViewport &&
+      isPageVisible &&
+      !isPartialMap &&
+      layout.length <= 240 &&
+      totalEdges <= 900);
+  const densityOptions = GRAPH_NODE_LIMIT_OPTIONS.filter(
+    (limit) => limit < Math.max(240, loadedNodes || 0),
+  );
   const summary = graphMapSummary({
     visibleNodes: layout.length,
     loadedNodes,
@@ -1326,12 +1588,14 @@ function GraphMemoryMap({
     visibleEdges: visibleEdges.length,
     totalEdges,
     filtered,
-  })
+  });
 
   useEffect(() => {
-    const previousNodes = new Map(simNodesRef.current.map((node) => [node.node.id, node]))
+    const previousNodes = new Map(
+      simNodesRef.current.map((node) => [node.node.id, node]),
+    );
     simNodesRef.current = layout.map((node) => {
-      const previous = previousNodes.get(node.node.id)
+      const previous = previousNodes.get(node.node.id);
       return {
         ...node,
         x: previous?.x ?? node.x,
@@ -1340,302 +1604,480 @@ function GraphMemoryMap({
         vy: previous?.vy ?? 0,
         stableX: node.x,
         stableY: node.y,
-      }
-    })
-  }, [layout])
+      };
+    });
+  }, [layout]);
 
   useEffect(() => {
-    dragRef.current = dragState
-  }, [dragState])
+    dragRef.current = dragState;
+  }, [dragState]);
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || !layout.length) return
-    const graphCanvas = canvas
+    const canvas = canvasRef.current;
+    if (!canvas || !layout.length) return;
+    const graphCanvas = canvas;
 
-    let frame = 0
-    let disposed = false
+    let frame = 0;
+    let disposed = false;
 
     function resizeCanvas(context: CanvasRenderingContext2D) {
-      const rect = graphCanvas.getBoundingClientRect()
-      const dpr = Math.min(2, window.devicePixelRatio || 1)
-      const width = Math.max(1, Math.floor(rect.width))
-      const height = Math.max(1, Math.floor(rect.height))
-      const targetWidth = Math.floor(width * dpr)
-      const targetHeight = Math.floor(height * dpr)
-      if (graphCanvas.width !== targetWidth || graphCanvas.height !== targetHeight) {
-        graphCanvas.width = targetWidth
-        graphCanvas.height = targetHeight
+      const rect = graphCanvas.getBoundingClientRect();
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      const targetWidth = Math.floor(width * dpr);
+      const targetHeight = Math.floor(height * dpr);
+      if (
+        graphCanvas.width !== targetWidth ||
+        graphCanvas.height !== targetHeight
+      ) {
+        graphCanvas.width = targetWidth;
+        graphCanvas.height = targetHeight;
       }
-      context.setTransform(dpr, 0, 0, dpr, 0, 0)
-      return { width, height }
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { width, height };
     }
 
     function project(width: number, height: number, x: number, y: number) {
-      const scale = (Math.min(width, height) * 0.9 * zoom) / 100
+      const scale = (Math.min(width, height) * 0.9 * zoom) / 100;
       return {
         x: width / 2 + (x - 50 - pan.x) * scale,
         y: height / 2 + (y - 50 - pan.y) * scale,
         scale,
-      }
+      };
     }
 
     function tick() {
-      if (disposed) return
-      const context = graphCanvas.getContext("2d")
-      if (!context) return
+      if (disposed) return;
+      const context = graphCanvas.getContext("2d");
+      if (!context) return;
 
-      const nodes = simNodesRef.current
-      const nodeById = new Map(nodes.map((node) => [node.node.id, node]))
-      const alpha = dragRef.current?.mode === "node" ? 0.4 : 0.18
+      const nodes = simNodesRef.current;
+      const nodeById = new Map(nodes.map((node) => [node.node.id, node]));
+      const alpha = dragRef.current?.mode === "node" ? 0.4 : 0.18;
+      const shouldRunPhysics =
+        (shouldAnimateGraph || dragRef.current?.mode === "node") &&
+        nodes.length <= 320;
 
-      for (let i = 0; i < nodes.length; i += 1) {
-        for (let j = i + 1; j < nodes.length; j += 1) {
-          const a = nodes[i]
-          const b = nodes[j]
-          const dx = b.x - a.x
-          const dy = b.y - a.y
-          const distance = Math.max(0.08, Math.hypot(dx, dy))
-          const minDistance = Math.max(1.8, a.r * 0.48 + b.r * 0.48 + 1.1)
-          const push = Math.min(0.045, (minDistance * minDistance) / (distance * distance * 34)) * alpha
-          const ux = dx / distance
-          const uy = dy / distance
-          if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === a.node.id)) {
-            a.vx -= ux * push
-            a.vy -= uy * push
+      if (shouldRunPhysics) {
+        for (let i = 0; i < nodes.length; i += 1) {
+          for (let j = i + 1; j < nodes.length; j += 1) {
+            const a = nodes[i];
+            const b = nodes[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const distance = Math.max(0.08, Math.hypot(dx, dy));
+            const minDistance = Math.max(1.8, a.r * 0.48 + b.r * 0.48 + 1.1);
+            const push =
+              Math.min(
+                0.045,
+                (minDistance * minDistance) / (distance * distance * 34),
+              ) * alpha;
+            const ux = dx / distance;
+            const uy = dy / distance;
+            if (!(
+              dragRef.current?.mode === "node" &&
+              dragRef.current.nodeId === a.node.id
+            )) {
+              a.vx -= ux * push;
+              a.vy -= uy * push;
+            }
+            if (!(
+              dragRef.current?.mode === "node" &&
+              dragRef.current.nodeId === b.node.id
+            )) {
+              b.vx += ux * push;
+              b.vy += uy * push;
+            }
           }
-          if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === b.node.id)) {
-            b.vx += ux * push
-            b.vy += uy * push
+        }
+      }
+
+      if (shouldRunPhysics) {
+        for (const { edge } of visibleEdges) {
+          const from = nodeById.get(edge.fromNodeId);
+          const to = nodeById.get(edge.toNodeId);
+          if (!from || !to) continue;
+          const dx = to.x - from.x;
+          const dy = to.y - from.y;
+          const distance = Math.max(0.08, Math.hypot(dx, dy));
+          const selectedEdge =
+            focusNodeId &&
+            (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId);
+          const desired = selectedEdge
+            ? 8
+            : Math.max(5.5, 11 - Math.min(4, Number(edge.weight || 1) * 1.4));
+          const pull =
+            (distance - desired) * (selectedEdge ? 0.004 : 0.0024) * alpha;
+          const ux = dx / distance;
+          const uy = dy / distance;
+          if (!(
+            dragRef.current?.mode === "node" &&
+            dragRef.current.nodeId === from.node.id
+          )) {
+            from.vx += ux * pull;
+            from.vy += uy * pull;
+          }
+          if (!(
+            dragRef.current?.mode === "node" &&
+            dragRef.current.nodeId === to.node.id
+          )) {
+            to.vx -= ux * pull;
+            to.vy -= uy * pull;
           }
         }
       }
 
+      if (shouldRunPhysics) {
+        for (const node of nodes) {
+          if (
+            dragRef.current?.mode === "node" &&
+            dragRef.current.nodeId === node.node.id
+          )
+            continue;
+          const anchorStrength = selectedNodeId
+            ? node.node.id === selectedNodeId
+              ? 0.055
+              : node.isNeighbor
+                ? 0.012
+                : 0.003
+            : 0.004;
+          node.vx += (node.stableX - node.x) * anchorStrength * alpha;
+          node.vy += (node.stableY - node.y) * anchorStrength * alpha;
+          node.vx += (50 - node.x) * 0.0009;
+          node.vy += (50 - node.y) * 0.0009;
+          node.vx *= 0.88;
+          node.vy *= 0.88;
+          node.x = Math.max(3, Math.min(97, node.x + node.vx));
+          node.y = Math.max(4, Math.min(96, node.y + node.vy));
+        }
+      }
+
+      const { width, height } = resizeCanvas(context);
+      context.clearRect(0, 0, width, height);
+
+      const gradient = context.createRadialGradient(
+        width * 0.5,
+        height * 0.48,
+        0,
+        width * 0.5,
+        height * 0.5,
+        Math.max(width, height) * 0.6,
+      );
+      gradient.addColorStop(0, "rgba(88, 28, 135, 0.28)");
+      gradient.addColorStop(0.38, "rgba(15, 23, 42, 0.18)");
+      gradient.addColorStop(1, "rgba(2, 6, 23, 0)");
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+
+      context.save();
+      context.globalAlpha = 0.12;
+      context.fillStyle = "#cbd5e1";
+      const dotStep = Math.max(18, 22 * zoom);
+      for (
+        let x = ((-pan.x * 4) % dotStep) - dotStep;
+        x < width + dotStep;
+        x += dotStep
+      ) {
+        for (
+          let y = ((-pan.y * 4) % dotStep) - dotStep;
+          y < height + dotStep;
+          y += dotStep
+        ) {
+          context.beginPath();
+          context.arc(x, y, 0.75, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+      context.restore();
+
+      context.save();
+      context.globalCompositeOperation = "lighter";
       for (const { edge } of visibleEdges) {
-        const from = nodeById.get(edge.fromNodeId)
-        const to = nodeById.get(edge.toNodeId)
-        if (!from || !to) continue
-        const dx = to.x - from.x
-        const dy = to.y - from.y
-        const distance = Math.max(0.08, Math.hypot(dx, dy))
-        const selectedEdge = focusNodeId && (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId)
-        const desired = selectedEdge ? 8 : Math.max(5.5, 11 - Math.min(4, Number(edge.weight || 1) * 1.4))
-        const pull = (distance - desired) * (selectedEdge ? 0.004 : 0.0024) * alpha
-        const ux = dx / distance
-        const uy = dy / distance
-        if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === from.node.id)) {
-          from.vx += ux * pull
-          from.vy += uy * pull
-        }
-        if (!(dragRef.current?.mode === "node" && dragRef.current.nodeId === to.node.id)) {
-          to.vx -= ux * pull
-          to.vy -= uy * pull
-        }
+        const from = nodeById.get(edge.fromNodeId);
+        const to = nodeById.get(edge.toNodeId);
+        if (!from || !to) continue;
+        const selectedEdge =
+          focusNodeId &&
+          (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId);
+        const a = project(width, height, from.x, from.y);
+        const b = project(width, height, to.x, to.y);
+        context.beginPath();
+        context.moveTo(a.x, a.y);
+        context.lineTo(b.x, b.y);
+        context.strokeStyle = selectedEdge
+          ? (graphConfidenceStroke[edge.confidence] ?? "#a78bfa")
+          : "rgba(148, 163, 184, 0.48)";
+        context.globalAlpha = focusNodeId
+          ? selectedEdge
+            ? 0.36
+            : 0.025
+          : edge.confidence === "ambiguous"
+            ? 0.045
+            : 0.105;
+        context.lineWidth = selectedEdge
+          ? 0.72
+          : Math.max(
+              0.18,
+              Math.min(0.52, Number(edge.weight || 1) * 0.16 * zoom),
+            );
+        context.stroke();
       }
+      context.restore();
 
-      for (const node of nodes) {
-        if (dragRef.current?.mode === "node" && dragRef.current.nodeId === node.node.id) continue
-        const anchorStrength = selectedNodeId ? (node.node.id === selectedNodeId ? 0.055 : node.isNeighbor ? 0.012 : 0.003) : 0.004
-        node.vx += (node.stableX - node.x) * anchorStrength * alpha
-        node.vy += (node.stableY - node.y) * anchorStrength * alpha
-        node.vx += (50 - node.x) * 0.0009
-        node.vy += (50 - node.y) * 0.0009
-        node.vx *= 0.88
-        node.vy *= 0.88
-        node.x = Math.max(3, Math.min(97, node.x + node.vx))
-        node.y = Math.max(4, Math.min(96, node.y + node.vy))
-      }
-
-      const { width, height } = resizeCanvas(context)
-      context.clearRect(0, 0, width, height)
-
-      const gradient = context.createRadialGradient(width * 0.5, height * 0.48, 0, width * 0.5, height * 0.5, Math.max(width, height) * 0.6)
-      gradient.addColorStop(0, "rgba(88, 28, 135, 0.28)")
-      gradient.addColorStop(0.38, "rgba(15, 23, 42, 0.18)")
-      gradient.addColorStop(1, "rgba(2, 6, 23, 0)")
-      context.fillStyle = gradient
-      context.fillRect(0, 0, width, height)
-
-      context.save()
-      context.globalAlpha = 0.12
-      context.fillStyle = "#cbd5e1"
-      const dotStep = Math.max(18, 22 * zoom)
-      for (let x = ((-pan.x * 4) % dotStep) - dotStep; x < width + dotStep; x += dotStep) {
-        for (let y = ((-pan.y * 4) % dotStep) - dotStep; y < height + dotStep; y += dotStep) {
-          context.beginPath()
-          context.arc(x, y, 0.75, 0, Math.PI * 2)
-          context.fill()
-        }
-      }
-      context.restore()
-
-      context.save()
-      context.globalCompositeOperation = "lighter"
-      for (const { edge } of visibleEdges) {
-        const from = nodeById.get(edge.fromNodeId)
-        const to = nodeById.get(edge.toNodeId)
-        if (!from || !to) continue
-        const selectedEdge = focusNodeId && (edge.fromNodeId === focusNodeId || edge.toNodeId === focusNodeId)
-        const a = project(width, height, from.x, from.y)
-        const b = project(width, height, to.x, to.y)
-        context.beginPath()
-        context.moveTo(a.x, a.y)
-        context.lineTo(b.x, b.y)
-        context.strokeStyle = selectedEdge ? (graphConfidenceStroke[edge.confidence] ?? "#a78bfa") : "rgba(148, 163, 184, 0.48)"
-        context.globalAlpha = focusNodeId ? (selectedEdge ? 0.36 : 0.025) : edge.confidence === "ambiguous" ? 0.045 : 0.105
-        context.lineWidth = selectedEdge ? 0.72 : Math.max(0.18, Math.min(0.52, Number(edge.weight || 1) * 0.16 * zoom))
-        context.stroke()
-      }
-      context.restore()
-
-      const sortedNodes = [...nodes].sort((a, b) => a.r - b.r)
+      const sortedNodes = [...nodes].sort((a, b) => a.r - b.r);
       for (const node of sortedNodes) {
-        const point = project(width, height, node.x, node.y)
-        const isHovered = hoveredNodeId === node.node.id
-        const isFocused = selectedNodeId === node.node.id || isHovered
-        const isDimmed = Boolean(focusNodeId && !isFocused && !node.isNeighbor)
-        const radius = Math.max(isFocused ? 2.8 : 1.35, Math.min(isFocused ? 7.5 : 4.2, node.r * 0.74 * zoom))
-        context.save()
-        context.globalAlpha = isDimmed ? 0.18 : 1
-        context.shadowColor = node.visual.fill
-        context.shadowBlur = isFocused ? 18 : node.isNeighbor ? 8 : 3
-        context.beginPath()
-        context.arc(point.x, point.y, radius + (isFocused ? 3.4 : 0.9), 0, Math.PI * 2)
-        context.fillStyle = `${node.visual.fill}${isFocused ? "2f" : "14"}`
-        context.fill()
-        context.shadowBlur = isFocused ? 12 : 3
-        context.beginPath()
-        context.arc(point.x, point.y, radius, 0, Math.PI * 2)
-        context.fillStyle = node.visual.fill
-        context.fill()
-        context.lineWidth = isFocused ? 1.25 : node.isNeighbor ? 0.55 : 0.32
-        context.strokeStyle = isFocused ? "#f8fafc" : node.isNeighbor ? "#ddd6fe" : node.visual.stroke
-        context.stroke()
-        context.shadowBlur = 0
-        context.beginPath()
-        context.arc(point.x - radius * 0.26, point.y - radius * 0.28, Math.max(0.55, radius * 0.2), 0, Math.PI * 2)
-        context.fillStyle = "rgba(255,255,255,0.72)"
-        context.fill()
+        const point = project(width, height, node.x, node.y);
+        const isHovered = hoveredNodeId === node.node.id;
+        const isFocused = selectedNodeId === node.node.id || isHovered;
+        const isDimmed = Boolean(focusNodeId && !isFocused && !node.isNeighbor);
+        const radius = Math.max(
+          isFocused ? 2.8 : 1.35,
+          Math.min(isFocused ? 7.5 : 4.2, node.r * 0.74 * zoom),
+        );
+        context.save();
+        context.globalAlpha = isDimmed ? 0.18 : 1;
+        context.shadowColor = node.visual.fill;
+        context.shadowBlur = isFocused ? 18 : node.isNeighbor ? 8 : 3;
+        context.beginPath();
+        context.arc(
+          point.x,
+          point.y,
+          radius + (isFocused ? 3.4 : 0.9),
+          0,
+          Math.PI * 2,
+        );
+        context.fillStyle = `${node.visual.fill}${isFocused ? "2f" : "14"}`;
+        context.fill();
+        context.shadowBlur = isFocused ? 12 : 3;
+        context.beginPath();
+        context.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        context.fillStyle = node.visual.fill;
+        context.fill();
+        context.lineWidth = isFocused ? 1.25 : node.isNeighbor ? 0.55 : 0.32;
+        context.strokeStyle = isFocused
+          ? "#f8fafc"
+          : node.isNeighbor
+            ? "#ddd6fe"
+            : node.visual.stroke;
+        context.stroke();
+        context.shadowBlur = 0;
+        context.beginPath();
+        context.arc(
+          point.x - radius * 0.26,
+          point.y - radius * 0.28,
+          Math.max(0.55, radius * 0.2),
+          0,
+          Math.PI * 2,
+        );
+        context.fillStyle = "rgba(255,255,255,0.72)";
+        context.fill();
 
-        const shouldLabel = isFocused
+        const shouldLabel = isFocused;
         if (shouldLabel) {
-          const label = compactGraphLabel(node.node.title)
-          context.font = "600 10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
-          context.textAlign = "center"
-          context.textBaseline = "top"
-          context.lineWidth = 4
-          context.strokeStyle = "rgba(3, 7, 18, 0.92)"
-          context.strokeText(label, point.x, point.y + radius + 6)
-          context.fillStyle = isDimmed ? "#64748b" : "#f8fafc"
-          context.fillText(label, point.x, point.y + radius + 6)
+          const label = compactGraphLabel(node.node.title);
+          context.font =
+            "600 10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+          context.textAlign = "center";
+          context.textBaseline = "top";
+          context.lineWidth = 4;
+          context.strokeStyle = "rgba(3, 7, 18, 0.92)";
+          context.strokeText(label, point.x, point.y + radius + 6);
+          context.fillStyle = isDimmed ? "#64748b" : "#f8fafc";
+          context.fillText(label, point.x, point.y + radius + 6);
         }
-        context.restore()
+        context.restore();
       }
 
-      frame = window.requestAnimationFrame(tick)
+      if (shouldAnimateGraph) {
+        frame = window.requestAnimationFrame(tick);
+      }
     }
 
-    frame = window.requestAnimationFrame(tick)
-    return () => {
-      disposed = true
-      if (frame) window.cancelAnimationFrame(frame)
+    if (shouldAnimateGraph) {
+      frame = window.requestAnimationFrame(tick);
     }
-  }, [focusNodeId, hoveredNodeId, layout.length, pan.x, pan.y, selectedNodeId, visibleEdges, zoom])
+    return () => {
+      disposed = true;
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [
+    dragState,
+    focusNodeId,
+    hoveredNodeId,
+    isMobileGraphViewport,
+    isPageVisible,
+    layout.length,
+    pan.x,
+    pan.y,
+    selectedNodeId,
+    visibleEdges,
+    zoom,
+  ]);
 
   function canvasToWorld(event: React.PointerEvent<HTMLDivElement>) {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    const width = Math.max(1, rect.width)
-    const height = Math.max(1, rect.height)
-    const scale = (Math.min(width, height) * 0.9 * zoom) / 100
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, rect.width);
+    const height = Math.max(1, rect.height);
+    const scale = (Math.min(width, height) * 0.9 * zoom) / 100;
     return {
       x: (event.clientX - rect.left - width / 2) / scale + 50 + pan.x,
       y: (event.clientY - rect.top - height / 2) / scale + 50 + pan.y,
       scale,
       width,
       height,
-    }
+    };
   }
 
   function findCanvasNode(event: React.PointerEvent<HTMLDivElement>) {
-    const world = canvasToWorld(event)
-    if (!world) return null
-    let nearest: CanvasNode | null = null
-    let nearestDistance = Infinity
+    const world = canvasToWorld(event);
+    if (!world) return null;
+    let nearest: CanvasNode | null = null;
+    let nearestDistance = Infinity;
     for (const node of simNodesRef.current) {
-      const distance = Math.hypot(node.x - world.x, node.y - world.y)
-      const radius = Math.max(2.8, node.r * 0.92) / Math.max(0.55, zoom)
+      const distance = Math.hypot(node.x - world.x, node.y - world.y);
+      const radius = Math.max(2.8, node.r * 0.92) / Math.max(0.55, zoom);
       if (distance < radius + 2.4 && distance < nearestDistance) {
-        nearest = node
-        nearestDistance = distance
+        nearest = node;
+        nearestDistance = distance;
       }
     }
-    return nearest
+    return nearest;
   }
 
   function resetGraphView() {
-    setZoom(GRAPH_FIT_ZOOM)
-    setPan({ x: 0, y: 0 })
+    setZoom(GRAPH_FIT_ZOOM);
+    setPan({ x: 0, y: 0 });
   }
 
   function handleGraphPointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const hit = findCanvasNode(event)
-    if (hit) {
-      setHoveredNodeId(hit.node.id)
-      setDragState({ mode: "node", pointerId: event.pointerId, nodeId: hit.node.id })
-      lastTapRef.current = { nodeId: hit.node.id, x: event.clientX, y: event.clientY, time: Date.now() }
-      return
+    if (event.button !== 0) return;
+    const hit = findCanvasNode(event);
+    if (event.pointerType === "touch") {
+      if (hit) {
+        lastTapRef.current = {
+          nodeId: hit.node.id,
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          time: Date.now(),
+        };
+      } else {
+        lastTapRef.current = null;
+      }
+      return;
     }
-    setDragState({ mode: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startPan: pan })
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (hit) {
+      setHoveredNodeId(hit.node.id);
+      setDragState({
+        mode: "node",
+        pointerId: event.pointerId,
+        nodeId: hit.node.id,
+      });
+      lastTapRef.current = {
+        nodeId: hit.node.id,
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        time: Date.now(),
+      };
+      return;
+    }
+    setDragState({
+      mode: "pan",
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startPan: pan,
+    });
   }
 
   function handleGraphPointerMove(event: React.PointerEvent<HTMLDivElement>) {
     if (!dragState) {
-      handleGraphPointerHover(event)
-      return
+      if (event.pointerType === "touch") return;
+      handleGraphPointerHover(event);
+      return;
     }
-    if (dragState.pointerId !== event.pointerId) return
+    if (dragState.pointerId !== event.pointerId) return;
     if (dragState.mode === "node") {
-      const world = canvasToWorld(event)
-      if (!world) return
-      const node = simNodesRef.current.find((item) => item.node.id === dragState.nodeId)
-      if (!node) return
-      node.x = Math.max(3, Math.min(97, world.x))
-      node.y = Math.max(4, Math.min(96, world.y))
-      node.vx = 0
-      node.vy = 0
-      return
+      const world = canvasToWorld(event);
+      if (!world) return;
+      const node = simNodesRef.current.find(
+        (item) => item.node.id === dragState.nodeId,
+      );
+      if (!node) return;
+      node.x = Math.max(3, Math.min(97, world.x));
+      node.y = Math.max(4, Math.min(96, world.y));
+      node.vx = 0;
+      node.vy = 0;
+      return;
     }
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const dx = (event.clientX - dragState.startX) * (100 / zoom / Math.max(1, rect.width))
-    const dy = (event.clientY - dragState.startY) * (100 / zoom / Math.max(1, rect.height))
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dx =
+      (event.clientX - dragState.startX) *
+      (100 / zoom / Math.max(1, rect.width));
+    const dy =
+      (event.clientY - dragState.startY) *
+      (100 / zoom / Math.max(1, rect.height));
     setPan({
       x: Math.max(-45, Math.min(45, dragState.startPan.x - dx)),
       y: Math.max(-45, Math.min(45, dragState.startPan.y - dy)),
-    })
+    });
   }
 
   function handleGraphPointerUp(event: React.PointerEvent<HTMLDivElement>) {
-    if (dragState?.pointerId !== event.pointerId) return
+    if (!dragState) {
+      if (event.pointerType !== "touch") return;
+      const tap = lastTapRef.current;
+      if (!tap || tap.pointerId !== event.pointerId) return;
+      if (
+        Math.hypot(event.clientX - tap.x, event.clientY - tap.y) < 8 &&
+        Date.now() - tap.time < 350
+      ) {
+        const node = simNodesRef.current.find(
+          (item) => item.node.id === tap.nodeId,
+        );
+        if (node) onSelectNode?.(node.node);
+      }
+      lastTapRef.current = null;
+      return;
+    }
+    if (dragState.pointerId !== event.pointerId) return;
     if (dragState.mode === "node") {
-      const tap = lastTapRef.current
-      if (tap && tap.nodeId === dragState.nodeId && Math.hypot(event.clientX - tap.x, event.clientY - tap.y) < 8 && Date.now() - tap.time < 350) {
-        const node = simNodesRef.current.find((item) => item.node.id === dragState.nodeId)
-        if (node) onSelectNode?.(node.node)
+      const tap = lastTapRef.current;
+      if (
+        tap &&
+        tap.nodeId === dragState.nodeId &&
+        tap.pointerId === event.pointerId &&
+        Math.hypot(event.clientX - tap.x, event.clientY - tap.y) < 8 &&
+        Date.now() - tap.time < 350
+      ) {
+        const node = simNodesRef.current.find(
+          (item) => item.node.id === dragState.nodeId,
+        );
+        if (node) onSelectNode?.(node.node);
       }
     }
-    setDragState(null)
+    setDragState(null);
+  }
+
+  function handleGraphPointerCancel() {
+    lastTapRef.current = null;
+    setDragState(null);
   }
 
   function handleGraphPointerHover(event: React.PointerEvent<HTMLDivElement>) {
-    if (dragState) return
-    const hit = findCanvasNode(event)
-    setHoveredNodeId((current) => (current === hit?.node.id ? current : hit?.node.id ?? null))
+    if (dragState) return;
+    const hit = findCanvasNode(event);
+    setHoveredNodeId((current) =>
+      current === hit?.node.id ? current : (hit?.node.id ?? null),
+    );
   }
 
   return (
@@ -1644,14 +2086,24 @@ function GraphMemoryMap({
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#a78bfa] shadow-[0_0_18px_rgba(167,139,250,0.85)]" />
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-black uppercase tracking-[0.18em] text-slate-200">Anteprima grafo Optima</p>
-            <p className="truncate text-[10px] font-semibold text-slate-500">{summary}</p>
+            <p className="truncate text-[12px] font-black uppercase tracking-[0.18em] text-slate-200">
+              Anteprima grafo Optima
+            </p>
+            <p className="truncate text-[10px] font-semibold text-slate-500">
+              {summary}
+            </p>
           </div>
         </div>
-        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:overflow-visible sm:pb-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 pb-1 sm:flex-nowrap sm:gap-2 sm:pb-0">
           <button
             type="button"
-            onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`)}
+            onClick={() =>
+              openObsidianUri(
+                OBSIDIAN_AGENTIC_DASHBOARD_URI,
+                "Dashboard Obsidian",
+                `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`,
+              )
+            }
             className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-200 transition hover:bg-white/10"
             title="Apre la dashboard Agentic OS nel vault Obsidian locale."
           >
@@ -1661,7 +2113,9 @@ function GraphMemoryMap({
             type="button"
             onClick={() => setNodeLimit("all")}
             className={`h-7 shrink-0 rounded-md border px-2.5 text-[10px] font-bold transition ${
-              nodeLimit === "all" ? "border-[#7c3aed] bg-[#7c3aed]/25 text-violet-100" : "border-white/10 bg-white/[0.025] text-slate-500 hover:bg-white/10"
+              nodeLimit === "all"
+                ? "border-[#7c3aed] bg-[#7c3aed]/25 text-violet-100"
+                : "border-white/10 bg-white/[0.025] text-slate-500 hover:bg-white/10"
             }`}
             title="Mostra tutti i nodi caricati nello snapshot del grafo."
           >
@@ -1673,7 +2127,9 @@ function GraphMemoryMap({
               type="button"
               onClick={() => setNodeLimit(limit)}
               className={`h-7 shrink-0 rounded-md border px-2 text-[10px] font-bold transition ${
-                nodeLimit === limit ? "border-[#7c3aed] bg-[#7c3aed]/25 text-violet-100" : "border-white/10 bg-white/[0.025] text-slate-500 hover:bg-white/10"
+                nodeLimit === limit
+                  ? "border-[#7c3aed] bg-[#7c3aed]/25 text-violet-100"
+                  : "border-white/10 bg-white/[0.025] text-slate-500 hover:bg-white/10"
               }`}
             >
               {limit}
@@ -1684,8 +2140,8 @@ function GraphMemoryMap({
               key={preset}
               type="button"
               onClick={() => {
-                setZoom(preset)
-                setPan({ x: 0, y: 0 })
+                setZoom(preset);
+                setPan({ x: 0, y: 0 });
               }}
               className={`h-7 shrink-0 rounded-md border px-2 text-[10px] font-bold transition ${
                 Math.abs(zoom - preset) < 0.01
@@ -1706,7 +2162,9 @@ function GraphMemoryMap({
           >
             <Minus className="h-3.5 w-3.5" />
           </Button>
-          <span className="min-w-10 shrink-0 text-center text-[10px] font-bold text-slate-500">{Math.round(zoom * 100)}%</span>
+          <span className="min-w-10 shrink-0 text-center text-[10px] font-bold text-slate-500">
+            {Math.round(zoom * 100)}%
+          </span>
           <Button
             type="button"
             variant="outline"
@@ -1730,57 +2188,84 @@ function GraphMemoryMap({
 
       {layout.length ? (
         <div
-          className={`relative h-[560px] touch-none overflow-hidden bg-[radial-gradient(circle_at_50%_46%,rgba(30,41,59,0.52),transparent_34%),radial-gradient(circle_at_52%_48%,rgba(124,58,237,0.16),transparent_28%),linear-gradient(180deg,#05070d,#03050a_62%,#020309)] sm:h-[680px] ${
+          className={`agent-graph-canvas-shell relative h-[420px] overflow-hidden bg-[radial-gradient(circle_at_50%_46%,rgba(30,41,59,0.52),transparent_34%),radial-gradient(circle_at_52%_48%,rgba(124,58,237,0.16),transparent_28%),linear-gradient(180deg,#05070d,#03050a_62%,#020309)] sm:h-[520px] lg:h-[680px] ${
             dragState ? "cursor-grabbing" : "cursor-grab"
           }`}
           onPointerDown={handleGraphPointerDown}
           onPointerMove={handleGraphPointerMove}
           onPointerUp={handleGraphPointerUp}
-          onPointerCancel={handleGraphPointerUp}
+          onPointerCancel={handleGraphPointerCancel}
           onPointerOver={handleGraphPointerHover}
           onPointerLeave={() => {
-            if (!dragState) setHoveredNodeId(null)
+            if (!dragState) setHoveredNodeId(null);
           }}
           onWheel={(event) => {
-            event.preventDefault()
-            setZoom((current) => clampGraphZoom(current + (event.deltaY > 0 ? -0.12 : 0.12)))
+            event.preventDefault();
+            setZoom((current) =>
+              clampGraphZoom(current + (event.deltaY > 0 ? -0.12 : 0.12)),
+            );
           }}
         >
-          <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-label="Anteprima dinamica della graph memory Optima" />
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 h-full w-full"
+            aria-label="Anteprima dinamica della graph memory Optima"
+          />
           <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-md border border-white/10 bg-[#070912]/72 px-3 py-2 text-[11px] leading-5 text-slate-500 backdrop-blur">
-            <span className="font-semibold text-slate-300">Anteprima Optima</span> · per la vista esatta usa Apri Obsidian; qui puoi solo ispezionare rapidamente il grafo in app.
+            <span className="font-semibold text-slate-300">
+              Anteprima Optima
+            </span>{" "}
+            · per la vista esatta usa Apri Obsidian; qui puoi solo ispezionare
+            rapidamente il grafo in app.
           </div>
           {focusLayoutNode ? (
             <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-md border border-white/10 bg-[#0b0d16]/92 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-black/30 backdrop-blur sm:max-w-sm">
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#a78bfa]">Local graph</p>
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#a78bfa]">
+                Local graph
+              </p>
               <div className="flex items-start gap-2">
                 <span
                   className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: focusLayoutNode.visual.fill, border: `1px solid ${focusLayoutNode.visual.stroke}` }}
+                  style={{
+                    backgroundColor: focusLayoutNode.visual.fill,
+                    border: `1px solid ${focusLayoutNode.visual.stroke}`,
+                  }}
                 />
                 <div className="min-w-0">
-                  <p className="truncate font-black text-white">{focusLayoutNode.node.title}</p>
+                  <p className="truncate font-black text-white">
+                    {focusLayoutNode.node.title}
+                  </p>
                   <p className="mt-1 text-[11px] text-slate-400">
-                    {focusLayoutNode.visual.label} · {focusLayoutNode.degree} backlink · {graphConfidenceCopy[focusLayoutNode.node.confidence] ?? focusLayoutNode.node.confidence}
+                    {focusLayoutNode.visual.label} · {focusLayoutNode.degree}{" "}
+                    backlink ·{" "}
+                    {graphConfidenceCopy[focusLayoutNode.node.confidence] ??
+                      focusLayoutNode.node.confidence}
                   </p>
                   {focusLayoutNode.node.summary ? (
-                    <p className="mt-1 line-clamp-2 text-[11px] text-slate-300">{focusLayoutNode.node.summary}</p>
+                    <p className="mt-1 line-clamp-2 text-[11px] text-slate-300">
+                      {focusLayoutNode.node.summary}
+                    </p>
                   ) : null}
                 </div>
               </div>
             </div>
           ) : (
             <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-md border border-white/10 bg-[#0b0d16]/88 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-black/30 backdrop-blur sm:max-w-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a78bfa]">Global graph</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a78bfa]">
+                Global graph
+              </p>
               <p className="mt-1 text-[11px] text-slate-400">
-                Preview interna della graph memory. La vista Obsidian reale si apre dal vault esportato.
+                Preview interna della graph memory. La vista Obsidian reale si
+                apre dal vault esportato.
               </p>
             </div>
           )}
         </div>
       ) : (
         <div className="p-4 text-sm leading-6 text-slate-500">
-          Nessun nodo visualizzabile. Usa "Sincronizza grafo" per creare o aggiornare i riferimenti agentici iniziali senza cancellare dati esistenti.
+          Nessun nodo visualizzabile. Usa "Sincronizza grafo" per creare o
+          aggiornare i riferimenti agentici iniziali senza cancellare dati
+          esistenti.
         </div>
       )}
 
@@ -1790,16 +2275,31 @@ function GraphMemoryMap({
         </summary>
         <div className="mt-2 flex flex-wrap gap-2">
           {Object.entries(graphNodeTypeVisual).map(([type, visual]) => (
-            <span key={type} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: visual.fill, border: `1px solid ${visual.stroke}` }} />
+            <span
+              key={type}
+              className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500"
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor: visual.fill,
+                  border: `1px solid ${visual.stroke}`,
+                }}
+              />
               {visual.label}
             </span>
           ))}
           {Object.entries(graphConfidenceCopy).map(([confidence, label]) => (
-            <span key={confidence} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+            <span
+              key={confidence}
+              className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500"
+            >
               <span
                 className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: graphConfidenceStroke[confidence] ?? "#64748b" }}
+                style={{
+                  backgroundColor:
+                    graphConfidenceStroke[confidence] ?? "#64748b",
+                }}
               />
               {label}
             </span>
@@ -1809,129 +2309,153 @@ function GraphMemoryMap({
 
       {isPartialMap ? (
         <div className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-slate-500">
-          Il grafo completo contiene {totalNodes} nodi e {totalEdges} collegamenti. La vista esatta di Obsidian non viene ricreata qui: si apre con "Apri Obsidian" sul vault esportato.
+          Il grafo completo contiene {totalNodes} nodi e {totalEdges}{" "}
+          collegamenti. La vista esatta di Obsidian non viene ricreata qui: si
+          apre con "Apri Obsidian" sul vault esportato.
         </div>
       ) : null}
     </div>
-  )
+  );
 }
 
 function parseServerDate(value: string | null) {
-  if (!value) return NaN
-  const normalized = /Z$|[+-]\d\d:?\d\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`
-  const timestamp = new Date(normalized).getTime()
-  return Number.isFinite(timestamp) ? timestamp : NaN
+  if (!value) return NaN;
+  const normalized = /Z$|[+-]\d\d:?\d\d$/.test(value)
+    ? value
+    : `${value.replace(" ", "T")}Z`;
+  const timestamp = new Date(normalized).getTime();
+  return Number.isFinite(timestamp) ? timestamp : NaN;
 }
 
 function formatRelativeTime(value: string | null) {
-  if (!value) return "mai"
-  const timestamp = parseServerDate(value)
-  if (!Number.isFinite(timestamp)) return "data non valida"
-  const diffMs = Date.now() - timestamp
-  const absMs = Math.abs(diffMs)
-  if (absMs < 60_000) return "ora"
-  const minutes = Math.round(absMs / 60_000)
-  if (minutes < 60) return `${minutes} min fa`
-  const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} h fa`
-  const days = Math.round(hours / 24)
-  return `${days} g fa`
+  if (!value) return "mai";
+  const timestamp = parseServerDate(value);
+  if (!Number.isFinite(timestamp)) return "data non valida";
+  const diffMs = Date.now() - timestamp;
+  const absMs = Math.abs(diffMs);
+  if (absMs < 60_000) return "ora";
+  const minutes = Math.round(absMs / 60_000);
+  if (minutes < 60) return `${minutes} min fa`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h fa`;
+  const days = Math.round(hours / 24);
+  return `${days} g fa`;
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) return "n/d"
-  const timestamp = parseServerDate(value)
-  if (!Number.isFinite(timestamp)) return "data non valida"
+  if (!value) return "n/d";
+  const timestamp = parseServerDate(value);
+  if (!Number.isFinite(timestamp)) return "data non valida";
   return new Date(timestamp).toLocaleString("it-IT", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  })
+  });
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function asNumber(value: unknown): number | null {
-  const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : null
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function asBoolean(value: unknown): boolean | null {
-  return typeof value === "boolean" ? value : null
+  return typeof value === "boolean" ? value : null;
 }
 
 function normalizeBrowserTargetForUi(target: unknown) {
-  const normalized = String(target || "chatgpt").toLowerCase().trim()
-  if (normalized === "nanobanana" || normalized === "nano-banana" || normalized === "nano_banana") return "gemini"
-  if (normalized === "chatgpt" || normalized === "gemini" || normalized === "perplexity" || normalized === "claude") return normalized
-  return "chatgpt"
+  const normalized = String(target || "chatgpt")
+    .toLowerCase()
+    .trim();
+  if (
+    normalized === "nanobanana" ||
+    normalized === "nano-banana" ||
+    normalized === "nano_banana"
+  )
+    return "gemini";
+  if (
+    normalized === "chatgpt" ||
+    normalized === "gemini" ||
+    normalized === "perplexity" ||
+    normalized === "claude"
+  )
+    return normalized;
+  return "chatgpt";
 }
 
 function browserTargetLabel(target: unknown) {
-  const normalized = normalizeBrowserTargetForUi(target)
-  if (normalized === "gemini") return "Gemini / Nano Banana"
-  if (normalized === "chatgpt") return "ChatGPT"
-  if (normalized === "perplexity") return "Perplexity"
-  if (normalized === "claude") return "Claude"
-  return "Browser web"
+  const normalized = normalizeBrowserTargetForUi(target);
+  if (normalized === "gemini") return "Gemini / Nano Banana";
+  if (normalized === "chatgpt") return "ChatGPT";
+  if (normalized === "perplexity") return "Perplexity";
+  if (normalized === "claude") return "Claude";
+  return "Browser web";
 }
 
 function browserTargetStartUrl(target: unknown) {
-  const normalized = normalizeBrowserTargetForUi(target)
-  if (normalized === "gemini") return "https://gemini.google.com/app"
-  if (normalized === "chatgpt") return "https://chatgpt.com"
-  if (normalized === "perplexity") return "https://www.perplexity.ai"
-  if (normalized === "claude") return "https://claude.ai"
-  return "https://chatgpt.com"
+  const normalized = normalizeBrowserTargetForUi(target);
+  if (normalized === "gemini") return "https://gemini.google.com/app";
+  if (normalized === "chatgpt") return "https://chatgpt.com";
+  if (normalized === "perplexity") return "https://www.perplexity.ai";
+  if (normalized === "claude") return "https://claude.ai";
+  return "https://chatgpt.com";
 }
 
-function isBrowserSessionExpired(session: BrowserMcpSession | null | undefined) {
-  if (!session?.expiresAt) return false
-  const timestamp = parseServerDate(session.expiresAt)
-  return Number.isFinite(timestamp) && timestamp < Date.now()
+function isBrowserSessionExpired(
+  session: BrowserMcpSession | null | undefined,
+) {
+  if (!session?.expiresAt) return false;
+  const timestamp = parseServerDate(session.expiresAt);
+  return Number.isFinite(timestamp) && timestamp < Date.now();
 }
 
 function formatBytes(value: unknown) {
-  const bytes = asNumber(value)
-  if (bytes === null) return "n/d"
-  if (bytes < 1024) return `${bytes} B`
-  const units = ["KB", "MB", "GB", "TB"]
-  let amount = bytes / 1024
-  let unitIndex = 0
+  const bytes = asNumber(value);
+  if (bytes === null) return "n/d";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let amount = bytes / 1024;
+  let unitIndex = 0;
   while (amount >= 1024 && unitIndex < units.length - 1) {
-    amount /= 1024
-    unitIndex += 1
+    amount /= 1024;
+    unitIndex += 1;
   }
-  const precision = amount >= 10 ? 0 : 1
-  return `${amount.toFixed(precision)} ${units[unitIndex]}`
+  const precision = amount >= 10 ? 0 : 1;
+  return `${amount.toFixed(precision)} ${units[unitIndex]}`;
 }
 
 function formatUptime(value: unknown) {
-  const seconds = asNumber(value)
-  if (seconds === null) return "n/d"
-  const hours = Math.floor(seconds / 3600)
-  const days = Math.floor(hours / 24)
-  if (days >= 1) return `${days} g ${hours % 24} h`
-  if (hours >= 1) return `${hours} h`
-  return `${Math.max(1, Math.round(seconds / 60))} min`
+  const seconds = asNumber(value);
+  if (seconds === null) return "n/d";
+  const hours = Math.floor(seconds / 3600);
+  const days = Math.floor(hours / 24);
+  if (days >= 1) return `${days} g ${hours % 24} h`;
+  if (hours >= 1) return `${hours} h`;
+  return `${Math.max(1, Math.round(seconds / 60))} min`;
 }
 
 function runnerHostSnapshot(runner: AgentRunnerHeartbeat | null) {
-  const host = asRecord(runner?.metadata?.host)
-  if (!host) return null
-  const memory = asRecord(host.memory)
-  const storage = asRecord(host.storage)
-  const root = asRecord(storage?.root)
-  const workRootSize = asRecord(storage?.workRootSize)
-  const guard = asRecord(host.guard)
-  const guardSize = asRecord(guard?.size)
+  const host = asRecord(runner?.metadata?.host);
+  if (!host) return null;
+  const memory = asRecord(host.memory);
+  const storage = asRecord(host.storage);
+  const root = asRecord(storage?.root);
+  const workRootSize = asRecord(storage?.workRootSize);
+  const guard = asRecord(host.guard);
+  const guardSize = asRecord(guard?.size);
 
   return {
-    hostname: typeof host.hostname === "string" ? host.hostname : runner?.id ?? "runner",
+    hostname:
+      typeof host.hostname === "string"
+        ? host.hostname
+        : (runner?.id ?? "runner"),
     platform: typeof host.platform === "string" ? host.platform : null,
     uptime: formatUptime(host.uptimeSec),
     sampledAt: typeof host.sampledAt === "string" ? host.sampledAt : null,
@@ -1942,7 +2466,7 @@ function runnerHostSnapshot(runner: AgentRunnerHeartbeat | null) {
     guardPath: typeof guard?.path === "string" ? guard.path : null,
     guardSize: formatBytes(guardSize?.bytes),
     guardTimerActive: asBoolean(guard?.timerActive),
-  }
+  };
 }
 
 export function AgentJobsClient({
@@ -1950,100 +2474,142 @@ export function AgentJobsClient({
   initialRunners,
   initialRunnerControl,
 }: {
-  initialJobs: AgentJob[]
-  initialRunners: AgentRunnerHeartbeat[]
-  initialRunnerControl: AgentRunnerControlState
+  initialJobs: AgentJob[];
+  initialRunners: AgentRunnerHeartbeat[];
+  initialRunnerControl: AgentRunnerControlState;
 }) {
-  const [jobs, setJobs] = useState(initialJobs)
-  const [runners, setRunners] = useState(initialRunners)
-  const [runnerControl, setRunnerControl] = useState(initialRunnerControl)
-  const [form, setForm] = useState(initialForm)
-  const [showRepositoryOverride, setShowRepositoryOverride] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [busyJobId, setBusyJobId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [reviewJobId, setReviewJobId] = useState<string | null>(null)
-  const [reviewDetails, setReviewDetails] = useState<AgentJobDetails | null>(null)
-  const [isLoadingReview, setIsLoadingReview] = useState(false)
-  const [revisionMessage, setRevisionMessage] = useState("")
-  const [mobilePanel, setMobilePanel] = useState<"jobs" | "create" | "stack">("jobs")
-  const [stackSection, setStackSection] = useState<"overview" | "providers" | "graph" | "sources">("providers")
-  const [jobFilter, setJobFilter] = useState<JobFilter>("active")
-  const [lastControlPlaneRefreshAt, setLastControlPlaneRefreshAt] = useState(() => new Date().toISOString())
-  const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(null)
-  const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(null)
-  const [productionReadiness, setProductionReadiness] = useState<AgenticProductionReadiness | null>(null)
-  const [selfImprovement, setSelfImprovement] = useState<SelfImprovementSnapshot | null>(null)
-  const [agenticRecovery, setAgenticRecovery] = useState<AgenticRecoverySnapshot | null>(null)
-  const [isCreatingSelfImprovement, setIsCreatingSelfImprovement] = useState(false)
-  const [isCreatingAgenticRecovery, setIsCreatingAgenticRecovery] = useState(false)
-  const [isSeedingGraph, setIsSeedingGraph] = useState(false)
-  const [graphQuery, setGraphQuery] = useState("")
-  const [graphNodeTypeFilter, setGraphNodeTypeFilter] = useState("")
-  const [graphSourceFilter, setGraphSourceFilter] = useState("")
-  const [graphSearchNodes, setGraphSearchNodes] = useState<AgenticGraphNode[] | null>(null)
-  const [isSearchingGraph, setIsSearchingGraph] = useState(false)
-  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null)
-  const [graphNodeDetail, setGraphNodeDetail] = useState<AgenticGraphNodeDetail | null>(null)
-  const [isLoadingGraphNode, setIsLoadingGraphNode] = useState(false)
-  const [manualGraphNodeForm, setManualGraphNodeForm] = useState(initialManualGraphNodeForm)
-  const [isSavingGraphNode, setIsSavingGraphNode] = useState(false)
-  const [capabilityAction, setCapabilityAction] = useState<string | null>(null)
-  const [setupAction, setSetupAction] = useState<string | null>(null)
-  const [oauthAction, setOauthAction] = useState<string | null>(null)
-  const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
+  const [jobs, setJobs] = useState(initialJobs);
+  const [runners, setRunners] = useState(initialRunners);
+  const [runnerControl, setRunnerControl] = useState(initialRunnerControl);
+  const [form, setForm] = useState(initialForm);
+  const [showRepositoryOverride, setShowRepositoryOverride] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [busyJobId, setBusyJobId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [reviewJobId, setReviewJobId] = useState<string | null>(null);
+  const [reviewDetails, setReviewDetails] = useState<AgentJobDetails | null>(
+    null,
+  );
+  const [isLoadingReview, setIsLoadingReview] = useState(false);
+  const [revisionMessage, setRevisionMessage] = useState("");
+  const [mobilePanel, setMobilePanel] = useState<"jobs" | "create" | "stack">(
+    "jobs",
+  );
+  const [stackSection, setStackSection] = useState<
+    "overview" | "providers" | "graph" | "sources"
+  >("providers");
+  const [jobFilter, setJobFilter] = useState<JobFilter>("active");
+  const [lastControlPlaneRefreshAt, setLastControlPlaneRefreshAt] = useState(
+    () => new Date().toISOString(),
+  );
+  const [capabilities, setCapabilities] = useState<AgenticCapabilities | null>(
+    null,
+  );
+  const [graphMemory, setGraphMemory] = useState<AgenticGraphSnapshot | null>(
+    null,
+  );
+  const [productionReadiness, setProductionReadiness] =
+    useState<AgenticProductionReadiness | null>(null);
+  const [selfImprovement, setSelfImprovement] =
+    useState<SelfImprovementSnapshot | null>(null);
+  const [agenticRecovery, setAgenticRecovery] =
+    useState<AgenticRecoverySnapshot | null>(null);
+  const [isCreatingSelfImprovement, setIsCreatingSelfImprovement] =
+    useState(false);
+  const [isCreatingAgenticRecovery, setIsCreatingAgenticRecovery] =
+    useState(false);
+  const [isSeedingGraph, setIsSeedingGraph] = useState(false);
+  const [graphQuery, setGraphQuery] = useState("");
+  const [graphNodeTypeFilter, setGraphNodeTypeFilter] = useState("");
+  const [graphSourceFilter, setGraphSourceFilter] = useState("");
+  const [graphSearchNodes, setGraphSearchNodes] = useState<
+    AgenticGraphNode[] | null
+  >(null);
+  const [isSearchingGraph, setIsSearchingGraph] = useState(false);
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(
+    null,
+  );
+  const [graphNodeDetail, setGraphNodeDetail] =
+    useState<AgenticGraphNodeDetail | null>(null);
+  const [isLoadingGraphNode, setIsLoadingGraphNode] = useState(false);
+  const [manualGraphNodeForm, setManualGraphNodeForm] = useState(
+    initialManualGraphNodeForm,
+  );
+  const [isSavingGraphNode, setIsSavingGraphNode] = useState(false);
+  const [capabilityAction, setCapabilityAction] = useState<string | null>(null);
+  const [setupAction, setSetupAction] = useState<string | null>(null);
+  const [oauthAction, setOauthAction] = useState<string | null>(null);
+  const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(
+    null,
+  );
   // 2026-06-25: setup info dialog (istruzioni operative per creare OAuth App)
-  const [setupInfo, setSetupInfo] = useState<null | { connectorId: string; loading: boolean; data: any | null }>(null)
-  const [connectorLaneFilter, setConnectorLaneFilter] = useState<ConnectorSetupKind | "all">("all")
-  const [connectorSearch, setConnectorSearch] = useState("")
-  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
-  const [browserPairingAction, setBrowserPairingAction] = useState<string | null>(null)
-  const [browserPairingSession, setBrowserPairingSession] = useState<BrowserMcpSession | null>(null)
+  const [setupInfo, setSetupInfo] = useState<null | {
+    connectorId: string;
+    loading: boolean;
+    data: any | null;
+  }>(null);
+  const [connectorLaneFilter, setConnectorLaneFilter] = useState<
+    ConnectorSetupKind | "all"
+  >("all");
+  const [connectorSearch, setConnectorSearch] = useState("");
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(
+    null,
+  );
+  const [browserPairingAction, setBrowserPairingAction] = useState<
+    string | null
+  >(null);
+  const [browserPairingSession, setBrowserPairingSession] =
+    useState<BrowserMcpSession | null>(null);
 
   useEffect(() => {
-    let active = true
+    let active = true;
     fetch("/api/agentic-capabilities")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (active && data) setCapabilities(data)
+        if (active && data) setCapabilities(data);
       })
       .catch(() => {
-        if (active) setCapabilities(null)
-      })
+        if (active) setCapabilities(null);
+      });
 
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
   async function refreshCapabilitiesSnapshot() {
-    const response = await fetch("/api/agentic-capabilities", { cache: "no-store" })
-    const data = await response.json()
-    if (!response.ok) throw new Error(data?.error ?? "Errore refresh stack agentico")
-    setCapabilities(data)
-    return data as AgenticCapabilities
+    const response = await fetch("/api/agentic-capabilities", {
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data?.error ?? "Errore refresh stack agentico");
+    setCapabilities(data);
+    return data as AgenticCapabilities;
   }
 
   // 2026-06-25: apre il dialog delle istruzioni operative per creare le OAuth App
   // (Google, Meta, LinkedIn, Notion, Vercel, GitHub, Cloudflare). 1-click copy
   // per redirect URI e scope.
-  async function openSetupInfo(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    setSetupInfo({ connectorId: connector.id, loading: true, data: null })
+  async function openSetupInfo(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    setSetupInfo({ connectorId: connector.id, loading: true, data: null });
     try {
       const response = await fetch(
         `/api/mcp/oauth/setup-info/${encodeURIComponent(connector.id)}`,
         { cache: "no-store" },
-      )
-      const data = await response.json().catch(() => ({}))
+      );
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error ?? "Errore caricamento istruzioni setup")
+        throw new Error(data?.error ?? "Errore caricamento istruzioni setup");
       }
-      setSetupInfo({ connectorId: connector.id, loading: false, data })
+      setSetupInfo({ connectorId: connector.id, loading: false, data });
     } catch (err) {
       toast.error("Istruzioni setup non disponibili", {
         description: err instanceof Error ? err.message : "Errore sconosciuto",
-      })
-      setSetupInfo(null)
+      });
+      setSetupInfo(null);
     }
   }
 
@@ -2051,134 +2617,143 @@ export function AgentJobsClient({
   // feedback toast. Mai loggato in chiaro.
   async function copyToClipboard(value: string, label: string) {
     try {
-      await navigator.clipboard.writeText(value)
-      toast.success(label, { description: "Copiato negli appunti" })
+      await navigator.clipboard.writeText(value);
+      toast.success(label, { description: "Copiato negli appunti" });
     } catch {
-      toast.error("Copia non riuscita")
+      toast.error("Copia non riuscita");
     }
   }
 
   useEffect(() => {
-    if (selectedConnectorId !== "browser") return
-    let active = true
+    if (selectedConnectorId !== "browser") return;
+    let active = true;
     const refreshBrowserState = () => {
       refreshCapabilitiesSnapshot()
         .then((snapshot) => {
-          if (!active) return
-          const browserInstallation = snapshot.connectorInstallations.find((item) => item.connectorId === "browser")
-          const activeSession = asRecord(browserInstallation?.config?.activePairingSession)
-          if (activeSession) setBrowserPairingSession(activeSession as unknown as BrowserMcpSession)
+          if (!active) return;
+          const browserInstallation = snapshot.connectorInstallations.find(
+            (item) => item.connectorId === "browser",
+          );
+          const activeSession = asRecord(
+            browserInstallation?.config?.activePairingSession,
+          );
+          if (activeSession)
+            setBrowserPairingSession(
+              activeSession as unknown as BrowserMcpSession,
+            );
         })
         .catch((err) => {
-          console.warn("Browser MCP state refresh failed:", err)
-        })
-    }
-    refreshBrowserState()
-    const interval = window.setInterval(refreshBrowserState, 8000)
+          console.warn("Browser MCP state refresh failed:", err);
+        });
+    };
+    refreshBrowserState();
+    const interval = window.setInterval(refreshBrowserState, 8000);
     return () => {
-      active = false
-      window.clearInterval(interval)
-    }
-  }, [selectedConnectorId, browserPairingSession?.id])
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [selectedConnectorId, browserPairingSession?.id]);
 
   useEffect(() => {
-    let active = true
+    let active = true;
     fetch("/api/agentic-graph")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (active && data) setGraphMemory(data)
+        if (active && data) setGraphMemory(data);
       })
       .catch(() => {
-        if (active) setGraphMemory(null)
-      })
+        if (active) setGraphMemory(null);
+      });
 
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
-    let active = true
+    let active = true;
     fetch("/api/agentic-readiness")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (active && data) setProductionReadiness(data)
+        if (active && data) setProductionReadiness(data);
       })
       .catch(() => {
-        if (active) setProductionReadiness(null)
-      })
+        if (active) setProductionReadiness(null);
+      });
 
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
-    let active = true
+    let active = true;
     fetch("/api/agentic-improvements", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (active && data) setSelfImprovement(data)
+        if (active && data) setSelfImprovement(data);
       })
       .catch(() => {
-        if (active) setSelfImprovement(null)
-      })
+        if (active) setSelfImprovement(null);
+      });
 
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
-    let active = true
+    let active = true;
     fetch("/api/agentic-recovery", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (active && data) setAgenticRecovery(data)
+        if (active && data) setAgenticRecovery(data);
       })
       .catch(() => {
-        if (active) setAgenticRecovery(null)
-      })
+        if (active) setAgenticRecovery(null);
+      });
 
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
-    const hasFilter = graphQuery.trim() || graphNodeTypeFilter || graphSourceFilter
+    const hasFilter =
+      graphQuery.trim() || graphNodeTypeFilter || graphSourceFilter;
     if (!hasFilter) {
-      setGraphSearchNodes(null)
-      setIsSearchingGraph(false)
-      return
+      setGraphSearchNodes(null);
+      setIsSearchingGraph(false);
+      return;
     }
 
-    let active = true
+    let active = true;
     const timeout = window.setTimeout(() => {
-      const params = new URLSearchParams()
-      if (graphQuery.trim()) params.set("q", graphQuery.trim())
-      if (graphNodeTypeFilter) params.set("nodeType", graphNodeTypeFilter)
-      if (graphSourceFilter) params.set("sourceType", graphSourceFilter)
-      params.set("limit", "2000")
-      setIsSearchingGraph(true)
+      const params = new URLSearchParams();
+      if (graphQuery.trim()) params.set("q", graphQuery.trim());
+      if (graphNodeTypeFilter) params.set("nodeType", graphNodeTypeFilter);
+      if (graphSourceFilter) params.set("sourceType", graphSourceFilter);
+      params.set("limit", "2000");
+      setIsSearchingGraph(true);
       fetch(`/api/agentic-graph?${params.toString()}`)
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
-          if (active) setGraphSearchNodes(Array.isArray(data?.nodes) ? data.nodes : [])
+          if (active)
+            setGraphSearchNodes(Array.isArray(data?.nodes) ? data.nodes : []);
         })
         .catch(() => {
-          if (active) setGraphSearchNodes([])
+          if (active) setGraphSearchNodes([]);
         })
         .finally(() => {
-          if (active) setIsSearchingGraph(false)
-        })
-    }, 220)
+          if (active) setIsSearchingGraph(false);
+        });
+    }, 220);
 
     return () => {
-      active = false
-      window.clearTimeout(timeout)
-    }
-  }, [graphQuery, graphNodeTypeFilter, graphSourceFilter])
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [graphQuery, graphNodeTypeFilter, graphSourceFilter]);
 
   const stats = useMemo(() => {
     return {
@@ -2188,21 +2763,22 @@ export function AgentJobsClient({
       failed: jobs.filter((job) => job.status === "failed").length,
       done: jobs.filter((job) => terminalJobStatuses.has(job.status)).length,
       active: jobs.filter((job) => !terminalJobStatuses.has(job.status)).length,
-    }
-  }, [jobs])
+    };
+  }, [jobs]);
 
   const runnerHealth = useMemo(() => {
     if (!runnerControl.enabled) {
       return {
         latest: runners[0] ?? null,
         label: "Runner sospeso",
-        detail: runnerControl.reason ?? "Il claim dei job e sospeso lato server.",
+        detail:
+          runnerControl.reason ?? "Il claim dei job e sospeso lato server.",
         tone: "suspended" as const,
         isOnline: false,
-      }
+      };
     }
 
-    const latest = runners[0] ?? null
+    const latest = runners[0] ?? null;
     if (!latest) {
       return {
         latest,
@@ -2210,32 +2786,35 @@ export function AgentJobsClient({
         detail: "Nessun heartbeat ricevuto dal VPS.",
         tone: "offline" as const,
         isOnline: false,
-      }
+      };
     }
 
-    const lastSeenMs = parseServerDate(latest.lastSeenAt)
-    const ageMs = Date.now() - lastSeenMs
-    const fresh = Number.isFinite(ageMs) && ageMs < 90_000
-    const stale = Number.isFinite(ageMs) && ageMs >= 90_000 && ageMs < 300_000
+    const lastSeenMs = parseServerDate(latest.lastSeenAt);
+    const ageMs = Date.now() - lastSeenMs;
+    const fresh = Number.isFinite(ageMs) && ageMs < 90_000;
+    const stale = Number.isFinite(ageMs) && ageMs >= 90_000 && ageMs < 300_000;
 
     if (latest.status === "error") {
       return {
         latest,
         label: "Runner in errore",
-        detail: latest.lastErrorMessage ?? `Errore segnalato ${formatRelativeTime(latest.lastErrorAt)}`,
+        detail:
+          latest.lastErrorMessage ??
+          `Errore segnalato ${formatRelativeTime(latest.lastErrorAt)}`,
         tone: "error" as const,
         isOnline: false,
-      }
+      };
     }
 
     if (fresh && latest.status !== "offline") {
       return {
         latest,
-        label: latest.status === "running" ? "Runner al lavoro" : "Runner online",
+        label:
+          latest.status === "running" ? "Runner al lavoro" : "Runner online",
         detail: `${latest.id} · ${latest.status} · visto ${formatRelativeTime(latest.lastSeenAt)}`,
         tone: "online" as const,
         isOnline: true,
-      }
+      };
     }
 
     if (stale) {
@@ -2245,7 +2824,7 @@ export function AgentJobsClient({
         detail: `${latest.id} non aggiorna da ${formatRelativeTime(latest.lastSeenAt)}.`,
         tone: "stale" as const,
         isOnline: false,
-      }
+      };
     }
 
     return {
@@ -2254,72 +2833,81 @@ export function AgentJobsClient({
       detail: `${latest.id} non aggiorna da ${formatRelativeTime(latest.lastSeenAt)}.`,
       tone: "offline" as const,
       isOnline: false,
-    }
-  }, [runnerControl, runners])
+    };
+  }, [runnerControl, runners]);
 
-  const runnerHost = useMemo(() => runnerHostSnapshot(runnerHealth.latest), [runnerHealth.latest])
+  const runnerHost = useMemo(
+    () => runnerHostSnapshot(runnerHealth.latest),
+    [runnerHealth.latest],
+  );
 
   async function refreshJobs() {
-    const response = await fetch("/api/agent-jobs")
-    const data = await response.json()
-    if (!response.ok) throw new Error(data.error ?? "Errore refresh job")
-    setJobs(data.jobs ?? [])
+    const response = await fetch("/api/agent-jobs");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Errore refresh job");
+    setJobs(data.jobs ?? []);
   }
 
   async function refreshRunners() {
-    const response = await fetch("/api/agent-jobs/runners")
-    const data = await response.json()
-    if (!response.ok) throw new Error(data.error ?? "Errore refresh runner")
-    setRunners(data.runners ?? [])
-    if (data.runnerControl) setRunnerControl(data.runnerControl)
+    const response = await fetch("/api/agent-jobs/runners");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Errore refresh runner");
+    setRunners(data.runners ?? []);
+    if (data.runnerControl) setRunnerControl(data.runnerControl);
   }
 
   async function refreshControlPlane() {
     const readinessRequest = fetch("/api/agentic-readiness")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (data) setProductionReadiness(data)
+        if (data) setProductionReadiness(data);
       })
-      .catch(() => null)
-    await Promise.all([refreshJobs(), refreshRunners(), readinessRequest])
-    setLastControlPlaneRefreshAt(new Date().toISOString())
+      .catch(() => null);
+    await Promise.all([refreshJobs(), refreshRunners(), readinessRequest]);
+    setLastControlPlaneRefreshAt(new Date().toISOString());
   }
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return
+      if (document.visibilityState !== "visible") return;
       refreshControlPlane().catch((err) => {
-        console.warn("Agent control plane auto-refresh failed:", err)
-      })
-    }, 20_000)
+        console.warn("Agent control plane auto-refresh failed:", err);
+      });
+    }, 20_000);
 
-    return () => window.clearInterval(interval)
+    return () => window.clearInterval(interval);
     // refreshControlPlane intentionally uses current component state setters only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
-  async function mutateCapabilities(body: Record<string, unknown>, actionKey: string) {
+  async function mutateCapabilities(
+    body: Record<string, unknown>,
+    actionKey: string,
+  ) {
     try {
-      setCapabilityAction(actionKey)
-      setError(null)
+      setCapabilityAction(actionKey);
+      setError(null);
       const response = await fetch("/api/agentic-capabilities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore aggiornamento capability")
-      setCapabilities(data)
-      return true
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data?.error ?? "Errore aggiornamento capability");
+      setCapabilities(data);
+      return true;
     } catch (err: any) {
-      setError(err?.message ?? "Errore aggiornamento capability")
-      return false
+      setError(err?.message ?? "Errore aggiornamento capability");
+      return false;
     } finally {
-      setCapabilityAction(null)
+      setCapabilityAction(null);
     }
   }
 
-  function getProviderInstallBody(provider: AgenticCapabilities["providerCatalog"][number]) {
+  function getProviderInstallBody(
+    provider: AgenticCapabilities["providerCatalog"][number],
+  ) {
     return {
       action: "install_provider",
       providerId: provider.id,
@@ -2336,11 +2924,15 @@ export function AgentJobsClient({
         recommendedMcpConnectors: provider.recommendedMcpConnectors,
         defaultModel: provider.defaultModel,
       },
-    }
+    };
   }
 
-  function getConnectorInstallBody(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const authMethod = connector.authMethod ?? (connector.requiredEnv.length ? "api_key_secret" : "external_oauth")
+  function getConnectorInstallBody(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    const authMethod =
+      connector.authMethod ??
+      (connector.requiredEnv.length ? "api_key_secret" : "external_oauth");
     return {
       action: "install_connector",
       connectorId: connector.id,
@@ -2356,111 +2948,164 @@ export function AgentJobsClient({
         purpose: connector.purpose,
         notes: connector.notes,
         hermesPattern: {
-          catalog: "auth type dichiarato nel catalogo, installazione esplicita e verifica separata",
-          oauthManager: "token reload/reauth e 401 deduplication restano responsabilita del runtime autorizzato",
-          secretBoundary: "Optima salva secret_ref/stato, non token OAuth o API key in chiaro",
+          catalog:
+            "auth type dichiarato nel catalogo, installazione esplicita e verifica separata",
+          oauthManager:
+            "token reload/reauth e 401 deduplication restano responsabilita del runtime autorizzato",
+          secretBoundary:
+            "Optima salva secret_ref/stato, non token OAuth o API key in chiaro",
         },
       },
-    }
+    };
   }
 
   function connectorAuthLabel(method?: string) {
-    if (method === "oauth_pkce") return "OAuth / PKCE"
-    if (method === "github_app") return "GitHub App / owner"
-    if (method === "runner_env") return "Runner env"
-    if (method === "service_account") return "Service account"
-    if (method === "external_oauth") return "OAuth esterno"
-    if (method === "browser_session_oauth") return "Browser controllato"
-    return "API key / secret"
+    if (method === "oauth_pkce") return "OAuth / PKCE";
+    if (method === "github_app") return "GitHub App / owner";
+    if (method === "runner_env") return "Runner env";
+    if (method === "service_account") return "Service account";
+    if (method === "external_oauth") return "OAuth esterno";
+    if (method === "browser_session_oauth") return "Browser controllato";
+    return "API key / secret";
   }
 
-  function isStandardOAuthConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    return connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth"
+  function connectorSetupSummary(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    if (connector.id === "codex") {
+      return "Codex CLI OAuth device-auth · nessuna callback web";
+    }
+    if (connector.authMethod === "runner_env") {
+      return `${connectorAuthLabel(connector.authMethod)} · nessuna callback OAuth, verifica runtime`;
+    }
+    if (isStandardOAuthConnector(connector)) {
+      return `${connectorAuthLabel(connector.authMethod)} · client_id, redirect URI e secret su runtime`;
+    }
+    if (connector.authMethod === "device_flow") {
+      return `${connectorAuthLabel(connector.authMethod)} · device code e token nel secret vault`;
+    }
+    if (connector.authMethod === "browser_session_oauth") {
+      return `${connectorAuthLabel(connector.authMethod)} · login controllato sul browser VPS`;
+    }
+    return `${connectorAuthLabel(connector.authMethod)} · secret runtime e health-check`;
   }
 
-  function isDeviceFlowConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    return connector.authMethod === "device_flow"
+  function isStandardOAuthConnector(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    return (
+      connector.authMethod === "oauth_pkce" ||
+      connector.authMethod === "external_oauth"
+    );
   }
 
-  function connectorSetupKind(connector: AgenticCapabilities["mcpConnectorCatalog"][number]): ConnectorSetupKind {
-    if (connector.id === "browser") return "browser"
-    if (connector.id === "github") return "github_owner"
-    if (isStandardOAuthConnector(connector)) return "oauth"
-    if (connector.authMethod === "runner_env") return "runtime"
-    if (connector.authMethod === "service_account") return "service_account"
-    return "secret_ref"
+  function isDeviceFlowConnector(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    return connector.authMethod === "device_flow";
+  }
+
+  function connectorSetupKind(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ): ConnectorSetupKind {
+    if (connector.id === "browser") return "browser";
+    if (connector.id === "github") return "github_owner";
+    if (isStandardOAuthConnector(connector)) return "oauth";
+    if (connector.authMethod === "runner_env") return "runtime";
+    if (connector.authMethod === "service_account") return "service_account";
+    return "secret_ref";
   }
 
   function connectorSetupKindLabel(kind: ConnectorSetupKind) {
-    if (kind === "oauth") return "OAuth diretto"
-    if (kind === "browser") return "Browser login"
-    if (kind === "github_owner") return "Owner GitHub"
-    if (kind === "runtime") return "CLI/VPS"
-    if (kind === "service_account") return "Service token"
-    return "API key opzionale"
+    if (kind === "oauth") return "OAuth diretto";
+    if (kind === "browser") return "Browser login";
+    if (kind === "github_owner") return "Owner GitHub";
+    if (kind === "runtime") return "CLI/VPS";
+    if (kind === "service_account") return "Service token";
+    return "API key opzionale";
   }
 
   function connectorSetupKindTone(kind: ConnectorSetupKind) {
-    if (kind === "oauth") return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-    if (kind === "browser") return "border-purple-300/25 bg-purple-300/10 text-purple-100"
-    if (kind === "github_owner") return "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
-    if (kind === "runtime") return "border-sky-300/25 bg-sky-300/10 text-sky-100"
-    if (kind === "service_account") return "border-amber-300/25 bg-amber-300/10 text-amber-100"
-    return "border-slate-300/20 bg-slate-300/10 text-slate-200"
+    if (kind === "oauth")
+      return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
+    if (kind === "browser")
+      return "border-purple-300/25 bg-purple-300/10 text-purple-100";
+    if (kind === "github_owner")
+      return "border-cyan-300/25 bg-cyan-300/10 text-cyan-100";
+    if (kind === "runtime")
+      return "border-sky-300/25 bg-sky-300/10 text-sky-100";
+    if (kind === "service_account")
+      return "border-amber-300/25 bg-amber-300/10 text-amber-100";
+    return "border-slate-300/20 bg-slate-300/10 text-slate-200";
   }
 
-  function connectorRequirementsLabel(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const kind = connectorSetupKind(connector)
-    if (kind === "oauth") return "OAuth app / runtime"
-    if (kind === "browser") return "Sessione browser"
-    if (kind === "github_owner") return "Permessi GitHub"
-    if (kind === "runtime") return "Runtime richiesto"
-    if (kind === "service_account") return "Service token"
-    return "Secret_ref / fallback"
+  function connectorRequirementsLabel(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    if (connector.id === "codex") return "Runner Codex";
+    const kind = connectorSetupKind(connector);
+    if (kind === "oauth") return "OAuth app / runtime";
+    if (kind === "browser") return "Sessione browser";
+    if (kind === "github_owner") return "Permessi GitHub";
+    if (kind === "runtime") return "Runtime richiesto";
+    if (kind === "service_account") return "Service token";
+    return "Secret_ref / fallback";
   }
 
-  function connectorEmptyRequirementCopy(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const kind = connectorSetupKind(connector)
-    if (kind === "oauth") return "Nessun env obbligatorio nel catalogo. Se il consenso non parte, manca la OAuth app nel runtime."
-    if (kind === "browser") return "Nessun token da inserire in Optima: serve una sessione browser collegata e verificata."
-    if (kind === "github_owner") return "Gestione separata: owner Axel o GitHub App allowlist, mai account personale condiviso."
-    if (kind === "runtime") return "Configura il comando/runtime sul VPS o nodo autorizzato."
-    return "Nessuna credenziale obbligatoria dichiarata."
+  function connectorEmptyRequirementCopy(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    const kind = connectorSetupKind(connector);
+    if (kind === "oauth")
+      return "Nessun env obbligatorio nel catalogo. Se il consenso non parte, manca la OAuth app nel runtime.";
+    if (kind === "browser")
+      return "Nessun token da inserire in Optima: serve una sessione browser collegata e verificata.";
+    if (kind === "github_owner")
+      return "Gestione separata: owner Axel o GitHub App allowlist, mai account personale condiviso.";
+    if (kind === "runtime")
+      return "Configura il comando/runtime sul VPS o nodo autorizzato.";
+    return "Nessuna credenziale obbligatoria dichiarata.";
   }
 
-  function connectorNextActionCopy(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const kind = connectorSetupKind(connector)
+  function connectorNextActionCopy(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    if (connector.id === "codex") {
+      return "Esegui `codex login --device-auth` sul runner/VPS con CODEX_HOME separata, poi verifica con un prompt innocuo. Optima non deve aprire /api/mcp/oauth/callback/codex.";
+    }
+    const kind = connectorSetupKind(connector);
     if (kind === "oauth") {
-      return "Apri il consenso OAuth reale. Se Optima segnala env mancanti, configura prima l'app developer e il redirect URI: non creare un job al posto del login."
+      return "Apri il consenso OAuth reale. Se Optima segnala env mancanti, configura prima l'app developer e il redirect URI: non creare un job al posto del login.";
     }
     if (kind === "browser") {
-      return "Prepara una sessione browser controllata, completa il login tu, poi aggiorna lo stato. Questo serve per ChatGPT/Gemini/Perplexity/Claude senza API key come prima scelta."
+      return "Prepara una sessione browser controllata, completa il login tu, poi aggiorna lo stato. Questo serve per ChatGPT/Gemini/Perplexity/Claude senza API key come prima scelta.";
     }
     if (kind === "github_owner") {
-      return "Configura autorizzazioni owner-scoped: solo Axel decide repository, commit, PR e deploy. I job usano permessi verificati e non l'account personale condiviso."
+      return "Configura autorizzazioni owner-scoped: solo Axel decide repository, commit, PR e deploy. I job usano permessi verificati e non l'account personale condiviso.";
     }
     if (kind === "runtime") {
-      return "Configura il runtime/CLI sul runner autorizzato e poi lancia una verifica. Il job non puo inventarsi un login o una credenziale."
+      return "Configura il runtime/CLI sul runner autorizzato e poi lancia una verifica. Il job non puo inventarsi un login o una credenziale.";
     }
     if (kind === "service_account") {
-      return "Salva il riferimento al service token nel runtime sicuro e verifica con un check read-only prima di abilitarlo ai subagenti."
+      return "Salva il riferimento al service token nel runtime sicuro e verifica con un check read-only prima di abilitarlo ai subagenti.";
     }
-    return "Salva solo policy e secret_ref, poi verifica. API key e token sono fallback controllati, non il percorso principale quando esiste OAuth o Browser MCP."
+    return "Salva solo policy e secret_ref, poi verifica. API key e token sono fallback controllati, non il percorso principale quando esiste OAuth o Browser MCP.";
   }
 
   function connectorVerificationBlockedLabel(kind: ConnectorSetupKind | null) {
-    if (kind === "oauth") return "Apri e completa OAuth"
-    if (kind === "browser") return "Completa login browser"
-    if (kind === "github_owner") return "Definisci policy owner"
-    if (kind === "runtime") return "Verifica CLI/VPS"
-    if (kind === "service_account") return "Collega service token"
-    return "Salva secret_ref"
+    if (kind === "oauth") return "Apri e completa OAuth";
+    if (kind === "browser") return "Completa login browser";
+    if (kind === "github_owner") return "Definisci policy owner";
+    if (kind === "runtime") return "Verifica CLI/VPS";
+    if (kind === "service_account") return "Collega service token";
+    return "Salva secret_ref";
   }
 
   function connectorSetupPlan(
     connector: AgenticCapabilities["mcpConnectorCatalog"][number],
     installation?: AgenticCapabilities["connectorInstallations"][number] | null,
-    setupStatus?: NonNullable<AgenticCapabilities["connectorSetupStatuses"]>[number] | null,
+    setupStatus?:
+      NonNullable<AgenticCapabilities["connectorSetupStatuses"]>[number] | null,
   ) {
     if (setupStatus) {
       return {
@@ -2477,17 +3122,24 @@ export function AgentJobsClient({
         canStartOauth: setupStatus.canStartOauth,
         canStartBrowserPairing: setupStatus.canStartBrowserPairing,
         canRunHealthCheck: setupStatus.canRunHealthCheck,
-      }
+      };
     }
 
-    const kind = connectorSetupKind(connector)
-    const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
-    const healthOk = installation?.lastHealthStatus === "ok" || state === "healthy" || state === "configured"
-    const healthLabel = installation?.lastHealthStatus ? `Verifica: ${installation.lastHealthStatus}` : "Verifica non eseguita"
-    const hasRuntimeRequirement = connector.requiredEnv.length > 0
+    const kind = connectorSetupKind(connector);
+    const state =
+      installation?.installState ??
+      (connector.status === "enabled" ? "healthy" : "not_installed");
+    const healthOk =
+      installation?.lastHealthStatus === "ok" ||
+      state === "healthy" ||
+      state === "configured";
+    const healthLabel = installation?.lastHealthStatus
+      ? `Verifica: ${installation.lastHealthStatus}`
+      : "Verifica non eseguita";
+    const hasRuntimeRequirement = connector.requiredEnv.length > 0;
     const missingLabel = hasRuntimeRequirement
       ? `Richiede runtime: ${connector.requiredEnv.slice(0, 3).join(", ")}${connector.requiredEnv.length > 3 ? "..." : ""}`
-      : "Nessun segreto obbligatorio dichiarato nel catalogo."
+      : "Nessun segreto obbligatorio dichiarato nel catalogo.";
     const basePlan = {
       kind,
       state,
@@ -2496,8 +3148,9 @@ export function AgentJobsClient({
       blockedReason: null as string | null,
       canStartOauth: false,
       canStartBrowserPairing: false,
-      canRunHealthCheck: state !== "not_installed" || connector.status !== "missing",
-    }
+      canRunHealthCheck:
+        state !== "not_installed" || connector.status !== "missing",
+    };
 
     if (kind === "oauth") {
       return {
@@ -2510,8 +3163,10 @@ export function AgentJobsClient({
             ? "OAuth salvato: esegui o aggiorna la verifica prima dell'uso operativo."
             : "Collega l'account dal consenso ufficiale del provider; il job serve solo dopo.",
         missingLabel,
-        verifyActionLabel: healthOk ? "Aggiorna verifica" : "Verifica collegamento",
-      }
+        verifyActionLabel: healthOk
+          ? "Aggiorna verifica"
+          : "Verifica collegamento",
+      };
     }
     if (kind === "browser") {
       return {
@@ -2523,9 +3178,12 @@ export function AgentJobsClient({
           state === "configured" || state === "healthy"
             ? "Sessione browser registrata: aggiorna stato o verifica prima di usarla."
             : "Crea una sessione, fai login nel Chromium isolato e poi aggiorna stato.",
-        missingLabel: "Serve gateway Browser MCP raggiungibile dal dispositivo o dal Mac su Tailscale.",
-        verifyActionLabel: healthOk ? "Aggiorna verifica" : "Verifica gateway/sessione",
-      }
+        missingLabel:
+          "Serve gateway Browser MCP raggiungibile dal dispositivo o dal Mac su Tailscale.",
+        verifyActionLabel: healthOk
+          ? "Aggiorna verifica"
+          : "Verifica gateway/sessione",
+      };
     }
     if (kind === "github_owner") {
       return {
@@ -2534,9 +3192,12 @@ export function AgentJobsClient({
         primaryIntent: "Owner approval",
         shortNextAction:
           "Solo Axel autorizza repository, commit, PR e deploy. Dopo la policy si verifica con dry-run read-only.",
-        missingLabel: "Serve owner policy/GitHub App o token personale non condiviso fuori da Optima.",
-        verifyActionLabel: healthOk ? "Aggiorna dry-run GitHub" : "Verifica permessi GitHub",
-      }
+        missingLabel:
+          "Serve owner policy/GitHub App o token personale non condiviso fuori da Optima.",
+        verifyActionLabel: healthOk
+          ? "Aggiorna dry-run GitHub"
+          : "Verifica permessi GitHub",
+      };
     }
     if (kind === "runtime") {
       return {
@@ -2546,8 +3207,10 @@ export function AgentJobsClient({
         shortNextAction:
           "Configura wrapper e env sul runner autorizzato; Optima deve vedere heartbeat e comando funzionante.",
         missingLabel,
-        verifyActionLabel: healthOk ? "Aggiorna prova runtime" : "Verifica runtime",
-      }
+        verifyActionLabel: healthOk
+          ? "Aggiorna prova runtime"
+          : "Verifica runtime",
+      };
     }
     if (kind === "service_account") {
       return {
@@ -2557,8 +3220,10 @@ export function AgentJobsClient({
         shortNextAction:
           "Salva solo il riferimento al token nel runtime sicuro, poi verifica con azione read-only.",
         missingLabel,
-        verifyActionLabel: healthOk ? "Aggiorna service check" : "Verifica service token",
-      }
+        verifyActionLabel: healthOk
+          ? "Aggiorna service check"
+          : "Verifica service token",
+      };
     }
     return {
       ...basePlan,
@@ -2568,27 +3233,34 @@ export function AgentJobsClient({
         "Usa secret_ref solo quando OAuth, Browser MCP o runtime non sono disponibili. La chiave non entra in D1.",
       missingLabel,
       verifyActionLabel: healthOk ? "Aggiorna verifica" : "Verifica secret_ref",
-    }
+    };
   }
 
-  function connectorSetupHint(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+  function connectorSetupHint(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    if (connector.id === "codex") {
+      return "Codex CLI usa OAuth/device-auth sul runner: fai login dal terminale del VPS con CODEX_HOME separata. Optima conserva solo stato, policy e token interno runner; nessun client_id/client_secret e nessun auth.json in D1.";
+    }
     if (connector.id === "github") {
-      return "GitHub e owner-scoped: solo Axel autorizza repository, commit, PR e deploy. Optima registra policy e verifica, non condivide l'account."
+      return "GitHub e owner-scoped: solo Axel autorizza repository, commit, PR e deploy. Optima registra policy e verifica, non condivide l'account.";
     }
     if (connector.id === "browser") {
-      return "Browser MCP usa Chromium/Playwright con profilo isolato per tenant. Non e un consenso OAuth del provider: e una sessione browser controllata, con profilo/audit e senza cookie o token salvati in D1."
+      return "Browser MCP usa Chromium/Playwright con profilo isolato per tenant. Non e un consenso OAuth del provider: e una sessione browser controllata, con profilo/audit e senza cookie o token salvati in D1.";
     }
     if (isStandardOAuthConnector(connector)) {
-      return "Questo connector deve usare OAuth standard: app developer, redirect allowlist, state/PKCE, scope minimi e token nel runtime/secret vault. Il job serve solo per verifica o patch, non per fare login."
+      return "Questo connector deve usare OAuth standard: app developer, redirect allowlist, state/PKCE, scope minimi e token nel runtime/secret vault. Il job serve solo per verifica o patch, non per fare login.";
     }
     if (connector.authMethod === "runner_env") {
-      return "Runtime self-hosted: configurazione su VPS/runner, heartbeat e dry-run prima di dichiararlo operativo."
+      return "Runtime self-hosted: configurazione su VPS/runner, heartbeat e dry-run prima di dichiararlo operativo.";
     }
-    return "Secret gestito fuori da D1: qui salviamo stato, policy e reference; la chiave reale resta nel runtime autorizzato."
+    return "Secret gestito fuori da D1: qui salviamo stato, policy e reference; la chiave reale resta nel runtime autorizzato.";
   }
 
-  function connectorWizardSteps(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const kind = connectorSetupKind(connector)
+  function connectorWizardSteps(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    const kind = connectorSetupKind(connector);
     if (kind === "oauth") {
       return [
         {
@@ -2607,7 +3279,7 @@ export function AgentJobsClient({
           title: "Usa con review",
           body: "Pubblicazioni, deploy, invii e modifiche esterne passano da approvazione quando hanno impatto reale.",
         },
-      ]
+      ];
     }
     if (kind === "browser") {
       return [
@@ -2627,7 +3299,7 @@ export function AgentJobsClient({
           title: "Azioni allowlist",
           body: "Il browser serve per strumenti senza API o per verifica visiva, non per scraping incontrollato.",
         },
-      ]
+      ];
     }
     if (kind === "github_owner") {
       return [
@@ -2647,7 +3319,7 @@ export function AgentJobsClient({
           title: "Deploy approvato",
           body: "Quando approvi un job, il collegamento GitHub/deploy parte solo se la policy lo consente.",
         },
-      ]
+      ];
     }
     if (kind === "runtime") {
       return [
@@ -2667,7 +3339,7 @@ export function AgentJobsClient({
           title: "Uso supervisionato",
           body: "Codex CLI e runtime locali sono strumenti operatore/admin, non backend automatici illimitati.",
         },
-      ]
+      ];
     }
     if (kind === "service_account") {
       return [
@@ -2687,7 +3359,7 @@ export function AgentJobsClient({
           title: "Abilita ai subagenti",
           body: "Il servizio diventa disponibile solo alle capability dichiarate e ai ruoli autorizzati.",
         },
-      ]
+      ];
     }
     return [
       {
@@ -2706,143 +3378,176 @@ export function AgentJobsClient({
         title: "Review",
         body: "Ogni azione esterna sensibile resta revisionabile.",
       },
-    ]
+    ];
   }
 
-  function connectorPrimaryActionExplanation(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const kind = connectorSetupKind(connector)
+  function connectorPrimaryActionExplanation(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    if (connector.id === "codex") {
+      return "Guida il login OAuth/device-auth del Codex CLI sul runner autorizzato. Non e un OAuth web provider: niente callback, niente client_id/client_secret, niente token in chat.";
+    }
+    const kind = connectorSetupKind(connector);
     if (kind === "oauth") {
-      return "Apre la pagina di consenso del provider. Se il provider non ha ancora client_id/redirect URI configurati, Optima deve dirtelo chiaramente e fermarsi."
+      return "Apre la pagina di consenso del provider. Se il provider non ha ancora client_id/redirect URI configurati, Optima deve dirtelo chiaramente e fermarsi.";
     }
     if (kind === "browser") {
-      return "Prepara un profilo browser isolato sul VPS. Prima completi il login, poi Optima lo verifica e lo usa solo per azioni allowlist."
+      return "Prepara un profilo browser isolato sul VPS. Prima completi il login, poi Optima lo verifica e lo usa solo per azioni allowlist.";
     }
     if (kind === "github_owner") {
-      return "Apre la governance GitHub: repository, branch, PR, commit e deploy restano controllati dall'owner Axel."
+      return "Apre la governance GitHub: repository, branch, PR, commit e deploy restano controllati dall'owner Axel.";
     }
     if (kind === "runtime") {
-      return "Controlla che il comando sul runner autorizzato esista davvero. Per Codex va usato il wrapper ChatGPT, non il profilo API-key."
+      return "Controlla che il comando sul runner autorizzato esista davvero. Per Codex va usato il wrapper ChatGPT, non il profilo API-key.";
     }
     if (kind === "service_account") {
-      return "Verifica un account tecnico gia salvato come secret_ref nel runtime sicuro. Non inserire token in chiaro in Optima."
+      return "Verifica un account tecnico gia salvato come secret_ref nel runtime sicuro. Non inserire token in chiaro in Optima.";
     }
-    return "Registra un fallback protetto solo quando OAuth, Browser MCP o runtime non bastano. Deve restare facoltativo e revisionabile."
+    return "Registra un fallback protetto solo quando OAuth, Browser MCP o runtime non bastano. Deve restare facoltativo e revisionabile.";
   }
 
-  function connectorPrimaryActionTitle(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const kind = connectorSetupKind(connector)
-    if (kind === "oauth") return "Consenso OAuth reale"
-    if (kind === "browser") return "Login browser controllato"
-    if (kind === "github_owner") return "Policy owner GitHub"
-    if (kind === "runtime") return "Runtime/CLI verificato"
-    if (kind === "service_account") return "Service account verificato"
-    return "Fallback secret_ref"
+  function connectorPrimaryActionTitle(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    if (connector.id === "codex") return "Login Codex CLI sul runner";
+    const kind = connectorSetupKind(connector);
+    if (kind === "oauth") return "Consenso OAuth reale";
+    if (kind === "browser") return "Login browser controllato";
+    if (kind === "github_owner") return "Policy owner GitHub";
+    if (kind === "runtime") return "Runtime/CLI verificato";
+    if (kind === "service_account") return "Service account verificato";
+    return "Fallback secret_ref";
   }
 
-  async function configureConnector(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
-    const saved = await mutateCapabilities(getConnectorInstallBody(connector), `connector-config:${connector.id}`)
+  async function configureConnector(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
+    const saved = await mutateCapabilities(
+      getConnectorInstallBody(connector),
+      `connector-config:${connector.id}`,
+    );
     if (saved) {
       toast.info("Percorso salvato", {
         description: `${connector.label}: checklist salvata. Resta non operativo finche collegamento reale e health-check non risultano validi.`,
-      })
+      });
     }
   }
 
-  async function startConnectorOAuth(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+  async function startConnectorOAuth(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
     try {
-      setOauthAction(`connector-oauth:${connector.id}`)
-      setError(null)
-      const response = await fetch(`/api/mcp/connect/${encodeURIComponent(connector.id)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      })
-      const data = await response.json().catch(() => ({}))
+      setOauthAction(`connector-oauth:${connector.id}`);
+      setError(null);
+      const response = await fetch(
+        `/api/mcp/connect/${encodeURIComponent(connector.id)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const missing = Array.isArray(data?.missingEnv) && data.missingEnv.length ? ` Mancano: ${data.missingEnv.join(", ")}.` : ""
-        throw new Error(`${data?.error ?? "OAuth non configurato."}${missing}`)
+        const missing =
+          Array.isArray(data?.missingEnv) && data.missingEnv.length
+            ? ` Mancano: ${data.missingEnv.join(", ")}.`
+            : "";
+        throw new Error(`${data?.error ?? "OAuth non configurato."}${missing}`);
       }
-      if (!data?.authorizationUrl) throw new Error("Il provider non ha restituito un URL OAuth valido.")
+      if (!data?.authorizationUrl)
+        throw new Error("Il provider non ha restituito un URL OAuth valido.");
       toast.success("Apro consenso OAuth", {
         description: `${connector.label}: autorizza solo account e scope necessari.`,
-      })
-      window.location.href = String(data.authorizationUrl)
+      });
+      window.location.href = String(data.authorizationUrl);
     } catch (err: any) {
-      const message = err?.message ?? "Impossibile aprire OAuth."
-      setError(message)
+      const message = err?.message ?? "Impossibile aprire OAuth.";
+      setError(message);
       toast.error("OAuth non avviato", {
         description: message,
-      })
+      });
     } finally {
-      setOauthAction(null)
+      setOauthAction(null);
     }
   }
 
-  async function configureProvider(provider: AgenticCapabilities["providerCatalog"][number]) {
-    const saved = await mutateCapabilities(getProviderInstallBody(provider), `provider-config:${provider.id}`)
+  async function configureProvider(
+    provider: AgenticCapabilities["providerCatalog"][number],
+  ) {
+    const saved = await mutateCapabilities(
+      getProviderInstallBody(provider),
+      `provider-config:${provider.id}`,
+    );
     if (saved) {
       toast.success("Percorso provider salvato", {
         description: `${provider.label}: nessun login automatico. Configura il metodo reale e poi lancia la verifica.`,
-      })
+      });
     }
   }
 
-  async function startBrowserMcpLogin(target: "chatgpt" | "gemini" | "perplexity" | "claude") {
+  async function startBrowserMcpLogin(
+    target: "chatgpt" | "gemini" | "perplexity" | "claude",
+  ) {
     try {
-      setBrowserPairingAction(target)
-      setError(null)
+      setBrowserPairingAction(target);
+      setError(null);
       const response = await fetch("/api/mcp/browser-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore avvio login Browser MCP")
-      setBrowserPairingSession(data.session)
-      if (data.capabilities) setCapabilities(data.capabilities)
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data?.error ?? "Errore avvio login Browser MCP");
+      setBrowserPairingSession(data.session);
+      if (data.capabilities) setCapabilities(data.capabilities);
 
       if (data.session?.gatewayUrl) {
         toast.success("Sessione Browser MCP preparata", {
-          description: "Verifica prima il gateway VPS, poi apri il login remoto.",
-        })
+          description:
+            "Verifica prima il gateway VPS, poi apri il login remoto.",
+        });
       } else {
         toast.warning("Gateway Browser MCP da configurare", {
-          description: "Optima ha creato il pairing, ma manca BROWSER_MCP_GATEWAY_URL sul runtime.",
-        })
+          description:
+            "Optima ha creato il pairing, ma manca BROWSER_MCP_GATEWAY_URL sul runtime.",
+        });
       }
     } catch (err: any) {
-      setError(err?.message ?? "Errore avvio Browser MCP")
+      setError(err?.message ?? "Errore avvio Browser MCP");
       toast.error("Login Browser MCP non avviato", {
         description: err?.message ?? "Controlla gateway e permessi.",
-      })
+      });
     } finally {
-      setBrowserPairingAction(null)
+      setBrowserPairingAction(null);
     }
   }
 
   async function copyBrowserPairingCommand(command: string) {
     try {
-      await navigator.clipboard.writeText(command)
+      await navigator.clipboard.writeText(command);
       toast.success("Comando copiato", {
-        description: "Usalo sul runner/VPS Optima quando serve completare il setup.",
-      })
+        description:
+          "Usalo sul runner/VPS Optima quando serve completare il setup.",
+      });
     } catch {
-      toast.error("Copia non riuscita")
+      toast.error("Copia non riuscita");
     }
   }
 
   async function createCapabilitySetupJob(input: {
-    actionKey: string
-    title: string
-    contextSummary: string
-    brief: string
-    priority?: number
-    metadata?: Record<string, unknown>
+    actionKey: string;
+    title: string;
+    contextSummary: string;
+    brief: string;
+    priority?: number;
+    metadata?: Record<string, unknown>;
   }) {
     try {
-      const hermesBlueprint = capabilities?.hermesBlueprint
-      const hermesPatterns = hermesBlueprint?.patterns ?? []
-      setSetupAction(input.actionKey)
-      setError(null)
+      const hermesBlueprint = capabilities?.hermesBlueprint;
+      const hermesPatterns = hermesBlueprint?.patterns ?? [];
+      setSetupAction(input.actionKey);
+      setError(null);
       const response = await fetch("/api/agent-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2858,13 +3563,25 @@ export function AgentJobsClient({
             "Repository operativo: Optima. Lavora in modo conservativo, produci patch o piano revisionabile e non fare deploy automatico.",
           ].join("\n\n"),
           input: {
-            requestedOutput: ["connection-plan", "verification", "implementation-patch", "review-report"],
+            requestedOutput: [
+              "connection-plan",
+              "verification",
+              "implementation-patch",
+              "review-report",
+            ],
             hermesPattern: {
               source: "hermes-reference-audit",
-              repository: hermesBlueprint?.reference.repository ?? "https://github.com/NousResearch/hermes-agent",
-              referenceClone: hermesBlueprint?.reference.localClone ?? "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
-              referenceRevision: hermesBlueprint?.reference.auditedRevision ?? "a85627612",
-              referenceTag: hermesBlueprint?.reference.auditedTag ?? "v2026.6.5-816-ga85627612",
+              repository:
+                hermesBlueprint?.reference.repository ??
+                "https://github.com/NousResearch/hermes-agent",
+              referenceClone:
+                hermesBlueprint?.reference.localClone ??
+                "/Users/axel/Documents/Codex/reference-sources/hermes-agent",
+              referenceRevision:
+                hermesBlueprint?.reference.auditedRevision ?? "a85627612",
+              referenceTag:
+                hermesBlueprint?.reference.auditedTag ??
+                "v2026.6.5-816-ga85627612",
               license: hermesBlueprint?.reference.license ?? "MIT",
               relevantPatterns: hermesPatterns.length
                 ? hermesPatterns.map((pattern) => ({
@@ -2890,7 +3607,8 @@ export function AgentJobsClient({
               vpsReadOnlyPath: "/home/hermes/.hermes",
               allowedDirs: ["memories", "skills", "kanban", "sessions"],
               forbiddenDirs: ["secrets"],
-              importRule: "Solo indice redatto in graph memory: titoli, sommari, tag, confidence e source_id. Nessun token, nessun dump integrale.",
+              importRule:
+                "Solo indice redatto in graph memory: titoli, sommari, tag, confidence e source_id. Nessun token, nessun dump integrale.",
             },
             guardrails: [
               "non fermare, riavviare o modificare servizi Hermes esistenti sul VPS",
@@ -2907,20 +3625,23 @@ export function AgentJobsClient({
             vpsDiskState: "known_full_do_not_write_without_space_recovery",
           },
         }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore creazione verifica")
-      setJobs((current) => [data.job, ...current])
-      setJobFilter("active")
-      setMobilePanel("jobs")
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data?.error ?? "Errore creazione verifica");
+      setJobs((current) => [data.job, ...current]);
+      setJobFilter("active");
+      setMobilePanel("jobs");
     } catch (err: any) {
-      setError(err?.message ?? "Errore creazione verifica")
+      setError(err?.message ?? "Errore creazione verifica");
     } finally {
-      setSetupAction(null)
+      setSetupAction(null);
     }
   }
 
-  async function createProviderSetupJob(provider: AgenticCapabilities["providerCatalog"][number]) {
+  async function createProviderSetupJob(
+    provider: AgenticCapabilities["providerCatalog"][number],
+  ) {
     await createCapabilitySetupJob({
       actionKey: `provider-setup:${provider.id}`,
       title: `Verifica provider ${provider.label}`,
@@ -2936,10 +3657,12 @@ export function AgentJobsClient({
         provider,
         installBody: getProviderInstallBody(provider),
       },
-    })
+    });
   }
 
-  async function createConnectorSetupJob(connector: AgenticCapabilities["mcpConnectorCatalog"][number]) {
+  async function createConnectorSetupJob(
+    connector: AgenticCapabilities["mcpConnectorCatalog"][number],
+  ) {
     await createCapabilitySetupJob({
       actionKey: `connector-setup:${connector.id}`,
       title: `Verifica connessione ${connector.label}`,
@@ -2956,12 +3679,20 @@ export function AgentJobsClient({
         connector,
         installBody: getConnectorInstallBody(connector),
       },
-    })
+    });
   }
 
-  async function createStackSetupJob(kind: "providers" | "connectors" | "runtime" | "full") {
-    const selectedProviders = capabilities?.providerCatalog.filter((provider) => priorityProviderIds.includes(provider.id)) ?? []
-    const selectedConnectors = capabilities?.mcpConnectorCatalog.filter((connector) => priorityConnectorIds.includes(connector.id)) ?? []
+  async function createStackSetupJob(
+    kind: "providers" | "connectors" | "runtime" | "full",
+  ) {
+    const selectedProviders =
+      capabilities?.providerCatalog.filter((provider) =>
+        priorityProviderIds.includes(provider.id),
+      ) ?? [];
+    const selectedConnectors =
+      capabilities?.mcpConnectorCatalog.filter((connector) =>
+        priorityConnectorIds.includes(connector.id),
+      ) ?? [];
     const label =
       kind === "providers"
         ? "provider AI base"
@@ -2969,7 +3700,7 @@ export function AgentJobsClient({
           ? "MCP prioritari"
           : kind === "runtime"
             ? "runtime hosted"
-            : "core agentico completo"
+            : "core agentico completo";
     await createCapabilitySetupJob({
       actionKey: `stack-setup:${kind}`,
       title: `Piano setup ${label}`,
@@ -2987,7 +3718,7 @@ export function AgentJobsClient({
         providers: selectedProviders,
         connectors: selectedConnectors,
       },
-    })
+    });
   }
 
   async function createProductionGapJob(gap: AgenticReadinessGap) {
@@ -2996,18 +3727,20 @@ export function AgentJobsClient({
       title: gap.jobHint?.title ?? `Completa readiness: ${gap.label}`,
       contextSummary: `Production readiness / ${gap.area}`,
       brief: [
-        gap.jobHint?.brief ?? `Risolvi il gap production-ready "${gap.label}" in Optima con patch e verifiche reali.`,
+        gap.jobHint?.brief ??
+          `Risolvi il gap production-ready "${gap.label}" in Optima con patch e verifiche reali.`,
         `Stato attuale: ${gap.current}`,
         `Target: ${gap.target}`,
         `Prossime azioni richieste:\n${gap.nextActions.map((action) => `- ${action}`).join("\n")}`,
         "Output richiesto: piano, patch implementabile, health check, rischi, dati da non toccare e risultato revisionabile. Non dichiarare pronto cio che non viene verificato.",
       ].join("\n\n"),
-      priority: gap.severity === "critical" ? 1 : gap.severity === "high" ? 2 : 3,
+      priority:
+        gap.severity === "critical" ? 1 : gap.severity === "high" ? 2 : 3,
       metadata: {
         setupKind: "production-readiness-gap",
         gap,
       },
-    })
+    });
   }
 
   async function createHermesDataImportJob() {
@@ -3029,7 +3762,7 @@ export function AgentJobsClient({
         readOnlySource: "/home/hermes/.hermes",
         excludedPaths: ["/home/hermes/.hermes/secrets"],
       },
-    })
+    });
   }
 
   async function createNotionDataImportJob() {
@@ -3054,9 +3787,18 @@ export function AgentJobsClient({
           work: "collection://27f32473-a5fc-818d-8448-000b562dd5cf",
         },
         excludedPages: ["CREDENZIALI RIGHELLO", "ACCESSI RIGHELLO"],
-        excludedFields: ["EMAIL", "TELEFONO", "PEC", "Partita IVA", "Codice Fiscale", "Codice Destinatario", "ALLEGATI", "LINK ONEDRIVE"],
+        excludedFields: [
+          "EMAIL",
+          "TELEFONO",
+          "PEC",
+          "Partita IVA",
+          "Codice Fiscale",
+          "Codice Destinatario",
+          "ALLEGATI",
+          "LINK ONEDRIVE",
+        ],
       },
-    })
+    });
   }
 
   async function createObsidianVaultJob() {
@@ -3075,77 +3817,91 @@ export function AgentJobsClient({
         setupKind: "obsidian-vault",
         exportScript: "scripts/export-agentic-graph-obsidian-vault.mjs",
         vaultDir: "/Users/axel/Documents/Optima Obsidian Vault",
-        sourcePolicy: "markdown_frontmatter_index_only_no_binary_assets_no_secrets",
+        sourcePolicy:
+          "markdown_frontmatter_index_only_no_binary_assets_no_secrets",
       },
-    })
+    });
   }
 
   async function createSelfImprovementJob() {
     try {
-      setIsCreatingSelfImprovement(true)
-      setError(null)
+      setIsCreatingSelfImprovement(true);
+      setError(null);
       const response = await fetch("/api/agentic-improvements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ days: selfImprovement?.windowDays ?? 7 }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore creazione auto-miglioramento")
-      setSelfImprovement(data)
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data?.error ?? "Errore creazione auto-miglioramento");
+      setSelfImprovement(data);
       if (data.job) {
-        setJobs((current) => (current.some((job) => job.id === data.job.id) ? current : [data.job, ...current]))
-        setJobFilter("active")
-        setMobilePanel("jobs")
+        setJobs((current) =>
+          current.some((job) => job.id === data.job.id)
+            ? current
+            : [data.job, ...current],
+        );
+        setJobFilter("active");
+        setMobilePanel("jobs");
       }
     } catch (err: any) {
-      setError(err?.message ?? "Errore creazione auto-miglioramento")
+      setError(err?.message ?? "Errore creazione auto-miglioramento");
     } finally {
-      setIsCreatingSelfImprovement(false)
+      setIsCreatingSelfImprovement(false);
     }
   }
 
   async function createAgenticRecoveryJob() {
     try {
-      setIsCreatingAgenticRecovery(true)
-      setError(null)
+      setIsCreatingAgenticRecovery(true);
+      setError(null);
       const response = await fetch("/api/agentic-recovery", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore creazione recovery agentico")
-      setAgenticRecovery(data)
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data?.error ?? "Errore creazione recovery agentico");
+      setAgenticRecovery(data);
       if (data.job) {
-        setJobs((current) => (current.some((job) => job.id === data.job.id) ? current : [data.job, ...current]))
-        setJobFilter("active")
-        setMobilePanel("jobs")
+        setJobs((current) =>
+          current.some((job) => job.id === data.job.id)
+            ? current
+            : [data.job, ...current],
+        );
+        setJobFilter("active");
+        setMobilePanel("jobs");
       }
     } catch (err: any) {
-      setError(err?.message ?? "Errore creazione recovery agentico")
+      setError(err?.message ?? "Errore creazione recovery agentico");
     } finally {
-      setIsCreatingAgenticRecovery(false)
+      setIsCreatingAgenticRecovery(false);
     }
   }
 
   async function loadGraphNode(node: AgenticGraphNode) {
-    setSelectedGraphNodeId(node.id)
-    setGraphNodeDetail(null)
-    setIsLoadingGraphNode(true)
-    setError(null)
+    setSelectedGraphNodeId(node.id);
+    setGraphNodeDetail(null);
+    setIsLoadingGraphNode(true);
+    setError(null);
     try {
-      const response = await fetch(`/api/agentic-graph?nodeId=${encodeURIComponent(node.id)}&limit=80`)
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore caricamento nodo")
-      setGraphNodeDetail(data)
+      const response = await fetch(
+        `/api/agentic-graph?nodeId=${encodeURIComponent(node.id)}&limit=80`,
+      );
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data?.error ?? "Errore caricamento nodo");
+      setGraphNodeDetail(data);
     } catch (err: any) {
-      setError(err?.message ?? "Errore caricamento nodo")
+      setError(err?.message ?? "Errore caricamento nodo");
     } finally {
-      setIsLoadingGraphNode(false)
+      setIsLoadingGraphNode(false);
     }
   }
 
   async function createGraphNodeJob(detail: AgenticGraphNodeDetail) {
-    const connected = detail.connectedNodes.slice(0, 8)
+    const connected = detail.connectedNodes.slice(0, 8);
     await createCapabilitySetupJob({
       actionKey: `graph-node-job:${detail.node.id}`,
       title: `Analizza nodo grafo: ${detail.node.title}`,
@@ -3154,7 +3910,9 @@ export function AgentJobsClient({
         `Usa questo nodo della graph memory Optima come contesto operativo e produci un output revisionabile.`,
         `Nodo: ${detail.node.title}`,
         `Tipo: ${detail.node.nodeType}. Sorgente: ${graphSourceCopy[detail.node.sourceType] ?? detail.node.sourceType}. Confidence: ${graphConfidenceCopy[detail.node.confidence] ?? detail.node.confidence}.`,
-        detail.node.summary ? `Sommario: ${detail.node.summary}` : "Sommario non disponibile.",
+        detail.node.summary
+          ? `Sommario: ${detail.node.summary}`
+          : "Sommario non disponibile.",
         connected.length
           ? `Collegamenti principali: ${connected.map((node) => `${node.title} (${node.nodeType})`).join("; ")}.`
           : "Nessun collegamento principale trovato.",
@@ -3165,41 +3923,44 @@ export function AgentJobsClient({
         connectedNodes: connected,
         edgeCount: detail.edges.length,
       },
-    })
-    setSelectedGraphNodeId(null)
-    setGraphNodeDetail(null)
+    });
+    setSelectedGraphNodeId(null);
+    setGraphNodeDetail(null);
   }
 
-  async function createRecommendedSubagent(template: (typeof recommendedSubagents)[number]) {
+  async function createRecommendedSubagent(
+    template: (typeof recommendedSubagents)[number],
+  ) {
     await mutateCapabilities(
       {
         action: "create_subagent",
         ...template,
       },
       `subagent:${template.slug}`,
-    )
+    );
   }
 
   async function createRecommendedSubagents() {
     try {
-      setCapabilityAction("subagents:base")
-      setError(null)
-      let latest: AgenticCapabilities | null = null
+      setCapabilityAction("subagents:base");
+      setError(null);
+      let latest: AgenticCapabilities | null = null;
       for (const template of recommendedSubagents) {
         const response = await fetch("/api/agentic-capabilities", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "create_subagent", ...template }),
-        })
-        const data = await response.json()
-        if (!response.ok) throw new Error(data?.error ?? `Errore creazione ${template.name}`)
-        latest = data
+        });
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data?.error ?? `Errore creazione ${template.name}`);
+        latest = data;
       }
-      if (latest) setCapabilities(latest)
+      if (latest) setCapabilities(latest);
     } catch (err: any) {
-      setError(err?.message ?? "Errore creazione subagenti")
+      setError(err?.message ?? "Errore creazione subagenti");
     } finally {
-      setCapabilityAction(null)
+      setCapabilityAction(null);
     }
   }
 
@@ -3209,12 +3970,12 @@ export function AgentJobsClient({
         action: "bootstrap_tenant_agentic_stack",
       },
       "tenant:bootstrap",
-    )
+    );
   }
 
   async function createJob() {
-    setError(null)
-    setIsCreating(true)
+    setError(null);
+    setIsCreating(true);
     try {
       const response = await fetch("/api/agent-jobs", {
         method: "POST",
@@ -3237,90 +3998,141 @@ export function AgentJobsClient({
             createdFrom: "admin-control-room",
           },
         }),
-      })
+      });
 
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error ?? "Errore creazione job")
-      setJobs((current) => [data.job, ...current])
-      setForm(initialForm)
-      setShowRepositoryOverride(false)
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Errore creazione job");
+      setJobs((current) => [data.job, ...current]);
+      setForm(initialForm);
+      setShowRepositoryOverride(false);
     } catch (err: any) {
-      setError(err?.message ?? "Errore creazione job")
+      setError(err?.message ?? "Errore creazione job");
     } finally {
-      setIsCreating(false)
+      setIsCreating(false);
     }
   }
 
   async function loadReview(job: AgentJob) {
-    setReviewJobId(job.id)
-    setReviewDetails(null)
-    setRevisionMessage("")
-    setIsLoadingReview(true)
-    setError(null)
+    setReviewJobId(job.id);
+    setReviewDetails(null);
+    setRevisionMessage("");
+    setIsLoadingReview(true);
+    setError(null);
     try {
-      const response = await fetch(`/api/agent-jobs/${job.id}`)
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error ?? "Errore caricamento revisione")
-      setReviewDetails(data)
+      const response = await fetch(`/api/agent-jobs/${job.id}`);
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error ?? "Errore caricamento revisione");
+      setReviewDetails(data);
     } catch (err: any) {
-      setError(err?.message ?? "Errore caricamento revisione")
+      setError(err?.message ?? "Errore caricamento revisione");
     } finally {
-      setIsLoadingReview(false)
+      setIsLoadingReview(false);
     }
   }
 
-  async function mutateJob(id: string, action: "approve" | "reject" | "cancel" | "revise", message?: string) {
-    setBusyJobId(id)
-    setError(null)
+  async function mutateJob(
+    id: string,
+    action: "approve" | "reject" | "cancel" | "revise",
+    message?: string,
+  ) {
+    setBusyJobId(id);
+    setError(null);
     try {
       const response = await fetch(`/api/agent-jobs/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, message }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error ?? "Errore aggiornamento job")
-      setJobs((current) => current.map((job) => (job.id === id ? data.job : job)))
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error ?? "Errore aggiornamento job");
+      setJobs((current) =>
+        current.map((job) => (job.id === id ? data.job : job)),
+      );
       if (reviewJobId === id) {
         if (action === "revise") {
-          setReviewJobId(null)
-          setReviewDetails(null)
-          setRevisionMessage("")
+          setReviewJobId(null);
+          setReviewDetails(null);
+          setRevisionMessage("");
         } else {
-          await loadReview(data.job)
+          await loadReview(data.job);
         }
       }
     } catch (err: any) {
-      setError(err?.message ?? "Errore aggiornamento job")
+      setError(err?.message ?? "Errore aggiornamento job");
     } finally {
-      setBusyJobId(null)
+      setBusyJobId(null);
     }
   }
 
-  const activeReviewJob = reviewDetails?.job ?? jobs.find((job) => job.id === reviewJobId) ?? null
-  const providerInstallationsById = new Map((capabilities?.providerInstallations ?? []).map((item) => [item.providerId, item]))
-  const connectorInstallationsById = new Map((capabilities?.connectorInstallations ?? []).map((item) => [item.connectorId, item]))
-  const connectorSetupStatusesById = new Map((capabilities?.connectorSetupStatuses ?? []).map((item) => [item.connectorId, item]))
+  const activeReviewJob =
+    reviewDetails?.job ?? jobs.find((job) => job.id === reviewJobId) ?? null;
+  const providerInstallationsById = new Map(
+    (capabilities?.providerInstallations ?? []).map((item) => [
+      item.providerId,
+      item,
+    ]),
+  );
+  const connectorInstallationsById = new Map(
+    (capabilities?.connectorInstallations ?? []).map((item) => [
+      item.connectorId,
+      item,
+    ]),
+  );
+  const connectorSetupStatusesById = new Map(
+    (capabilities?.connectorSetupStatuses ?? []).map((item) => [
+      item.connectorId,
+      item,
+    ]),
+  );
   const selectedConnector =
-    (capabilities?.mcpConnectorCatalog ?? []).find((connector) => connector.id === selectedConnectorId) ?? null
-  const selectedConnectorInstallation = selectedConnector ? connectorInstallationsById.get(selectedConnector.id) ?? null : null
-  const selectedConnectorSetupStatus = selectedConnector ? connectorSetupStatusesById.get(selectedConnector.id) ?? null : null
-  const selectedConnectorPlan = selectedConnector ? connectorSetupPlan(selectedConnector, selectedConnectorInstallation, selectedConnectorSetupStatus) : null
-  const selectedConnectorKind = selectedConnectorPlan?.kind ?? (selectedConnector ? connectorSetupKind(selectedConnector) : null)
-  const selectedConnectorInstallState = selectedConnectorSetupStatus?.installState ?? selectedConnectorPlan?.state ?? "not_installed"
-  const selectedConnectorOperationalState = selectedConnectorSetupStatus?.operationalState ?? (selectedConnectorPlan?.healthOk ? "needs_review" : "ready_to_connect")
+    (capabilities?.mcpConnectorCatalog ?? []).find(
+      (connector) => connector.id === selectedConnectorId,
+    ) ?? null;
+  const selectedConnectorInstallation = selectedConnector
+    ? (connectorInstallationsById.get(selectedConnector.id) ?? null)
+    : null;
+  const selectedConnectorSetupStatus = selectedConnector
+    ? (connectorSetupStatusesById.get(selectedConnector.id) ?? null)
+    : null;
+  const selectedConnectorPlan = selectedConnector
+    ? connectorSetupPlan(
+        selectedConnector,
+        selectedConnectorInstallation,
+        selectedConnectorSetupStatus,
+      )
+    : null;
+  const selectedConnectorKind =
+    selectedConnectorPlan?.kind ??
+    (selectedConnector ? connectorSetupKind(selectedConnector) : null);
+  const selectedConnectorInstallState =
+    selectedConnectorSetupStatus?.installState ??
+    selectedConnectorPlan?.state ??
+    "not_installed";
+  const selectedConnectorOperationalState =
+    selectedConnectorSetupStatus?.operationalState ??
+    (selectedConnectorPlan?.healthOk ? "needs_review" : "ready_to_connect");
   const selectedConnectorOperationalLabel =
-    selectedConnectorSetupStatus?.operationalLabel ?? selectedConnectorPlan?.primaryIntent ?? "Da collegare"
-  const selectedConnectorPrimaryActionAvailable = selectedConnectorSetupStatus?.primaryActionAvailable !== false
+    selectedConnectorSetupStatus?.operationalLabel ??
+    selectedConnectorPlan?.primaryIntent ??
+    "Da collegare";
+  const selectedConnectorPrimaryActionAvailable =
+    selectedConnectorSetupStatus?.primaryActionAvailable !== false;
   const selectedConnectorHasCompletedOAuth = Boolean(
     selectedConnectorSetupStatus?.oauthSubject ||
-      (asRecord(selectedConnectorInstallation?.config)?.oauthSubject as string | undefined) ||
-      (asRecord(selectedConnectorInstallation?.config)?.accountEmail as string | undefined),
-  )
+    (asRecord(selectedConnectorInstallation?.config)?.oauthSubject as
+      string | undefined) ||
+    (asRecord(selectedConnectorInstallation?.config)?.accountEmail as
+      string | undefined),
+  );
   const selectedBrowserPairingSession =
     selectedConnector?.id === "browser"
-      ? browserPairingSession ?? (asRecord(selectedConnectorInstallation?.config?.activePairingSession) as BrowserMcpSession | null)
-      : null
+      ? (browserPairingSession ??
+        (asRecord(
+          selectedConnectorInstallation?.config?.activePairingSession,
+        ) as BrowserMcpSession | null))
+      : null;
   const selectedBrowserConnectedSessions =
     selectedConnector?.id === "browser"
       ? (Array.isArray(selectedConnectorInstallation?.config?.connectedSessions)
@@ -3328,62 +4140,82 @@ export function AgentJobsClient({
           : []
         )
           .map((session) => asRecord(session))
-          .filter((session): session is Record<string, unknown> => Boolean(session))
+          .filter((session): session is Record<string, unknown> =>
+            Boolean(session),
+          )
           .map((session) => session as unknown as BrowserMcpSession)
-      : []
-  const selectedConnectorHasBrowserLogin = selectedBrowserConnectedSessions.length > 0
+      : [];
+  const selectedConnectorHasBrowserLogin =
+    selectedBrowserConnectedSessions.length > 0;
   const selectedConnectorRealPrerequisiteMet = Boolean(
     selectedConnector &&
-      (selectedConnectorKind === "oauth"
-        ? selectedConnectorHasCompletedOAuth
-        : selectedConnectorKind === "browser"
-          ? selectedConnectorHasBrowserLogin
-          : selectedConnectorKind === "github_owner"
-            ? selectedConnectorInstallState === "configured" || selectedConnectorInstallState === "healthy"
-            : selectedConnectorKind === "runtime"
-              ? selectedConnectorInstallState === "configured" ||
-                selectedConnectorInstallState === "healthy" ||
-                selectedConnector.status === "enabled"
-              : selectedConnectorInstallState === "configured" || selectedConnectorInstallState === "healthy"),
-  )
+    (selectedConnectorKind === "oauth"
+      ? selectedConnectorHasCompletedOAuth
+      : selectedConnectorKind === "browser"
+        ? selectedConnectorHasBrowserLogin
+        : selectedConnectorKind === "github_owner"
+          ? selectedConnectorInstallState === "configured" ||
+            selectedConnectorInstallState === "healthy"
+          : selectedConnectorKind === "runtime"
+            ? selectedConnectorInstallState === "configured" ||
+              selectedConnectorInstallState === "healthy" ||
+              selectedConnector.status === "enabled"
+            : selectedConnectorInstallState === "configured" ||
+              selectedConnectorInstallState === "healthy"),
+  );
   const selectedConnectorCanCreateVerification = Boolean(
     selectedConnector &&
-      selectedConnectorPrimaryActionAvailable &&
-      selectedConnectorRealPrerequisiteMet &&
-      (selectedConnectorSetupStatus?.canRunHealthCheck ?? true),
-  )
+    selectedConnectorPrimaryActionAvailable &&
+    selectedConnectorRealPrerequisiteMet &&
+    (selectedConnectorSetupStatus?.canRunHealthCheck ?? true),
+  );
   const selectedProvider =
-    (capabilities?.providerCatalog ?? []).find((provider) => provider.id === selectedProviderId) ?? null
-  const selectedProviderInstallation = selectedProvider ? providerInstallationsById.get(selectedProvider.id) ?? null : null
-  const selectedProviderInstallState = selectedProviderInstallation?.installState ?? "not_installed"
-  const selectedProviderCanVerify = providerCanRunHealthCheck(selectedProviderInstallState)
-  const subagentsBySlug = new Map((capabilities?.subagents ?? []).map((item) => [item.slug, item]))
+    (capabilities?.providerCatalog ?? []).find(
+      (provider) => provider.id === selectedProviderId,
+    ) ?? null;
+  const selectedProviderInstallation = selectedProvider
+    ? (providerInstallationsById.get(selectedProvider.id) ?? null)
+    : null;
+  const selectedProviderInstallState =
+    selectedProviderInstallation?.installState ?? "not_installed";
+  const selectedProviderCanVerify = providerCanRunHealthCheck(
+    selectedProviderInstallState,
+  );
+  const subagentsBySlug = new Map(
+    (capabilities?.subagents ?? []).map((item) => [item.slug, item]),
+  );
   const graphTypes = Object.entries(graphMemory?.stats.byType ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
-    .slice(0, 8)
-  const graphIndex = graphMemory?.index ?? null
-  const graphQuality = graphIndex?.quality ?? null
-  const graphSourceGroups =
-    graphIndex?.sourceGroups?.length
-      ? graphIndex.sourceGroups
-      : Object.entries(graphMemory?.stats.bySource ?? {}).map(([sourceType, count]) => ({
+    .slice(0, 8);
+  const graphIndex = graphMemory?.index ?? null;
+  const graphQuality = graphIndex?.quality ?? null;
+  const graphSourceGroups = graphIndex?.sourceGroups?.length
+    ? graphIndex.sourceGroups
+    : Object.entries(graphMemory?.stats.bySource ?? {}).map(
+        ([sourceType, count]) => ({
           sourceType,
           label: graphSourceCopy[sourceType] ?? sourceType,
           count,
-        }))
-  const graphEdgeGroups =
-    graphIndex?.edgeGroups?.length
-      ? graphIndex.edgeGroups
-      : Object.entries(graphMemory?.stats.byEdgeType ?? {}).map(([edgeType, count]) => ({
+        }),
+      );
+  const graphEdgeGroups = graphIndex?.edgeGroups?.length
+    ? graphIndex.edgeGroups
+    : Object.entries(graphMemory?.stats.byEdgeType ?? {}).map(
+        ([edgeType, count]) => ({
           edgeType,
           label: edgeType.replace(/_/g, " "),
           count,
-        }))
-  const graphDomains = graphIndex?.semanticDomains ?? []
-  const graphTypeOptions = Object.keys(graphMemory?.stats.byType ?? {}).sort((a, b) => a.localeCompare(b))
+        }),
+      );
+  const graphDomains = graphIndex?.semanticDomains ?? [];
+  const graphTypeOptions = Object.keys(graphMemory?.stats.byType ?? {}).sort(
+    (a, b) => a.localeCompare(b),
+  );
   const graphSourceOptions = Array.from(
     new Set([
-      ...(graphMemory?.nodes ?? []).map((node) => node.sourceType).filter(Boolean),
+      ...(graphMemory?.nodes ?? [])
+        .map((node) => node.sourceType)
+        .filter(Boolean),
       "internal",
       "notion_righello",
       "hermes_readonly",
@@ -3391,35 +4223,62 @@ export function AgentJobsClient({
       "open_source_reference",
       "product_pattern",
     ]),
-  ).sort((a, b) => (graphSourceCopy[a] ?? a).localeCompare(graphSourceCopy[b] ?? b))
-  const visibleGraphNodes = graphSearchNodes ?? graphMemory?.nodes ?? []
-  const visibleGraphNodeIds = new Set(visibleGraphNodes.map((node) => node.id))
+  ).sort((a, b) =>
+    (graphSourceCopy[a] ?? a).localeCompare(graphSourceCopy[b] ?? b),
+  );
+  const visibleGraphNodes = graphSearchNodes ?? graphMemory?.nodes ?? [];
+  const visibleGraphNodeIds = new Set(visibleGraphNodes.map((node) => node.id));
   const visibleGraphEdges = (graphMemory?.edges ?? []).filter(
-    (edge) => visibleGraphNodeIds.has(edge.fromNodeId) && visibleGraphNodeIds.has(edge.toNodeId),
-  )
+    (edge) =>
+      visibleGraphNodeIds.has(edge.fromNodeId) &&
+      visibleGraphNodeIds.has(edge.toNodeId),
+  );
   const displayGraphMemory = graphMemory
     ? {
         ...graphMemory,
         nodes: visibleGraphNodes,
         edges: visibleGraphEdges,
       }
-    : null
-  const graphHasActiveFilter = Boolean(graphQuery.trim() || graphNodeTypeFilter || graphSourceFilter)
-  const readyRuntimeCount = capabilities?.modelRuntime?.hosts.filter((host) => host.runtimeStatus === "ready").length ?? 0
-  const configuredProviderCount = capabilities?.providerInstallations.filter((item) => item.installState !== "not_installed").length ?? 0
-  const operationalMcpConnectors = (capabilities?.mcpConnectorCatalog ?? []).filter((connector) => connector.id !== "hermes-agent")
+    : null;
+  const graphHasActiveFilter = Boolean(
+    graphQuery.trim() || graphNodeTypeFilter || graphSourceFilter,
+  );
+  const readyRuntimeCount =
+    capabilities?.modelRuntime?.hosts.filter(
+      (host) => host.runtimeStatus === "ready",
+    ).length ?? 0;
+  const configuredProviderCount =
+    capabilities?.providerInstallations.filter(
+      (item) => item.installState !== "not_installed",
+    ).length ?? 0;
+  const operationalMcpConnectors = (
+    capabilities?.mcpConnectorCatalog ?? []
+  ).filter((connector) => connector.id !== "hermes-agent");
   const connectorPlans = operationalMcpConnectors.map((connector) => {
-    const installation = connectorInstallationsById.get(connector.id)
-    const setupStatus = connectorSetupStatusesById.get(connector.id)
-    const plan = connectorSetupPlan(connector, installation, setupStatus)
-    const operationalState = setupStatus?.operationalState ?? (plan.healthOk ? "needs_review" : "ready_to_connect")
-    const operationalLabel = setupStatus?.operationalLabel ?? plan.primaryIntent
-    const primaryActionAvailable = setupStatus?.primaryActionAvailable !== false
-    const ready = operationalState === "connected"
+    const installation = connectorInstallationsById.get(connector.id);
+    const setupStatus = connectorSetupStatusesById.get(connector.id);
+    const plan = connectorSetupPlan(connector, installation, setupStatus);
+    const operationalState =
+      setupStatus?.operationalState ??
+      (plan.healthOk ? "needs_review" : "ready_to_connect");
+    const operationalLabel =
+      setupStatus?.operationalLabel ?? plan.primaryIntent;
+    const primaryActionAvailable =
+      setupStatus?.primaryActionAvailable !== false;
+    const ready = operationalState === "connected";
 
-    return { connector, installation, setupStatus, plan, operationalState, operationalLabel, primaryActionAvailable, ready }
-  })
-  const connectorLaneSummary = ([
+    return {
+      connector,
+      installation,
+      setupStatus,
+      plan,
+      operationalState,
+      operationalLabel,
+      primaryActionAvailable,
+      ready,
+    };
+  });
+  const connectorLaneSummary = [
     {
       kind: "oauth" as ConnectorSetupKind,
       label: "OAuth ufficiale",
@@ -3450,15 +4309,23 @@ export function AgentJobsClient({
       label: "Fallback API",
       body: "Chiavi solo se inevitabili, con budget e scope controllati.",
     },
-  ]).map((lane) => {
-    const plans = connectorPlans.filter((item) => item.plan.kind === lane.kind)
-    return {
-      ...lane,
-      total: plans.length,
-      ready: plans.filter((item) => item.ready).length,
-      blocked: plans.filter((item) => item.operationalState === "blocked" || item.operationalState === "needs_runtime").length,
-    }
-  }).filter((lane) => lane.total > 0)
+  ]
+    .map((lane) => {
+      const plans = connectorPlans.filter(
+        (item) => item.plan.kind === lane.kind,
+      );
+      return {
+        ...lane,
+        total: plans.length,
+        ready: plans.filter((item) => item.ready).length,
+        blocked: plans.filter(
+          (item) =>
+            item.operationalState === "blocked" ||
+            item.operationalState === "needs_runtime",
+        ).length,
+      };
+    })
+    .filter((lane) => lane.total > 0);
   const connectorNextFixes = connectorPlans
     .filter((item) => !item.ready)
     .sort((a, b) => {
@@ -3468,23 +4335,25 @@ export function AgentJobsClient({
         ready_to_connect: 2,
         needs_review: 3,
         connected: 4,
-      }
-      const aBlocked = statePriority[a.operationalState] ?? 9
-      const bBlocked = statePriority[b.operationalState] ?? 9
-      if (aBlocked !== bBlocked) return aBlocked - bBlocked
-      const aHealth = a.primaryActionAvailable ? 1 : 0
-      const bHealth = b.primaryActionAvailable ? 1 : 0
-      if (aHealth !== bHealth) return aHealth - bHealth
-      return a.connector.label.localeCompare(b.connector.label)
-    })
-  const connectorReadyPlans = connectorPlans.filter((item) => item.ready)
-  const connectorSearchTerm = connectorSearch.trim().toLowerCase()
+      };
+      const aBlocked = statePriority[a.operationalState] ?? 9;
+      const bBlocked = statePriority[b.operationalState] ?? 9;
+      if (aBlocked !== bBlocked) return aBlocked - bBlocked;
+      const aHealth = a.primaryActionAvailable ? 1 : 0;
+      const bHealth = b.primaryActionAvailable ? 1 : 0;
+      if (aHealth !== bHealth) return aHealth - bHealth;
+      return a.connector.label.localeCompare(b.connector.label);
+    });
+  const connectorReadyPlans = connectorPlans.filter((item) => item.ready);
+  const connectorSearchTerm = connectorSearch.trim().toLowerCase();
   const connectorPlansForLane =
     connectorLaneFilter === "all"
       ? connectorPlans
-      : connectorPlans.filter((item) => item.plan.kind === connectorLaneFilter)
-  const connectorPlanMatchesSearch = (item: (typeof connectorPlans)[number]) => {
-    if (!connectorSearchTerm) return true
+      : connectorPlans.filter((item) => item.plan.kind === connectorLaneFilter);
+  const connectorPlanMatchesSearch = (
+    item: (typeof connectorPlans)[number],
+  ) => {
+    if (!connectorSearchTerm) return true;
     const searchable = [
       item.connector.id,
       item.connector.label,
@@ -3498,43 +4367,51 @@ export function AgentJobsClient({
       ...item.connector.requiredEnv,
     ]
       .join(" ")
-      .toLowerCase()
-    return searchable.includes(connectorSearchTerm)
-  }
+      .toLowerCase();
+    return searchable.includes(connectorSearchTerm);
+  };
   const visibleConnectorPlans = connectorPlansForLane
     .filter(connectorPlanMatchesSearch)
     .sort((a, b) => {
-      if (a.ready !== b.ready) return a.ready ? 1 : -1
+      if (a.ready !== b.ready) return a.ready ? 1 : -1;
       const statePriority: Record<string, number> = {
         blocked: 0,
         needs_runtime: 1,
         ready_to_connect: 2,
         needs_review: 3,
         connected: 4,
-      }
-      const aState = statePriority[a.operationalState] ?? 9
-      const bState = statePriority[b.operationalState] ?? 9
-      if (aState !== bState) return aState - bState
-      const aPriority = priorityConnectorIds.indexOf(a.connector.id)
-      const bPriority = priorityConnectorIds.indexOf(b.connector.id)
+      };
+      const aState = statePriority[a.operationalState] ?? 9;
+      const bState = statePriority[b.operationalState] ?? 9;
+      if (aState !== bState) return aState - bState;
+      const aPriority = priorityConnectorIds.indexOf(a.connector.id);
+      const bPriority = priorityConnectorIds.indexOf(b.connector.id);
       if (aPriority !== bPriority) {
-        if (aPriority === -1) return 1
-        if (bPriority === -1) return -1
-        return aPriority - bPriority
+        if (aPriority === -1) return 1;
+        if (bPriority === -1) return -1;
+        return aPriority - bPriority;
       }
-      return a.connector.label.localeCompare(b.connector.label)
-    })
+      return a.connector.label.localeCompare(b.connector.label);
+    });
   const visibleConnectorNextFixes =
     connectorSearchTerm || connectorLaneFilter !== "all"
       ? visibleConnectorPlans.filter((item) => !item.ready)
-      : connectorNextFixes
+      : connectorNextFixes;
   const selectedConnectorLane =
-    connectorLaneFilter === "all" ? null : connectorLaneSummary.find((lane) => lane.kind === connectorLaneFilter) ?? null
+    connectorLaneFilter === "all"
+      ? null
+      : (connectorLaneSummary.find(
+          (lane) => lane.kind === connectorLaneFilter,
+        ) ?? null);
   const connectorMethodCards = connectorLaneSummary.map((lane) => {
-    const lanePlans = connectorPlans.filter((item) => item.plan.kind === lane.kind)
-    const nextPlan = connectorNextFixes.find((item) => item.plan.kind === lane.kind) ?? lanePlans[0]
-    const readyExamples = lanePlans.filter((item) => item.ready).slice(0, 3)
-    const pendingExamples = lanePlans.filter((item) => !item.ready).slice(0, 3)
+    const lanePlans = connectorPlans.filter(
+      (item) => item.plan.kind === lane.kind,
+    );
+    const nextPlan =
+      connectorNextFixes.find((item) => item.plan.kind === lane.kind) ??
+      lanePlans[0];
+    const readyExamples = lanePlans.filter((item) => item.ready).slice(0, 3);
+    const pendingExamples = lanePlans.filter((item) => !item.ready).slice(0, 3);
     const actionLabel =
       lane.kind === "oauth"
         ? "Collega via OAuth"
@@ -3546,7 +4423,7 @@ export function AgentJobsClient({
               ? "Verifica CLI/VPS"
               : lane.kind === "service_account"
                 ? "Collega service token"
-                : "Salva secret_ref"
+                : "Salva secret_ref";
     const actionHint =
       lane.kind === "oauth"
         ? "Apre la pagina OAuth reale del provider."
@@ -3558,41 +4435,84 @@ export function AgentJobsClient({
               ? "Controlla wrapper, heartbeat ed env sul VPS."
               : lane.kind === "service_account"
                 ? "Usa credenziale tecnica con secret_ref."
-                : "Fallback facoltativo, non prima scelta."
-    return { ...lane, lanePlans, nextPlan, readyExamples, pendingExamples, actionLabel, actionHint }
-  })
-  const connectorNeedsRuntimeCount = connectorPlans.filter((item) => item.operationalState === "needs_runtime").length
-  const connectorNeedsReviewCount = connectorPlans.filter((item) => item.operationalState === "needs_review").length
-  const connectorReadyToConnectCount = connectorPlans.filter((item) => item.operationalState === "ready_to_connect").length
-  const verifiedExternalConnectorCount = connectorReadyPlans.length
+                : "Fallback facoltativo, non prima scelta.";
+    return {
+      ...lane,
+      lanePlans,
+      nextPlan,
+      readyExamples,
+      pendingExamples,
+      actionLabel,
+      actionHint,
+    };
+  });
+  const connectorNeedsRuntimeCount = connectorPlans.filter(
+    (item) => item.operationalState === "needs_runtime",
+  ).length;
+  const connectorNeedsReviewCount = connectorPlans.filter(
+    (item) => item.operationalState === "needs_review",
+  ).length;
+  const connectorReadyToConnectCount = connectorPlans.filter(
+    (item) => item.operationalState === "ready_to_connect",
+  ).length;
+  const verifiedExternalConnectorCount = connectorReadyPlans.length;
   const connectorMainActionPlans = visibleConnectorNextFixes.length
     ? visibleConnectorNextFixes.slice(0, 4)
-    : visibleConnectorPlans.slice(0, 4)
-  const connectorReadyPreviewPlans = connectorReadyPlans.slice(0, 8)
-  const mcpAuthMode = productionReadiness?.metrics?.mcpAuthMode ?? "unknown"
-  const mcpOAuthConfigured = Boolean(productionReadiness?.metrics?.mcpOAuthAuthorizationCodeConfigured)
-  const mcpServiceTokenConfigured = Boolean(productionReadiness?.metrics?.mcpServiceTokenConfigured)
+    : visibleConnectorPlans.slice(0, 4);
+  const connectorReadyPreviewPlans = connectorReadyPlans.slice(0, 8);
+  const mcpAuthMode = productionReadiness?.metrics?.mcpAuthMode ?? "unknown";
+  const mcpOAuthConfigured = Boolean(
+    productionReadiness?.metrics?.mcpOAuthAuthorizationCodeConfigured,
+  );
+  const mcpServiceTokenConfigured = Boolean(
+    productionReadiness?.metrics?.mcpServiceTokenConfigured,
+  );
   const priorityProviderConfiguredCount =
-    capabilities?.providerInstallations.filter((item) => priorityProviderIds.includes(item.providerId) && item.installState !== "not_installed").length ?? 0
+    capabilities?.providerInstallations.filter(
+      (item) =>
+        priorityProviderIds.includes(item.providerId) &&
+        item.installState !== "not_installed",
+    ).length ?? 0;
   const priorityConnectorConfiguredCount =
-    capabilities?.connectorInstallations.filter((item) => priorityConnectorIds.includes(item.connectorId) && item.installState !== "not_installed").length ?? 0
-  const recommendedSubagentConfiguredCount = recommendedSubagents.filter((template) =>
-    capabilities?.subagents.some((subagent) => subagent.slug === template.slug),
-  ).length
-  const knowhowCatalogNodeCount = Number(graphMemory?.stats.byType?.development_knowhow ?? 0)
-  const knowhowFileNodeCount = Number(graphMemory?.stats.byType?.knowledge_file ?? 0)
-  const codexSkillNodeCount = Number(graphMemory?.stats.byType?.codex_skill ?? 0)
-  const knowledgeBaseNodeCount = Number(graphMemory?.stats.byType?.knowledge_base ?? 0)
-  const knowhowNodeCount = knowhowCatalogNodeCount + knowhowFileNodeCount + codexSkillNodeCount + knowledgeBaseNodeCount
-  const knowhowBreakdownLabel = `${knowhowFileNodeCount} file · ${knowhowCatalogNodeCount} note · ${codexSkillNodeCount} skill`
-  const graphReady = Boolean(graphMemory?.stats.nodes)
+    capabilities?.connectorInstallations.filter(
+      (item) =>
+        priorityConnectorIds.includes(item.connectorId) &&
+        item.installState !== "not_installed",
+    ).length ?? 0;
+  const recommendedSubagentConfiguredCount = recommendedSubagents.filter(
+    (template) =>
+      capabilities?.subagents.some(
+        (subagent) => subagent.slug === template.slug,
+      ),
+  ).length;
+  const knowhowCatalogNodeCount = Number(
+    graphMemory?.stats.byType?.development_knowhow ?? 0,
+  );
+  const knowhowFileNodeCount = Number(
+    graphMemory?.stats.byType?.knowledge_file ?? 0,
+  );
+  const codexSkillNodeCount = Number(
+    graphMemory?.stats.byType?.codex_skill ?? 0,
+  );
+  const knowledgeBaseNodeCount = Number(
+    graphMemory?.stats.byType?.knowledge_base ?? 0,
+  );
+  const knowhowNodeCount =
+    knowhowCatalogNodeCount +
+    knowhowFileNodeCount +
+    codexSkillNodeCount +
+    knowledgeBaseNodeCount;
+  const knowhowBreakdownLabel = `${knowhowFileNodeCount} file · ${knowhowCatalogNodeCount} note · ${codexSkillNodeCount} skill`;
+  const graphReady = Boolean(graphMemory?.stats.nodes);
   const filteredJobs = jobs.filter((job) => {
-    if (jobFilter === "all") return true
-    if (jobFilter === "active") return !terminalJobStatuses.has(job.status)
-    if (jobFilter === "review") return job.status === "needs_review" || job.status === "failed"
-    if (jobFilter === "running") return job.status === "queued" || job.status === "running"
-    return terminalJobStatuses.has(job.status)
-  })
+    if (jobFilter === "all") return true;
+    if (jobFilter === "active") return !terminalJobStatuses.has(job.status);
+    if (jobFilter === "review")
+      return job.status === "needs_review" || job.status === "failed";
+    if (jobFilter === "running")
+      return job.status === "queued" || job.status === "running";
+    return terminalJobStatuses.has(job.status);
+  });
   const nextActionCopy = stats.review
     ? `${stats.review} job da valutare in review room`
     : stats.running
@@ -3601,25 +4521,33 @@ export function AgentJobsClient({
         ? runnerControl.enabled
           ? "Job in coda: il runner li prendera in polling"
           : "Job in coda ma claim sospeso lato server"
-        : "Nessun blocco operativo nella coda"
-  const jobFilters: Array<{ key: JobFilter; label: string; count: number; helper: string }> = [
+        : "Nessun blocco operativo nella coda";
+  const jobFilters: Array<{
+    key: JobFilter;
+    label: string;
+    count: number;
+    helper: string;
+  }> = [
     {
       key: "active",
       label: "Aperti",
       count: stats.active,
-      helper: "Tutti i job non chiusi: in coda, in esecuzione, in review o in errore.",
+      helper:
+        "Tutti i job non chiusi: in coda, in esecuzione, in review o in errore.",
     },
     {
       key: "review",
       label: "Review",
       count: stats.review + stats.failed,
-      helper: "Output da approvare, respingere o rimandare al runner con istruzioni precise.",
+      helper:
+        "Output da approvare, respingere o rimandare al runner con istruzioni precise.",
     },
     {
       key: "running",
       label: "In lavoro",
       count: stats.queued + stats.running,
-      helper: "Job operativi: in coda per il runner o gia in esecuzione sul VPS.",
+      helper:
+        "Job operativi: in coda per il runner o gia in esecuzione sul VPS.",
     },
     {
       key: "done",
@@ -3633,59 +4561,72 @@ export function AgentJobsClient({
       count: jobs.length,
       helper: "Vista completa della coda, utile per audit e diagnosi.",
     },
-  ]
+  ];
   const controlDeckCards = [
     {
       title: "Lavori agentici",
-      value: stats.review ? `${stats.review} da decidere` : `${stats.queued + stats.running} in lavoro`,
+      value: stats.review
+        ? `${stats.review} da decidere`
+        : `${stats.queued + stats.running} in lavoro`,
       detail: stats.review
         ? "Output pronti da approvare, respingere o rimandare al runner."
         : "Coda runner, job in esecuzione e storico revisionabile.",
       action: stats.review ? "Apri review" : "Apri coda",
       tone: "pink",
       onClick: () => {
-        setMobilePanel("jobs")
-        setJobFilter(stats.review ? "review" : "active")
+        setMobilePanel("jobs");
+        setJobFilter(stats.review ? "review" : "active");
       },
     },
     {
       title: "Connessioni",
       value: `${verifiedExternalConnectorCount}/${operationalMcpConnectors.length}`,
-      detail: "OAuth, Browser MCP, GitHub owner, runtime CLI e service token separati.",
+      detail:
+        "OAuth, Browser MCP, GitHub owner, runtime CLI e service token separati.",
       action: "Collega servizi",
       tone: "cyan",
       onClick: () => {
-        setMobilePanel("stack")
-        setStackSection("providers")
+        setMobilePanel("stack");
+        setStackSection("providers");
       },
     },
     {
       title: "Memoria a grafo",
       value: `${graphMemory?.stats.nodes ?? 0} nodi`,
-      detail: "Graphify normalizzato, scibile, Obsidian vault e relazioni aziendali.",
+      detail:
+        "Graphify normalizzato, scibile, Obsidian vault e relazioni aziendali.",
       action: "Apri grafo",
       tone: "violet",
       onClick: () => {
-        setMobilePanel("stack")
-        setStackSection("graph")
+        setMobilePanel("stack");
+        setStackSection("graph");
       },
     },
     {
       title: "Readiness",
-      value: productionReadiness ? `${productionReadiness.summary.score}/100` : agenticRecovery ? `${agenticRecovery.score}/100` : "--",
-      detail: "Readiness reale: runner, MCP, runtime, subagenti, Telegram e self-improvement.",
+      value: productionReadiness
+        ? `${productionReadiness.summary.score}/100`
+        : agenticRecovery
+          ? `${agenticRecovery.score}/100`
+          : "--",
+      detail:
+        "Readiness reale: runner, MCP, runtime, subagenti, Telegram e self-improvement.",
       action: "Stato operativo",
       tone: "emerald",
       onClick: () => {
-        setMobilePanel("stack")
-        setStackSection("overview")
+        setMobilePanel("stack");
+        setStackSection("overview");
       },
     },
-  ]
+  ];
   const operationalPathSteps = [
     {
       title: "1. Lavori e review",
-      status: stats.review ? "Da decidere" : stats.queued + stats.running ? "In lavoro" : "Pulito",
+      status: stats.review
+        ? "Da decidere"
+        : stats.queued + stats.running
+          ? "In lavoro"
+          : "Pulito",
       detail: stats.review
         ? `${stats.review} output richiedono approvazione, rifiuto o istruzioni di revisione.`
         : stats.queued + stats.running
@@ -3694,13 +4635,17 @@ export function AgentJobsClient({
       action: stats.review ? "Apri review" : "Apri coda",
       complete: stats.review === 0,
       onClick: () => {
-        setMobilePanel("jobs")
-        setJobFilter(stats.review ? "review" : "active")
+        setMobilePanel("jobs");
+        setJobFilter(stats.review ? "review" : "active");
       },
     },
     {
       title: "2. Runner VPS",
-      status: runnerControl.enabled ? (runnerHealth.isOnline ? "Online" : "Da verificare") : "Sospeso",
+      status: runnerControl.enabled
+        ? runnerHealth.isOnline
+          ? "Online"
+          : "Da verificare"
+        : "Sospeso",
       detail: runnerControl.enabled
         ? runnerHealth.isOnline
           ? `${runnerHealth.label}: job in polling controllato.`
@@ -3709,8 +4654,8 @@ export function AgentJobsClient({
       action: "Vedi runner",
       complete: runnerControl.enabled && runnerHealth.isOnline,
       onClick: () => {
-        setMobilePanel("jobs")
-        setJobFilter("running")
+        setMobilePanel("jobs");
+        setJobFilter("running");
       },
     },
     {
@@ -3720,10 +4665,11 @@ export function AgentJobsClient({
         ? "Alcuni servizi hanno soggetto, sessione, runtime o secret_ref verificati."
         : "Nessun connector esterno e ancora pronto per azioni produttive.",
       action: "Collega servizi",
-      complete: verifiedExternalConnectorCount > 0 && connectorNextFixes.length === 0,
+      complete:
+        verifiedExternalConnectorCount > 0 && connectorNextFixes.length === 0,
       onClick: () => {
-        setMobilePanel("stack")
-        setStackSection("providers")
+        setMobilePanel("stack");
+        setStackSection("providers");
       },
     },
     {
@@ -3735,8 +4681,8 @@ export function AgentJobsClient({
       action: "Runtime",
       complete: readyRuntimeCount > 0,
       onClick: () => {
-        setMobilePanel("stack")
-        setStackSection("providers")
+        setMobilePanel("stack");
+        setStackSection("providers");
       },
     },
     {
@@ -3748,21 +4694,26 @@ export function AgentJobsClient({
       action: "Apri grafo",
       complete: graphReady,
       onClick: () => {
-        setMobilePanel("stack")
-        setStackSection("graph")
+        setMobilePanel("stack");
+        setStackSection("graph");
       },
     },
-  ]
-  const selectedJobFilter = jobFilters.find((filter) => filter.key === jobFilter) ?? jobFilters[0]
+  ];
+  const selectedJobFilter =
+    jobFilters.find((filter) => filter.key === jobFilter) ?? jobFilters[0];
   const operationalActions = [
     {
       title: "Tenant OS",
-      detail: capabilities?.tenantIsolation?.organizationId ? "scoped" : "da inizializzare",
+      detail: capabilities?.tenantIsolation?.organizationId
+        ? "scoped"
+        : "da inizializzare",
       body: "Inizializza route modello e subagenti standard solo per l'organizzazione corrente.",
       action: "Bootstrap tenant",
       busyKey: "tenant:bootstrap",
       onClick: bootstrapTenantAgenticStack,
-      complete: recommendedSubagentConfiguredCount >= recommendedSubagents.length && Boolean(capabilities?.modelRuntime?.routes.length),
+      complete:
+        recommendedSubagentConfiguredCount >= recommendedSubagents.length &&
+        Boolean(capabilities?.modelRuntime?.routes.length),
     },
     {
       title: "Provider base",
@@ -3798,11 +4749,14 @@ export function AgentJobsClient({
       action: "Prepara ruoli",
       busyKey: "subagents:base",
       onClick: createRecommendedSubagents,
-      complete: recommendedSubagentConfiguredCount >= recommendedSubagents.length,
+      complete:
+        recommendedSubagentConfiguredCount >= recommendedSubagents.length,
     },
     {
       title: "Graph memory",
-      detail: graphReady ? `${graphMemory?.stats.nodes ?? 0} nodi` : "da sincronizzare",
+      detail: graphReady
+        ? `${graphMemory?.stats.nodes ?? 0} nodi`
+        : "da sincronizzare",
       body: "Nodi aziendali, connector, repository, know-how e sorgenti agentiche.",
       action: "Normalizza indice",
       busyKey: "graph:seed",
@@ -3818,7 +4772,9 @@ export function AgentJobsClient({
       action: "Avvia analisi",
       busyKey: "self-improvement:create",
       onClick: createSelfImprovementJob,
-      complete: Boolean(selfImprovement && selfImprovement.signals.length === 0),
+      complete: Boolean(
+        selfImprovement && selfImprovement.signals.length === 0,
+      ),
     },
     {
       title: "Diagnostica agentica",
@@ -3826,7 +4782,9 @@ export function AgentJobsClient({
       body:
         agenticRecovery?.headline ??
         "Ricompone runner, MCP/OAuth, grafo, runtime, Obsidian e superfici aziendali in un piano Codex unico.",
-      action: agenticRecovery?.metrics.recoveryJobActive ? "Apri coda" : "Analizza blocchi",
+      action: agenticRecovery?.metrics.recoveryJobActive
+        ? "Apri coda"
+        : "Analizza blocchi",
       busyKey: "agentic-recovery:create",
       onClick: createAgenticRecoveryJob,
       complete: Boolean(agenticRecovery && agenticRecovery.score >= 85),
@@ -3838,7 +4796,9 @@ export function AgentJobsClient({
       action: "Job vault",
       busyKey: "stack-setup:obsidian-vault",
       onClick: createObsidianVaultJob,
-      complete: Number(graphMemory?.stats.byType?.graph_workspace ?? 0) > 0 || Number(graphMemory?.stats.byType?.obsidian_note ?? 0) > 0,
+      complete:
+        Number(graphMemory?.stats.byType?.graph_workspace ?? 0) > 0 ||
+        Number(graphMemory?.stats.byType?.obsidian_note ?? 0) > 0,
     },
     {
       title: "Dati Hermes Righello",
@@ -3847,7 +4807,9 @@ export function AgentJobsClient({
       action: "Job import",
       busyKey: "stack-setup:hermes-data",
       onClick: createHermesDataImportJob,
-      complete: Number(graphMemory?.stats.byType?.hermes_memory ?? 0) > 0 || Number(graphMemory?.stats.byType?.hermes_skill ?? 0) > 0,
+      complete:
+        Number(graphMemory?.stats.byType?.hermes_memory ?? 0) > 0 ||
+        Number(graphMemory?.stats.byType?.hermes_skill ?? 0) > 0,
     },
     {
       title: "Dati Notion Righello",
@@ -3856,39 +4818,42 @@ export function AgentJobsClient({
       action: "Job Notion",
       busyKey: "stack-setup:notion-data",
       onClick: createNotionDataImportJob,
-      complete: Number(graphMemory?.stats.byType?.notion_database ?? 0) > 0 || Number(graphMemory?.stats.byType?.notion_task ?? 0) > 0,
+      complete:
+        Number(graphMemory?.stats.byType?.notion_database ?? 0) > 0 ||
+        Number(graphMemory?.stats.byType?.notion_task ?? 0) > 0,
     },
-  ]
+  ];
 
   async function seedGraphReferences() {
     try {
-      setIsSeedingGraph(true)
-      setError(null)
+      setIsSeedingGraph(true);
+      setError(null);
       const response = await fetch("/api/agentic-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "normalize_index" }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore sincronizzazione grafo")
-      setGraphMemory(data)
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data?.error ?? "Errore sincronizzazione grafo");
+      setGraphMemory(data);
     } catch (err: any) {
-      setError(err?.message ?? "Errore sincronizzazione grafo")
+      setError(err?.message ?? "Errore sincronizzazione grafo");
     } finally {
-      setIsSeedingGraph(false)
+      setIsSeedingGraph(false);
     }
   }
 
   async function createManualGraphNode() {
-    const title = manualGraphNodeForm.title.trim()
+    const title = manualGraphNodeForm.title.trim();
     if (!title) {
-      setError("Inserisci un titolo per il nodo grafo.")
-      return
+      setError("Inserisci un titolo per il nodo grafo.");
+      return;
     }
 
     try {
-      setIsSavingGraphNode(true)
-      setError(null)
+      setIsSavingGraphNode(true);
+      setError(null);
       const response = await fetch("/api/agentic-graph", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3909,19 +4874,22 @@ export function AgentJobsClient({
             manualReview: true,
           },
         }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data?.error ?? "Errore salvataggio nodo grafo")
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data?.error ?? "Errore salvataggio nodo grafo");
 
-      const snapshotResponse = await fetch("/api/agentic-graph", { cache: "no-store" })
-      const snapshot = await snapshotResponse.json()
-      if (snapshotResponse.ok) setGraphMemory(snapshot)
-      setGraphQuery(title)
-      setManualGraphNodeForm(initialManualGraphNodeForm)
+      const snapshotResponse = await fetch("/api/agentic-graph", {
+        cache: "no-store",
+      });
+      const snapshot = await snapshotResponse.json();
+      if (snapshotResponse.ok) setGraphMemory(snapshot);
+      setGraphQuery(title);
+      setManualGraphNodeForm(initialManualGraphNodeForm);
     } catch (err: any) {
-      setError(err?.message ?? "Errore salvataggio nodo grafo")
+      setError(err?.message ?? "Errore salvataggio nodo grafo");
     } finally {
-      setIsSavingGraphNode(false)
+      setIsSavingGraphNode(false);
     }
   }
 
@@ -3933,34 +4901,40 @@ export function AgentJobsClient({
       priority: template.priority,
       contextSummary: template.contextSummary,
       brief: template.brief,
-    }))
+    }));
   }
 
   const mobileTabClass = (panel: typeof mobilePanel) =>
     `h-11 min-w-0 gap-1 rounded-md px-1 text-xs font-black !whitespace-normal min-[390px]:gap-1.5 min-[390px]:text-sm ${
-      mobilePanel === panel ? "bg-righello-pink text-white" : "text-slate-300 hover:bg-white/10"
-    }`
+      mobilePanel === panel
+        ? "bg-righello-pink text-white"
+        : "text-slate-300 hover:bg-white/10"
+    }`;
 
   const stackSectionClass = (section: typeof stackSection) =>
     `h-10 min-w-0 rounded-md px-3 text-xs font-black transition ${
       stackSection === section
         ? "border border-cyan-300/35 bg-cyan-300/15 text-cyan-50 shadow-lg shadow-cyan-950/20"
         : "border border-white/10 bg-[#060a15] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"
-    }`
+    }`;
 
   const controlDeckTone = (tone: string) => {
-    if (tone === "pink") return "border-righello-pink/25 bg-righello-pink/[0.08] text-pink-50"
-    if (tone === "cyan") return "border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-50"
-    if (tone === "violet") return "border-violet-300/25 bg-violet-300/[0.08] text-violet-50"
-    return "border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-50"
-  }
+    if (tone === "pink")
+      return "border-righello-pink/25 bg-righello-pink/[0.08] text-pink-50";
+    if (tone === "cyan")
+      return "border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-50";
+    if (tone === "violet")
+      return "border-violet-300/25 bg-violet-300/[0.08] text-violet-50";
+    return "border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-50";
+  };
 
   const approvalCreatesPublishJob = (job: AgentJob) =>
     Boolean(
       job.repoUrl &&
-        !job.input?.approvalFollowUpJobId &&
-        (job.jobType === "codex_patch" || (job.jobType === "deploy" && job.input?.approvalStage !== "execution")),
-    )
+      !job.input?.approvalFollowUpJobId &&
+      (job.jobType === "codex_patch" ||
+        (job.jobType === "deploy" && job.input?.approvalStage !== "execution")),
+    );
 
   return (
     <section className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] lg:gap-6">
@@ -4004,17 +4978,25 @@ export function AgentJobsClient({
             <Bot className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-righello-pink">AI Ops</p>
-            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Crea job operativo</h2>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-righello-pink">
+              AI Ops
+            </p>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">
+              Crea job operativo
+            </h2>
             <p className="mt-2 hidden text-sm leading-6 text-slate-400 sm:block">
-              Scrivi l'obiettivo, non la procedura. Optima risolve grafo, repository, subagente e runtime; il runner produce output revisionabile.
+              Scrivi l'obiettivo, non la procedura. Optima risolve grafo,
+              repository, subagente e runtime; il runner produce output
+              revisionabile.
             </p>
           </div>
         </div>
 
         <div className="mt-5 grid gap-3 sm:mt-6 sm:gap-4">
           <div className="grid gap-2">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Template briefing</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+              Template briefing
+            </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {quickJobTemplates.map((template) => (
                 <Button
@@ -4036,7 +5018,12 @@ export function AgentJobsClient({
             <input
               className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
               value={form.title}
-              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
+              }
               placeholder={getTitlePlaceholder(form.jobType)}
             />
           </label>
@@ -4047,7 +5034,12 @@ export function AgentJobsClient({
               <select
                 className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                 value={form.jobType}
-                onChange={(event) => setForm((current) => ({ ...current, jobType: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    jobType: event.target.value,
+                  }))
+                }
               >
                 <option value="task_update">Aggiorna task da GitHub</option>
                 <option value="codex_patch">Codex patch/PR</option>
@@ -4063,7 +5055,12 @@ export function AgentJobsClient({
               <select
                 className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                 value={form.priority}
-                onChange={(event) => setForm((current) => ({ ...current, priority: Number(event.target.value) }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    priority: Number(event.target.value),
+                  }))
+                }
               >
                 <option value={1}>1 - urgente</option>
                 <option value={2}>2 - alta</option>
@@ -4082,7 +5079,9 @@ export function AgentJobsClient({
                 </div>
                 <div>
                   <p className="text-sm font-black text-white">
-                    {form.jobType === "task_update" ? "Fonte GitHub multi-repository" : "Repository automatico"}
+                    {form.jobType === "task_update"
+                      ? "Fonte GitHub multi-repository"
+                      : "Repository automatico"}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-slate-400">
                     {jobTypesRequiringRepository.has(form.jobType)
@@ -4099,7 +5098,9 @@ export function AgentJobsClient({
                 onClick={() => setShowRepositoryOverride((current) => !current)}
                 className="h-9 w-full shrink-0 rounded-lg border-white/15 bg-transparent px-3 text-xs text-white hover:bg-white/10 min-[420px]:w-auto"
               >
-                {showRepositoryOverride ? "Nascondi override" : "Forza repository"}
+                {showRepositoryOverride
+                  ? "Nascondi override"
+                  : "Forza repository"}
               </Button>
             </div>
           </div>
@@ -4111,7 +5112,12 @@ export function AgentJobsClient({
                 <input
                   className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                   value={form.repoUrl}
-                  onChange={(event) => setForm((current) => ({ ...current, repoUrl: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      repoUrl: event.target.value,
+                    }))
+                  }
                   placeholder="https://github.com/axelfleureau/..."
                 />
               </label>
@@ -4120,7 +5126,12 @@ export function AgentJobsClient({
                 <input
                   className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                   value={form.repoBranch}
-                  onChange={(event) => setForm((current) => ({ ...current, repoBranch: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      repoBranch: event.target.value,
+                    }))
+                  }
                   placeholder="Auto / main"
                 />
               </label>
@@ -4132,7 +5143,12 @@ export function AgentJobsClient({
             <input
               className="rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
               value={form.contextSummary}
-              onChange={(event) => setForm((current) => ({ ...current, contextSummary: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  contextSummary: event.target.value,
+                }))
+              }
               placeholder="Cliente, feature o area"
             />
           </label>
@@ -4142,7 +5158,12 @@ export function AgentJobsClient({
             <textarea
               className="min-h-36 rounded-lg border border-white/10 bg-[#060a15] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-cyan-300/70 sm:min-h-44"
               value={form.brief}
-              onChange={(event) => setForm((current) => ({ ...current, brief: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  brief: event.target.value,
+                }))
+              }
               placeholder={getBriefPlaceholder(form.jobType)}
             />
           </label>
@@ -4159,7 +5180,11 @@ export function AgentJobsClient({
             disabled={isCreating}
             className="h-12 rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
           >
-            {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+            {isCreating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="mr-2 h-4 w-4" />
+            )}
             Crea job agentico
           </Button>
         </div>
@@ -4172,10 +5197,16 @@ export function AgentJobsClient({
       >
         <div className="flex min-w-0 flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Agentic OS</p>
-            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Control room agentica</h2>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">
+              Agentic OS
+            </p>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">
+              Control room agentica
+            </h2>
             <p className="mt-2 break-words text-sm leading-6 text-slate-400">
-              Una vista sola per capire cosa puo fare Optima adesso: lavori, connessioni, runtime AI, grafo e revisioni. Le azioni esterne restano tenant-scoped e approvate.
+              Una vista sola per capire cosa puo fare Optima adesso: lavori,
+              connessioni, runtime AI, grafo e revisioni. Le azioni esterne
+              restano tenant-scoped e approvate.
             </p>
           </div>
           <span className="w-fit max-w-full rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">
@@ -4184,16 +5215,32 @@ export function AgentJobsClient({
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <button type="button" onClick={() => setStackSection("overview")} className={stackSectionClass("overview")}>
+          <button
+            type="button"
+            onClick={() => setStackSection("overview")}
+            className={stackSectionClass("overview")}
+          >
             Stato
           </button>
-          <button type="button" onClick={() => setStackSection("providers")} className={stackSectionClass("providers")}>
+          <button
+            type="button"
+            onClick={() => setStackSection("providers")}
+            className={stackSectionClass("providers")}
+          >
             Collega servizi
           </button>
-          <button type="button" onClick={() => setStackSection("graph")} className={stackSectionClass("graph")}>
+          <button
+            type="button"
+            onClick={() => setStackSection("graph")}
+            className={stackSectionClass("graph")}
+          >
             Memoria
           </button>
-          <button type="button" onClick={() => setStackSection("sources")} className={stackSectionClass("sources")}>
+          <button
+            type="button"
+            onClick={() => setStackSection("sources")}
+            className={stackSectionClass("sources")}
+          >
             Know-how
           </button>
         </div>
@@ -4202,14 +5249,21 @@ export function AgentJobsClient({
           <div className="mt-4 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_12%_0%,rgba(34,211,238,0.14),transparent_34%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Percorso operativo</p>
-                <h3 className="mt-1 text-lg font-black text-white">Da richiesta a risultato approvato</h3>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                  Percorso operativo
+                </p>
+                <h3 className="mt-1 text-lg font-black text-white">
+                  Da richiesta a risultato approvato
+                </h3>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Il flusso corretto parte da una connessione reale: prima colleghi un servizio con il metodo giusto, poi lo verifichi, poi i subagenti possono usarlo in output revisionabili.
+                  Il flusso corretto parte da una connessione reale: prima
+                  colleghi un servizio con il metodo giusto, poi lo verifichi,
+                  poi i subagenti possono usarlo in output revisionabili.
                 </p>
               </div>
               <span className="w-fit shrink-0 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-50">
-                {operationalPathSteps.filter((step) => step.complete).length}/{operationalPathSteps.length} pronti
+                {operationalPathSteps.filter((step) => step.complete).length}/
+                {operationalPathSteps.length} pronti
               </span>
             </div>
             <div className="mt-3 grid gap-2 lg:grid-cols-5">
@@ -4219,11 +5273,15 @@ export function AgentJobsClient({
                   type="button"
                   onClick={step.onClick}
                   className={`min-w-0 rounded-lg border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/[0.06] ${
-                    step.complete ? "border-emerald-300/20 bg-emerald-300/[0.07]" : "border-amber-300/20 bg-amber-300/[0.06]"
+                    step.complete
+                      ? "border-emerald-300/20 bg-emerald-300/[0.07]"
+                      : "border-amber-300/20 bg-amber-300/[0.06]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 text-sm font-black text-white">{step.title}</p>
+                    <p className="min-w-0 text-sm font-black text-white">
+                      {step.title}
+                    </p>
                     <span
                       className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
                         step.complete
@@ -4234,7 +5292,9 @@ export function AgentJobsClient({
                       {step.status}
                     </span>
                   </div>
-                  <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-slate-400">{step.detail}</p>
+                  <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-slate-400">
+                    {step.detail}
+                  </p>
                   <span className="mt-3 inline-flex rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[11px] font-black text-white">
                     {step.action}
                   </span>
@@ -4251,9 +5311,15 @@ export function AgentJobsClient({
                 onClick={card.onClick}
                 className={`min-w-0 rounded-lg border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/[0.06] ${controlDeckTone(card.tone)}`}
               >
-                <p className="truncate text-[11px] font-black uppercase tracking-[0.14em] opacity-70">{card.title}</p>
-                <p className="mt-2 truncate text-2xl font-black text-white">{card.value}</p>
-                <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-slate-300">{card.detail}</p>
+                <p className="truncate text-[11px] font-black uppercase tracking-[0.14em] opacity-70">
+                  {card.title}
+                </p>
+                <p className="mt-2 truncate text-2xl font-black text-white">
+                  {card.value}
+                </p>
+                <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-slate-300">
+                  {card.detail}
+                </p>
                 <span className="mt-3 inline-flex rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[11px] font-black text-white">
                   {card.action}
                 </span>
@@ -4265,386 +5331,611 @@ export function AgentJobsClient({
             <summary className="cursor-pointer list-none text-sm font-black text-white">
               Diagnostica tecnica avanzata
               <span className="ml-2 text-xs font-medium text-slate-500">
-                Apri solo quando devi verificare readiness, tenant, Obsidian o setup profondi.
+                Apri solo quando devi verificare readiness, tenant, Obsidian o
+                setup profondi.
               </span>
             </summary>
             <div className="mt-4 grid gap-4">
-          <div className="rounded-lg border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(14,165,233,0.10),rgba(7,9,18,0.96))] p-3 sm:p-4">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">Flusso corretto</p>
-                <h3 className="mt-1 text-lg font-black text-white">Collega, verifica, poi usa</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  La pagina agenti non deve piu confondere installazioni, login e job. Un connector diventa utilizzabile solo quando ha un soggetto autorizzato, un runtime controllato o un secret_ref verificato.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStackSection("providers")}
-                className="h-10 w-full shrink-0 rounded-lg border-cyan-300/25 bg-cyan-300/10 text-xs font-black text-cyan-50 hover:bg-cyan-300/15 sm:w-auto"
-              >
-                Apri connessioni
-              </Button>
-            </div>
-            <div className="mt-3 grid gap-2 md:grid-cols-3">
-              {[
-                [
-                  "1. Collega",
-                  "OAuth apre il consenso del provider. Browser MCP apre il login controllato. Codex usa il wrapper ChatGPT sul VPS. Le API key restano fallback facoltativo.",
-                ],
-                [
-                  "2. Verifica",
-                  "Verifica separata: scope, soggetto, heartbeat, screenshot o query dry-run. Un job serve qui, non per inserire credenziali.",
-                ],
-                [
-                  "3. Usa",
-                  "Subagenti e command bar possono usare solo capability verificate, tenant-scoped e con azioni esterne revisionabili.",
-                ],
-              ].map(([title, body]) => (
-                <div key={title} className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                  <p className="text-sm font-black text-white">{title}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-400">{body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Vault Obsidian</p>
-                <h3 className="mt-1 text-lg font-black text-white">Graph View nativa</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Vault locale Mac: <span className="font-bold text-violet-50">{OBSIDIAN_VAULT_PATH}</span>. Da iPhone usa il grafo interno; Dashboard e Indice funzionano solo se il vault Obsidian e aperto sul Mac o sincronizzato anche su questo dispositivo.
-                </p>
-                <div className="mt-3 rounded-lg border border-violet-200/15 bg-black/20 px-3 py-2 text-xs leading-5 text-violet-100">
-                  Operazione corretta: dal Mac premi Aggiorna vault, apri Obsidian e seleziona il vault "{OBSIDIAN_VAULT_NAME}". Da mobile resta su Grafo interno, oppure sincronizza il vault con Obsidian Sync/iCloud e registralo nell'app Obsidian.
-                </div>
-              </div>
-              <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 lg:grid-cols-5 sm:w-auto">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={createObsidianVaultJob}
-                disabled={setupAction === "stack-setup:obsidian-vault"}
-                className="h-11 rounded-lg border-violet-300/25 bg-violet-300/10 px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
-              >
-                {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
-                Aggiorna vault
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStackSection("graph")}
-                className="h-11 rounded-lg border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white hover:bg-violet-300/30"
-              >
-                Grafo interno
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`)}
-                className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
-              >
-                Dashboard Mac
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_GRAPH_INDEX_FILE}`)}
-                className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
-              >
-                Indice Mac
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => copyObsidianPath()}
-                className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
-              >
-                Path vault
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {[
-            ["Policy provider", configuredProviderCount, `${capabilities?.providerCatalog.length ?? 0} catalogo`],
-            ["Runtime ready", readyRuntimeCount, `${capabilities?.modelRuntime?.hosts.length ?? 0} host`],
-            ["Subagenti", capabilities?.subagents.length ?? 0, "tenant"],
-            ["Scibile", knowhowNodeCount, knowhowBreakdownLabel],
-          ].map(([label, value, detail]) => (
-            <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3">
-              <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-              <p className="mt-1 text-xl font-black text-white">{value}</p>
-              <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 rounded-lg border border-fuchsia-300/20 bg-[radial-gradient(circle_at_16%_0%,rgba(219,39,119,0.18),transparent_34%),linear-gradient(135deg,rgba(31,11,28,0.86),rgba(7,9,18,0.96))] p-3 sm:p-4">
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-righello-pink">Diagnostica agentica</p>
-              <h3 className="mt-1 text-lg font-black text-white">Blocchi tecnici da risolvere</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                {agenticRecovery?.headline ??
-                  "Diagnostica runner, MCP/OAuth, Graphify, Obsidian, runtime AI, subagenti e pagine core per capire cosa manca prima di affidare lavoro produttivo a Optima."}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={createAgenticRecoveryJob}
-              disabled={isCreatingAgenticRecovery}
-              className="h-11 w-full shrink-0 rounded-lg border-righello-pink/25 bg-righello-pink/15 px-3 text-xs font-black text-white hover:bg-righello-pink/25 sm:w-auto"
-            >
-              {isCreatingAgenticRecovery ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
-              {agenticRecovery?.metrics.recoveryJobActive ? "Diagnostica in coda" : "Analizza blocchi"}
-            </Button>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
-            {[
-              ["Stato", agenticRecovery?.score ?? "--", "/100"],
-              ["Readiness", agenticRecovery?.metrics.readinessScore ?? "--", "/100"],
-              ["Grafo", agenticRecovery?.metrics.graphNodes ?? graphMemory?.stats.nodes ?? "--", "nodi"],
-              ["Scibile", agenticRecovery?.metrics.knowhowNodes ?? knowhowNodeCount, "nodi"],
-              ["MCP", agenticRecovery ? `${agenticRecovery.metrics.connectorConfigured}/${agenticRecovery.metrics.connectorTotal}` : "--", "connector"],
-            ].map(([label, value, detail]) => (
-              <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
-                <p className="mt-1 truncate text-xl font-black text-white">{value}</p>
-                <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>
-              </div>
-            ))}
-          </div>
-          {agenticRecovery?.nextAction ? (
-            <div className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 text-slate-300">
-              <span className="font-black text-white">Prossima azione concreta: </span>
-              {agenticRecovery.nextAction}
-            </div>
-          ) : null}
-          <div className="mt-3 grid gap-2 lg:grid-cols-2">
-            {(agenticRecovery?.phases ?? []).slice(0, 4).map((phase) => (
-              <div key={phase.id} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                <div className="flex items-start justify-between gap-2">
+              <div className="rounded-lg border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(14,165,233,0.10),rgba(7,9,18,0.96))] p-3 sm:p-4">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-white">{phase.label}</p>
-                    <p className={`mt-1 text-xs font-black ${readinessSeverityTone[phase.severity]}`}>{phase.score}/100</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                      Flusso corretto
+                    </p>
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Collega, verifica, poi usa
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      La pagina agenti non deve piu confondere installazioni,
+                      login e job. Un connector diventa utilizzabile solo quando
+                      ha un soggetto autorizzato, un runtime controllato o un
+                      secret_ref verificato.
+                    </p>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
-                      phase.status === "healthy"
-                        ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-                        : phase.status === "recovering"
-                          ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
-                          : "border-red-300/25 bg-red-300/10 text-red-100"
-                    }`}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStackSection("providers")}
+                    className="h-10 w-full shrink-0 rounded-lg border-cyan-300/25 bg-cyan-300/10 text-xs font-black text-cyan-50 hover:bg-cyan-300/15 sm:w-auto"
                   >
-                    {phase.status === "healthy" ? "ok" : phase.status === "recovering" ? "da completare" : "da sbloccare"}
-                  </span>
+                    Apri connessioni
+                  </Button>
                 </div>
-                <p className="mt-2 text-xs leading-5 text-slate-400">{phase.current}</p>
-                <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-xs leading-5 text-slate-300">
-                  <span className="font-black text-white">Per arrivare al 90%: </span>
-                  {phase.actions[0]}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-righello-pink/20 bg-righello-pink/[0.055] p-3 sm:p-4">
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="font-black text-white">Readiness reale</p>
-              <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                {productionReadiness?.summary.headline ??
-                  "Caricamento dello stato reale: MCP, OAuth, grafo, provider, subagenti, VPS e workflow produttivi."}
-              </p>
-            </div>
-            <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto">
-              <div className="rounded-lg border border-white/10 bg-[#060a15]/80 px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Score</p>
-                <p className="mt-1 text-xl font-black text-white">{productionReadiness?.summary.score ?? "--"}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-[#060a15]/80 px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Agentic</p>
-                <p className="mt-1 text-sm font-black text-white">
-                  {productionReadiness?.summary.agenticReady ? "acceso" : productionReadiness ? "parziale" : "--"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {productionReadiness ? (
-              [
-                ["Pronti", productionReadiness.summary.readyCount, "ready"],
-                ["Parziali", productionReadiness.summary.partialCount, "partial"],
-                ["Da sbloccare", productionReadiness.summary.blockedCount, "blocked"],
-                ["Da configurare", productionReadiness.summary.missingCount, "missing"],
-              ].map(([label, count, status]) => (
-                <span
-                  key={String(label)}
-                  className={`rounded-full border px-2.5 py-1 text-xs font-black ${readinessStatusTone[status as AgenticReadinessGap["status"]]}`}
-                >
-                  {label}: {count}
-                </span>
-              ))
-            ) : (
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-400">
-                Stato in caricamento
-              </span>
-            )}
-          </div>
-
-          {productionReadiness?.summary.nextCriticalAction ? (
-            <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15]/80 p-3 text-sm leading-6 text-slate-300">
-              <span className="font-black text-white">Prossima azione: </span>
-              {productionReadiness.summary.nextCriticalAction}
-            </div>
-          ) : null}
-
-          <div className="mt-3 grid gap-2 lg:grid-cols-2">
-            {(productionReadiness?.gaps ?? []).filter((gap) => gap.status !== "ready").slice(0, 4).map((gap) => {
-              const busy = setupAction === `readiness-gap:${gap.id}`
-              return (
-                <div key={gap.id} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                  <div className="flex min-w-0 items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-white">{gap.label}</p>
-                      <p className={`mt-1 truncate text-xs font-bold ${readinessSeverityTone[gap.severity]}`}>
-                        {gap.area} · {gap.severity}
+                <div className="mt-3 grid gap-2 md:grid-cols-3">
+                  {[
+                    [
+                      "1. Collega",
+                      "OAuth apre il consenso del provider. Browser MCP apre il login controllato. Codex usa il wrapper ChatGPT sul VPS. Le API key restano fallback facoltativo.",
+                    ],
+                    [
+                      "2. Verifica",
+                      "Verifica separata: scope, soggetto, heartbeat, screenshot o query dry-run. Un job serve qui, non per inserire credenziali.",
+                    ],
+                    [
+                      "3. Usa",
+                      "Subagenti e command bar possono usare solo capability verificate, tenant-scoped e con azioni esterne revisionabili.",
+                    ],
+                  ].map(([title, body]) => (
+                    <div
+                      key={title}
+                      className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                    >
+                      <p className="text-sm font-black text-white">{title}</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-400">
+                        {body}
                       </p>
                     </div>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${readinessStatusTone[gap.status]}`}>
-                      {readinessStatusCopy[gap.status]}
-                    </span>
-                  </div>
-                  <div className="mt-2 space-y-2 text-xs leading-5 text-slate-400">
-                    <p>
-                      <span className="font-black text-slate-200">Ora: </span>
-                      {gap.current}
-                    </p>
-                    <p>
-                      <span className="font-black text-slate-200">Target: </span>
-                      {gap.target}
-                    </p>
-                    <p className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-slate-300">
-                      <span className="font-black text-white">Prossimo passo: </span>
-                      {gap.nextActions[0]}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => createProductionGapJob(gap)}
-                    disabled={busy}
-                    className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
-                  >
-                    {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ClipboardList className="mr-1.5 h-3.5 w-3.5" />}
-                    Prepara verifica
-                  </Button>
+                  ))}
                 </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3 sm:p-4">
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="font-black text-cyan-50">Percorso operativo</p>
-              <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                Porta Optima da configurazione a uso reale: connessioni, runtime, subagenti e grafo. I pulsanti aprono la schermata corretta; le verifiche agentiche partono solo dopo un requisito reale.
-              </p>
-            </div>
-            <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-              {operationalActions.filter((item) => item.complete).length}/{operationalActions.length} ok
-            </span>
-          </div>
-
-          <div className="mt-3 grid gap-2 lg:grid-cols-5">
-            {operationalActions.map((item) => {
-              const busy =
-                item.busyKey === "graph:seed"
-                  ? isSeedingGraph
-                  : item.busyKey === "self-improvement:create"
-                    ? isCreatingSelfImprovement
-                    : item.busyKey === "agentic-recovery:create"
-                      ? isCreatingAgenticRecovery
-                      : capabilityAction === item.busyKey || setupAction === item.busyKey
-              return (
-                <div key={item.title} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-white">{item.title}</p>
-                      <p className="mt-1 truncate text-xs font-bold text-cyan-100">{item.detail}</p>
-                    </div>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
-                      item.complete ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100" : "border-amber-300/25 bg-amber-300/10 text-amber-100"
-                    }`}>
-                      {item.complete ? "ok" : "setup"}
-                    </span>
-                  </div>
-                  <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-400">{item.body}</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => item.onClick()}
-                    disabled={busy || !capabilities}
-                    className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
-                  >
-                    {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
-                    {item.action}
-                  </Button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3 sm:p-4">
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="font-black text-emerald-50">Isolamento multi-tenant</p>
-              <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                Ogni provider, MCP, subagente, grafo e job opera dentro l'organizzazione attiva. Optima salva solo `secret_ref`, mai token o API key in chiaro.
-              </p>
-            </div>
-            <span className="w-fit max-w-full truncate rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-black text-emerald-100">
-              {capabilities?.tenantIsolation?.organizationId ?? "tenant"}
-            </span>
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            {[
-              ["Dati", capabilities?.tenantIsolation?.dataBoundary ?? "organization_id"],
-              ["Segreti", capabilities?.tenantIsolation?.secretBoundary ?? "secret_ref_only"],
-              ["Runner", capabilities?.tenantIsolation?.runnerBoundary ?? "job_payload_scoped"],
-              ["Grafo", capabilities?.tenantIsolation?.graphBoundary ?? "tenant_scoped"],
-              ["Review", capabilities?.tenantIsolation?.reviewBoundary ?? "required"],
-            ].map(([label, value]) => (
-              <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-                <p className="mt-1 truncate text-xs font-black text-white">{value}</p>
               </div>
-            ))}
-          </div>
-          {capabilities?.tenantIsolation?.warnings?.length ? (
-            <div className="mt-3 grid gap-2 lg:grid-cols-3">
-              {capabilities.tenantIsolation.warnings.map((warning) => (
-                <div key={warning} className="rounded-lg border border-amber-300/15 bg-amber-300/[0.055] p-3 text-xs leading-5 text-amber-50">
-                  {warning}
+
+              <div className="mt-4 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_18%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">
+                      Vault Obsidian
+                    </p>
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Graph View nativa
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Vault locale Mac:{" "}
+                      <span className="font-bold text-violet-50">
+                        {OBSIDIAN_VAULT_PATH}
+                      </span>
+                      . Da iPhone usa il grafo interno; Dashboard e Indice
+                      funzionano solo se il vault Obsidian e aperto sul Mac o
+                      sincronizzato anche su questo dispositivo.
+                    </p>
+                    <div className="mt-3 rounded-lg border border-violet-200/15 bg-black/20 px-3 py-2 text-xs leading-5 text-violet-100">
+                      Operazione corretta: dal Mac premi Aggiorna vault, apri
+                      Obsidian e seleziona il vault "{OBSIDIAN_VAULT_NAME}". Da
+                      mobile resta su Grafo interno, oppure sincronizza il vault
+                      con Obsidian Sync/iCloud e registralo nell'app Obsidian.
+                    </div>
+                  </div>
+                  <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-2 lg:grid-cols-5 sm:w-auto">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={createObsidianVaultJob}
+                      disabled={setupAction === "stack-setup:obsidian-vault"}
+                      className="h-11 rounded-lg border-violet-300/25 bg-violet-300/10 px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
+                    >
+                      {setupAction === "stack-setup:obsidian-vault" ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Network className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Aggiorna vault
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStackSection("graph")}
+                      className="h-11 rounded-lg border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white hover:bg-violet-300/30"
+                    >
+                      Grafo interno
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        openObsidianUri(
+                          OBSIDIAN_AGENTIC_DASHBOARD_URI,
+                          "Dashboard Obsidian",
+                          `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`,
+                        )
+                      }
+                      className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
+                    >
+                      Dashboard Mac
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        openObsidianUri(
+                          OBSIDIAN_GRAPH_INDEX_URI,
+                          "Indice grafo Obsidian",
+                          `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_GRAPH_INDEX_FILE}`,
+                        )
+                      }
+                      className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
+                    >
+                      Indice Mac
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => copyObsidianPath()}
+                      className="h-11 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-black text-violet-50 hover:bg-violet-300/20"
+                    >
+                      Path vault
+                    </Button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                {[
+                  [
+                    "Policy provider",
+                    configuredProviderCount,
+                    `${capabilities?.providerCatalog.length ?? 0} catalogo`,
+                  ],
+                  [
+                    "Runtime ready",
+                    readyRuntimeCount,
+                    `${capabilities?.modelRuntime?.hosts.length ?? 0} host`,
+                  ],
+                  ["Subagenti", capabilities?.subagents.length ?? 0, "tenant"],
+                  ["Scibile", knowhowNodeCount, knowhowBreakdownLabel],
+                ].map(([label, value, detail]) => (
+                  <div
+                    key={label}
+                    className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3"
+                  >
+                    <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                      {label}
+                    </p>
+                    <p className="mt-1 text-xl font-black text-white">
+                      {value}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {detail}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 rounded-lg border border-fuchsia-300/20 bg-[radial-gradient(circle_at_16%_0%,rgba(219,39,119,0.18),transparent_34%),linear-gradient(135deg,rgba(31,11,28,0.86),rgba(7,9,18,0.96))] p-3 sm:p-4">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-righello-pink">
+                      Diagnostica agentica
+                    </p>
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Blocchi tecnici da risolvere
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      {agenticRecovery?.headline ??
+                        "Diagnostica runner, MCP/OAuth, Graphify, Obsidian, runtime AI, subagenti e pagine core per capire cosa manca prima di affidare lavoro produttivo a Optima."}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={createAgenticRecoveryJob}
+                    disabled={isCreatingAgenticRecovery}
+                    className="h-11 w-full shrink-0 rounded-lg border-righello-pink/25 bg-righello-pink/15 px-3 text-xs font-black text-white hover:bg-righello-pink/25 sm:w-auto"
+                  >
+                    {isCreatingAgenticRecovery ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Bot className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {agenticRecovery?.metrics.recoveryJobActive
+                      ? "Diagnostica in coda"
+                      : "Analizza blocchi"}
+                  </Button>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
+                  {[
+                    ["Stato", agenticRecovery?.score ?? "--", "/100"],
+                    [
+                      "Readiness",
+                      agenticRecovery?.metrics.readinessScore ?? "--",
+                      "/100",
+                    ],
+                    [
+                      "Grafo",
+                      agenticRecovery?.metrics.graphNodes ??
+                        graphMemory?.stats.nodes ??
+                        "--",
+                      "nodi",
+                    ],
+                    [
+                      "Scibile",
+                      agenticRecovery?.metrics.knowhowNodes ?? knowhowNodeCount,
+                      "nodi",
+                    ],
+                    [
+                      "MCP",
+                      agenticRecovery
+                        ? `${agenticRecovery.metrics.connectorConfigured}/${agenticRecovery.metrics.connectorTotal}`
+                        : "--",
+                      "connector",
+                    ],
+                  ].map(([label, value, detail]) => (
+                    <div
+                      key={label}
+                      className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                    >
+                      <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-1 truncate text-xl font-black text-white">
+                        {value}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {detail}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {agenticRecovery?.nextAction ? (
+                  <div className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 text-slate-300">
+                    <span className="font-black text-white">
+                      Prossima azione concreta:{" "}
+                    </span>
+                    {agenticRecovery.nextAction}
+                  </div>
+                ) : null}
+                <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                  {(agenticRecovery?.phases ?? []).slice(0, 4).map((phase) => (
+                    <div
+                      key={phase.id}
+                      className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-white">
+                            {phase.label}
+                          </p>
+                          <p
+                            className={`mt-1 text-xs font-black ${readinessSeverityTone[phase.severity]}`}
+                          >
+                            {phase.score}/100
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                            phase.status === "healthy"
+                              ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                              : phase.status === "recovering"
+                                ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+                                : "border-red-300/25 bg-red-300/10 text-red-100"
+                          }`}
+                        >
+                          {phase.status === "healthy"
+                            ? "ok"
+                            : phase.status === "recovering"
+                              ? "da completare"
+                              : "da sbloccare"}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-slate-400">
+                        {phase.current}
+                      </p>
+                      <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-xs leading-5 text-slate-300">
+                        <span className="font-black text-white">
+                          Per arrivare al 90%:{" "}
+                        </span>
+                        {phase.actions[0]}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-righello-pink/20 bg-righello-pink/[0.055] p-3 sm:p-4">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-black text-white">Readiness reale</p>
+                    <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                      {productionReadiness?.summary.headline ??
+                        "Caricamento dello stato reale: MCP, OAuth, grafo, provider, subagenti, VPS e workflow produttivi."}
+                    </p>
+                  </div>
+                  <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto">
+                    <div className="rounded-lg border border-white/10 bg-[#060a15]/80 px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
+                        Score
+                      </p>
+                      <p className="mt-1 text-xl font-black text-white">
+                        {productionReadiness?.summary.score ?? "--"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#060a15]/80 px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
+                        Agentic
+                      </p>
+                      <p className="mt-1 text-sm font-black text-white">
+                        {productionReadiness?.summary.agenticReady
+                          ? "acceso"
+                          : productionReadiness
+                            ? "parziale"
+                            : "--"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {productionReadiness ? (
+                    [
+                      [
+                        "Pronti",
+                        productionReadiness.summary.readyCount,
+                        "ready",
+                      ],
+                      [
+                        "Parziali",
+                        productionReadiness.summary.partialCount,
+                        "partial",
+                      ],
+                      [
+                        "Da sbloccare",
+                        productionReadiness.summary.blockedCount,
+                        "blocked",
+                      ],
+                      [
+                        "Da configurare",
+                        productionReadiness.summary.missingCount,
+                        "missing",
+                      ],
+                    ].map(([label, count, status]) => (
+                      <span
+                        key={String(label)}
+                        className={`rounded-full border px-2.5 py-1 text-xs font-black ${readinessStatusTone[status as AgenticReadinessGap["status"]]}`}
+                      >
+                        {label}: {count}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-400">
+                      Stato in caricamento
+                    </span>
+                  )}
+                </div>
+
+                {productionReadiness?.summary.nextCriticalAction ? (
+                  <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15]/80 p-3 text-sm leading-6 text-slate-300">
+                    <span className="font-black text-white">
+                      Prossima azione:{" "}
+                    </span>
+                    {productionReadiness.summary.nextCriticalAction}
+                  </div>
+                ) : null}
+
+                <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                  {(productionReadiness?.gaps ?? [])
+                    .filter((gap) => gap.status !== "ready")
+                    .slice(0, 4)
+                    .map((gap) => {
+                      const busy = setupAction === `readiness-gap:${gap.id}`;
+                      return (
+                        <div
+                          key={gap.id}
+                          className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                        >
+                          <div className="flex min-w-0 items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white">
+                                {gap.label}
+                              </p>
+                              <p
+                                className={`mt-1 truncate text-xs font-bold ${readinessSeverityTone[gap.severity]}`}
+                              >
+                                {gap.area} · {gap.severity}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${readinessStatusTone[gap.status]}`}
+                            >
+                              {readinessStatusCopy[gap.status]}
+                            </span>
+                          </div>
+                          <div className="mt-2 space-y-2 text-xs leading-5 text-slate-400">
+                            <p>
+                              <span className="font-black text-slate-200">
+                                Ora:{" "}
+                              </span>
+                              {gap.current}
+                            </p>
+                            <p>
+                              <span className="font-black text-slate-200">
+                                Target:{" "}
+                              </span>
+                              {gap.target}
+                            </p>
+                            <p className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-slate-300">
+                              <span className="font-black text-white">
+                                Prossimo passo:{" "}
+                              </span>
+                              {gap.nextActions[0]}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => createProductionGapJob(gap)}
+                            disabled={busy}
+                            className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
+                          >
+                            {busy ? (
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                            )}
+                            Prepara verifica
+                          </Button>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3 sm:p-4">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-black text-cyan-50">
+                      Percorso operativo
+                    </p>
+                    <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                      Porta Optima da configurazione a uso reale: connessioni,
+                      runtime, subagenti e grafo. I pulsanti aprono la schermata
+                      corretta; le verifiche agentiche partono solo dopo un
+                      requisito reale.
+                    </p>
+                  </div>
+                  <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                    {operationalActions.filter((item) => item.complete).length}/
+                    {operationalActions.length} ok
+                  </span>
+                </div>
+
+                <div className="mt-3 grid gap-2 lg:grid-cols-5">
+                  {operationalActions.map((item) => {
+                    const busy =
+                      item.busyKey === "graph:seed"
+                        ? isSeedingGraph
+                        : item.busyKey === "self-improvement:create"
+                          ? isCreatingSelfImprovement
+                          : item.busyKey === "agentic-recovery:create"
+                            ? isCreatingAgenticRecovery
+                            : capabilityAction === item.busyKey ||
+                              setupAction === item.busyKey;
+                    return (
+                      <div
+                        key={item.title}
+                        className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-white">
+                              {item.title}
+                            </p>
+                            <p className="mt-1 truncate text-xs font-bold text-cyan-100">
+                              {item.detail}
+                            </p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                              item.complete
+                                ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                                : "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                            }`}
+                          >
+                            {item.complete ? "ok" : "setup"}
+                          </span>
+                        </div>
+                        <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-400">
+                          {item.body}
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => item.onClick()}
+                          disabled={busy || !capabilities}
+                          className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
+                        >
+                          {busy ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          {item.action}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3 sm:p-4">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-black text-emerald-50">
+                      Isolamento multi-tenant
+                    </p>
+                    <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                      Ogni provider, MCP, subagente, grafo e job opera dentro
+                      l'organizzazione attiva. Optima salva solo `secret_ref`,
+                      mai token o API key in chiaro.
+                    </p>
+                  </div>
+                  <span className="w-fit max-w-full truncate rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-black text-emerald-100">
+                    {capabilities?.tenantIsolation?.organizationId ?? "tenant"}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                  {[
+                    [
+                      "Dati",
+                      capabilities?.tenantIsolation?.dataBoundary ??
+                        "organization_id",
+                    ],
+                    [
+                      "Segreti",
+                      capabilities?.tenantIsolation?.secretBoundary ??
+                        "secret_ref_only",
+                    ],
+                    [
+                      "Runner",
+                      capabilities?.tenantIsolation?.runnerBoundary ??
+                        "job_payload_scoped",
+                    ],
+                    [
+                      "Grafo",
+                      capabilities?.tenantIsolation?.graphBoundary ??
+                        "tenant_scoped",
+                    ],
+                    [
+                      "Review",
+                      capabilities?.tenantIsolation?.reviewBoundary ??
+                        "required",
+                    ],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                    >
+                      <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-1 truncate text-xs font-black text-white">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {capabilities?.tenantIsolation?.warnings?.length ? (
+                  <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                    {capabilities.tenantIsolation.warnings.map((warning) => (
+                      <div
+                        key={warning}
+                        className="rounded-lg border border-amber-300/15 bg-amber-300/[0.055] p-3 text-xs leading-5 text-amber-50"
+                      >
+                        {warning}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </details>
         </div>
@@ -4659,657 +5950,955 @@ export function AgentJobsClient({
           }`}
         >
           <div className="grid min-w-0 gap-3">
-            <div className={stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"}>
-            <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Control room collegamenti</p>
-                  <h3 className="mt-1 text-lg font-black text-white">Collega servizi reali, poi abilita i subagenti</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Qui non si lanciano job al buio: Optima apre OAuth quando esiste, prepara un browser controllato quando serve login umano, e usa CLI/VPS solo dopo verifica.
-                  </p>
-                </div>
-                <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-72">
-                  <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100">Pronti</p>
-                    <p className="mt-1 text-2xl font-black text-white">{connectorReadyPlans.length}</p>
-                  </div>
-                  <div className="rounded-lg border border-amber-300/20 bg-amber-300/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">Azioni aperte</p>
-                    <p className="mt-1 text-2xl font-black text-white">{connectorNextFixes.length}</p>
-                  </div>
-                  <div className="rounded-lg border border-purple-300/20 bg-purple-300/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-purple-100">OAuth app</p>
-                    <p className="mt-1 text-sm font-black text-white">{mcpOAuthConfigured ? "configurato" : "da fare"}</p>
-                  </div>
-                  <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100">Auth server</p>
-                    <p className="mt-1 text-sm font-black text-white">{mcpAuthMode}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div
+              className={
+                stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"
+              }
+            >
+              <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(7,18,28,0.92),rgba(6,10,21,0.98))] p-3 sm:p-4">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-white">Prossime azioni consigliate</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Parti da qui: ogni scheda apre il wizard giusto e spiega se serve OAuth, login browser, policy owner, runtime o token tecnico.
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                      Control room collegamenti
+                    </p>
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Collega servizi reali, poi abilita i subagenti
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Qui non si lanciano job al buio: Optima apre OAuth quando
+                      esiste, prepara un browser controllato quando serve login
+                      umano, e usa CLI/VPS solo dopo verifica.
                     </p>
                   </div>
-                  <span className="w-fit shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black text-cyan-100">
-                    nessun login simulato
-                  </span>
-                </div>
-                <div className="mt-3 grid gap-2 lg:grid-cols-4">
-                  {connectorMainActionPlans.map(({ connector, plan, operationalState, operationalLabel, primaryActionAvailable, ready }) => (
-                    <button
-                      key={`connector-main-action-${connector.id}`}
-                      type="button"
-                      onClick={() => setSelectedConnectorId(connector.id)}
-                      className={`min-w-0 rounded-lg border p-3 text-left transition ${
-                        ready
-                          ? "border-emerald-300/25 bg-emerald-300/[0.075] hover:bg-emerald-300/[0.12]"
-                          : primaryActionAvailable
-                            ? "border-righello-pink/30 bg-righello-pink/[0.08] hover:bg-righello-pink/[0.12]"
-                            : "border-amber-300/25 bg-amber-300/[0.08] hover:bg-amber-300/[0.12]"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-white">{connector.label}</p>
-                          <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{connectorSetupKindLabel(plan.kind)}</p>
-                        </div>
-                        <span
-                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
-                            connectorOperationalTone[operationalState] ?? connectorOperationalTone.ready_to_connect
-                          }`}
-                        >
-                          {operationalLabel}
-                        </span>
-                      </div>
-                      <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-300">
-                        {ready ? plan.healthLabel : primaryActionAvailable ? plan.shortNextAction : plan.blockedReason ?? plan.missingLabel}
+                  <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-72">
+                    <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100">
+                        Pronti
                       </p>
-                      <p className="mt-3 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-black text-white">
-                        {ready ? "Apri dettagli" : plan.primaryActionLabel}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-3 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm font-black text-emerald-50">Servizi gia utilizzabili</p>
-                    <span className="w-fit rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-black text-emerald-100">
-                      {connectorReadyPlans.length} verificati
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {connectorReadyPreviewPlans.length ? (
-                      connectorReadyPreviewPlans.map(({ connector, plan }) => (
-                        <button
-                          key={`ready-main-${connector.id}`}
-                          type="button"
-                          onClick={() => setSelectedConnectorId(connector.id)}
-                          className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-xs font-bold text-emerald-100 transition hover:bg-emerald-300/15"
-                          title={`${connector.label}: ${plan.healthLabel}`}
-                        >
-                          {connector.label}
-                        </button>
-                      ))
-                    ) : (
-                      <p className="text-xs leading-5 text-emerald-100/80">
-                        Nessun servizio esterno e ancora pronto: completa prima una delle azioni consigliate.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-white">Tutti i servizi collegabili</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Usa questa lista quando devi collegare un servizio specifico. I più importanti per Optima sono ordinati prima.
-                    </p>
-                  </div>
-                  <div className="min-w-0 lg:w-80">
-                    <label htmlFor="connector-search" className="sr-only">
-                      Cerca connector MCP
-                    </label>
-                    <input
-                      id="connector-search"
-                      value={connectorSearch}
-                      onChange={(event) => setConnectorSearch(event.target.value)}
-                      placeholder="Cerca GitHub, Browser, Cloudflare, Telegram..."
-                      className="h-11 w-full rounded-lg border border-white/10 bg-[#050914] px-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/45 focus:ring-2 focus:ring-cyan-300/10"
-                    />
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {visibleConnectorPlans.slice(0, 9).map(({ connector, plan, operationalState, operationalLabel, primaryActionAvailable, ready }) => (
-                    <button
-                      key={`connector-picker-${connector.id}`}
-                      type="button"
-                      onClick={() => setSelectedConnectorId(connector.id)}
-                      className={`min-w-0 rounded-lg border p-3 text-left transition ${
-                        ready
-                          ? "border-emerald-300/20 bg-emerald-300/[0.055] hover:bg-emerald-300/10"
-                          : primaryActionAvailable
-                            ? "border-cyan-300/20 bg-cyan-300/[0.06] hover:bg-cyan-300/[0.1]"
-                            : "border-amber-300/20 bg-amber-300/[0.055] hover:bg-amber-300/[0.09]"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-white">{connector.label}</p>
-                          <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{connector.id} · {connectorSetupKindLabel(plan.kind)}</p>
-                        </div>
-                        <span
-                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
-                            connectorOperationalTone[operationalState] ?? connectorOperationalTone.ready_to_connect
-                          }`}
-                        >
-                          {operationalLabel}
-                        </span>
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-300">
-                        {ready ? plan.healthLabel : primaryActionAvailable ? plan.shortNextAction : plan.blockedReason ?? plan.missingLabel}
-                      </p>
-                      <p className="mt-2 text-[11px] font-black text-cyan-100">
-                        Apri percorso: {plan.primaryActionLabel}
-                      </p>
-                    </button>
-                  ))}
-                  {visibleConnectorPlans.length === 0 ? (
-                    <p className="rounded-lg border border-amber-300/20 bg-amber-300/[0.07] p-3 text-sm leading-6 text-amber-50 md:col-span-2 xl:col-span-3">
-                      Nessun servizio corrisponde alla ricerca o al filtro attivo.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <details className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
-                <summary className="cursor-pointer text-sm font-black text-slate-200">
-                  Metodi tecnici e filtri avanzati
-                </summary>
-                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {connectorMethodCards.map((lane) => (
-                    <button
-                      key={lane.kind}
-                      type="button"
-                      onClick={() => {
-                        setConnectorLaneFilter((current) => (current === lane.kind ? "all" : lane.kind))
-                      }}
-                      className={`min-w-0 rounded-lg border p-3 text-left transition ${
-                        connectorLaneFilter === lane.kind
-                          ? "border-cyan-300/45 bg-cyan-300/[0.11] shadow-lg shadow-cyan-950/20"
-                          : "border-white/10 bg-[#060a15]/75 hover:border-cyan-300/35 hover:bg-cyan-300/[0.06]"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-white">{lane.label}</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">{lane.body}</p>
-                        </div>
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(lane.kind)}`}>
-                          {lane.ready}/{lane.total}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-[11px] font-bold leading-5 text-cyan-100">{lane.actionHint}</p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {lane.readyExamples.map(({ connector }) => (
-                          <span key={`${lane.kind}-ready-${connector.id}`} className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100">
-                            {connector.label}
-                          </span>
-                        ))}
-                        {lane.pendingExamples.map(({ connector }) => (
-                          <span key={`${lane.kind}-pending-${connector.id}`} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                            {connector.label}
-                          </span>
-                        ))}
-                      </div>
-                      {lane.blocked ? (
-                        <p className="mt-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.06] px-2.5 py-1.5 text-[11px] font-bold text-amber-100">
-                          {lane.blocked} con prerequisiti mancanti
-                        </p>
-                      ) : null}
-                      <p className="mt-2 text-[11px] font-black text-white">
-                        {connectorLaneFilter === lane.kind ? "Filtro attivo" : lane.nextPlan ? `Mostra: ${lane.actionLabel}` : "Nessuna azione"}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </details>
-
-              <details className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
-                <summary className="flex cursor-pointer list-none flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-white">Diagnostica servizi e regole avanzate</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Apri solo per controllare code, stato tecnico o policy. Il collegamento operativo parte dalle schede sopra.
-                    </p>
-                  </div>
-                  <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-black text-slate-300">
-                    {connectorNextFixes.length} da verificare
-                  </span>
-                </summary>
-
-              <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-                <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-white">Da collegare ora</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-400">
-                        {selectedConnectorLane
-                          ? `${selectedConnectorLane.label}: mostra solo i connector con questo metodo.`
-                          : "Ordine operativo: prima prerequisito reale, poi verifica read-only, poi uso agentico."}
+                      <p className="mt-1 text-2xl font-black text-white">
+                        {connectorReadyPlans.length}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setConnectorLaneFilter("all")}
-                      className={`w-fit rounded-full border px-2 py-0.5 text-[10px] font-bold transition ${
-                        connectorLaneFilter === "all"
-                          ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
-                          : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
-                      }`}
-                    >
-                      tutti i metodi
-                    </button>
+                    <div className="rounded-lg border border-amber-300/20 bg-amber-300/10 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">
+                        Azioni aperte
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-white">
+                        {connectorNextFixes.length}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-purple-300/20 bg-purple-300/10 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-purple-100">
+                        OAuth app
+                      </p>
+                      <p className="mt-1 text-sm font-black text-white">
+                        {mcpOAuthConfigured ? "configurato" : "da fare"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100">
+                        Auth server
+                      </p>
+                      <p className="mt-1 text-sm font-black text-white">
+                        {mcpAuthMode}
+                      </p>
+                    </div>
                   </div>
-                  <div className="mt-2 grid gap-2">
-                    {visibleConnectorNextFixes.slice(0, 6).map(({ connector, plan, operationalState, operationalLabel, primaryActionAvailable }) => (
+                </div>
+
+                <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white">
+                        Prossime azioni consigliate
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        Parti da qui: ogni scheda apre il wizard giusto e spiega
+                        se serve OAuth, login browser, policy owner, runtime o
+                        token tecnico.
+                      </p>
+                    </div>
+                    <span className="w-fit shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black text-cyan-100">
+                      nessun login simulato
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 lg:grid-cols-4">
+                    {connectorMainActionPlans.map(
+                      ({
+                        connector,
+                        plan,
+                        operationalState,
+                        operationalLabel,
+                        primaryActionAvailable,
+                        ready,
+                      }) => (
+                        <button
+                          key={`connector-main-action-${connector.id}`}
+                          type="button"
+                          onClick={() => setSelectedConnectorId(connector.id)}
+                          className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                            ready
+                              ? "border-emerald-300/25 bg-emerald-300/[0.075] hover:bg-emerald-300/[0.12]"
+                              : primaryActionAvailable
+                                ? "border-righello-pink/30 bg-righello-pink/[0.08] hover:bg-righello-pink/[0.12]"
+                                : "border-amber-300/25 bg-amber-300/[0.08] hover:bg-amber-300/[0.12]"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white">
+                                {connector.label}
+                              </p>
+                              <p className="mt-1 truncate text-[11px] font-bold text-slate-500">
+                                {connectorSetupKindLabel(plan.kind)}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                                connectorOperationalTone[operationalState] ??
+                                connectorOperationalTone.ready_to_connect
+                              }`}
+                            >
+                              {operationalLabel}
+                            </span>
+                          </div>
+                          <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-300">
+                            {ready
+                              ? plan.healthLabel
+                              : primaryActionAvailable
+                                ? plan.shortNextAction
+                                : (plan.blockedReason ?? plan.missingLabel)}
+                          </p>
+                          <p className="mt-3 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-black text-white">
+                            {ready ? "Apri dettagli" : plan.primaryActionLabel}
+                          </p>
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  <div className="mt-3 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm font-black text-emerald-50">
+                        Servizi gia utilizzabili
+                      </p>
+                      <span className="w-fit rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-black text-emerald-100">
+                        {connectorReadyPlans.length} verificati
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {connectorReadyPreviewPlans.length ? (
+                        connectorReadyPreviewPlans.map(
+                          ({ connector, plan }) => (
+                            <button
+                              key={`ready-main-${connector.id}`}
+                              type="button"
+                              onClick={() =>
+                                setSelectedConnectorId(connector.id)
+                              }
+                              className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-xs font-bold text-emerald-100 transition hover:bg-emerald-300/15"
+                              title={`${connector.label}: ${plan.healthLabel}`}
+                            >
+                              {connector.label}
+                            </button>
+                          ),
+                        )
+                      ) : (
+                        <p className="text-xs leading-5 text-emerald-100/80">
+                          Nessun servizio esterno e ancora pronto: completa
+                          prima una delle azioni consigliate.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white">
+                        Tutti i servizi collegabili
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        Usa questa lista quando devi collegare un servizio
+                        specifico. I più importanti per Optima sono ordinati
+                        prima.
+                      </p>
+                    </div>
+                    <div className="min-w-0 lg:w-80">
+                      <label htmlFor="connector-search" className="sr-only">
+                        Cerca connector MCP
+                      </label>
+                      <input
+                        id="connector-search"
+                        value={connectorSearch}
+                        onChange={(event) =>
+                          setConnectorSearch(event.target.value)
+                        }
+                        placeholder="Cerca GitHub, Browser, Cloudflare, Telegram..."
+                        className="h-11 w-full rounded-lg border border-white/10 bg-[#050914] px-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/45 focus:ring-2 focus:ring-cyan-300/10"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {visibleConnectorPlans
+                      .slice(0, 9)
+                      .map(
+                        ({
+                          connector,
+                          plan,
+                          operationalState,
+                          operationalLabel,
+                          primaryActionAvailable,
+                          ready,
+                        }) => (
+                          <button
+                            key={`connector-picker-${connector.id}`}
+                            type="button"
+                            onClick={() => setSelectedConnectorId(connector.id)}
+                            className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                              ready
+                                ? "border-emerald-300/20 bg-emerald-300/[0.055] hover:bg-emerald-300/10"
+                                : primaryActionAvailable
+                                  ? "border-cyan-300/20 bg-cyan-300/[0.06] hover:bg-cyan-300/[0.1]"
+                                  : "border-amber-300/20 bg-amber-300/[0.055] hover:bg-amber-300/[0.09]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-white">
+                                  {connector.label}
+                                </p>
+                                <p className="mt-1 truncate text-[11px] font-bold text-slate-500">
+                                  {connector.id} ·{" "}
+                                  {connectorSetupKindLabel(plan.kind)}
+                                </p>
+                              </div>
+                              <span
+                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                                  connectorOperationalTone[operationalState] ??
+                                  connectorOperationalTone.ready_to_connect
+                                }`}
+                              >
+                                {operationalLabel}
+                              </span>
+                            </div>
+                            <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-300">
+                              {ready
+                                ? plan.healthLabel
+                                : primaryActionAvailable
+                                  ? plan.shortNextAction
+                                  : (plan.blockedReason ?? plan.missingLabel)}
+                            </p>
+                            <p className="mt-2 text-[11px] font-black text-cyan-100">
+                              Apri percorso: {plan.primaryActionLabel}
+                            </p>
+                          </button>
+                        ),
+                      )}
+                    {visibleConnectorPlans.length === 0 ? (
+                      <p className="rounded-lg border border-amber-300/20 bg-amber-300/[0.07] p-3 text-sm leading-6 text-amber-50 md:col-span-2 xl:col-span-3">
+                        Nessun servizio corrisponde alla ricerca o al filtro
+                        attivo.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <details className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                  <summary className="cursor-pointer text-sm font-black text-slate-200">
+                    Metodi tecnici e filtri avanzati
+                  </summary>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {connectorMethodCards.map((lane) => (
                       <button
-                        key={`next-fix-${connector.id}`}
+                        key={lane.kind}
                         type="button"
-                        onClick={() => setSelectedConnectorId(connector.id)}
-                        className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]"
+                        onClick={() => {
+                          setConnectorLaneFilter((current) =>
+                            current === lane.kind ? "all" : lane.kind,
+                          );
+                        }}
+                        className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                          connectorLaneFilter === lane.kind
+                            ? "border-cyan-300/45 bg-cyan-300/[0.11] shadow-lg shadow-cyan-950/20"
+                            : "border-white/10 bg-[#060a15]/75 hover:border-cyan-300/35 hover:bg-cyan-300/[0.06]"
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-white">{connector.label}</p>
-                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
-                              {!primaryActionAvailable ? plan.blockedReason ?? plan.missingLabel : plan.shortNextAction}
+                            <p className="truncate text-sm font-black text-white">
+                              {lane.label}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-400">
+                              {lane.body}
                             </p>
                           </div>
                           <span
-                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
-                              connectorOperationalTone[operationalState] ?? connectorOperationalTone.ready_to_connect
-                            }`}
+                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(lane.kind)}`}
                           >
-                            {operationalLabel}
+                            {lane.ready}/{lane.total}
                           </span>
                         </div>
-                        <p className="mt-2 truncate text-[11px] font-bold text-cyan-100">
-                          {primaryActionAvailable ? `Apri percorso: ${plan.primaryActionLabel}` : "Completa il prerequisito reale prima del job"}
+                        <p className="mt-2 text-[11px] font-bold leading-5 text-cyan-100">
+                          {lane.actionHint}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {lane.readyExamples.map(({ connector }) => (
+                            <span
+                              key={`${lane.kind}-ready-${connector.id}`}
+                              className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100"
+                            >
+                              {connector.label}
+                            </span>
+                          ))}
+                          {lane.pendingExamples.map(({ connector }) => (
+                            <span
+                              key={`${lane.kind}-pending-${connector.id}`}
+                              className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300"
+                            >
+                              {connector.label}
+                            </span>
+                          ))}
+                        </div>
+                        {lane.blocked ? (
+                          <p className="mt-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.06] px-2.5 py-1.5 text-[11px] font-bold text-amber-100">
+                            {lane.blocked} con prerequisiti mancanti
+                          </p>
+                        ) : null}
+                        <p className="mt-2 text-[11px] font-black text-white">
+                          {connectorLaneFilter === lane.kind
+                            ? "Filtro attivo"
+                            : lane.nextPlan
+                              ? `Mostra: ${lane.actionLabel}`
+                              : "Nessuna azione"}
                         </p>
                       </button>
                     ))}
-                    {visibleConnectorNextFixes.length === 0 ? (
-                      <p className="rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] p-3 text-sm leading-6 text-emerald-50">
-                        {selectedConnectorLane
-                          ? `Nessun connector ${selectedConnectorLane.label.toLowerCase()} da sbloccare.`
-                          : "Tutti i connector visibili risultano verificati."}
-                      </p>
-                    ) : null}
                   </div>
-                </div>
+                </details>
 
-                <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-white">Collegati davvero</p>
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                      operativi
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {connectorReadyPlans.slice(0, 10).map(({ connector, plan }) => (
-                      <button
-                        key={`ready-connector-${connector.id}`}
-                        type="button"
-                        onClick={() => setSelectedConnectorId(connector.id)}
-                        className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-xs font-bold text-emerald-100 transition hover:bg-emerald-300/15"
-                        title={`${connector.label}: ${plan.healthLabel}`}
-                      >
-                        {connector.label}
-                      </button>
-                    ))}
-                    {connectorReadyPlans.length === 0 ? (
-                      <p className="text-sm leading-6 text-slate-400">
-                        Nessun connector esterno è ancora pronto per azioni produttive.
+                <details className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                  <summary className="flex cursor-pointer list-none flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white">
+                        Diagnostica servizi e regole avanzate
                       </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="font-black text-white">Regole di produzione</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      Il job agentico non fa login al posto tuo: prepara output, verifica o usa un collegamento gia valido. Le credenziali reali restano fuori da D1.
-                    </p>
-                  </div>
-                  <span className="w-fit rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100">
-                    no token in D1
-                  </span>
-                </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {[
-                  {
-                    title: "OAuth standard",
-                    badge: "consenso provider",
-                    body: "Google Business, Calendar, Drive, Meta, LinkedIn e Vercel devono aprire una pagina consenso con redirect allowlist, state e PKCE.",
-                  },
-                  {
-                    title: "Browser MCP",
-                    badge: "login web",
-                    body: "ChatGPT, Gemini/Nano Banana, Perplexity e Claude usano un browser isolato sul VPS quando non vogliamo API key a consumo.",
-                  },
-                  {
-                    title: "Runtime / CLI",
-                    badge: "VPS",
-                    body: "Codex CLI, OpenCode, Cloudflare o Hostinger richiedono profilo runtime, wrapper, service token o secret_ref verificato.",
-                  },
-                  {
-                    title: "Verifica",
-                    badge: "dopo collegamento",
-                    body: "Il job agentico non fa login: verifica credenziali, scope e permessi dopo che il collegamento e stato configurato.",
-                  },
-                ].map((item) => (
-                  <div key={item.title} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-black text-white">{item.title}</p>
-                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                        {item.badge}
-                      </span>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        Apri solo per controllare code, stato tecnico o policy.
+                        Il collegamento operativo parte dalle schede sopra.
+                      </p>
                     </div>
-                    <p className="mt-2 text-xs leading-5 text-slate-400">{item.body}</p>
-                  </div>
-                ))}
-                </div>
-              </div>
-              </details>
-            </div>
-            <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
-              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-white">Motori AI e runtime</p>
-                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Area tecnica per scegliere Qwen, Gemma, Codex, OpenAI o MiniMax. Gli account esterni si collegano sopra, non da qui.
-                  </p>
-                </div>
-                <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
-                  {capabilities?.providerCatalog.length ?? 0} provider
-                </span>
-              </summary>
-            <div className="mt-3 min-w-0">
-              <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-amber-50">
-                <p className="font-black text-amber-100">Motori AI, non login account</p>
-                <p className="mt-1">
-                  Un motore decide come ragiona Optima. OAuth, Browser, GitHub e servizi esterni si collegano nel percorso principale: qui si verifica solo il runtime o il fallback.
-                </p>
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {(capabilities?.providerCatalog ?? []).map((provider) => {
-                  const installation = providerInstallationsById.get(provider.id)
-                  const state = installation?.installState ?? "not_installed"
-                  const saving = capabilityAction === `provider-config:${provider.id}`
-                  return (
-                    <div key={provider.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                      <div className="flex items-start justify-between gap-2">
+                    <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-black text-slate-300">
+                      {connectorNextFixes.length} da verificare
+                    </span>
+                  </summary>
+
+                  <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+                    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
-                          <p className="truncate font-black text-white">{provider.label}</p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {provider.lane} · {provider.authMethod}
+                          <p className="text-sm font-black text-white">
+                            Da collegare ora
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">
+                            {selectedConnectorLane
+                              ? `${selectedConnectorLane.label}: mostra solo i connector con questo metodo.`
+                              : "Ordine operativo: prima prerequisito reale, poi verifica read-only, poi uso agentico."}
                           </p>
                         </div>
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${installTone(state)}`}>
-                          {installLabel(state)}
+                        <button
+                          type="button"
+                          onClick={() => setConnectorLaneFilter("all")}
+                          className={`w-fit rounded-full border px-2 py-0.5 text-[10px] font-bold transition ${
+                            connectorLaneFilter === "all"
+                              ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+                              : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                          }`}
+                        >
+                          tutti i metodi
+                        </button>
+                      </div>
+                      <div className="mt-2 grid gap-2">
+                        {visibleConnectorNextFixes
+                          .slice(0, 6)
+                          .map(
+                            ({
+                              connector,
+                              plan,
+                              operationalState,
+                              operationalLabel,
+                              primaryActionAvailable,
+                            }) => (
+                              <button
+                                key={`next-fix-${connector.id}`}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedConnectorId(connector.id)
+                                }
+                                className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-black text-white">
+                                      {connector.label}
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
+                                      {!primaryActionAvailable
+                                        ? (plan.blockedReason ??
+                                          plan.missingLabel)
+                                        : plan.shortNextAction}
+                                    </p>
+                                  </div>
+                                  <span
+                                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                                      connectorOperationalTone[
+                                        operationalState
+                                      ] ??
+                                      connectorOperationalTone.ready_to_connect
+                                    }`}
+                                  >
+                                    {operationalLabel}
+                                  </span>
+                                </div>
+                                <p className="mt-2 truncate text-[11px] font-bold text-cyan-100">
+                                  {primaryActionAvailable
+                                    ? `Apri percorso: ${plan.primaryActionLabel}`
+                                    : "Completa il prerequisito reale prima del job"}
+                                </p>
+                              </button>
+                            ),
+                          )}
+                        {visibleConnectorNextFixes.length === 0 ? (
+                          <p className="rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] p-3 text-sm leading-6 text-emerald-50">
+                            {selectedConnectorLane
+                              ? `Nessun connector ${selectedConnectorLane.label.toLowerCase()} da sbloccare.`
+                              : "Tutti i connector visibili risultano verificati."}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-black text-white">
+                          Collegati davvero
+                        </p>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                          operativi
                         </span>
                       </div>
-                      <p className="mt-2 truncate text-xs font-bold text-cyan-100">{provider.defaultModel}</p>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{provider.tenantUse}</p>
-                      <p className="mt-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-[11px] leading-5 text-slate-300">
-                        {providerSetupHint(provider)}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {provider.requiredSecrets.length ? (
-                          provider.requiredSecrets.slice(0, 2).map((secret) => (
-                            <span key={secret} className="max-w-full truncate rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold text-amber-100">
-                              {secret}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {connectorReadyPlans
+                          .slice(0, 10)
+                          .map(({ connector, plan }) => (
+                            <button
+                              key={`ready-connector-${connector.id}`}
+                              type="button"
+                              onClick={() =>
+                                setSelectedConnectorId(connector.id)
+                              }
+                              className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-xs font-bold text-emerald-100 transition hover:bg-emerald-300/15"
+                              title={`${connector.label}: ${plan.healthLabel}`}
+                            >
+                              {connector.label}
+                            </button>
+                          ))}
+                        {connectorReadyPlans.length === 0 ? (
+                          <p className="text-sm leading-6 text-slate-400">
+                            Nessun connector esterno è ancora pronto per azioni
+                            produttive.
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-black text-white">
+                          Regole di produzione
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-400">
+                          Il job agentico non fa login al posto tuo: prepara
+                          output, verifica o usa un collegamento gia valido. Le
+                          credenziali reali restano fuori da D1.
+                        </p>
+                      </div>
+                      <span className="w-fit rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100">
+                        no token in D1
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      {[
+                        {
+                          title: "OAuth standard",
+                          badge: "consenso provider",
+                          body: "Google Business, Calendar, Drive, Meta, LinkedIn e Vercel devono aprire una pagina consenso con redirect allowlist, state e PKCE.",
+                        },
+                        {
+                          title: "Browser MCP",
+                          badge: "login web",
+                          body: "ChatGPT, Gemini/Nano Banana, Perplexity e Claude usano un browser isolato sul VPS quando non vogliamo API key a consumo.",
+                        },
+                        {
+                          title: "Runtime / CLI",
+                          badge: "VPS",
+                          body: "Codex CLI, OpenCode, Cloudflare o Hostinger richiedono profilo runtime, wrapper, service token o secret_ref verificato.",
+                        },
+                        {
+                          title: "Verifica",
+                          badge: "dopo collegamento",
+                          body: "Il job agentico non fa login: verifica credenziali, scope e permessi dopo che il collegamento e stato configurato.",
+                        },
+                      ].map((item) => (
+                        <div
+                          key={item.title}
+                          className="rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-black text-white">
+                              {item.title}
+                            </p>
+                            <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                              {item.badge}
                             </span>
-                          ))
-                        ) : (
-                          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100">
-                            no secret
-                          </span>
-                        )}
-                        <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
-                          {providerPrimaryActionLabel(provider)}
-                        </span>
+                          </div>
+                          <p className="mt-2 text-xs leading-5 text-slate-400">
+                            {item.body}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+                <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-black text-white">Motori AI e runtime</p>
+                    <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                      Area tecnica per scegliere Qwen, Gemma, Codex, OpenAI o
+                      MiniMax. Gli account esterni si collegano sopra, non da
+                      qui.
+                    </p>
+                  </div>
+                  <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
+                    {capabilities?.providerCatalog.length ?? 0} provider
+                  </span>
+                </summary>
+                <div className="mt-3 min-w-0">
+                  <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] p-3 text-xs leading-5 text-amber-50">
+                    <p className="font-black text-amber-100">
+                      Motori AI, non login account
+                    </p>
+                    <p className="mt-1">
+                      Un motore decide come ragiona Optima. OAuth, Browser,
+                      GitHub e servizi esterni si collegano nel percorso
+                      principale: qui si verifica solo il runtime o il fallback.
+                    </p>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {(capabilities?.providerCatalog ?? []).map((provider) => {
+                      const installation = providerInstallationsById.get(
+                        provider.id,
+                      );
+                      const state =
+                        installation?.installState ?? "not_installed";
+                      const saving =
+                        capabilityAction === `provider-config:${provider.id}`;
+                      return (
+                        <div
+                          key={provider.id}
+                          className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate font-black text-white">
+                                {provider.label}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {provider.lane} · {provider.authMethod}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${installTone(state)}`}
+                            >
+                              {installLabel(state)}
+                            </span>
+                          </div>
+                          <p className="mt-2 truncate text-xs font-bold text-cyan-100">
+                            {provider.defaultModel}
+                          </p>
+                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
+                            {provider.tenantUse}
+                          </p>
+                          <p className="mt-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-[11px] leading-5 text-slate-300">
+                            {providerSetupHint(provider)}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {provider.requiredSecrets.length ? (
+                              provider.requiredSecrets
+                                .slice(0, 2)
+                                .map((secret) => (
+                                  <span
+                                    key={secret}
+                                    className="max-w-full truncate rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold text-amber-100"
+                                  >
+                                    {secret}
+                                  </span>
+                                ))
+                            ) : (
+                              <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100">
+                                no secret
+                              </span>
+                            )}
+                            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
+                              {providerPrimaryActionLabel(provider)}
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedProviderId(provider.id)}
+                            disabled={saving}
+                            className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
+                          >
+                            {saving ? (
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                            )}
+                            Apri percorso provider
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {!capabilities ? (
+                    <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15] p-3 text-sm text-slate-400">
+                      Caricamento stack agentico...
+                    </div>
+                  ) : null}
+                </div>
+              </details>
+
+              <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+                <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-black text-white">
+                      Policy e runtime avanzati
+                    </p>
+                    <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                      Blueprint, policy tenant e route dei modelli. Aprila solo
+                      per setup tecnico o audit, non per collegare un servizio.
+                    </p>
+                  </div>
+                  <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
+                    runtime · policy · blueprint
+                  </span>
+                </summary>
+                <div className="mt-3 grid min-w-0 gap-3">
+                  <div className="min-w-0 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3 sm:p-4">
+                    <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-black text-emerald-50">
+                          Runtime modelli hosted
+                        </p>
+                        <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                          Route tenant per Qwen, Gemma, OpenAI e MiniMax. Prima
+                          si verifica il runtime; poi si salvano le route quando
+                          il provider e davvero disponibile.
+                        </p>
                       </div>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => setSelectedProviderId(provider.id)}
-                        disabled={saving}
-                        className="mt-3 h-8 w-full rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10"
+                        onClick={() => createStackSetupJob("runtime")}
+                        disabled={setupAction === "stack-setup:runtime"}
+                        className="h-8 w-full shrink-0 rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
                       >
-                        {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />}
-                        Apri percorso provider
+                        {setupAction === "stack-setup:runtime" ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Radio className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        Verifica runtime
                       </Button>
                     </div>
-                  )
-                })}
-              </div>
-              {!capabilities ? (
-                <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15] p-3 text-sm text-slate-400">
-                  Caricamento stack agentico...
-                </div>
-              ) : null}
-            </div>
-            </details>
 
-            <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
-              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-white">Policy e runtime avanzati</p>
-                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Blueprint, policy tenant e route dei modelli. Aprila solo per setup tecnico o audit, non per collegare un servizio.
-                  </p>
-                </div>
-                <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
-                  runtime · policy · blueprint
-                </span>
-              </summary>
-              <div className="mt-3 grid min-w-0 gap-3">
-
-            <div className="min-w-0 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-3 sm:p-4">
-              <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-emerald-50">Runtime modelli hosted</p>
-                  <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                    Route tenant per Qwen, Gemma, OpenAI e MiniMax. Prima si verifica il runtime; poi si salvano le route quando il provider e davvero disponibile.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => createStackSetupJob("runtime")}
-                  disabled={setupAction === "stack-setup:runtime"}
-                  className="h-8 w-full shrink-0 rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
-                >
-                  {setupAction === "stack-setup:runtime" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Radio className="mr-1.5 h-3.5 w-3.5" />}
-                  Verifica runtime
-                </Button>
-              </div>
-
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {(capabilities?.modelRuntime?.lanePlan ?? []).map((route) => (
-                  <div key={`${route.lane}-${route.providerId}-${route.model}`} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/70 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-white">{route.lane}</p>
-                        <p className="mt-1 truncate text-xs font-bold text-cyan-100">{route.providerId} · {route.model}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${runtimeTone(route.runtimeStatus)}`}>
-                        {route.runtimeStatus}
-                      </span>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {(capabilities?.modelRuntime?.lanePlan ?? []).map(
+                        (route) => (
+                          <div
+                            key={`${route.lane}-${route.providerId}-${route.model}`}
+                            className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/70 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-white">
+                                  {route.lane}
+                                </p>
+                                <p className="mt-1 truncate text-xs font-bold text-cyan-100">
+                                  {route.providerId} · {route.model}
+                                </p>
+                              </div>
+                              <span
+                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${runtimeTone(route.runtimeStatus)}`}
+                              >
+                                {route.runtimeStatus}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs text-slate-500">
+                              {route.mode} ·{" "}
+                              {route.source === "tenant_route"
+                                ? "route tenant"
+                                : "default"}
+                            </p>
+                          </div>
+                        ),
+                      )}
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {route.mode} · {route.source === "tenant_route" ? "route tenant" : "default"}
-                    </p>
-                  </div>
-                ))}
-              </div>
 
-              <div className="mt-3 grid gap-2">
-                {(capabilities?.modelRuntime?.hosts ?? []).map((host) => (
-                  <div key={host.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-white">{host.label}</p>
-                        <p className="mt-1 break-words text-xs text-slate-500">
-                          {host.apiKeyEnv || host.endpointEnv || "no env"} · {host.runtimeDetail}
-                        </p>
-                      </div>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${runtimeTone(host.runtimeStatus)}`}>
-                        {host.runtimeStatus}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="min-w-0 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">
-              <p className="font-black text-cyan-50">OAuth e installazioni guidate</p>
-              <p className="mt-2 break-words text-sm leading-6 text-slate-300">
-                {capabilities?.oauthGuidance.pattern ??
-                  "Authorization Code + PKCE per installazioni utente, GitHub App per repository, secret_ref per API key e local_install per runner self-hosted."}
-              </p>
-            </div>
-
-            <div className="min-w-0 rounded-lg border border-sky-300/15 bg-sky-300/[0.045] p-3 sm:p-4">
-              <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-sky-50">Policy runtime nativa</p>
-                  <p className="mt-1 break-words text-sm leading-6 text-slate-300">
-                    Optima risolve toolset, connector e review dal control plane. Ogni contesto parte da una allowlist minima e le capability esterne restano subordinate alla policy tenant.
-                  </p>
-                </div>
-                <span className="w-fit shrink-0 rounded-full border border-sky-300/25 bg-sky-300/10 px-2.5 py-1 text-[11px] font-black text-sky-100">
-                  {capabilities?.runtimePolicy?.source === "optima_native_hermes_derived" ? "native" : "policy"}
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {(capabilities?.runtimePolicy?.contexts ?? []).map((context) => (
-                  <div key={context.id} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                    <p className="truncate text-sm font-black text-white">{context.label}</p>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{context.notes}</p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {context.allowedToolsets.slice(0, 3).map((toolset) => (
-                        <span key={toolset} className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100">
-                          {toolset}
-                        </span>
-                      ))}
-                      {context.blockedToolsets.slice(0, 2).map((toolset) => (
-                        <span key={toolset} className="max-w-full truncate rounded-full border border-red-300/20 bg-red-300/10 px-2 py-0.5 text-[10px] font-bold text-red-100">
-                          no {toolset}
-                        </span>
+                    <div className="mt-3 grid gap-2">
+                      {(capabilities?.modelRuntime?.hosts ?? []).map((host) => (
+                        <div
+                          key={host.id}
+                          className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white">
+                                {host.label}
+                              </p>
+                              <p className="mt-1 break-words text-xs text-slate-500">
+                                {host.apiKeyEnv || host.endpointEnv || "no env"}{" "}
+                                · {host.runtimeDetail}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${runtimeTone(host.runtimeStatus)}`}
+                            >
+                              {host.runtimeStatus}
+                            </span>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                    <p className="mt-2 truncate text-[11px] font-bold text-amber-100">
-                      Review: {context.requiredReview.slice(0, 3).join(", ")}
+                  </div>
+
+                  <div className="min-w-0 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 sm:p-4">
+                    <p className="font-black text-cyan-50">
+                      OAuth e installazioni guidate
+                    </p>
+                    <p className="mt-2 break-words text-sm leading-6 text-slate-300">
+                      {capabilities?.oauthGuidance.pattern ??
+                        "Authorization Code + PKCE per installazioni utente, GitHub App per repository, secret_ref per API key e local_install per runner self-hosted."}
                     </p>
                   </div>
-                ))}
-              </div>
-              <div className="mt-3 grid gap-2 min-[540px]:grid-cols-2 xl:grid-cols-3">
-                {(capabilities?.runtimePolicy?.lanePolicies ?? []).map((lane) => (
-                  <div key={lane.lane} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <div className="flex items-start justify-between gap-2">
+
+                  <div className="min-w-0 rounded-lg border border-sky-300/15 bg-sky-300/[0.045] p-3 sm:p-4">
+                    <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-white">{lane.lane}</p>
-                        <p className="mt-1 truncate text-xs text-slate-500">
-                          {lane.defaultProviderId}{lane.fallbackProviderId ? ` -> ${lane.fallbackProviderId}` : ""}
+                        <p className="font-black text-sky-50">
+                          Policy runtime nativa
+                        </p>
+                        <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                          Optima risolve toolset, connector e review dal control
+                          plane. Ogni contesto parte da una allowlist minima e
+                          le capability esterne restano subordinate alla policy
+                          tenant.
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                        {lane.allowedConnectors.length} tool
+                      <span className="w-fit shrink-0 rounded-full border border-sky-300/25 bg-sky-300/10 px-2.5 py-1 text-[11px] font-black text-sky-100">
+                        {capabilities?.runtimePolicy?.source ===
+                        "optima_native_hermes_derived"
+                          ? "native"
+                          : "policy"}
                       </span>
                     </div>
-                    <p className="mt-2 truncate text-xs text-cyan-100">{lane.allowedConnectors.join(", ") || "nessun connector"}</p>
-                    <p className="mt-1 line-clamp-1 text-[11px] text-red-100/80">Blocca: {lane.blockedActions.slice(0, 2).join(", ")}</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {(capabilities?.runtimePolicy?.contexts ?? []).map(
+                        (context) => (
+                          <div
+                            key={context.id}
+                            className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                          >
+                            <p className="truncate text-sm font-black text-white">
+                              {context.label}
+                            </p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
+                              {context.notes}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {context.allowedToolsets
+                                .slice(0, 3)
+                                .map((toolset) => (
+                                  <span
+                                    key={toolset}
+                                    className="max-w-full truncate rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-bold text-emerald-100"
+                                  >
+                                    {toolset}
+                                  </span>
+                                ))}
+                              {context.blockedToolsets
+                                .slice(0, 2)
+                                .map((toolset) => (
+                                  <span
+                                    key={toolset}
+                                    className="max-w-full truncate rounded-full border border-red-300/20 bg-red-300/10 px-2 py-0.5 text-[10px] font-bold text-red-100"
+                                  >
+                                    no {toolset}
+                                  </span>
+                                ))}
+                            </div>
+                            <p className="mt-2 truncate text-[11px] font-bold text-amber-100">
+                              Review:{" "}
+                              {context.requiredReview.slice(0, 3).join(", ")}
+                            </p>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                    <div className="mt-3 grid gap-2 min-[540px]:grid-cols-2 xl:grid-cols-3">
+                      {(capabilities?.runtimePolicy?.lanePolicies ?? []).map(
+                        (lane) => (
+                          <div
+                            key={lane.lane}
+                            className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-white">
+                                  {lane.lane}
+                                </p>
+                                <p className="mt-1 truncate text-xs text-slate-500">
+                                  {lane.defaultProviderId}
+                                  {lane.fallbackProviderId
+                                    ? ` -> ${lane.fallbackProviderId}`
+                                    : ""}
+                                </p>
+                              </div>
+                              <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                                {lane.allowedConnectors.length} tool
+                              </span>
+                            </div>
+                            <p className="mt-2 truncate text-xs text-cyan-100">
+                              {lane.allowedConnectors.join(", ") ||
+                                "nessun connector"}
+                            </p>
+                            <p className="mt-1 line-clamp-1 text-[11px] text-red-100/80">
+                              Blocca:{" "}
+                              {lane.blockedActions.slice(0, 2).join(", ")}
+                            </p>
+                          </div>
+                        ),
+                      )}
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="min-w-0 rounded-lg border border-teal-300/15 bg-teal-300/[0.05] p-3 sm:p-4">
-              <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-white">Core agentico nativo Optima</p>
-                  <p className="mt-2 break-words text-sm leading-6 text-slate-300">
-                    {capabilities?.hermesBlueprint?.reference.integrationRule ??
-                      "Optima assorbe pattern agentici auditati come capability native: gateway, memoria, skill, MCP, provider routing e subagenti governati dal control plane aziendale."}
-                  </p>
+                  <div className="min-w-0 rounded-lg border border-teal-300/15 bg-teal-300/[0.05] p-3 sm:p-4">
+                    <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-black text-white">
+                          Core agentico nativo Optima
+                        </p>
+                        <p className="mt-2 break-words text-sm leading-6 text-slate-300">
+                          {capabilities?.hermesBlueprint?.reference
+                            .integrationRule ??
+                            "Optima assorbe pattern agentici auditati come capability native: gateway, memoria, skill, MCP, provider routing e subagenti governati dal control plane aziendale."}
+                        </p>
+                      </div>
+                      <span className="w-fit shrink-0 rounded-full border border-teal-300/25 bg-teal-300/10 px-2.5 py-1 text-[11px] font-black text-teal-100">
+                        {capabilities?.hermesBlueprint?.reference
+                          .auditedRevision ?? "ab0a6270c"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                      {[
+                        [
+                          "Pattern",
+                          capabilities?.hermesBlueprint?.stats.total ?? 0,
+                        ],
+                        [
+                          "Recepiti",
+                          capabilities?.hermesBlueprint?.stats
+                            .implementedOrPartial ?? 0,
+                        ],
+                        [
+                          "Parziali",
+                          capabilities?.hermesBlueprint?.stats.byStatus
+                            ?.partial ?? 0,
+                        ],
+                        [
+                          "Pianificati",
+                          capabilities?.hermesBlueprint?.stats.byStatus
+                            ?.planned ?? 0,
+                        ],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2"
+                        >
+                          <p className="truncate text-[11px] text-slate-500">
+                            {label}
+                          </p>
+                          <p className="mt-1 text-lg font-black text-white">
+                            {value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 grid gap-2">
+                      {(capabilities?.hermesBlueprint?.patterns ?? [])
+                        .slice(0, 4)
+                        .map((pattern) => (
+                          <div
+                            key={pattern.id}
+                            className="rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-white">
+                                  {pattern.label}
+                                </p>
+                                <p className="mt-1 break-words text-xs leading-5 text-slate-400">
+                                  {pattern.lane} ·{" "}
+                                  {pattern.optimaSurface.slice(0, 3).join(", ")}
+                                </p>
+                              </div>
+                              <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                                {pattern.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 </div>
-                <span className="w-fit shrink-0 rounded-full border border-teal-300/25 bg-teal-300/10 px-2.5 py-1 text-[11px] font-black text-teal-100">
-                  {capabilities?.hermesBlueprint?.reference.auditedRevision ?? "ab0a6270c"}
-                </span>
-              </div>
-
-              <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                {[
-                  ["Pattern", capabilities?.hermesBlueprint?.stats.total ?? 0],
-                  ["Recepiti", capabilities?.hermesBlueprint?.stats.implementedOrPartial ?? 0],
-                  ["Parziali", capabilities?.hermesBlueprint?.stats.byStatus?.partial ?? 0],
-                  ["Pianificati", capabilities?.hermesBlueprint?.stats.byStatus?.planned ?? 0],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2">
-                    <p className="truncate text-[11px] text-slate-500">{label}</p>
-                    <p className="mt-1 text-lg font-black text-white">{value}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 grid gap-2">
-                {(capabilities?.hermesBlueprint?.patterns ?? []).slice(0, 4).map((pattern) => (
-                  <div key={pattern.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-white">{pattern.label}</p>
-                        <p className="mt-1 break-words text-xs leading-5 text-slate-400">
-                          {pattern.lane} · {pattern.optimaSurface.slice(0, 3).join(", ")}
-                        </p>
-                      </div>
-                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                        {pattern.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              </details>
             </div>
 
-              </div>
-            </details>
-
-            </div>
-
-            <div className={stackSection === "graph" ? "min-w-0 rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.055] p-3 sm:p-4" : "hidden"}>
+            <div
+              className={
+                stackSection === "graph"
+                  ? "min-w-0 rounded-lg border border-fuchsia-300/15 bg-fuchsia-300/[0.055] p-3 sm:p-4"
+                  : "hidden"
+              }
+            >
               <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
                 <div className="min-w-0">
-                  <p className="font-black text-white">Graph memory aziendale</p>
+                  <p className="font-black text-white">
+                    Graph memory aziendale
+                  </p>
                   <p className="mt-2 break-words text-sm leading-6 text-slate-300">
-                    Nodi, archi e sessioni collegano persone, task, repo, clienti, subagenti e sorgenti. Le relazioni hanno confidence esplicita: manual, extracted, inferred o ambiguous.
+                    Nodi, archi e sessioni collegano persone, task, repo,
+                    clienti, subagenti e sorgenti. Le relazioni hanno confidence
+                    esplicita: manual, extracted, inferred o ambiguous.
                   </p>
                 </div>
                 <Button
@@ -5320,174 +6909,268 @@ export function AgentJobsClient({
                   className="h-9 w-full shrink-0 rounded-lg border-white/15 bg-transparent px-3 text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
                   title="Crea i riferimenti base, normalizza l'indice operativo e collega i nodi ai domini. Non cancella dati esistenti."
                 >
-                  {isSeedingGraph ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Network className="mr-2 h-4 w-4" />}
+                  {isSeedingGraph ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Network className="mr-2 h-4 w-4" />
+                  )}
                   Normalizza indice
                 </Button>
               </div>
 
-	              <div className="mt-3 grid grid-cols-3 gap-2">
-	                {[
-	                  ["Nodi", graphMemory?.stats.nodes ?? 0],
-	                  ["Archi", graphMemory?.stats.edges ?? 0],
-	                  ["Sessioni", graphMemory?.stats.sessions ?? 0],
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[
+                  ["Nodi", graphMemory?.stats.nodes ?? 0],
+                  ["Archi", graphMemory?.stats.edges ?? 0],
+                  ["Sessioni", graphMemory?.stats.sessions ?? 0],
                 ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2">
-                    <p className="truncate text-[11px] text-slate-500">{label}</p>
-                    <p className="mt-1 text-lg font-black text-white">{value}</p>
-	                  </div>
-	                ))}
-	              </div>
+                  <div
+                    key={label}
+                    className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2"
+                  >
+                    <p className="truncate text-[11px] text-slate-500">
+                      {label}
+                    </p>
+                    <p className="mt-1 text-lg font-black text-white">
+                      {value}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
-	              <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-	                <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
-	                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-	                    <div className="min-w-0">
-	                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">Indice operativo</p>
-	                      <p className="mt-1 text-sm font-black text-white">
-	                        {graphQuality ? `${graphQuality.completenessScore}/100` : "Indice in aggiornamento"}
-	                      </p>
-	                      <p className="mt-1 text-xs leading-5 text-slate-300">
-	                        Misura quanto il grafo e collegato, indicizzato e affidabile per risposte agentiche.
-	                      </p>
-	                    </div>
-	                    <div className="grid grid-cols-2 gap-2 sm:w-64">
-	                      {[
-	                        ["Collegati", graphMemory?.stats.connectedNodes ?? graphQuality?.connectedNodes ?? 0],
-	                        ["Orfani", graphMemory?.stats.orphanNodes ?? graphQuality?.orphanNodes ?? 0],
-	                        ["Indicizzati", graphMemory?.stats.indexedNodes ?? graphQuality?.indexedNodes ?? 0],
-	                        ["Grado medio", graphMemory?.stats.averageDegree ?? 0],
-	                      ].map(([label, value]) => (
-	                        <div key={label} className="rounded-lg border border-cyan-300/15 bg-[#06111b]/75 p-2">
-	                          <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-	                          <p className="mt-1 text-base font-black text-white">{value}</p>
-	                        </div>
-	                      ))}
-	                    </div>
-	                  </div>
-	                  {graphQuality?.notes?.length ? (
-	                    <div className="mt-3 grid gap-2">
-	                      {graphQuality.notes.slice(0, 3).map((note) => (
-	                        <p key={note} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-300">
-	                          {note}
-	                        </p>
-	                      ))}
-	                    </div>
-	                  ) : null}
-	                </div>
+              <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+                <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                        Indice operativo
+                      </p>
+                      <p className="mt-1 text-sm font-black text-white">
+                        {graphQuality
+                          ? `${graphQuality.completenessScore}/100`
+                          : "Indice in aggiornamento"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-300">
+                        Misura quanto il grafo e collegato, indicizzato e
+                        affidabile per risposte agentiche.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:w-64">
+                      {[
+                        [
+                          "Collegati",
+                          graphMemory?.stats.connectedNodes ??
+                            graphQuality?.connectedNodes ??
+                            0,
+                        ],
+                        [
+                          "Orfani",
+                          graphMemory?.stats.orphanNodes ??
+                            graphQuality?.orphanNodes ??
+                            0,
+                        ],
+                        [
+                          "Indicizzati",
+                          graphMemory?.stats.indexedNodes ??
+                            graphQuality?.indexedNodes ??
+                            0,
+                        ],
+                        ["Grado medio", graphMemory?.stats.averageDegree ?? 0],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="rounded-lg border border-cyan-300/15 bg-[#06111b]/75 p-2"
+                        >
+                          <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                            {label}
+                          </p>
+                          <p className="mt-1 text-base font-black text-white">
+                            {value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {graphQuality?.notes?.length ? (
+                    <div className="mt-3 grid gap-2">
+                      {graphQuality.notes.slice(0, 3).map((note) => (
+                        <p
+                          key={note}
+                          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-300"
+                        >
+                          {note}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
 
-	                <div className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-	                  <div className="flex items-center justify-between gap-3">
-	                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Hub principali</p>
-	                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-400">
-	                      degree
-	                    </span>
-	                  </div>
-	                  <div className="mt-2 grid gap-2">
-	                    {(graphIndex?.hubs ?? []).slice(0, 5).map((hub) => (
-	                      <button
-	                        key={hub.id}
-	                        type="button"
-	                        onClick={() => {
-	                          const node = graphMemory?.nodes.find((item) => item.id === hub.id)
-	                          if (node) loadGraphNode(node)
-	                        }}
-	                        className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-left transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.055]"
-	                      >
-	                        <span className="min-w-0">
-	                          <span className="block truncate text-xs font-black text-white">{hub.title}</span>
-	                          <span className="mt-0.5 block truncate text-[11px] text-slate-500">
-	                            {graphNodeTypeVisual[hub.nodeType]?.label ?? hub.nodeType} · {graphSourceCopy[hub.sourceType] ?? hub.sourceType}
-	                          </span>
-	                        </span>
-	                        <span className="shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-xs font-black text-cyan-50">
-	                          {hub.degree}
-	                        </span>
-	                      </button>
-	                    ))}
-	                    {graphIndex?.hubs?.length ? null : (
-	                      <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-500">
-	                        Nessun hub calcolato: sincronizza o importa altre relazioni.
-	                      </p>
-	                    )}
-	                  </div>
-	                </div>
-	              </div>
+                <div className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                      Hub principali
+                    </p>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                      degree
+                    </span>
+                  </div>
+                  <div className="mt-2 grid gap-2">
+                    {(graphIndex?.hubs ?? []).slice(0, 5).map((hub) => (
+                      <button
+                        key={hub.id}
+                        type="button"
+                        onClick={() => {
+                          const node = graphMemory?.nodes.find(
+                            (item) => item.id === hub.id,
+                          );
+                          if (node) loadGraphNode(node);
+                        }}
+                        className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-left transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.055]"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-black text-white">
+                            {hub.title}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11px] text-slate-500">
+                            {graphNodeTypeVisual[hub.nodeType]?.label ??
+                              hub.nodeType}{" "}
+                            ·{" "}
+                            {graphSourceCopy[hub.sourceType] ?? hub.sourceType}
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-xs font-black text-cyan-50">
+                          {hub.degree}
+                        </span>
+                      </button>
+                    ))}
+                    {graphIndex?.hubs?.length ? null : (
+                      <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-500">
+                        Nessun hub calcolato: sincronizza o importa altre
+                        relazioni.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-	              <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.055] p-3">
-	                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-	                  <div className="min-w-0">
-	                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-100">Domini operativi</p>
-	                    <p className="mt-1 text-xs leading-5 text-slate-300">
-	                      L'indice normalizzato raggruppa nodi eterogenei in aree aziendali interrogabili da AI Assistant, command bar e job Codex.
-	                    </p>
-	                  </div>
-	                  <span className="w-fit shrink-0 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] font-bold text-amber-50">
-	                    {graphDomains.length || 0} aree
-	                  </span>
-	                </div>
-	                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-	                  {graphDomains.slice(0, 6).map((domain) => {
-	                    const coverage = domain.count ? Math.round((domain.connectedCount / domain.count) * 100) : 0
-	                    return (
-	                      <div key={domain.id} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-	                        <div className="flex items-start justify-between gap-3">
-	                          <div className="min-w-0">
-	                            <p className="truncate text-sm font-black text-white">{domain.label}</p>
-	                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{domain.description}</p>
-	                          </div>
-	                          <span className="shrink-0 rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-xs font-black text-amber-50">
-	                            {domain.count}
-	                          </span>
-	                        </div>
-	                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-	                          <div className="h-full rounded-full bg-amber-300" style={{ width: `${Math.max(8, Math.min(100, coverage))}%` }} />
-	                        </div>
-	                        <p className="mt-2 text-[11px] font-bold text-slate-500">{coverage}% collegati · {domain.action}</p>
-	                      </div>
-	                    )
-	                  })}
-	                  {graphDomains.length ? null : (
-	                    <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-500">
-	                      Nessun dominio calcolato: normalizza l'indice per creare le aree operative.
-	                    </p>
-	                  )}
-	                </div>
-	              </div>
+              <div className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.055] p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-100">
+                      Domini operativi
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-300">
+                      L'indice normalizzato raggruppa nodi eterogenei in aree
+                      aziendali interrogabili da AI Assistant, command bar e job
+                      Codex.
+                    </p>
+                  </div>
+                  <span className="w-fit shrink-0 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] font-bold text-amber-50">
+                    {graphDomains.length || 0} aree
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {graphDomains.slice(0, 6).map((domain) => {
+                    const coverage = domain.count
+                      ? Math.round((domain.connectedCount / domain.count) * 100)
+                      : 0;
+                    return (
+                      <div
+                        key={domain.id}
+                        className="min-w-0 rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-white">
+                              {domain.label}
+                            </p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
+                              {domain.description}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-xs font-black text-amber-50">
+                            {domain.count}
+                          </span>
+                        </div>
+                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-amber-300"
+                            style={{
+                              width: `${Math.max(8, Math.min(100, coverage))}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="mt-2 text-[11px] font-bold text-slate-500">
+                          {coverage}% collegati · {domain.action}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  {graphDomains.length ? null : (
+                    <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-500">
+                      Nessun dominio calcolato: normalizza l'indice per creare
+                      le aree operative.
+                    </p>
+                  )}
+                </div>
+              </div>
 
-	              <div className="mt-3 grid gap-2 lg:grid-cols-2">
-	                <div className="rounded-lg border border-white/10 bg-[#060a15]/70 p-3">
-	                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Fonti indicizzate</p>
-	                  <div className="mt-2 flex flex-wrap gap-2">
-	                    {graphSourceGroups.slice(0, 10).map((group) => (
-	                      <span key={group.sourceType} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-	                        {group.label}: {group.count}
-	                      </span>
-	                    ))}
-	                    {graphSourceGroups.length ? null : <span className="text-xs text-slate-500">Nessuna fonte indicizzata.</span>}
-	                  </div>
-	                </div>
-	                <div className="rounded-lg border border-white/10 bg-[#060a15]/70 p-3">
-	                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Relazioni principali</p>
-	                  <div className="mt-2 flex flex-wrap gap-2">
-	                    {graphEdgeGroups.slice(0, 10).map((group) => (
-	                      <span key={group.edgeType} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-	                        {group.label}: {group.count}
-	                      </span>
-	                    ))}
-	                    {graphEdgeGroups.length ? null : <span className="text-xs text-slate-500">Nessuna relazione indicizzata.</span>}
-	                  </div>
-	                </div>
-	              </div>
+              <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                <div className="rounded-lg border border-white/10 bg-[#060a15]/70 p-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Fonti indicizzate
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {graphSourceGroups.slice(0, 10).map((group) => (
+                      <span
+                        key={group.sourceType}
+                        className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300"
+                      >
+                        {group.label}: {group.count}
+                      </span>
+                    ))}
+                    {graphSourceGroups.length ? null : (
+                      <span className="text-xs text-slate-500">
+                        Nessuna fonte indicizzata.
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#060a15]/70 p-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    Relazioni principali
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {graphEdgeGroups.slice(0, 10).map((group) => (
+                      <span
+                        key={group.edgeType}
+                        className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300"
+                      >
+                        {group.label}: {group.count}
+                      </span>
+                    ))}
+                    {graphEdgeGroups.length ? null : (
+                      <span className="text-xs text-slate-500">
+                        Nessuna relazione indicizzata.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-	              <div className="mt-3 rounded-lg border border-teal-300/20 bg-teal-300/[0.055] p-3">
+              <div className="mt-3 rounded-lg border border-teal-300/20 bg-teal-300/[0.055] p-3">
                 <div className="flex items-start gap-3">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-teal-300/25 bg-teal-300/10 text-teal-100">
                     <Network className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-white">Graphify come motore, Optima come sistema operativo</p>
+                    <p className="text-sm font-black text-white">
+                      Graphify come motore, Optima come sistema operativo
+                    </p>
                     <p className="mt-1 text-xs leading-5 text-slate-300">
-                      Graphify fornisce pipeline e MCP query del grafo; Optima conserva nodi, archi, tenant, permessi, review e dati aziendali.
+                      Graphify fornisce pipeline e MCP query del grafo; Optima
+                      conserva nodi, archi, tenant, permessi, review e dati
+                      aziendali.
                     </p>
                   </div>
                 </div>
@@ -5496,9 +7179,13 @@ export function AgentJobsClient({
               <div className="mt-3 rounded-lg border border-violet-300/20 bg-violet-300/[0.06] p-3">
                 <div className="flex flex-col gap-3 min-[560px]:flex-row min-[560px]:items-start min-[560px]:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-white">Obsidian come workspace visuale del grafo</p>
+                    <p className="text-sm font-black text-white">
+                      Obsidian come workspace visuale del grafo
+                    </p>
                     <p className="mt-1 text-xs leading-5 text-slate-300">
-                      Optima resta sorgente autoritativa. Obsidian serve per esplorare e curare note/backlink; il rientro in Optima avviene solo con note revisionate.
+                      Optima resta sorgente autoritativa. Obsidian serve per
+                      esplorare e curare note/backlink; il rientro in Optima
+                      avviene solo con note revisionate.
                     </p>
                   </div>
                   <div className="grid gap-2 min-[420px]:grid-cols-3 min-[560px]:shrink-0">
@@ -5509,13 +7196,23 @@ export function AgentJobsClient({
                       disabled={setupAction === "stack-setup:obsidian-vault"}
                       className="h-9 rounded-lg border-violet-300/25 bg-violet-300/10 px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
                     >
-                      {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
+                      {setupAction === "stack-setup:obsidian-vault" ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Network className="mr-1.5 h-3.5 w-3.5" />
+                      )}
                       Aggiorna vault
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`)}
+                      onClick={() =>
+                        openObsidianUri(
+                          OBSIDIAN_AGENTIC_DASHBOARD_URI,
+                          "Dashboard Obsidian",
+                          `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`,
+                        )
+                      }
                       className="h-9 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
                     >
                       Dashboard
@@ -5523,7 +7220,13 @@ export function AgentJobsClient({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => openObsidianUri(OBSIDIAN_GRAPH_INDEX_URI, "Indice grafo Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_GRAPH_INDEX_FILE}`)}
+                      onClick={() =>
+                        openObsidianUri(
+                          OBSIDIAN_GRAPH_INDEX_URI,
+                          "Indice grafo Obsidian",
+                          `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_GRAPH_INDEX_FILE}`,
+                        )
+                      }
                       className="h-9 rounded-lg border-violet-300/25 bg-[#171426] px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
                     >
                       Indice
@@ -5532,13 +7235,26 @@ export function AgentJobsClient({
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {[
-                    ["Workspace", Number(graphMemory?.stats.byType?.graph_workspace ?? 0)],
-                    ["Note", Number(graphMemory?.stats.byType?.obsidian_note ?? 0)],
+                    [
+                      "Workspace",
+                      Number(graphMemory?.stats.byType?.graph_workspace ?? 0),
+                    ],
+                    [
+                      "Note",
+                      Number(graphMemory?.stats.byType?.obsidian_note ?? 0),
+                    ],
                     ["Scibile", knowhowNodeCount],
                   ].map(([label, value]) => (
-                    <div key={label} className="rounded-lg border border-violet-300/15 bg-[#0b0914]/70 p-2">
-                      <p className="truncate text-[11px] text-slate-500">{label}</p>
-                      <p className="mt-1 text-lg font-black text-white">{value}</p>
+                    <div
+                      key={label}
+                      className="rounded-lg border border-violet-300/15 bg-[#0b0914]/70 p-2"
+                    >
+                      <p className="truncate text-[11px] text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-1 text-lg font-black text-white">
+                        {value}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -5547,9 +7263,14 @@ export function AgentJobsClient({
               <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15]/80 p-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-white">Inserimento manuale memoria</p>
+                    <p className="text-sm font-black text-white">
+                      Inserimento manuale memoria
+                    </p>
                     <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Usa questo canale per aggiungere conoscenza verificata: dati da Notion, cliente, processo, skill, repo o decisione. Le relazioni si raffinano poi dal dettaglio nodo o con un job agentico.
+                      Usa questo canale per aggiungere conoscenza verificata:
+                      dati da Notion, cliente, processo, skill, repo o
+                      decisione. Le relazioni si raffinano poi dal dettaglio
+                      nodo o con un job agentico.
                     </p>
                   </div>
                   <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-bold text-slate-300">
@@ -5563,7 +7284,12 @@ export function AgentJobsClient({
                     <select
                       className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                       value={manualGraphNodeForm.nodeType}
-                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, nodeType: event.target.value }))}
+                      onChange={(event) =>
+                        setManualGraphNodeForm((current) => ({
+                          ...current,
+                          nodeType: event.target.value,
+                        }))
+                      }
                     >
                       <option value="knowledge_base">Knowledge base</option>
                       <option value="client">Cliente</option>
@@ -5585,7 +7311,12 @@ export function AgentJobsClient({
                     <input
                       className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                       value={manualGraphNodeForm.title}
-                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, title: event.target.value }))}
+                      onChange={(event) =>
+                        setManualGraphNodeForm((current) => ({
+                          ...current,
+                          title: event.target.value,
+                        }))
+                      }
                       placeholder="Es. Cliente DICO, Workflow rapportini, Skill SEO locale..."
                     />
                   </label>
@@ -5596,7 +7327,12 @@ export function AgentJobsClient({
                   <textarea
                     className="min-h-24 rounded-lg border border-white/10 bg-[#050914] px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                     value={manualGraphNodeForm.summary}
-                    onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, summary: event.target.value }))}
+                    onChange={(event) =>
+                      setManualGraphNodeForm((current) => ({
+                        ...current,
+                        summary: event.target.value,
+                      }))
+                    }
                     placeholder="Descrivi solo informazione utile e verificabile. Non inserire password, token, dati sensibili inutili o transcript integrali."
                   />
                 </label>
@@ -5607,7 +7343,12 @@ export function AgentJobsClient({
                     <input
                       className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                       value={manualGraphNodeForm.tags}
-                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, tags: event.target.value }))}
+                      onChange={(event) =>
+                        setManualGraphNodeForm((current) => ({
+                          ...current,
+                          tags: event.target.value,
+                        }))
+                      }
                       placeholder="notion, cliente, seo..."
                     />
                   </label>
@@ -5616,7 +7357,12 @@ export function AgentJobsClient({
                     <select
                       className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                       value={manualGraphNodeForm.sourceType}
-                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, sourceType: event.target.value }))}
+                      onChange={(event) =>
+                        setManualGraphNodeForm((current) => ({
+                          ...current,
+                          sourceType: event.target.value,
+                        }))
+                      }
                     >
                       <option value="manual">Manuale</option>
                       <option value="notion_righello">Notion Righello</option>
@@ -5631,7 +7377,12 @@ export function AgentJobsClient({
                     <select
                       className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                       value={manualGraphNodeForm.confidence}
-                      onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, confidence: event.target.value }))}
+                      onChange={(event) =>
+                        setManualGraphNodeForm((current) => ({
+                          ...current,
+                          confidence: event.target.value,
+                        }))
+                      }
                     >
                       <option value="manual">Manuale</option>
                       <option value="extracted">Estratto</option>
@@ -5645,7 +7396,12 @@ export function AgentJobsClient({
                   <input
                     className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                     value={manualGraphNodeForm.sourceUrl}
-                    onChange={(event) => setManualGraphNodeForm((current) => ({ ...current, sourceUrl: event.target.value }))}
+                    onChange={(event) =>
+                      setManualGraphNodeForm((current) => ({
+                        ...current,
+                        sourceUrl: event.target.value,
+                      }))
+                    }
                     placeholder="URL sorgente opzionale"
                   />
                   <Button
@@ -5654,7 +7410,11 @@ export function AgentJobsClient({
                     disabled={isSavingGraphNode}
                     className="h-10 rounded-lg bg-righello-pink px-4 text-white hover:bg-righello-pink/90"
                   >
-                    {isSavingGraphNode ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
+                    {isSavingGraphNode ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="mr-1.5 h-4 w-4" />
+                    )}
                     Salva nodo
                   </Button>
                 </div>
@@ -5675,7 +7435,9 @@ export function AgentJobsClient({
                   <select
                     className="h-10 rounded-lg border border-white/10 bg-[#060a15] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                     value={graphNodeTypeFilter}
-                    onChange={(event) => setGraphNodeTypeFilter(event.target.value)}
+                    onChange={(event) =>
+                      setGraphNodeTypeFilter(event.target.value)
+                    }
                   >
                     <option value="">Tutti</option>
                     {graphTypeOptions.map((type) => (
@@ -5690,7 +7452,9 @@ export function AgentJobsClient({
                   <select
                     className="h-10 rounded-lg border border-white/10 bg-[#060a15] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                     value={graphSourceFilter}
-                    onChange={(event) => setGraphSourceFilter(event.target.value)}
+                    onChange={(event) =>
+                      setGraphSourceFilter(event.target.value)
+                    }
                   >
                     <option value="">Tutte</option>
                     {graphSourceOptions.map((sourceType) => (
@@ -5708,9 +7472,9 @@ export function AgentJobsClient({
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setGraphQuery("")
-                      setGraphNodeTypeFilter("")
-                      setGraphSourceFilter("")
+                      setGraphQuery("");
+                      setGraphNodeTypeFilter("");
+                      setGraphSourceFilter("");
                     }}
                     className="h-8 rounded-lg border-white/10 bg-transparent px-3 text-xs text-white hover:bg-white/10"
                   >
@@ -5729,10 +7493,17 @@ export function AgentJobsClient({
               <div className="mt-3 rounded-lg border border-violet-300/25 bg-[radial-gradient(circle_at_20%_0%,rgba(124,58,237,0.2),transparent_34%),linear-gradient(135deg,rgba(23,20,38,0.96),rgba(7,9,18,0.96))] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Obsidian reale</p>
-                    <h3 className="mt-1 text-lg font-black text-white">Apri la Graph View nativa</h3>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">
+                      Obsidian reale
+                    </p>
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Apri la Graph View nativa
+                    </h3>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                      La vista esatta di Obsidian non viene ricreata in React: Optima esporta un vault Markdown con wikilink e lo apre nell'app Obsidian, dove hai la mappa sinaptica nativa, drag, zoom, filtri, gruppi e forze originali.
+                      La vista esatta di Obsidian non viene ricreata in React:
+                      Optima esporta un vault Markdown con wikilink e lo apre
+                      nell'app Obsidian, dove hai la mappa sinaptica nativa,
+                      drag, zoom, filtri, gruppi e forze originali.
                     </p>
                   </div>
                   <div className="grid w-full shrink-0 gap-2 min-[460px]:grid-cols-3 sm:w-auto">
@@ -5743,13 +7514,19 @@ export function AgentJobsClient({
                       disabled={setupAction === "stack-setup:obsidian-vault"}
                       className="h-10 rounded-lg border-violet-300/25 bg-violet-300/10 px-3 text-xs font-bold text-violet-50 hover:bg-violet-300/15"
                     >
-                      {setupAction === "stack-setup:obsidian-vault" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Network className="mr-1.5 h-3.5 w-3.5" />}
+                      {setupAction === "stack-setup:obsidian-vault" ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Network className="mr-1.5 h-3.5 w-3.5" />
+                      )}
                       Aggiorna vault
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => openObsidianUri(OBSIDIAN_VAULT_URI, "Vault Obsidian")}
+                      onClick={() =>
+                        openObsidianUri(OBSIDIAN_VAULT_URI, "Vault Obsidian")
+                      }
                       className="h-10 rounded-lg border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white hover:bg-violet-300/30"
                     >
                       Apri vault
@@ -5757,7 +7534,13 @@ export function AgentJobsClient({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => openObsidianUri(OBSIDIAN_AGENTIC_DASHBOARD_URI, "Dashboard Obsidian", `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`)}
+                      onClick={() =>
+                        openObsidianUri(
+                          OBSIDIAN_AGENTIC_DASHBOARD_URI,
+                          "Dashboard Obsidian",
+                          `${OBSIDIAN_VAULT_PATH}/${OBSIDIAN_AGENTIC_DASHBOARD_FILE}`,
+                        )
+                      }
                       className="h-10 rounded-lg border-violet-300/25 bg-violet-300/20 px-3 text-xs font-black text-white hover:bg-violet-300/30"
                     >
                       Dashboard OS
@@ -5765,7 +7548,8 @@ export function AgentJobsClient({
                   </div>
                 </div>
                 <p className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-400">
-                  Anteprima sotto = controllo rapido dentro Optima. Graph View esatta = Obsidian aperto dal vault esportato.
+                  Anteprima sotto = controllo rapido dentro Optima. Graph View
+                  esatta = Obsidian aperto dal vault esportato.
                 </p>
               </div>
 
@@ -5784,296 +7568,446 @@ export function AgentJobsClient({
                       type="button"
                       onClick={() => loadGraphNode(node)}
                       className={`min-w-0 rounded-lg border p-3 text-left transition hover:border-cyan-300/40 hover:bg-cyan-300/[0.06] ${
-                        selectedGraphNodeId === node.id ? "border-cyan-300/50 bg-cyan-300/[0.08]" : "border-white/10 bg-[#060a15]/70"
+                        selectedGraphNodeId === node.id
+                          ? "border-cyan-300/50 bg-cyan-300/[0.08]"
+                          : "border-white/10 bg-[#060a15]/70"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-white">{node.title}</p>
+                          <p className="truncate text-sm font-black text-white">
+                            {node.title}
+                          </p>
                           <p className="mt-1 truncate text-xs text-slate-500">
-                            {graphNodeTypeVisual[node.nodeType]?.label ?? node.nodeType} · {graphSourceCopy[node.sourceType] ?? node.sourceType}
+                            {graphNodeTypeVisual[node.nodeType]?.label ??
+                              node.nodeType}{" "}
+                            ·{" "}
+                            {graphSourceCopy[node.sourceType] ??
+                              node.sourceType}
                           </p>
                         </div>
                         <Eye className="h-4 w-4 shrink-0 text-cyan-100" />
                       </div>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{node.summary || "Nessun sommario disponibile."}</p>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
+                        {node.summary || "Nessun sommario disponibile."}
+                      </p>
                     </button>
                   ))}
                 </div>
               ) : graphHasActiveFilter && !isSearchingGraph ? (
                 <div className="mt-3 rounded-lg border border-white/10 bg-[#060a15]/70 p-3 text-sm text-slate-400">
                   Nessun nodo trovato con questi filtri.
-            </div>
-          ) : null}
-
-          <div className="mt-3 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-black text-white">Auto-miglioramento controllato</p>
-                <p className="mt-1 text-xs leading-5 text-slate-300">
-                  {selfImprovement?.summary ??
-                    "Optima puo leggere dati d'uso, feedback, job falliti e superfici attive per proporre patch Codex revisionabili."}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={createSelfImprovementJob}
-                disabled={isCreatingSelfImprovement}
-                className="h-9 w-full shrink-0 rounded-lg border-emerald-300/25 bg-emerald-300/10 px-3 text-xs font-bold text-emerald-50 hover:bg-emerald-300/15 sm:w-auto"
-              >
-                {isCreatingSelfImprovement ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
-                Proponi patch Codex
-              </Button>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                ["Score", selfImprovement?.score ?? "--"],
-                ["Feedback -", selfImprovement?.metrics.negativeFeedback ?? "--"],
-                ["Job falliti", selfImprovement?.metrics.failedJobs ?? "--"],
-                ["AI calls", selfImprovement?.metrics.aiCalls ?? "--"],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2">
-                  <p className="truncate text-[11px] text-slate-500">{label}</p>
-                  <p className="mt-1 text-lg font-black text-white">{value}</p>
                 </div>
-              ))}
-            </div>
-            {selfImprovement?.signals.length ? (
-              <div className="mt-3 grid gap-2 lg:grid-cols-2">
-                {selfImprovement.signals.slice(0, 4).map((signal) => (
-                  <div key={signal.id} className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 truncate text-sm font-black text-white">{signal.label}</p>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${readinessSeverityTone[signal.severity]}`}>
-                        {signal.severity}
-                      </span>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{signal.detail}</p>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
+              ) : null}
 
-          <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white">
+                      Auto-miglioramento controllato
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-300">
+                      {selfImprovement?.summary ??
+                        "Optima puo leggere dati d'uso, feedback, job falliti e superfici attive per proporre patch Codex revisionabili."}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={createSelfImprovementJob}
+                    disabled={isCreatingSelfImprovement}
+                    className="h-9 w-full shrink-0 rounded-lg border-emerald-300/25 bg-emerald-300/10 px-3 text-xs font-bold text-emerald-50 hover:bg-emerald-300/15 sm:w-auto"
+                  >
+                    {isCreatingSelfImprovement ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Bot className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Proponi patch Codex
+                  </Button>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    ["Score", selfImprovement?.score ?? "--"],
+                    [
+                      "Feedback -",
+                      selfImprovement?.metrics.negativeFeedback ?? "--",
+                    ],
+                    [
+                      "Job falliti",
+                      selfImprovement?.metrics.failedJobs ?? "--",
+                    ],
+                    ["AI calls", selfImprovement?.metrics.aiCalls ?? "--"],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-lg border border-white/10 bg-[#060a15]/70 p-2"
+                    >
+                      <p className="truncate text-[11px] text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-1 text-lg font-black text-white">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {selfImprovement?.signals.length ? (
+                  <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                    {selfImprovement.signals.slice(0, 4).map((signal) => (
+                      <div
+                        key={signal.id}
+                        className="rounded-lg border border-white/10 bg-[#060a15]/75 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 truncate text-sm font-black text-white">
+                            {signal.label}
+                          </p>
+                          <span
+                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${readinessSeverityTone[signal.severity]}`}
+                          >
+                            {signal.severity}
+                          </span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
+                          {signal.detail}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
                 {graphTypes.length ? (
-	                  graphTypes.map(([type, count]) => (
-	                    <span key={type} className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-	                      {graphNodeTypeVisual[type]?.label ?? type}: {count}
-	                    </span>
-	                  ))
+                  graphTypes.map(([type, count]) => (
+                    <span
+                      key={type}
+                      className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300"
+                    >
+                      {graphNodeTypeVisual[type]?.label ?? type}: {count}
+                    </span>
+                  ))
                 ) : (
-                  <span className="text-xs text-slate-500">Nessun nodo ancora indicizzato.</span>
+                  <span className="text-xs text-slate-500">
+                    Nessun nodo ancora indicizzato.
+                  </span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className={stackSection === "graph" ? "hidden" : "grid min-w-0 gap-3"}>
-            <div className={stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"}>
-            <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
-              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-white">Subagenti avanzati</p>
-                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Profili operativi tenant-scoped. Apri solo quando devi creare o aggiornare ruoli AI specifici.
-                  </p>
-                </div>
-                <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
-                  {capabilities?.subagents.length ?? 0} attivi
-                </span>
-              </summary>
-            <div className="mt-3 min-w-0">
-              <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-white">Subagenti</p>
-                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Profili operativi con provider, connector e permessi espliciti.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={createRecommendedSubagents}
-                  disabled={capabilityAction === "subagents:base"}
-                  className="h-8 w-full shrink-0 rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
-                >
-                  {capabilityAction === "subagents:base" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
-                  Prepara ruoli
-                </Button>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {recommendedSubagents.map((template) => {
-                  const subagent = subagentsBySlug.get(template.slug)
-                  const busy = capabilityAction === `subagent:${template.slug}`
-                  return (
-                    <div key={template.slug} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="min-w-0 truncate text-sm font-black text-white">{subagent?.name ?? template.name}</p>
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${subagent ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-400"}`}>
-                          {subagent ? "attivo" : "da creare"}
-                        </span>
-                      </div>
-                      <p className="mt-1 truncate text-xs text-slate-500">
-                        {(subagent?.primaryProviderId ?? template.primaryProviderId)} · {(subagent?.connectorIds ?? template.connectorIds).join(", ")}
-                      </p>
-                      <div className="mt-2 grid min-w-0 grid-cols-1 items-center gap-2 min-[380px]:grid-cols-[minmax(0,1fr)_auto]">
-                        <p className="truncate text-xs text-slate-400">{template.lane} · {template.modelHint}</p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => createRecommendedSubagent(template)}
-                          disabled={busy}
-                          className="h-7 w-full rounded-lg border-white/10 bg-transparent px-2 text-[11px] text-white hover:bg-white/10 min-[380px]:w-auto"
-                        >
-                          {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                          {subagent ? "Aggiorna" : "Crea"}
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="mt-3 grid gap-2">
-                {(capabilities?.subagents ?? []).slice(0, 5).map((subagent) => (
-                  <div key={subagent.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="min-w-0 truncate text-sm font-black text-white">{subagent.name}</p>
-                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                        {subagent.lane}
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-xs text-slate-500">
-                      {subagent.primaryProviderId} · {subagent.connectorIds.join(", ") || "nessun connector"}
+          <div
+            className={
+              stackSection === "graph" ? "hidden" : "grid min-w-0 gap-3"
+            }
+          >
+            <div
+              className={
+                stackSection === "providers" ? "grid min-w-0 gap-3" : "hidden"
+              }
+            >
+              <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+                <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-black text-white">Subagenti avanzati</p>
+                    <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                      Profili operativi tenant-scoped. Apri solo quando devi
+                      creare o aggiornare ruoli AI specifici.
                     </p>
                   </div>
-                ))}
-                {capabilities && capabilities.subagents.length === 0 ? (
-                  <p className="text-sm text-slate-500">Nessun subagente configurato per questo tenant.</p>
-                ) : null}
-              </div>
-            </div>
-            </details>
-
-            <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
-              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-black text-white">Catalogo MCP completo</p>
-                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Elenco tecnico di tutti i connector. La control room sopra resta il punto operativo principale.
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-                  {verifiedExternalConnectorCount}/{operationalMcpConnectors.length} collegati
-                </span>
-              </summary>
-            <div className="mt-3 min-w-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-black text-white">Connessioni MCP aziendali</p>
-                  <p className="mt-1 break-words text-sm leading-6 text-slate-400">
-                    Ogni servizio ha un metodo reale: OAuth, Browser MCP, GitHub owner, runtime CLI, service token o secret_ref. Prima si collega davvero, poi si verifica; la checklist non abilita niente da sola.
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-                  {verifiedExternalConnectorCount}/{operationalMcpConnectors.length} collegati
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {operationalMcpConnectors.map((connector) => {
-                  const installation = connectorInstallationsById.get(connector.id)
-                  const setupStatus = connectorSetupStatusesById.get(connector.id)
-                  const plan = connectorSetupPlan(connector, installation, setupStatus)
-                  return (
-                    <div key={connector.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-white">{connector.label}</p>
-                          <p className="mt-1 break-words text-xs text-slate-500">
-                            {connector.category} · {connectorAuthLabel(connector.authMethod)}
+                  <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-black text-slate-300">
+                    {capabilities?.subagents.length ?? 0} attivi
+                  </span>
+                </summary>
+                <div className="mt-3 min-w-0">
+                  <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-black text-white">Subagenti</p>
+                      <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                        Profili operativi con provider, connector e permessi
+                        espliciti.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={createRecommendedSubagents}
+                      disabled={capabilityAction === "subagents:base"}
+                      className="h-8 w-full shrink-0 rounded-lg border-white/10 bg-transparent text-xs text-white hover:bg-white/10 min-[460px]:w-auto"
+                    >
+                      {capabilityAction === "subagents:base" ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Bot className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Prepara ruoli
+                    </Button>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {recommendedSubagents.map((template) => {
+                      const subagent = subagentsBySlug.get(template.slug);
+                      const busy =
+                        capabilityAction === `subagent:${template.slug}`;
+                      return (
+                        <div
+                          key={template.slug}
+                          className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="min-w-0 truncate text-sm font-black text-white">
+                              {subagent?.name ?? template.name}
+                            </p>
+                            <span
+                              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${subagent ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-400"}`}
+                            >
+                              {subagent ? "attivo" : "da creare"}
+                            </span>
+                          </div>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {subagent?.primaryProviderId ??
+                              template.primaryProviderId}{" "}
+                            ·{" "}
+                            {(
+                              subagent?.connectorIds ?? template.connectorIds
+                            ).join(", ")}
+                          </p>
+                          <div className="mt-2 grid min-w-0 grid-cols-1 items-center gap-2 min-[380px]:grid-cols-[minmax(0,1fr)_auto]">
+                            <p className="truncate text-xs text-slate-400">
+                              {template.lane} · {template.modelHint}
+                            </p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                createRecommendedSubagent(template)
+                              }
+                              disabled={busy}
+                              className="h-7 w-full rounded-lg border-white/10 bg-transparent px-2 text-[11px] text-white hover:bg-white/10 min-[380px]:w-auto"
+                            >
+                              {busy ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : null}
+                              {subagent ? "Aggiorna" : "Crea"}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {(capabilities?.subagents ?? [])
+                      .slice(0, 5)
+                      .map((subagent) => (
+                        <div
+                          key={subagent.id}
+                          className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="min-w-0 truncate text-sm font-black text-white">
+                              {subagent.name}
+                            </p>
+                            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                              {subagent.lane}
+                            </span>
+                          </div>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {subagent.primaryProviderId} ·{" "}
+                            {subagent.connectorIds.join(", ") ||
+                              "nessun connector"}
                           </p>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1">
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
-                              connectorOperationalTone[setupStatus?.operationalState ?? "ready_to_connect"] ?? connectorOperationalTone.ready_to_connect
-                            }`}
-                          >
-                            {setupStatus?.operationalLabel ?? installLabel(plan.state)}
-                          </span>
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(plan.kind)}`}>
-                            {connectorSetupKindLabel(plan.kind)}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{connector.purpose}</p>
-                      <div className="mt-2 grid gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.045] p-2">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
-                              connectorOperationalTone[setupStatus?.operationalState ?? "ready_to_connect"] ?? connectorOperationalTone.ready_to_connect
-                            }`}
-                          >
-                            {setupStatus?.operationalLabel ?? plan.primaryIntent}
-                          </span>
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${plan.healthOk ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100"}`}>
-                            {plan.healthLabel}
-                          </span>
-                        </div>
-                        <p className="line-clamp-2 text-[11px] leading-5 text-slate-300">{plan.shortNextAction}</p>
-                        <p className="line-clamp-1 text-[10px] font-bold text-slate-500">
-                          {setupStatus?.primaryActionAvailable === false ? "Azione non disponibile finche il runtime non e pronto." : plan.missingLabel}
-                        </p>
-                        {plan.blockedReason ? (
-                          <p className="line-clamp-1 text-[10px] font-black text-amber-100">{plan.blockedReason}</p>
-                        ) : null}
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {connector.graphUse.slice(0, 4).map((scope) => (
-                          <span key={scope} className="max-w-full truncate rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
-                            {scope}
-                          </span>
-                        ))}
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => setSelectedConnectorId(connector.id)}
-                        className="mt-3 h-8 w-full rounded-lg bg-cyan-300/15 text-xs font-black text-cyan-50 hover:bg-cyan-300/25"
-                      >
-                        <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-	                        Configura collegamento
-                      </Button>
+                      ))}
+                    {capabilities && capabilities.subagents.length === 0 ? (
+                      <p className="text-sm text-slate-500">
+                        Nessun subagente configurato per questo tenant.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </details>
+
+              <details className="group min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4">
+                <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-black text-white">
+                      Catalogo MCP completo
+                    </p>
+                    <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                      Elenco tecnico di tutti i connector. La control room sopra
+                      resta il punto operativo principale.
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                    {verifiedExternalConnectorCount}/
+                    {operationalMcpConnectors.length} collegati
+                  </span>
+                </summary>
+                <div className="mt-3 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-black text-white">
+                        Connessioni MCP aziendali
+                      </p>
+                      <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                        Ogni servizio ha un metodo reale: OAuth, Browser MCP,
+                        GitHub owner, runtime CLI, service token o secret_ref.
+                        Prima si collega davvero, poi si verifica; la checklist
+                        non abilita niente da sola.
+                      </p>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-            </details>
+                    <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
+                      {verifiedExternalConnectorCount}/
+                      {operationalMcpConnectors.length} collegati
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {operationalMcpConnectors.map((connector) => {
+                      const installation = connectorInstallationsById.get(
+                        connector.id,
+                      );
+                      const setupStatus = connectorSetupStatusesById.get(
+                        connector.id,
+                      );
+                      const plan = connectorSetupPlan(
+                        connector,
+                        installation,
+                        setupStatus,
+                      );
+                      return (
+                        <div
+                          key={connector.id}
+                          className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white">
+                                {connector.label}
+                              </p>
+                              <p className="mt-1 break-words text-xs text-slate-500">
+                                {connector.category} ·{" "}
+                                {connectorAuthLabel(connector.authMethod)}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                                  connectorOperationalTone[
+                                    setupStatus?.operationalState ??
+                                      "ready_to_connect"
+                                  ] ?? connectorOperationalTone.ready_to_connect
+                                }`}
+                              >
+                                {setupStatus?.operationalLabel ??
+                                  installLabel(plan.state)}
+                              </span>
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${connectorSetupKindTone(plan.kind)}`}
+                              >
+                                {connectorSetupKindLabel(plan.kind)}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
+                            {connector.purpose}
+                          </p>
+                          <div className="mt-2 grid gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.045] p-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                                  connectorOperationalTone[
+                                    setupStatus?.operationalState ??
+                                      "ready_to_connect"
+                                  ] ?? connectorOperationalTone.ready_to_connect
+                                }`}
+                              >
+                                {setupStatus?.operationalLabel ??
+                                  plan.primaryIntent}
+                              </span>
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${plan.healthOk ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100"}`}
+                              >
+                                {plan.healthLabel}
+                              </span>
+                            </div>
+                            <p className="line-clamp-2 text-[11px] leading-5 text-slate-300">
+                              {plan.shortNextAction}
+                            </p>
+                            <p className="line-clamp-1 text-[10px] font-bold text-slate-500">
+                              {setupStatus?.primaryActionAvailable === false
+                                ? "Azione non disponibile finche il runtime non e pronto."
+                                : plan.missingLabel}
+                            </p>
+                            {plan.blockedReason ? (
+                              <p className="line-clamp-1 text-[10px] font-black text-amber-100">
+                                {plan.blockedReason}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {connector.graphUse.slice(0, 4).map((scope) => (
+                              <span
+                                key={scope}
+                                className="max-w-full truncate rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100"
+                              >
+                                {scope}
+                              </span>
+                            ))}
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => setSelectedConnectorId(connector.id)}
+                            className="mt-3 h-8 w-full rounded-lg bg-cyan-300/15 text-xs font-black text-cyan-50 hover:bg-cyan-300/25"
+                          >
+                            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                            Configura collegamento
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </details>
             </div>
 
-            <div className={stackSection === "sources" ? "min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4" : "hidden"}>
+            <div
+              className={
+                stackSection === "sources"
+                  ? "min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-3 sm:p-4"
+                  : "hidden"
+              }
+            >
               <p className="font-black text-white">Sorgenti agentiche</p>
               <p className="mt-1 text-sm leading-6 text-slate-400">
-                Pattern e know-how che alimentano il grafo senza saturare il prompt.
+                Pattern e know-how che alimentano il grafo senza saturare il
+                prompt.
               </p>
               <div className="mt-3 grid gap-2">
                 {(graphMemory?.referenceSources ?? []).map((source) => (
-                  <div key={source.id} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div
+                    key={source.id}
+                    className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3"
+                  >
                     <div className="flex items-center justify-between gap-3">
-                      <p className="min-w-0 truncate text-sm font-black text-white">{source.label}</p>
+                      <p className="min-w-0 truncate text-sm font-black text-white">
+                        {source.label}
+                      </p>
                       <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-300">
                         {source.sourceType}
                       </span>
                     </div>
-                    <p className="mt-1 truncate text-xs text-slate-500">{source.importPolicy}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {source.importPolicy}
+                    </p>
                   </div>
                 ))}
                 {!graphMemory ? (
-                  <p className="text-sm text-slate-500">Caricamento graph memory...</p>
+                  <p className="text-sm text-slate-500">
+                    Caricamento graph memory...
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -6088,8 +8022,12 @@ export function AgentJobsClient({
       >
         <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Control plane</p>
-            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Coda e review</h2>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">
+              Control plane
+            </p>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">
+              Coda e review
+            </h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">
               Stato dei job, heartbeat runner e decisioni ancora aperte.
             </p>
@@ -6097,7 +8035,11 @@ export function AgentJobsClient({
           <Button
             type="button"
             variant="outline"
-            onClick={() => refreshControlPlane().catch((err) => setError(err?.message ?? "Errore refresh"))}
+            onClick={() =>
+              refreshControlPlane().catch((err) =>
+                setError(err?.message ?? "Errore refresh"),
+              )
+            }
             className="w-full rounded-lg border-white/15 bg-transparent text-white hover:bg-white/10 sm:w-auto"
           >
             Aggiorna
@@ -6109,7 +8051,9 @@ export function AgentJobsClient({
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100" />
             <div className="min-w-0">
               <p className="text-sm font-black text-cyan-50">Prossima azione</p>
-              <p className="mt-1 break-words text-sm leading-6 text-slate-300">{nextActionCopy}</p>
+              <p className="mt-1 break-words text-sm leading-6 text-slate-300">
+                {nextActionCopy}
+              </p>
             </div>
           </div>
         </div>
@@ -6117,8 +8061,16 @@ export function AgentJobsClient({
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {[
             { label: "Aperti", value: stats.active, detail: "non chiusi" },
-            { label: "Coda / run", value: stats.queued + stats.running, detail: `${stats.running} in esecuzione` },
-            { label: "Da decidere", value: stats.review + stats.failed, detail: `${stats.failed} errori` },
+            {
+              label: "Coda / run",
+              value: stats.queued + stats.running,
+              detail: `${stats.running} in esecuzione`,
+            },
+            {
+              label: "Da decidere",
+              value: stats.review + stats.failed,
+              detail: `${stats.failed} errori`,
+            },
             {
               label: "Stato VPS",
               value: runnerControl.enabled
@@ -6128,13 +8080,24 @@ export function AgentJobsClient({
                     ? "Stale"
                     : "Offline"
                 : "Sospeso",
-              detail: runnerHealth.latest?.lastSeenAt ? formatRelativeTime(runnerHealth.latest.lastSeenAt) : "heartbeat",
+              detail: runnerHealth.latest?.lastSeenAt
+                ? formatRelativeTime(runnerHealth.latest.lastSeenAt)
+                : "heartbeat",
             },
           ].map(({ label, value, detail }) => (
-            <div key={label} className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-2.5 sm:p-3">
-              <p className="truncate text-[11px] text-slate-500 sm:text-xs">{label}</p>
-              <p className="mt-1 truncate text-base font-black text-white sm:text-xl">{value}</p>
-              <p className="mt-1 truncate text-[11px] text-slate-500">{detail}</p>
+            <div
+              key={label}
+              className="min-w-0 rounded-lg border border-white/10 bg-[#060a15] p-2.5 sm:p-3"
+            >
+              <p className="truncate text-[11px] text-slate-500 sm:text-xs">
+                {label}
+              </p>
+              <p className="mt-1 truncate text-base font-black text-white sm:text-xl">
+                {value}
+              </p>
+              <p className="mt-1 truncate text-[11px] text-slate-500">
+                {detail}
+              </p>
             </div>
           ))}
         </div>
@@ -6144,7 +8107,9 @@ export function AgentJobsClient({
             <div className="flex items-start gap-3">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
-                Ci sono job in coda, ma il claim e sospeso da configurazione server. Imposta AGENT_RUNNER_ENABLED=true solo quando vuoi riattivare il VPS.
+                Ci sono job in coda, ma il claim e sospeso da configurazione
+                server. Imposta AGENT_RUNNER_ENABLED=true solo quando vuoi
+                riattivare il VPS.
               </p>
             </div>
           </div>
@@ -6153,7 +8118,9 @@ export function AgentJobsClient({
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
-                Ci sono job in coda, ma il runner VPS non risulta online. Il lavoro resta fermo finche il servizio sul VPS non torna a fare polling.
+                Ci sono job in coda, ma il runner VPS non risulta online. Il
+                lavoro resta fermo finche il servizio sul VPS non torna a fare
+                polling.
               </p>
             </div>
           </div>
@@ -6169,11 +8136,17 @@ export function AgentJobsClient({
                     : "border-amber-300/30 bg-amber-300/10 text-amber-100"
                 }`}
               >
-                {runnerHealth.isOnline ? <Radio className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                {runnerHealth.isOnline ? (
+                  <Radio className="h-4 w-4" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4" />
+                )}
               </div>
               <div className="min-w-0">
                 <h3 className="font-black text-white">{runnerHealth.label}</h3>
-                <p className="mt-1 break-words text-sm leading-6 text-slate-400">{runnerHealth.detail}</p>
+                <p className="mt-1 break-words text-sm leading-6 text-slate-400">
+                  {runnerHealth.detail}
+                </p>
               </div>
             </div>
             <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
@@ -6189,7 +8162,9 @@ export function AgentJobsClient({
                 </p>
                 <span className="text-[11px] font-bold text-slate-500">
                   uptime {runnerHost.uptime}
-                  {runnerHost.sampledAt ? ` · sample ${formatRelativeTime(runnerHost.sampledAt)}` : ""}
+                  {runnerHost.sampledAt
+                    ? ` · sample ${formatRelativeTime(runnerHost.sampledAt)}`
+                    : ""}
                 </span>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 min-[520px]:grid-cols-4">
@@ -6202,9 +8177,11 @@ export function AgentJobsClient({
                         : `${runnerHost.rootUsedPercent}%`,
                     detail: `${runnerHost.rootAvailable} liberi`,
                     tone:
-                      runnerHost.rootUsedPercent !== null && runnerHost.rootUsedPercent >= 85
+                      runnerHost.rootUsedPercent !== null &&
+                      runnerHost.rootUsedPercent >= 85
                         ? "text-red-200"
-                        : runnerHost.rootUsedPercent !== null && runnerHost.rootUsedPercent >= 70
+                        : runnerHost.rootUsedPercent !== null &&
+                            runnerHost.rootUsedPercent >= 70
                           ? "text-amber-100"
                           : "text-emerald-100",
                   },
@@ -6216,7 +8193,8 @@ export function AgentJobsClient({
                         : `${runnerHost.memoryUsedPercent}%`,
                     detail: runnerHost.platform ?? "host",
                     tone:
-                      runnerHost.memoryUsedPercent !== null && runnerHost.memoryUsedPercent >= 85
+                      runnerHost.memoryUsedPercent !== null &&
+                      runnerHost.memoryUsedPercent >= 85
                         ? "text-red-200"
                         : "text-slate-100",
                   },
@@ -6235,19 +8213,34 @@ export function AgentJobsClient({
                           ? "Attiva"
                           : "Off",
                     detail: runnerHost.guardSize,
-                    tone: runnerHost.guardTimerActive ? "text-emerald-100" : "text-amber-100",
+                    tone: runnerHost.guardTimerActive
+                      ? "text-emerald-100"
+                      : "text-amber-100",
                   },
                 ].map((metric) => (
-                  <div key={metric.label} className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-2">
-                    <p className="truncate text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">{metric.label}</p>
-                    <p className={`mt-1 truncate text-sm font-black ${metric.tone}`}>{metric.value}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-slate-500">{metric.detail}</p>
+                  <div
+                    key={metric.label}
+                    className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-2"
+                  >
+                    <p className="truncate text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                      {metric.label}
+                    </p>
+                    <p
+                      className={`mt-1 truncate text-sm font-black ${metric.tone}`}
+                    >
+                      {metric.value}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                      {metric.detail}
+                    </p>
                   </div>
                 ))}
               </div>
-              {runnerHost.rootUsedPercent !== null && runnerHost.rootUsedPercent >= 85 ? (
+              {runnerHost.rootUsedPercent !== null &&
+              runnerHost.rootUsedPercent >= 85 ? (
                 <div className="mt-3 rounded-lg border border-red-300/25 bg-red-300/10 p-2 text-xs leading-5 text-red-100">
-                  Disco VPS oltre soglia: evitare job pesanti e controllare cache/media prima di procedere.
+                  Disco VPS oltre soglia: evitare job pesanti e controllare
+                  cache/media prima di procedere.
                 </div>
               ) : null}
             </div>
@@ -6260,7 +8253,9 @@ export function AgentJobsClient({
                   key={runner.id}
                   className="grid gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-300 min-[420px]:flex min-[420px]:items-center min-[420px]:justify-between min-[420px]:gap-3"
                 >
-                  <span className="break-all font-bold text-white">{runner.id}</span>
+                  <span className="break-all font-bold text-white">
+                    {runner.id}
+                  </span>
                   <span>
                     {runner.status} · {formatRelativeTime(runner.lastSeenAt)}
                   </span>
@@ -6273,18 +8268,35 @@ export function AgentJobsClient({
         <div className="mt-5 grid gap-2">
           <div className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.025] p-3 text-xs leading-5 text-slate-400 min-[640px]:grid-cols-4">
             {[
-              ["1. Coda", "Richiesta pronta, il VPS puo prenderla quando il runner e abilitato."],
-              ["2. Run", "Il runner sta lavorando in sandbox e aggiorna heartbeat/output."],
-              ["3. Review", "La direzione approva, respinge o rimanda con istruzioni."],
-              ["4. Chiuso", "Esito archiviato: storico, audit e artefatti restano consultabili."],
+              [
+                "1. Coda",
+                "Richiesta pronta, il VPS puo prenderla quando il runner e abilitato.",
+              ],
+              [
+                "2. Run",
+                "Il runner sta lavorando in sandbox e aggiorna heartbeat/output.",
+              ],
+              [
+                "3. Review",
+                "La direzione approva, respinge o rimanda con istruzioni.",
+              ],
+              [
+                "4. Chiuso",
+                "Esito archiviato: storico, audit e artefatti restano consultabili.",
+              ],
             ].map(([title, body]) => (
-              <div key={title} className="min-w-0 rounded-md border border-white/10 bg-[#050914] p-2">
+              <div
+                key={title}
+                className="min-w-0 rounded-md border border-white/10 bg-[#050914] p-2"
+              >
                 <p className="font-black text-white">{title}</p>
-                <p className="mt-1 text-[11px] leading-4 text-slate-500">{body}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  {body}
+                </p>
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-5 gap-1 rounded-lg border border-white/10 bg-[#060a15] p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-[#060a15] p-1 min-[520px]:grid-cols-5">
             {jobFilters.map(({ key, label, count, helper }) => (
               <button
                 key={key}
@@ -6293,21 +8305,30 @@ export function AgentJobsClient({
                 aria-label={`${label}: ${helper}`}
                 title={helper}
                 onClick={() => setJobFilter(key)}
-                className={`min-w-0 rounded-md px-1.5 py-2 text-center text-[11px] font-black transition min-[420px]:text-xs ${
-                  jobFilter === key ? "bg-righello-pink text-white" : "text-slate-400 hover:bg-white/10 hover:text-white"
+                className={`min-w-0 rounded-md px-2 py-2 text-center text-[11px] font-black transition min-[420px]:text-xs ${
+                  jobFilter === key
+                    ? "bg-righello-pink text-white"
+                    : "text-slate-400 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <span className="block truncate">{label}</span>
-                <span className="mt-0.5 block text-[10px] opacity-75">{count}</span>
+                <span className="mt-0.5 block text-[10px] opacity-75">
+                  {count}
+                </span>
               </button>
             ))}
           </div>
           <div className="rounded-lg border border-white/10 bg-white/[0.025] p-3 text-xs leading-5 text-slate-400">
             <p>
-              <span className="font-black text-white">{selectedJobFilter.label}</span>: {selectedJobFilter.helper}
+              <span className="font-black text-white">
+                {selectedJobFilter.label}
+              </span>
+              : {selectedJobFilter.helper}
             </p>
             <p className="mt-1 text-slate-500">
-              Monitor: {stats.queued} in coda · {stats.running} in esecuzione · {stats.review} in review · {stats.failed} errori · {stats.done} chiusi · sync {formatRelativeTime(lastControlPlaneRefreshAt)}.
+              Monitor: {stats.queued} in coda · {stats.running} in esecuzione ·{" "}
+              {stats.review} in review · {stats.failed} errori · {stats.done}{" "}
+              chiusi · sync {formatRelativeTime(lastControlPlaneRefreshAt)}.
             </p>
           </div>
         </div>
@@ -6319,11 +8340,16 @@ export function AgentJobsClient({
             </div>
           ) : (
             filteredJobs.map((job) => (
-              <article key={job.id} className="rounded-lg border border-white/10 bg-[#070c19] p-3 sm:p-4">
+              <article
+                key={job.id}
+                className="rounded-lg border border-white/10 bg-[#070c19] p-3 sm:p-4"
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass[job.status]}`}>
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass[job.status]}`}
+                      >
                         {statusCopy[job.status] ?? job.status}
                       </span>
                       <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
@@ -6333,8 +8359,12 @@ export function AgentJobsClient({
                         {job.jobType}
                       </span>
                     </div>
-                    <h3 className="mt-3 text-base font-black leading-snug text-white sm:text-lg">{job.title}</h3>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-400">{job.brief}</p>
+                    <h3 className="mt-3 text-base font-black leading-snug text-white sm:text-lg">
+                      {job.title}
+                    </h3>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-400">
+                      {job.brief}
+                    </p>
                     {job.status === "needs_review" ? (
                       <p className="mt-2 text-xs font-bold text-righello-pink">
                         {approvalCreatesPublishJob(job)
@@ -6344,7 +8374,12 @@ export function AgentJobsClient({
                     ) : null}
                   </div>
                   <div className="grid grid-cols-2 gap-2 min-[520px]:flex sm:justify-end">
-                    {["needs_review", "approved", "rejected", "failed"].includes(job.status) ? (
+                    {[
+                      "needs_review",
+                      "approved",
+                      "rejected",
+                      "failed",
+                    ].includes(job.status) ? (
                       <Button
                         type="button"
                         size="sm"
@@ -6366,7 +8401,9 @@ export function AgentJobsClient({
                           className="rounded-lg bg-emerald-500 text-white hover:bg-emerald-400"
                         >
                           <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                          {approvalCreatesPublishJob(job) ? "Approva e pubblica" : "Approva"}
+                          {approvalCreatesPublishJob(job)
+                            ? "Approva e pubblica"
+                            : "Approva"}
                         </Button>
                         <Button
                           type="button"
@@ -6400,12 +8437,18 @@ export function AgentJobsClient({
                   <p className="flex min-w-0 items-center gap-2">
                     <GitBranch className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">
-                      {job.repoUrl ? `${job.repoUrl.replace("https://github.com/", "")} · ${job.repoBranch ?? "main"}` : "Repo non indicata"}
+                      {job.repoUrl
+                        ? `${job.repoUrl.replace("https://github.com/", "")} · ${job.repoBranch ?? "main"}`
+                        : "Repo non indicata"}
                     </span>
                   </p>
                   <p className="flex items-center gap-2">
                     <Clock className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{new Date(parseServerDate(job.createdAt)).toLocaleString("it-IT")}</span>
+                    <span className="truncate">
+                      {new Date(parseServerDate(job.createdAt)).toLocaleString(
+                        "it-IT",
+                      )}
+                    </span>
                   </p>
                 </div>
 
@@ -6428,7 +8471,7 @@ export function AgentJobsClient({
         <Dialog
           open={Boolean(selectedProvider)}
           onOpenChange={(open) => {
-            if (!open) setSelectedProviderId(null)
+            if (!open) setSelectedProviderId(null);
           }}
         >
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
@@ -6437,7 +8480,9 @@ export function AgentJobsClient({
                 Provider AI: {selectedProvider?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Questo non e un consenso OAuth. Scegli il runtime o fallback del modello; account esterni e servizi web si collegano dalla sezione MCP.
+                Questo non e un consenso OAuth. Scegli il runtime o fallback del
+                modello; account esterni e servizi web si collegano dalla
+                sezione MCP.
               </DialogDescription>
             </DialogHeader>
 
@@ -6448,8 +8493,13 @@ export function AgentJobsClient({
                     <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-50">
                       {providerAuthLabel(selectedProvider.authMethod)}
                     </span>
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedProviderInstallation?.installState ?? "not_installed")}`}>
-                      {installLabel(selectedProviderInstallation?.installState ?? "not_installed")}
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-xs font-bold ${installTone(selectedProviderInstallation?.installState ?? "not_installed")}`}
+                    >
+                      {installLabel(
+                        selectedProviderInstallation?.installState ??
+                          "not_installed",
+                      )}
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
                       {selectedProvider.lane} · {selectedProvider.defaultModel}
@@ -6458,7 +8508,9 @@ export function AgentJobsClient({
                       {providerPrimaryActionLabel(selectedProvider)}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-200">{selectedProvider.tenantUse}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-200">
+                    {selectedProvider.tenantUse}
+                  </p>
                   <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
                     {providerWizardNotice(selectedProvider)}
                   </p>
@@ -6468,81 +8520,115 @@ export function AgentJobsClient({
                   <p className="font-black text-white">Modalita provider</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     {providerSetupModes(selectedProvider).map((mode) => (
-                      <div key={mode.label} className={`rounded-lg border p-3 ${setupModeClass(mode.tone)}`}>
+                      <div
+                        key={mode.label}
+                        className={`rounded-lg border p-3 ${setupModeClass(mode.tone)}`}
+                      >
                         <p className="text-sm font-black">{mode.label}</p>
-                        <p className="mt-2 text-xs leading-5 opacity-85">{mode.body}</p>
+                        <p className="mt-2 text-xs leading-5 opacity-85">
+                          {mode.body}
+                        </p>
                       </div>
                     ))}
                   </div>
                 </section>
 
                 <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
-                  <p className="font-black text-white">Percorso consigliato per il motore</p>
+                  <p className="font-black text-white">
+                    Percorso consigliato per il motore
+                  </p>
                   <div className="mt-3 grid gap-2">
-                    {providerInstallSteps(selectedProvider).map((step, index) => (
-                      <div key={`${selectedProvider.id}-provider-step-${index}`} className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
-                          {index + 1}
-                        </span>
-                        <p className="min-w-0 break-words">{step}</p>
-                      </div>
-                    ))}
+                    {providerInstallSteps(selectedProvider).map(
+                      (step, index) => (
+                        <div
+                          key={`${selectedProvider.id}-provider-step-${index}`}
+                          className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
+                            {index + 1}
+                          </span>
+                          <p className="min-w-0 break-words">{step}</p>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </section>
 
                 <section className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">API key / secret solo se scelto</p>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                      API key / secret solo se scelto
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedProvider.requiredSecrets.length ? (
                         selectedProvider.requiredSecrets.map((secret) => (
-                          <span key={secret} className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-bold text-amber-100">
+                          <span
+                            key={secret}
+                            className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-bold text-amber-100"
+                          >
                             {secret} · {providerCredentialLabel(secret)}
                           </span>
                         ))
                       ) : (
-                        <span className="text-sm text-slate-500">Nessuna credenziale obbligatoria: usa login, OAuth, Browser MCP o runtime locale.</span>
+                        <span className="text-sm text-slate-500">
+                          Nessuna credenziale obbligatoria: usa login, OAuth,
+                          Browser MCP o runtime locale.
+                        </span>
                       )}
                     </div>
                   </div>
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">MCP consigliati</p>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                      MCP consigliati
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedProvider.recommendedMcpConnectors.length ? (
-                        selectedProvider.recommendedMcpConnectors.map((connectorId) => (
-                          <button
-                            key={connectorId}
-                            type="button"
-                            onClick={() => {
-                              setSelectedProviderId(null)
-                              setSelectedConnectorId(connectorId)
-                            }}
-                            className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-1 text-[11px] font-bold text-cyan-100 hover:bg-cyan-300/20"
-                          >
-                            {connectorId}
-                          </button>
-                        ))
+                        selectedProvider.recommendedMcpConnectors.map(
+                          (connectorId) => (
+                            <button
+                              key={connectorId}
+                              type="button"
+                              onClick={() => {
+                                setSelectedProviderId(null);
+                                setSelectedConnectorId(connectorId);
+                              }}
+                              className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-1 text-[11px] font-bold text-cyan-100 hover:bg-cyan-300/20"
+                            >
+                              {connectorId}
+                            </button>
+                          ),
+                        )
                       ) : (
-                        <span className="text-sm text-slate-500">Nessun MCP obbligatorio.</span>
+                        <span className="text-sm text-slate-500">
+                          Nessun MCP obbligatorio.
+                        </span>
                       )}
                     </div>
                   </div>
                 </section>
 
-                {selectedProvider.id === "openai" || selectedProvider.id === "codex" ? (
+                {selectedProvider.id === "openai" ||
+                selectedProvider.id === "codex" ? (
                   <section className="rounded-lg border border-purple-300/20 bg-purple-300/[0.07] p-3 sm:p-4">
                     <p className="font-black text-purple-50">
-                      {selectedProvider.id === "codex" ? "Vuoi login/pairing invece di API key?" : "Vuoi ChatGPT o strumenti web senza API?"}
+                      {selectedProvider.id === "codex"
+                        ? "Vuoi login/pairing invece di API key?"
+                        : "Vuoi ChatGPT o strumenti web senza API?"}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-purple-100">
-                      Usa Browser MCP: apre un browser controllato, fai login tu o con pairing/QR su profilo isolato, e Optima usa solo siti allowlist con audit e review. Per Codex CLI, sul VPS la strada preferita e il wrapper codex-chatgpt con CODEX_HOME ChatGPT separata; Browser MCP serve per account e strumenti web.
+                      Usa Browser MCP: apre un browser controllato, fai login tu
+                      o con pairing/QR su profilo isolato, e Optima usa solo
+                      siti allowlist con audit e review. Per Codex CLI, sul VPS
+                      la strada preferita e il wrapper codex-chatgpt con
+                      CODEX_HOME ChatGPT separata; Browser MCP serve per account
+                      e strumenti web.
                     </p>
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => {
-                        setSelectedProviderId(null)
-                        setSelectedConnectorId("browser")
+                        setSelectedProviderId(null);
+                        setSelectedConnectorId("browser");
                       }}
                       className="mt-3 w-full rounded-lg border-purple-200/20 bg-transparent text-purple-50 hover:bg-purple-300/10 sm:w-auto"
                     >
@@ -6554,9 +8640,13 @@ export function AgentJobsClient({
 
                 {!selectedProviderCanVerify ? (
                   <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
-	                    <p className="font-black">Prima scegli o salva il runtime</p>
+                    <p className="font-black">
+                      Prima scegli o salva il runtime
+                    </p>
                     <p className="mt-1 text-amber-100/90">
-                      Il pulsante di verifica resta disabilitato finche Optima non ha un percorso reale da testare. Se ti serve un login account, apri il connector MCP corretto.
+                      Il pulsante di verifica resta disabilitato finche Optima
+                      non ha un percorso reale da testare. Se ti serve un login
+                      account, apri il connector MCP corretto.
                     </p>
                   </section>
                 ) : null}
@@ -6566,19 +8656,34 @@ export function AgentJobsClient({
                     type="button"
                     variant="outline"
                     onClick={() => createProviderSetupJob(selectedProvider)}
-                    disabled={!selectedProviderCanVerify || setupAction === `provider-setup:${selectedProvider.id}`}
+                    disabled={
+                      !selectedProviderCanVerify ||
+                      setupAction === `provider-setup:${selectedProvider.id}`
+                    }
                     className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                   >
-                    {setupAction === `provider-setup:${selectedProvider.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
+                    {setupAction === `provider-setup:${selectedProvider.id}` ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Network className="mr-1.5 h-4 w-4" />
+                    )}
                     {providerHealthCheckLabel(selectedProviderInstallState)}
                   </Button>
                   <Button
                     type="button"
                     onClick={() => configureProvider(selectedProvider)}
-                    disabled={capabilityAction === `provider-config:${selectedProvider.id}`}
+                    disabled={
+                      capabilityAction ===
+                      `provider-config:${selectedProvider.id}`
+                    }
                     className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                   >
-                    {capabilityAction === `provider-config:${selectedProvider.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
+                    {capabilityAction ===
+                    `provider-config:${selectedProvider.id}` ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="mr-1.5 h-4 w-4" />
+                    )}
                     Salva checklist provider
                   </Button>
                 </div>
@@ -6587,29 +8692,34 @@ export function AgentJobsClient({
           </DialogContent>
         </Dialog>
 
-        {/* 2026-06-25: Dialog "Istruzioni setup" — mostra i passi operativi per creare
-            la OAuth App del provider (URL, scope, callback URI, env vars).
-            Bottoni "Copia" per redirect URI, scope, e ogni env var sensibile. */}
+        {/* Dialog "Istruzioni setup" — mostra i passi operativi per OAuth provider,
+            device flow o runtime CLI senza chiedere credenziali in chiaro. */}
         <Dialog
           open={setupInfo !== null}
           onOpenChange={(open) => {
-            if (!open) setSetupInfo(null)
+            if (!open) setSetupInfo(null);
           }}
         >
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="flex items-center gap-2 text-xl font-black sm:text-2xl">
                 <BookOpen className="h-5 w-5 text-cyan-100" />
-                Istruzioni setup {setupInfo?.data?.connectorLabel ? `— ${setupInfo.data.connectorLabel}` : ""}
+                Istruzioni setup{" "}
+                {setupInfo?.data?.connectorLabel
+                  ? `— ${setupInfo.data.connectorLabel}`
+                  : ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Crea la OAuth App sul provider, salva le env come secret runtime, poi fai redeploy.
+                {setupInfo?.data?.connectorId === "codex"
+                  ? "Collega Codex CLI dal runner con OAuth/device-auth. Optima non usa callback web, client_id o client_secret per Codex."
+                  : "Crea la OAuth App sul provider, salva le env come secret runtime, poi fai redeploy."}
               </DialogDescription>
             </DialogHeader>
 
             {setupInfo?.loading ? (
               <div className="flex items-center justify-center gap-3 p-6 text-sm text-slate-300">
-                <Loader2 className="h-4 w-4 animate-spin" /> Caricamento istruzioni…
+                <Loader2 className="h-4 w-4 animate-spin" /> Caricamento
+                istruzioni…
               </div>
             ) : setupInfo?.data ? (
               <div className="grid min-w-0 gap-4">
@@ -6645,7 +8755,12 @@ export function AgentJobsClient({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => copyToClipboard(setupInfo.data.guide.redirectUri, "Redirect URI copiato")}
+                        onClick={() =>
+                          copyToClipboard(
+                            setupInfo.data.guide.redirectUri,
+                            "Redirect URI copiato",
+                          )
+                        }
                         className="border-cyan-300/30 text-cyan-100 hover:bg-cyan-300/10"
                       >
                         <Copy className="mr-1 h-3.5 w-3.5" /> Copia
@@ -6654,59 +8769,81 @@ export function AgentJobsClient({
                   </section>
                 ) : null}
 
-                {Array.isArray(setupInfo.data.guide?.setupSteps) && setupInfo.data.guide.setupSteps.length ? (
+                {Array.isArray(setupInfo.data.guide?.setupSteps) &&
+                setupInfo.data.guide.setupSteps.length ? (
                   <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
                       Passi operativi
                     </p>
                     <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-slate-200">
-                      {setupInfo.data.guide.setupSteps.map((step: string, idx: number) => (
-                        <li key={idx} className="break-words">
-                          {step}
-                        </li>
-                      ))}
+                      {setupInfo.data.guide.setupSteps.map(
+                        (step: string, idx: number) => (
+                          <li key={idx} className="break-words">
+                            {step}
+                          </li>
+                        ),
+                      )}
                     </ol>
                   </section>
                 ) : null}
 
-                {Array.isArray(setupInfo.data.guide?.envVars) && setupInfo.data.guide.envVars.length ? (
+                {Array.isArray(setupInfo.data.guide?.envVars) &&
+                setupInfo.data.guide.envVars.length ? (
                   <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                      Env vars da salvare come secret runtime
+                      {setupInfo.data.connectorId === "codex"
+                        ? "Runtime runner da configurare"
+                        : "Env vars da salvare come secret runtime"}
                     </p>
                     <ul className="mt-2 space-y-2">
-                      {setupInfo.data.guide.envVars.map((env: { name: string; description: string; sensitive: boolean }, idx: number) => (
-                        <li
-                          key={idx}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/30 px-3 py-2"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="font-mono text-sm font-black text-cyan-100">{env.name}</p>
-                            <p className="mt-0.5 text-xs leading-5 text-slate-400">{env.description}</p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {env.sensitive ? (
-                              <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-[10px] font-black text-amber-100">
-                                secret
-                              </span>
-                            ) : null}
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                copyToClipboard(
-                                  `wrangler secret put ${env.name}=<value>`,
-                                  "Comando copiato",
-                                )
-                              }
-                              className="text-slate-300 hover:text-white"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
+                      {setupInfo.data.guide.envVars.map(
+                        (
+                          env: {
+                            name: string;
+                            description: string;
+                            sensitive: boolean;
+                          },
+                          idx: number,
+                        ) => (
+                          <li
+                            key={idx}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/30 px-3 py-2"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-mono text-sm font-black text-cyan-100">
+                                {env.name}
+                              </p>
+                              <p className="mt-0.5 text-xs leading-5 text-slate-400">
+                                {env.description}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {env.sensitive ? (
+                                <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-[10px] font-black text-amber-100">
+                                  secret
+                                </span>
+                              ) : null}
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  copyToClipboard(
+                                    setupInfo.data.connectorId === "codex" &&
+                                      !env.sensitive
+                                      ? `export ${env.name}=<value>`
+                                      : `wrangler secret put ${env.name}=<value>`,
+                                    "Comando copiato",
+                                  )
+                                }
+                                className="text-slate-300 hover:text-white"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </li>
+                        ),
+                      )}
                     </ul>
                   </section>
                 ) : null}
@@ -6728,13 +8865,19 @@ export function AgentJobsClient({
 
                 {setupInfo.data.notes ? (
                   <section className="rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
-                    <p className="font-black text-slate-200">Note dal catalogo</p>
-                    <p className="mt-1 whitespace-pre-line">{setupInfo.data.notes}</p>
+                    <p className="font-black text-slate-200">
+                      Note dal catalogo
+                    </p>
+                    <p className="mt-1 whitespace-pre-line">
+                      {setupInfo.data.notes}
+                    </p>
                   </section>
                 ) : null}
               </div>
             ) : (
-              <div className="p-6 text-sm text-slate-400">Nessun dato disponibile.</div>
+              <div className="p-6 text-sm text-slate-400">
+                Nessun dato disponibile.
+              </div>
             )}
 
             <DialogFooter className="mt-2 flex flex-wrap items-center justify-end gap-2">
@@ -6753,7 +8896,7 @@ export function AgentJobsClient({
         <Dialog
           open={Boolean(selectedConnector)}
           onOpenChange={(open) => {
-            if (!open) setSelectedConnectorId(null)
+            if (!open) setSelectedConnectorId(null);
           }}
         >
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
@@ -6762,7 +8905,8 @@ export function AgentJobsClient({
                 Collegamento: {selectedConnector?.label ?? ""}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Prima colleghi davvero il servizio, poi Optima fa una verifica read-only, poi i subagenti possono usarlo con permessi e review.
+                Prima colleghi davvero il servizio, poi Optima fa una verifica
+                read-only, poi i subagenti possono usarlo con permessi e review.
               </DialogDescription>
             </DialogHeader>
 
@@ -6773,10 +8917,20 @@ export function AgentJobsClient({
                   operationalState={selectedConnectorOperationalState}
                   healthLabel={selectedConnectorPlan?.healthLabel ?? null}
                   healthOk={selectedConnectorPlan?.healthOk ?? false}
-                  setupLabel={installLabel(selectedConnectorPlan?.state ?? "not_installed")}
-                  setupTone={installTone(selectedConnectorPlan?.state ?? "not_installed")}
-                  setupKindLabel={connectorSetupKindLabel(selectedConnectorPlan?.kind ?? connectorSetupKind(selectedConnector))}
-                  setupKindTone={connectorSetupKindTone(selectedConnectorPlan?.kind ?? connectorSetupKind(selectedConnector))}
+                  setupLabel={installLabel(
+                    selectedConnectorPlan?.state ?? "not_installed",
+                  )}
+                  setupTone={installTone(
+                    selectedConnectorPlan?.state ?? "not_installed",
+                  )}
+                  setupKindLabel={connectorSetupKindLabel(
+                    selectedConnectorPlan?.kind ??
+                      connectorSetupKind(selectedConnector),
+                  )}
+                  setupKindTone={connectorSetupKindTone(
+                    selectedConnectorPlan?.kind ??
+                      connectorSetupKind(selectedConnector),
+                  )}
                   purpose={selectedConnector.purpose}
                   setupHint={connectorSetupHint(selectedConnector)}
                 />
@@ -6786,7 +8940,9 @@ export function AgentJobsClient({
                     <div className="min-w-0">
                       <p className="font-black text-white">Stato del flusso</p>
                       <p className="mt-1 text-sm leading-6 text-slate-400">
-                        Optima usa il connector solo quando questi stati sono coerenti: niente job generici prima del login/configurazione reale.
+                        Optima usa il connector solo quando questi stati sono
+                        coerenti: niente job generici prima del
+                        login/configurazione reale.
                       </p>
                     </div>
                     <span className="w-fit shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
@@ -6795,23 +8951,37 @@ export function AgentJobsClient({
                   </div>
                   <ConnectorStates
                     realPrerequisiteMet={selectedConnectorRealPrerequisiteMet}
-                    primaryActionAvailable={selectedConnectorPrimaryActionAvailable}
-                    canCreateVerification={selectedConnectorCanCreateVerification}
+                    primaryActionAvailable={
+                      selectedConnectorPrimaryActionAvailable
+                    }
+                    canCreateVerification={
+                      selectedConnectorCanCreateVerification
+                    }
                     operationalState={selectedConnectorOperationalState}
-                    verificationBlockedLabel={connectorVerificationBlockedLabel(selectedConnectorKind)}
-                    primaryActionLabel={selectedConnectorPlan?.primaryActionLabel ?? null}
+                    verificationBlockedLabel={connectorVerificationBlockedLabel(
+                      selectedConnectorKind,
+                    )}
+                    primaryActionLabel={
+                      selectedConnectorPlan?.primaryActionLabel ?? null
+                    }
                   />
                 </section>
 
                 <section className="rounded-lg border border-righello-pink/25 bg-righello-pink/[0.07] p-3 sm:p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">Collegamento reale</p>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">
+                        Collegamento reale
+                      </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-black text-white">{connectorPrimaryActionTitle(selectedConnector)}</h3>
+                        <h3 className="text-lg font-black text-white">
+                          {connectorPrimaryActionTitle(selectedConnector)}
+                        </h3>
                         <span
                           className={`rounded-full border px-2.5 py-1 text-xs font-black ${
-                            connectorOperationalTone[selectedConnectorOperationalState] ?? connectorOperationalTone.ready_to_connect
+                            connectorOperationalTone[
+                              selectedConnectorOperationalState
+                            ] ?? connectorOperationalTone.ready_to_connect
                           }`}
                         >
                           {selectedConnectorOperationalLabel}
@@ -6822,8 +8992,12 @@ export function AgentJobsClient({
                       </p>
                       {!selectedConnectorPrimaryActionAvailable ? (
                         <p className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/[0.08] p-3 text-sm font-bold leading-6 text-amber-50">
-                          Prima completa il requisito reale: {selectedConnectorSetupStatus?.requirementLabel ?? selectedConnectorPlan?.missingLabel ?? "runtime non pronto"}.
-                          Optima non crea job di setup per simulare un login o una credenziale mancante.
+                          Prima completa il requisito reale:{" "}
+                          {selectedConnectorSetupStatus?.requirementLabel ??
+                            selectedConnectorPlan?.missingLabel ??
+                            "runtime non pronto"}
+                          . Optima non crea job di setup per simulare un login o
+                          una credenziale mancante.
                         </p>
                       ) : null}
                     </div>
@@ -6835,12 +9009,17 @@ export function AgentJobsClient({
                             onClick={() => startBrowserMcpLogin("chatgpt")}
                             disabled={
                               Boolean(browserPairingAction) ||
-                              selectedConnectorPlan?.canStartBrowserPairing === false ||
+                              selectedConnectorPlan?.canStartBrowserPairing ===
+                                false ||
                               !selectedConnectorPrimaryActionAvailable
                             }
                             className="min-h-11 rounded-lg bg-purple-500 text-white hover:bg-purple-500/90"
                           >
-                            {browserPairingAction === "chatgpt" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
+                            {browserPairingAction === "chatgpt" ? (
+                              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Network className="mr-1.5 h-4 w-4" />
+                            )}
                             Prepara ChatGPT
                           </Button>
                           <Button
@@ -6849,12 +9028,17 @@ export function AgentJobsClient({
                             onClick={() => startBrowserMcpLogin("gemini")}
                             disabled={
                               Boolean(browserPairingAction) ||
-                              selectedConnectorPlan?.canStartBrowserPairing === false ||
+                              selectedConnectorPlan?.canStartBrowserPairing ===
+                                false ||
                               !selectedConnectorPrimaryActionAvailable
                             }
                             className="min-h-11 rounded-lg border-purple-200/20 bg-purple-300/10 text-purple-50 hover:bg-purple-300/15"
                           >
-                            {browserPairingAction === "gemini" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
+                            {browserPairingAction === "gemini" ? (
+                              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Network className="mr-1.5 h-4 w-4" />
+                            )}
                             Prepara Gemini
                           </Button>
                         </>
@@ -6864,7 +9048,7 @@ export function AgentJobsClient({
                           type="button"
                           variant="outline"
                           onClick={() => {
-                            window.location.href = "/settings"
+                            window.location.href = "/settings";
                           }}
                           className="min-h-11 rounded-lg border-cyan-300/20 bg-cyan-300/10 text-cyan-50 hover:bg-cyan-300/15"
                         >
@@ -6872,45 +9056,87 @@ export function AgentJobsClient({
                           Apri policy GitHub
                         </Button>
                       ) : null}
+                      {selectedConnector.id === "codex" ? (
+                        <Button
+                          type="button"
+                          onClick={() => openSetupInfo(selectedConnector)}
+                          className="min-h-11 rounded-lg bg-cyan-400 text-slate-950 hover:bg-cyan-300"
+                        >
+                          <Terminal className="mr-1.5 h-4 w-4" />
+                          Guida login Codex
+                        </Button>
+                      ) : null}
                       {isStandardOAuthConnector(selectedConnector) ? (
                         <Button
                           type="button"
                           onClick={() => startConnectorOAuth(selectedConnector)}
                           disabled={
-                            oauthAction === `connector-oauth:${selectedConnector.id}` ||
+                            oauthAction ===
+                              `connector-oauth:${selectedConnector.id}` ||
                             selectedConnectorPlan?.canStartOauth === false ||
                             !selectedConnectorPrimaryActionAvailable
                           }
                           className="min-h-11 rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400"
                         >
-                          {oauthAction === `connector-oauth:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
-                          {selectedConnectorPlan?.canStartOauth === false || !selectedConnectorPrimaryActionAvailable ? "Configura app OAuth" : "Apri OAuth provider"}
+                          {oauthAction ===
+                          `connector-oauth:${selectedConnector.id}` ? (
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="mr-1.5 h-4 w-4" />
+                          )}
+                          {selectedConnectorPlan?.canStartOauth === false ||
+                          !selectedConnectorPrimaryActionAvailable
+                            ? "Configura app OAuth"
+                            : "Apri OAuth provider"}
                         </Button>
                       ) : null}
                       {isDeviceFlowConnector(selectedConnector) ? (
                         <DeviceFlowConnector
                           connectorId={selectedConnector.id}
                           connectorLabel={selectedConnector.label}
-                          primaryActionAvailable={selectedConnectorPrimaryActionAvailable}
-                          primaryActionLabel={selectedConnectorPlan?.primaryActionLabel ?? undefined}
+                          primaryActionAvailable={
+                            selectedConnectorPrimaryActionAvailable
+                          }
+                          primaryActionLabel={
+                            selectedConnectorPlan?.primaryActionLabel ??
+                            undefined
+                          }
                           primaryActionExplanation={null}
                           oauthAction={oauthAction}
                           setOauthAction={setOauthAction}
                           onConnected={() => {
-                            void refreshCapabilitiesSnapshot()
+                            void refreshCapabilitiesSnapshot();
                           }}
                         />
                       ) : null}
-                      {selectedConnector.id !== "browser" && !isStandardOAuthConnector(selectedConnector) && selectedConnector.id !== "github" ? (
+                      {selectedConnector.id !== "browser" &&
+                      !isStandardOAuthConnector(selectedConnector) &&
+                      selectedConnector.id !== "github" ? (
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => createConnectorSetupJob(selectedConnector)}
-                          disabled={setupAction === `connector-setup:${selectedConnector.id}` || !selectedConnectorCanCreateVerification}
+                          onClick={() =>
+                            createConnectorSetupJob(selectedConnector)
+                          }
+                          disabled={
+                            setupAction ===
+                              `connector-setup:${selectedConnector.id}` ||
+                            !selectedConnectorCanCreateVerification
+                          }
                           className="min-h-11 rounded-lg border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
                         >
-                          {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-                          {!selectedConnectorCanCreateVerification ? connectorVerificationBlockedLabel(selectedConnectorKind) : selectedConnectorPlan?.verifyActionLabel ?? "Verifica runtime"}
+                          {setupAction ===
+                          `connector-setup:${selectedConnector.id}` ? (
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Network className="mr-1.5 h-4 w-4" />
+                          )}
+                          {!selectedConnectorCanCreateVerification
+                            ? connectorVerificationBlockedLabel(
+                                selectedConnectorKind,
+                              )
+                            : (selectedConnectorPlan?.verifyActionLabel ??
+                              "Verifica runtime")}
                         </Button>
                       ) : null}
                     </div>
@@ -6927,28 +9153,39 @@ export function AgentJobsClient({
                       onClick={() => openSetupInfo(selectedConnector)}
                       className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
                     >
-                      <BookOpen className="mr-1.5 h-3.5 w-3.5" /> Istruzioni setup
+                      <BookOpen className="mr-1.5 h-3.5 w-3.5" /> Istruzioni
+                      setup
                     </Button>
                     <span className="text-xs text-slate-500">
-                      {connectorAuthLabel(selectedConnector.authMethod)} · client_id + secret su runtime
+                      {connectorSetupSummary(selectedConnector)}
                     </span>
                   </div>
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    {connectorWizardSteps(selectedConnector).map((step, index) => (
-                      <div key={`${selectedConnector.id}-wizard-${index}`} className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
-                          {index + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-white">{step.title}</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-300">{step.body}</p>
+                    {connectorWizardSteps(selectedConnector).map(
+                      (step, index) => (
+                        <div
+                          key={`${selectedConnector.id}-wizard-${index}`}
+                          className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-white">
+                              {step.title}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-300">
+                              {step.body}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                   <p className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-300">
-                    {selectedConnectorPlan?.shortNextAction ?? connectorNextActionCopy(selectedConnector)}
+                    {selectedConnectorPlan?.shortNextAction ??
+                      connectorNextActionCopy(selectedConnector)}
                   </p>
                   {selectedConnectorPlan?.blockedReason ? (
                     <p className="mt-2 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm font-bold leading-6 text-amber-50">
@@ -6959,24 +9196,36 @@ export function AgentJobsClient({
 
                 <section className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{connectorRequirementsLabel(selectedConnector)}</p>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                      {connectorRequirementsLabel(selectedConnector)}
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedConnector.requiredEnv.length ? (
                         selectedConnector.requiredEnv.map((env) => (
-                          <span key={env} className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-bold text-amber-100">
+                          <span
+                            key={env}
+                            className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-bold text-amber-100"
+                          >
                             {env}
                           </span>
                         ))
                       ) : (
-                        <span className="text-sm leading-6 text-slate-500">{connectorEmptyRequirementCopy(selectedConnector)}</span>
+                        <span className="text-sm leading-6 text-slate-500">
+                          {connectorEmptyRequirementCopy(selectedConnector)}
+                        </span>
                       )}
                     </div>
                   </div>
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Scope grafo</p>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                      Scope grafo
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedConnector.graphUse.map((scope) => (
-                        <span key={scope} className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-1 text-[11px] font-bold text-cyan-100">
+                        <span
+                          key={scope}
+                          className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-1 text-[11px] font-bold text-cyan-100"
+                        >
                           {scope}
                         </span>
                       ))}
@@ -6986,24 +9235,35 @@ export function AgentJobsClient({
 
                 {isStandardOAuthConnector(selectedConnector) ? (
                   <section className="rounded-lg border border-emerald-300/20 bg-emerald-300/[0.06] p-3 sm:p-4">
-                    <p className="font-black text-emerald-50">Flusso OAuth corretto</p>
+                    <p className="font-black text-emerald-50">
+                      Flusso OAuth corretto
+                    </p>
                     <div className="mt-3 grid gap-2 text-sm leading-6 text-emerald-100">
                       <p>
-                        1. Optima apre una pagina di consenso del provider con `state`, PKCE e redirect allowlist.
+                        1. Optima apre una pagina di consenso del provider con
+                        `state`, PKCE e redirect allowlist.
                       </p>
                       <p>
-                        2. Axel o il cliente autorizza solo account, pagina, sede, calendario o cartella necessari.
+                        2. Axel o il cliente autorizza solo account, pagina,
+                        sede, calendario o cartella necessari.
                       </p>
                       <p>
-                        3. Il token finisce nel runtime/secret vault come `secret_ref`; in D1 restano solo stato, scope, soggetto e audit.
+                        3. Il token finisce nel runtime/secret vault come
+                        `secret_ref`; in D1 restano solo stato, scope, soggetto
+                        e audit.
                       </p>
                       <p>
-                        4. Le azioni pubbliche restano draft/review: pubblicazione social, aggiornamento orari Google Business o invio cliente richiedono approvazione.
+                        4. Le azioni pubbliche restano draft/review:
+                        pubblicazione social, aggiornamento orari Google
+                        Business o invio cliente richiedono approvazione.
                       </p>
                     </div>
                     <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-300">
-                      Se il pulsante non apre ancora il consenso reale significa che manca l'OAuth app del provider nel runtime
-                      (`client_id`, redirect URI e secret_ref). In quel caso il prossimo passo e configurare l'app developer, non creare un job generico.
+                      Se il pulsante non apre ancora il consenso reale significa
+                      che manca l'OAuth app del provider nel runtime
+                      (`client_id`, redirect URI e secret_ref). In quel caso il
+                      prossimo passo e configurare l'app developer, non creare
+                      un job generico.
                     </div>
                   </section>
                 ) : null}
@@ -7013,9 +9273,16 @@ export function AgentJobsClient({
                   <div className="mt-3 grid gap-2">
                     {(selectedConnector.setupSteps?.length
                       ? selectedConnector.setupSteps
-                      : ["Definire credenziali nel runtime autorizzato.", "Salvare in Optima solo stato e secret_ref.", "Eseguire una verifica prima di usare il connector."]
+                      : [
+                          "Definire credenziali nel runtime autorizzato.",
+                          "Salvare in Optima solo stato e secret_ref.",
+                          "Eseguire una verifica prima di usare il connector.",
+                        ]
                     ).map((step, index) => (
-                      <div key={`${selectedConnector.id}-step-${index}`} className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200">
+                      <div
+                        key={`${selectedConnector.id}-step-${index}`}
+                        className="flex gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200"
+                      >
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-righello-pink text-xs font-black text-white">
                           {index + 1}
                         </span>
@@ -7026,9 +9293,12 @@ export function AgentJobsClient({
                 </section>
 
                 <section className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.05] p-3 sm:p-4">
-                  <p className="font-black text-emerald-50">Verifica prima della produzione</p>
+                  <p className="font-black text-emerald-50">
+                    Verifica prima della produzione
+                  </p>
                   <p className="mt-2 text-sm leading-6 text-emerald-100">
-                    {selectedConnector.healthCheck ?? "Verifica credenziali, permessi minimi e audit log prima di dichiarare il connector operativo."}
+                    {selectedConnector.healthCheck ??
+                      "Verifica credenziali, permessi minimi e audit log prima di dichiarare il connector operativo."}
                   </p>
                 </section>
 
@@ -7036,9 +9306,15 @@ export function AgentJobsClient({
                   <section className="rounded-lg border border-purple-300/20 bg-purple-300/[0.07] p-3 sm:p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-black text-purple-50">Wizard Browser MCP</p>
+                        <p className="font-black text-purple-50">
+                          Wizard Browser MCP
+                        </p>
                         <p className="mt-2 text-sm leading-6 text-purple-100">
-                          Per ChatGPT, Gemini/Nano Banana e strumenti web la prima scelta non e una API key a consumo. Optima usa un profilo Chrome isolato sul VPS: fai login tu, poi Optima mostra lo stato collegato e lo usa solo dentro azioni allowlist e revisionabili.
+                          Per ChatGPT, Gemini/Nano Banana e strumenti web la
+                          prima scelta non e una API key a consumo. Optima usa
+                          un profilo Chrome isolato sul VPS: fai login tu, poi
+                          Optima mostra lo stato collegato e lo usa solo dentro
+                          azioni allowlist e revisionabili.
                         </p>
                       </div>
                       {selectedBrowserPairingSession ? (
@@ -7048,12 +9324,14 @@ export function AgentJobsClient({
                       ) : null}
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                      {([
-                        ["chatgpt", "ChatGPT"],
-                        ["gemini", "Gemini / Nano Banana"],
-                        ["perplexity", "Perplexity"],
-                        ["claude", "Claude"],
-                      ] as const).map(([target, label]) => (
+                      {(
+                        [
+                          ["chatgpt", "ChatGPT"],
+                          ["gemini", "Gemini / Nano Banana"],
+                          ["perplexity", "Perplexity"],
+                          ["claude", "Claude"],
+                        ] as const
+                      ).map(([target, label]) => (
                         <Button
                           key={target}
                           type="button"
@@ -7061,22 +9339,34 @@ export function AgentJobsClient({
                           onClick={() => startBrowserMcpLogin(target)}
                           disabled={
                             Boolean(browserPairingAction) ||
-                            selectedConnectorPlan?.canStartBrowserPairing === false ||
+                            selectedConnectorPlan?.canStartBrowserPairing ===
+                              false ||
                             !selectedConnectorPrimaryActionAvailable
                           }
                           className="rounded-lg border-purple-200/20 bg-black/20 text-purple-50 hover:bg-purple-300/10"
                         >
-                          {browserPairingAction === target ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />}
-                          {!selectedConnectorPrimaryActionAvailable ? "Gateway mancante" : `Prepara ${label}`}
-	                        </Button>
+                          {browserPairingAction === target ? (
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="mr-1.5 h-4 w-4" />
+                          )}
+                          {!selectedConnectorPrimaryActionAvailable
+                            ? "Gateway mancante"
+                            : `Prepara ${label}`}
+                        </Button>
                       ))}
                     </div>
                     <div className="mt-3 grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="font-black text-cyan-50">Stato collegamenti web</p>
+                          <p className="font-black text-cyan-50">
+                            Stato collegamenti web
+                          </p>
                           <p className="mt-1 text-sm leading-6 text-cyan-100/80">
-                            Dopo il login premi “Aggiorna stato”. Se vedi ChatGPT o Gemini qui sotto, il profilo browser e pronto per job e assistente. La verifica finale resta una prova controllata, non un nuovo login.
+                            Dopo il login premi “Aggiorna stato”. Se vedi
+                            ChatGPT o Gemini qui sotto, il profilo browser e
+                            pronto per job e assistente. La verifica finale
+                            resta una prova controllata, non un nuovo login.
                           </p>
                         </div>
                         <Button
@@ -7085,12 +9375,13 @@ export function AgentJobsClient({
                           onClick={() =>
                             refreshCapabilitiesSnapshot()
                               .then(() => {
-                                toast.success("Stato Browser MCP aggiornato")
+                                toast.success("Stato Browser MCP aggiornato");
                               })
                               .catch((err) => {
                                 toast.error("Refresh non riuscito", {
-                                  description: err?.message ?? "Riprova tra poco.",
-                                })
+                                  description:
+                                    err?.message ?? "Riprova tra poco.",
+                                });
                               })
                           }
                           className="min-h-10 rounded-lg border-cyan-200/20 bg-cyan-300/10 text-cyan-50 hover:bg-cyan-300/15"
@@ -7101,22 +9392,37 @@ export function AgentJobsClient({
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {(["chatgpt", "gemini"] as const).map((target) => {
-                          const connected = selectedBrowserConnectedSessions.find((session) => normalizeBrowserTargetForUi(session.target) === target)
+                          const connected =
+                            selectedBrowserConnectedSessions.find(
+                              (session) =>
+                                normalizeBrowserTargetForUi(session.target) ===
+                                target,
+                            );
                           const activeForTarget =
-                            normalizeBrowserTargetForUi(selectedBrowserPairingSession?.target) === target ? selectedBrowserPairingSession : null
-                          const label = browserTargetLabel(target)
-                          const ready = connected?.status === "login_completed_by_user"
-                          const expired = !ready && isBrowserSessionExpired(activeForTarget)
+                            normalizeBrowserTargetForUi(
+                              selectedBrowserPairingSession?.target,
+                            ) === target
+                              ? selectedBrowserPairingSession
+                              : null;
+                          const label = browserTargetLabel(target);
+                          const ready =
+                            connected?.status === "login_completed_by_user";
+                          const expired =
+                            !ready && isBrowserSessionExpired(activeForTarget);
                           const status = ready
                             ? "Login confermato"
                             : expired
                               ? "Sessione scaduta"
                               : activeForTarget
-                              ? activeForTarget.status === "opened"
-                                ? "Login aperto"
-                                : "Sessione preparata"
-                              : "Da collegare"
-                          const timestamp = connected?.connectedAt || connected?.lastEventAt || activeForTarget?.lastEventAt || null
+                                ? activeForTarget.status === "opened"
+                                  ? "Login aperto"
+                                  : "Sessione preparata"
+                                : "Da collegare";
+                          const timestamp =
+                            connected?.connectedAt ||
+                            connected?.lastEventAt ||
+                            activeForTarget?.lastEventAt ||
+                            null;
                           return (
                             <div
                               key={target}
@@ -7130,13 +9436,15 @@ export function AgentJobsClient({
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <p className="font-black text-white">{label}</p>
-                                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${
-                                  ready
-                                    ? "border-emerald-200/25 bg-emerald-300/10 text-emerald-50"
-                                    : expired
-                                      ? "border-amber-200/25 bg-amber-300/10 text-amber-50"
-                                    : "border-slate-400/20 bg-slate-400/10 text-slate-200"
-                                }`}>
+                                <span
+                                  className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${
+                                    ready
+                                      ? "border-emerald-200/25 bg-emerald-300/10 text-emerald-50"
+                                      : expired
+                                        ? "border-amber-200/25 bg-amber-300/10 text-amber-50"
+                                        : "border-slate-400/20 bg-slate-400/10 text-slate-200"
+                                  }`}
+                                >
                                   {status}
                                 </span>
                               </div>
@@ -7146,10 +9454,12 @@ export function AgentJobsClient({
                                   : "ChatGPT web controllato dal profilo browser isolato."}
                               </p>
                               {timestamp ? (
-                                <p className="mt-2 text-xs font-bold text-slate-300">Ultimo evento: {formatDateTime(timestamp)}</p>
+                                <p className="mt-2 text-xs font-bold text-slate-300">
+                                  Ultimo evento: {formatDateTime(timestamp)}
+                                </p>
                               ) : null}
                             </div>
-                          )
+                          );
                         })}
                       </div>
                     </div>
@@ -7158,26 +9468,46 @@ export function AgentJobsClient({
                         <div className="min-w-0 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
                           <p className="font-black">Sessione corrente</p>
                           <p className="mt-1 min-w-0 break-words">
-                            Usa “Apri login controllabile” per completare l'accesso. Se hai gia fatto login, premi “Aggiorna stato”: Optima deve mostrare il servizio collegato sopra.
+                            Usa “Apri login controllabile” per completare
+                            l'accesso. Se hai gia fatto login, premi “Aggiorna
+                            stato”: Optima deve mostrare il servizio collegato
+                            sopra.
                           </p>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-3">
                           <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
-                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Pairing code</p>
-                            <p className="mt-1 font-mono text-lg font-black text-white">{selectedBrowserPairingSession.pairingCode}</p>
+                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                              Pairing code
+                            </p>
+                            <p className="mt-1 font-mono text-lg font-black text-white">
+                              {selectedBrowserPairingSession.pairingCode}
+                            </p>
                           </div>
                           <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
-                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Target</p>
+                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                              Target
+                            </p>
                             <p className="mt-1 break-words text-sm font-bold text-slate-200">
-                              {selectedBrowserPairingSession.targetLabel || browserTargetLabel(selectedBrowserPairingSession.target)}
+                              {selectedBrowserPairingSession.targetLabel ||
+                                browserTargetLabel(
+                                  selectedBrowserPairingSession.target,
+                                )}
                             </p>
                             <p className="mt-1 break-words font-mono text-[11px] text-slate-500">
-                              {browserTargetStartUrl(selectedBrowserPairingSession.target)}
+                              {browserTargetStartUrl(
+                                selectedBrowserPairingSession.target,
+                              )}
                             </p>
                           </div>
                           <div className="min-w-0 rounded-lg border border-white/10 bg-black/15 p-3">
-                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Scadenza</p>
-                            <p className="mt-1 text-sm font-bold text-slate-200">{formatDateTime(selectedBrowserPairingSession.expiresAt)}</p>
+                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                              Scadenza
+                            </p>
+                            <p className="mt-1 text-sm font-bold text-slate-200">
+                              {formatDateTime(
+                                selectedBrowserPairingSession.expiresAt,
+                              )}
+                            </p>
                           </div>
                         </div>
                         {selectedBrowserPairingSession.gatewayUrl ? (
@@ -7185,13 +9515,23 @@ export function AgentJobsClient({
                             <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] p-3 text-sm leading-6 text-cyan-50">
                               <p className="font-black">Flusso rapido</p>
                               <p className="mt-1">
-                                Apri il login controllabile: quello e il posto giusto dove digitare credenziali e completare eventuali QR/passkey. Il test gateway resta disponibile solo se il link non si apre.
+                                Apri il login controllabile: quello e il posto
+                                giusto dove digitare credenziali e completare
+                                eventuali QR/passkey. Il test gateway resta
+                                disponibile solo se il link non si apre.
                               </p>
                               <p className="mt-1 text-cyan-100/80">
-                                Se Safari dice che non trova il server: questo dispositivo non sta raggiungendo Tailscale/MagicDNS oppure il servizio VPS e spento. In quel caso prova dal Mac collegato a Tailscale o usa il fallback IP.
+                                Se Safari dice che non trova il server: questo
+                                dispositivo non sta raggiungendo
+                                Tailscale/MagicDNS oppure il servizio VPS e
+                                spento. In quel caso prova dal Mac collegato a
+                                Tailscale o usa il fallback IP.
                               </p>
                               <p className="mt-1 text-cyan-100/80">
-                                Se il login apre DevTools invece del browser controllabile, chiudi e crea una nuova sessione. DevTools resta solo un fallback tecnico, non il flusso di login umano.
+                                Se il login apre DevTools invece del browser
+                                controllabile, chiudi e crea una nuova sessione.
+                                DevTools resta solo un fallback tecnico, non il
+                                flusso di login umano.
                               </p>
                             </div>
                             <div className="grid gap-2 sm:grid-cols-3">
@@ -7199,50 +9539,79 @@ export function AgentJobsClient({
                                 const primaryHealthUrl =
                                   selectedBrowserPairingSession.fallbackGatewayHealthUrl ||
                                   selectedBrowserPairingSession.gatewayHealthUrl ||
-                                  selectedBrowserPairingSession.gatewayUrl!
+                                  selectedBrowserPairingSession.gatewayUrl!;
                                 const primaryLoginUrl =
                                   selectedBrowserPairingSession.fallbackGatewayUrl ||
-                                  selectedBrowserPairingSession.gatewayUrl!
+                                  selectedBrowserPairingSession.gatewayUrl!;
                                 const secondaryHealthUrl =
                                   selectedBrowserPairingSession.fallbackGatewayHealthUrl
                                     ? selectedBrowserPairingSession.gatewayHealthUrl
-                                    : null
+                                    : null;
                                 return (
                                   <>
-                              <Button
-                                type="button"
-                                onClick={() => window.open(primaryLoginUrl, "_blank", "noopener,noreferrer")}
-                                className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90 sm:col-span-2"
-                              >
-                                <Network className="mr-1.5 h-4 w-4 shrink-0" />
-                                Apri login controllabile
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => window.open(primaryHealthUrl, "_blank", "noopener,noreferrer")}
-                                className="min-h-12 w-full justify-center rounded-lg border-emerald-200/20 bg-emerald-300/10 px-3 text-center text-sm font-black text-emerald-50 hover:bg-emerald-300/15"
-                              >
-                                <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
-                                Test gateway
-                              </Button>
-                              {secondaryHealthUrl ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => window.open(secondaryHealthUrl, "_blank", "noopener,noreferrer")}
-                                  className="min-h-10 w-full justify-center rounded-lg border-white/10 bg-transparent px-3 text-center text-xs font-bold text-slate-200 hover:bg-white/10 sm:col-span-3"
-                                >
-                                  Test alternativo MagicDNS
-                                </Button>
-                              ) : null}
+                                    <Button
+                                      type="button"
+                                      onClick={() =>
+                                        window.open(
+                                          primaryLoginUrl,
+                                          "_blank",
+                                          "noopener,noreferrer",
+                                        )
+                                      }
+                                      className="min-h-12 w-full justify-center rounded-lg bg-purple-500 px-3 text-center text-sm font-black text-white hover:bg-purple-500/90 sm:col-span-2"
+                                    >
+                                      <Network className="mr-1.5 h-4 w-4 shrink-0" />
+                                      Apri login controllabile
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() =>
+                                        window.open(
+                                          primaryHealthUrl,
+                                          "_blank",
+                                          "noopener,noreferrer",
+                                        )
+                                      }
+                                      className="min-h-12 w-full justify-center rounded-lg border-emerald-200/20 bg-emerald-300/10 px-3 text-center text-sm font-black text-emerald-50 hover:bg-emerald-300/15"
+                                    >
+                                      <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0" />
+                                      Test gateway
+                                    </Button>
+                                    {secondaryHealthUrl ? (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                          window.open(
+                                            secondaryHealthUrl,
+                                            "_blank",
+                                            "noopener,noreferrer",
+                                          )
+                                        }
+                                        className="min-h-10 w-full justify-center rounded-lg border-white/10 bg-transparent px-3 text-center text-xs font-bold text-slate-200 hover:bg-white/10 sm:col-span-3"
+                                      >
+                                        Test alternativo MagicDNS
+                                      </Button>
+                                    ) : null}
                                   </>
-                                )
+                                );
                               })()}
                             </div>
                             <div className="grid min-w-0 gap-2 rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-5 text-slate-300">
-                              <p className="font-bold text-slate-200">Gateway consigliato da qualunque dispositivo collegato a Tailscale: http://100.100.39.96:8789</p>
-                              <p className="text-slate-400">Usa sempre URL completi con <span className="font-mono">http://</span>. MagicDNS resta alternativo: <span className="font-mono">http://padel-vps.tailcd2fda.ts.net:8789</span>.</p>
+                              <p className="font-bold text-slate-200">
+                                Gateway consigliato da qualunque dispositivo
+                                collegato a Tailscale: http://100.100.39.96:8789
+                              </p>
+                              <p className="text-slate-400">
+                                Usa sempre URL completi con{" "}
+                                <span className="font-mono">http://</span>.
+                                MagicDNS resta alternativo:{" "}
+                                <span className="font-mono">
+                                  http://padel-vps.tailcd2fda.ts.net:8789
+                                </span>
+                                .
+                              </p>
                               <div className="grid gap-2 sm:grid-cols-4">
                                 <Button
                                   type="button"
@@ -7264,7 +9633,8 @@ export function AgentJobsClient({
                                   variant="outline"
                                   onClick={() =>
                                     copyBrowserPairingCommand(
-                                      selectedBrowserPairingSession.fallbackGatewayUrl || selectedBrowserPairingSession.gatewayUrl!,
+                                      selectedBrowserPairingSession.fallbackGatewayUrl ||
+                                        selectedBrowserPairingSession.gatewayUrl!,
                                     )
                                   }
                                   className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
@@ -7276,7 +9646,13 @@ export function AgentJobsClient({
                                   <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => window.open(selectedBrowserPairingSession.fallbackGatewayHealthUrl!, "_blank", "noopener,noreferrer")}
+                                    onClick={() =>
+                                      window.open(
+                                        selectedBrowserPairingSession.fallbackGatewayHealthUrl!,
+                                        "_blank",
+                                        "noopener,noreferrer",
+                                      )
+                                    }
                                     className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                                   >
                                     <CheckCircle2 className="mr-1.5 h-4 w-4" />
@@ -7287,7 +9663,13 @@ export function AgentJobsClient({
                                   <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => window.open(selectedBrowserPairingSession.fallbackGatewayUrl!, "_blank", "noopener,noreferrer")}
+                                    onClick={() =>
+                                      window.open(
+                                        selectedBrowserPairingSession.fallbackGatewayUrl!,
+                                        "_blank",
+                                        "noopener,noreferrer",
+                                      )
+                                    }
                                     className="min-h-10 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                                   >
                                     <Network className="mr-1.5 h-4 w-4" />
@@ -7298,15 +9680,24 @@ export function AgentJobsClient({
                             </div>
                             {selectedBrowserPairingSession.installCommand ? (
                               <div className="min-w-0 rounded-lg border border-slate-500/20 bg-slate-500/[0.06] p-3 text-sm leading-6 text-slate-200">
-                                <p className="font-black text-white">Se il test gateway non risponde</p>
-                                <p className="mt-1">Esegui da console Hostinger/VPS, solo in `/srv/optima-agent`:</p>
+                                <p className="font-black text-white">
+                                  Se il test gateway non risponde
+                                </p>
+                                <p className="mt-1">
+                                  Esegui da console Hostinger/VPS, solo in
+                                  `/srv/optima-agent`:
+                                </p>
                                 <code className="mt-2 block max-w-full overflow-x-auto whitespace-pre rounded-md bg-black/40 p-2 text-xs text-slate-100">
                                   {selectedBrowserPairingSession.installCommand}
                                 </code>
                                 <Button
                                   type="button"
                                   variant="outline"
-                                  onClick={() => copyBrowserPairingCommand(selectedBrowserPairingSession.installCommand!)}
+                                  onClick={() =>
+                                    copyBrowserPairingCommand(
+                                      selectedBrowserPairingSession.installCommand!,
+                                    )
+                                  }
                                   className="mt-3 rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10"
                                 >
                                   <ClipboardList className="mr-1.5 h-4 w-4" />
@@ -7317,16 +9708,31 @@ export function AgentJobsClient({
                           </div>
                         ) : (
                           <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-50">
-                            <p className="font-black">Gateway VPS non configurato</p>
-                            <p className="mt-1">Manca: {selectedBrowserPairingSession.missingEnv.join(", ") || "BROWSER_MCP_GATEWAY_URL"}.</p>
-                            <p className="mt-2">Da VPS Optima, usa questo comando quando il gateway Browser MCP e installato:</p>
+                            <p className="font-black">
+                              Gateway VPS non configurato
+                            </p>
+                            <p className="mt-1">
+                              Manca:{" "}
+                              {selectedBrowserPairingSession.missingEnv.join(
+                                ", ",
+                              ) || "BROWSER_MCP_GATEWAY_URL"}
+                              .
+                            </p>
+                            <p className="mt-2">
+                              Da VPS Optima, usa questo comando quando il
+                              gateway Browser MCP e installato:
+                            </p>
                             <code className="mt-2 block max-w-full overflow-x-auto rounded-md bg-black/40 p-2 text-xs text-amber-100">
                               {selectedBrowserPairingSession.runnerCommand}
                             </code>
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => copyBrowserPairingCommand(selectedBrowserPairingSession.runnerCommand)}
+                              onClick={() =>
+                                copyBrowserPairingCommand(
+                                  selectedBrowserPairingSession.runnerCommand,
+                                )
+                              }
                               className="mt-3 rounded-lg border-amber-200/20 bg-transparent text-amber-50 hover:bg-amber-300/10"
                             >
                               <ClipboardList className="mr-1.5 h-4 w-4" />
@@ -7335,12 +9741,17 @@ export function AgentJobsClient({
                           </div>
                         )}
                         <div className="grid gap-2">
-                          {selectedBrowserPairingSession.instructions.map((instruction, index) => (
-                            <div key={`${selectedBrowserPairingSession.id}-instruction-${index}`} className="flex gap-2 text-sm leading-6 text-slate-300">
-                              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-300" />
-                              <p className="min-w-0">{instruction}</p>
-                            </div>
-                          ))}
+                          {selectedBrowserPairingSession.instructions.map(
+                            (instruction, index) => (
+                              <div
+                                key={`${selectedBrowserPairingSession.id}-instruction-${index}`}
+                                className="flex gap-2 text-sm leading-6 text-slate-300"
+                              >
+                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-300" />
+                                <p className="min-w-0">{instruction}</p>
+                              </div>
+                            ),
+                          )}
                         </div>
                       </div>
                     ) : null}
@@ -7350,13 +9761,20 @@ export function AgentJobsClient({
                 <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <p className="font-black text-white">Dopo il collegamento</p>
+                      <p className="font-black text-white">
+                        Dopo il collegamento
+                      </p>
                       <p className="mt-1 text-xs leading-5 text-slate-400">
-                        L'health-check parte solo dopo il requisito reale: OAuth, login browser, policy owner o runtime pronto.
+                        L'health-check parte solo dopo il requisito reale:
+                        OAuth, login browser, policy owner o runtime pronto.
                       </p>
                       {!selectedConnectorCanCreateVerification ? (
                         <p className="mt-2 rounded-md border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-xs font-bold leading-5 text-amber-50">
-                          {connectorVerificationBlockedLabel(selectedConnectorKind)}. Puoi salvare una checklist, ma Optima non crea health-check finti.
+                          {connectorVerificationBlockedLabel(
+                            selectedConnectorKind,
+                          )}
+                          . Puoi salvare una checklist, ma Optima non crea
+                          health-check finti.
                         </p>
                       ) : null}
                     </div>
@@ -7364,23 +9782,43 @@ export function AgentJobsClient({
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => createConnectorSetupJob(selectedConnector)}
-                        disabled={setupAction === `connector-setup:${selectedConnector.id}` || !selectedConnectorCanCreateVerification}
+                        onClick={() =>
+                          createConnectorSetupJob(selectedConnector)
+                        }
+                        disabled={
+                          setupAction ===
+                            `connector-setup:${selectedConnector.id}` ||
+                          !selectedConnectorCanCreateVerification
+                        }
                         className="rounded-lg border-white/10 bg-transparent text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-55"
                       >
-                        {setupAction === `connector-setup:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Network className="mr-1.5 h-4 w-4" />}
-	                        {selectedConnectorCanCreateVerification
-	                          ? selectedConnectorPlan?.verifyActionLabel ?? "Crea health-check"
-	                          : `Prima: ${connectorVerificationBlockedLabel(selectedConnectorKind)}`}
+                        {setupAction ===
+                        `connector-setup:${selectedConnector.id}` ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Network className="mr-1.5 h-4 w-4" />
+                        )}
+                        {selectedConnectorCanCreateVerification
+                          ? (selectedConnectorPlan?.verifyActionLabel ??
+                            "Crea health-check")
+                          : `Prima: ${connectorVerificationBlockedLabel(selectedConnectorKind)}`}
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => configureConnector(selectedConnector)}
-                        disabled={capabilityAction === `connector-config:${selectedConnector.id}`}
+                        disabled={
+                          capabilityAction ===
+                          `connector-config:${selectedConnector.id}`
+                        }
                         className="rounded-lg border-righello-pink/30 bg-righello-pink/10 text-pink-50 hover:bg-righello-pink/15"
                       >
-                        {capabilityAction === `connector-config:${selectedConnector.id}` ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1.5 h-4 w-4" />}
+                        {capabilityAction ===
+                        `connector-config:${selectedConnector.id}` ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="mr-1.5 h-4 w-4" />
+                        )}
                         Salva checklist
                       </Button>
                     </div>
@@ -7395,16 +9833,19 @@ export function AgentJobsClient({
           open={Boolean(selectedGraphNodeId)}
           onOpenChange={(open) => {
             if (!open) {
-              setSelectedGraphNodeId(null)
-              setGraphNodeDetail(null)
+              setSelectedGraphNodeId(null);
+              setGraphNodeDetail(null);
             }
           }}
         >
           <DialogContent className="max-h-[92svh] w-[calc(100vw-1rem)] overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-3xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
-              <DialogTitle className="text-xl font-black sm:text-2xl">Nodo graph memory</DialogTitle>
+              <DialogTitle className="text-xl font-black sm:text-2xl">
+                Nodo graph memory
+              </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Dettaglio operativo del nodo selezionato: sorgente, confidence, connessioni e azione agentica.
+                Dettaglio operativo del nodo selezionato: sorgente, confidence,
+                connessioni e azione agentica.
               </DialogDescription>
             </DialogHeader>
 
@@ -7418,29 +9859,40 @@ export function AgentJobsClient({
                 <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-3 sm:p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-xs font-black text-cyan-100">
-                      {graphNodeTypeVisual[graphNodeDetail.node.nodeType]?.label ?? graphNodeDetail.node.nodeType}
+                      {graphNodeTypeVisual[graphNodeDetail.node.nodeType]
+                        ?.label ?? graphNodeDetail.node.nodeType}
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-                      {graphSourceCopy[graphNodeDetail.node.sourceType] ?? graphNodeDetail.node.sourceType}
+                      {graphSourceCopy[graphNodeDetail.node.sourceType] ??
+                        graphNodeDetail.node.sourceType}
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-300">
-                      {graphConfidenceCopy[graphNodeDetail.node.confidence] ?? graphNodeDetail.node.confidence}
+                      {graphConfidenceCopy[graphNodeDetail.node.confidence] ??
+                        graphNodeDetail.node.confidence}
                     </span>
                   </div>
                   <h3 className="mt-3 break-words text-xl font-black leading-tight text-white">
                     {graphNodeDetail.node.title}
                   </h3>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">
-                    {graphNodeDetail.node.summary || "Nessun sommario disponibile."}
+                    {graphNodeDetail.node.summary ||
+                      "Nessun sommario disponibile."}
                   </p>
                   <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
-                    <p className="min-w-0 truncate">source_id: {graphNodeDetail.node.sourceId || "n/d"}</p>
-                    <p className="min-w-0 truncate">collegamenti: {graphNodeDetail.edges.length}</p>
+                    <p className="min-w-0 truncate">
+                      source_id: {graphNodeDetail.node.sourceId || "n/d"}
+                    </p>
+                    <p className="min-w-0 truncate">
+                      collegamenti: {graphNodeDetail.edges.length}
+                    </p>
                   </div>
                   {graphNodeDetail.node.tags?.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {graphNodeDetail.node.tags.slice(0, 10).map((tag) => (
-                        <span key={tag} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-bold text-slate-300">
+                        <span
+                          key={tag}
+                          className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-bold text-slate-300"
+                        >
                           {tag}
                         </span>
                       ))}
@@ -7449,17 +9901,29 @@ export function AgentJobsClient({
                 </section>
 
                 {(() => {
-                  const nodeActions = (graphIndex?.nodeActions ?? []).filter((action) => {
-                    return action.nodeTypes.includes(graphNodeDetail.node.nodeType) || action.sourceTypes.includes(graphNodeDetail.node.sourceType)
-                  })
-                  if (!nodeActions.length) return null
+                  const nodeActions = (graphIndex?.nodeActions ?? []).filter(
+                    (action) => {
+                      return (
+                        action.nodeTypes.includes(
+                          graphNodeDetail.node.nodeType,
+                        ) ||
+                        action.sourceTypes.includes(
+                          graphNodeDetail.node.sourceType,
+                        )
+                      );
+                    },
+                  );
+                  if (!nodeActions.length) return null;
                   return (
                     <section className="rounded-lg border border-amber-300/20 bg-amber-300/[0.055] p-3 sm:p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <h4 className="font-black text-white">Azioni consigliate</h4>
+                          <h4 className="font-black text-white">
+                            Azioni consigliate
+                          </h4>
                           <p className="mt-1 text-xs leading-5 text-slate-400">
-                            Cosa puo fare Optima con questo nodo quando lo usa AI Assistant, command bar o un job agentico.
+                            Cosa puo fare Optima con questo nodo quando lo usa
+                            AI Assistant, command bar o un job agentico.
                           </p>
                         </div>
                         <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-xs font-bold text-amber-50">
@@ -7468,14 +9932,21 @@ export function AgentJobsClient({
                       </div>
                       <div className="mt-3 grid gap-2">
                         {nodeActions.slice(0, 4).map((action) => (
-                          <div key={action.id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-                            <p className="text-sm font-black text-white">{action.label}</p>
-                            <p className="mt-1 text-xs leading-5 text-slate-400">{action.description}</p>
+                          <div
+                            key={action.id}
+                            className="rounded-lg border border-white/10 bg-black/20 px-3 py-2"
+                          >
+                            <p className="text-sm font-black text-white">
+                              {action.label}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-400">
+                              {action.description}
+                            </p>
                           </div>
                         ))}
                       </div>
                     </section>
-                  )
+                  );
                 })()}
 
                 <section className="rounded-lg border border-white/10 bg-[#050914] p-3 sm:p-4">
@@ -7488,7 +9959,11 @@ export function AgentJobsClient({
                   <div className="mt-3 grid gap-2">
                     {graphNodeDetail.connectedNodes.length ? (
                       graphNodeDetail.connectedNodes.slice(0, 8).map((node) => {
-                        const edge = graphNodeDetail.edges.find((item) => item.fromNodeId === node.id || item.toNodeId === node.id)
+                        const edge = graphNodeDetail.edges.find(
+                          (item) =>
+                            item.fromNodeId === node.id ||
+                            item.toNodeId === node.id,
+                        );
                         return (
                           <button
                             key={`connected-${node.id}`}
@@ -7498,20 +9973,29 @@ export function AgentJobsClient({
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-black text-white">{node.title}</p>
+                                <p className="truncate text-sm font-black text-white">
+                                  {node.title}
+                                </p>
                                 <p className="mt-1 truncate text-xs text-slate-500">
-                                  {graphNodeTypeVisual[node.nodeType]?.label ?? node.nodeType} · {edge?.edgeType ?? "collegato"}
+                                  {graphNodeTypeVisual[node.nodeType]?.label ??
+                                    node.nodeType}{" "}
+                                  · {edge?.edgeType ?? "collegato"}
                                 </p>
                               </div>
                               <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-400">
-                                {edge ? graphConfidenceCopy[edge.confidence] ?? edge.confidence : "n/d"}
+                                {edge
+                                  ? (graphConfidenceCopy[edge.confidence] ??
+                                    edge.confidence)
+                                  : "n/d"}
                               </span>
                             </div>
                           </button>
-                        )
+                        );
                       })
                     ) : (
-                      <p className="text-sm text-slate-500">Nessuna connessione indicizzata per questo nodo.</p>
+                      <p className="text-sm text-slate-500">
+                        Nessuna connessione indicizzata per questo nodo.
+                      </p>
                     )}
                   </div>
                 </section>
@@ -7521,16 +10005,22 @@ export function AgentJobsClient({
                     <div className="min-w-0">
                       <p className="font-black text-white">Azione agentica</p>
                       <p className="mt-1 text-sm leading-6 text-slate-300">
-                        Crea un job che usa questo nodo e i suoi collegamenti come contesto. Il runner produce un risultato revisionabile prima di qualsiasi modifica.
+                        Crea un job che usa questo nodo e i suoi collegamenti
+                        come contesto. Il runner produce un risultato
+                        revisionabile prima di qualsiasi modifica.
                       </p>
                     </div>
                     <Button
                       type="button"
                       onClick={() => createGraphNodeJob(graphNodeDetail)}
-                      disabled={setupAction === `graph-node-job:${graphNodeDetail.node.id}`}
+                      disabled={
+                        setupAction ===
+                        `graph-node-job:${graphNodeDetail.node.id}`
+                      }
                       className="h-10 w-full shrink-0 rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90 sm:w-auto"
                     >
-                      {setupAction === `graph-node-job:${graphNodeDetail.node.id}` ? (
+                      {setupAction ===
+                      `graph-node-job:${graphNodeDetail.node.id}` ? (
                         <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                       ) : (
                         <Play className="mr-1.5 h-4 w-4" />
@@ -7548,17 +10038,20 @@ export function AgentJobsClient({
           open={Boolean(reviewJobId)}
           onOpenChange={(open) => {
             if (!open) {
-              setReviewJobId(null)
-              setReviewDetails(null)
-              setRevisionMessage("")
+              setReviewJobId(null);
+              setReviewDetails(null);
+              setRevisionMessage("");
             }
           }}
         >
           <DialogContent className="max-h-[94svh] w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-white/10 bg-[#080d19] p-4 text-white sm:max-w-4xl sm:p-6">
             <DialogHeader className="pr-8 text-left">
-              <DialogTitle className="text-xl font-black sm:text-2xl">Revisione job agentico</DialogTitle>
+              <DialogTitle className="text-xl font-black sm:text-2xl">
+                Revisione job agentico
+              </DialogTitle>
               <DialogDescription className="text-slate-400">
-                Leggi output e audit, poi approva, respingi o rimanda al runner con istruzioni precise.
+                Leggi output e audit, poi approva, respingi o rimanda al runner
+                con istruzioni precise.
               </DialogDescription>
             </DialogHeader>
 
@@ -7571,8 +10064,11 @@ export function AgentJobsClient({
               <div className="grid min-w-0 gap-4">
                 <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3 sm:p-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass[activeReviewJob.status]}`}>
-                      {statusCopy[activeReviewJob.status] ?? activeReviewJob.status}
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass[activeReviewJob.status]}`}
+                    >
+                      {statusCopy[activeReviewJob.status] ??
+                        activeReviewJob.status}
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
                       {activeReviewJob.jobType}
@@ -7581,11 +10077,21 @@ export function AgentJobsClient({
                       P{activeReviewJob.priority}
                     </span>
                   </div>
-                  <h3 className="mt-3 break-words text-lg font-black leading-tight sm:text-xl">{activeReviewJob.title}</h3>
-                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-400">{activeReviewJob.brief}</p>
-                  {activeReviewJob.status === "needs_review" && approvalCreatesPublishJob(activeReviewJob) ? (
+                  <h3 className="mt-3 break-words text-lg font-black leading-tight sm:text-xl">
+                    {activeReviewJob.title}
+                  </h3>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-400">
+                    {activeReviewJob.brief}
+                  </p>
+                  {activeReviewJob.status === "needs_review" &&
+                  approvalCreatesPublishJob(activeReviewJob) ? (
                     <div className="mt-3 rounded-lg border border-emerald-300/25 bg-emerald-300/[0.08] p-3 text-sm leading-6 text-emerald-50">
-                      Se l'approvante e owner GitHub autorizzato, Optima crea automaticamente un job successivo di pubblicazione: applicazione output approvato, commit, push GitHub e deploy Cloudflare solo se build e controlli passano. Gli altri ruoli possono approvare l'esito, ma non usare GitHub di Axel.
+                      Se l'approvante e owner GitHub autorizzato, Optima crea
+                      automaticamente un job successivo di pubblicazione:
+                      applicazione output approvato, commit, push GitHub e
+                      deploy Cloudflare solo se build e controlli passano. Gli
+                      altri ruoli possono approvare l'esito, ma non usare GitHub
+                      di Axel.
                     </div>
                   ) : null}
                 </div>
@@ -7598,26 +10104,41 @@ export function AgentJobsClient({
                         <h4 className="font-black">Output runner</h4>
                       </div>
                       <div className="mt-3 max-h-72 min-w-0 overflow-y-auto whitespace-pre-wrap break-all text-sm leading-6 text-slate-200 sm:max-h-96">
-                        {activeReviewJob.resultSummary || activeReviewJob.errorMessage || "Nessun output ancora disponibile."}
+                        {activeReviewJob.resultSummary ||
+                          activeReviewJob.errorMessage ||
+                          "Nessun output ancora disponibile."}
                       </div>
                     </section>
 
                     <section className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 sm:p-4">
                       <div className="flex items-center gap-2">
                         <MessageSquareText className="h-4 w-4 text-righello-pink" />
-                        <h4 className="font-black">Richiedi modifiche al runner</h4>
+                        <h4 className="font-black">
+                          Richiedi modifiche al runner
+                        </h4>
                       </div>
                       <Textarea
                         className="mt-3 min-h-32 border-white/10 bg-[#080d19] text-sm leading-6 text-white"
                         value={revisionMessage}
-                        onChange={(event) => setRevisionMessage(event.target.value)}
+                        onChange={(event) =>
+                          setRevisionMessage(event.target.value)
+                        }
                         placeholder="Es. Ricrea lo script usando le tabelle canoniche tasks/time_entries, non staging. Non inventare durate: lascia actual_minutes=0 e tag needs-duration. Aggiungi dettaglio per righello-site solo se verificato."
                       />
                       <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
                         <Button
                           type="button"
-                          onClick={() => mutateJob(activeReviewJob.id, "revise", revisionMessage)}
-                          disabled={busyJobId === activeReviewJob.id || revisionMessage.trim().length < 12}
+                          onClick={() =>
+                            mutateJob(
+                              activeReviewJob.id,
+                              "revise",
+                              revisionMessage,
+                            )
+                          }
+                          disabled={
+                            busyJobId === activeReviewJob.id ||
+                            revisionMessage.trim().length < 12
+                          }
                           className="rounded-lg bg-righello-pink text-white hover:bg-righello-pink/90"
                         >
                           <RefreshCw className="mr-1.5 h-4 w-4" />
@@ -7627,17 +10148,32 @@ export function AgentJobsClient({
                           <>
                             <Button
                               type="button"
-                              onClick={() => mutateJob(activeReviewJob.id, "approve", "Approvato dalla review room.")}
+                              onClick={() =>
+                                mutateJob(
+                                  activeReviewJob.id,
+                                  "approve",
+                                  "Approvato dalla review room.",
+                                )
+                              }
                               disabled={busyJobId === activeReviewJob.id}
                               className="rounded-lg bg-emerald-500 text-white hover:bg-emerald-400"
                             >
                               <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                              {approvalCreatesPublishJob(activeReviewJob) ? "Approva e pubblica" : "Approva"}
+                              {approvalCreatesPublishJob(activeReviewJob)
+                                ? "Approva e pubblica"
+                                : "Approva"}
                             </Button>
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => mutateJob(activeReviewJob.id, "reject", revisionMessage || "Risultato respinto dalla review room.")}
+                              onClick={() =>
+                                mutateJob(
+                                  activeReviewJob.id,
+                                  "reject",
+                                  revisionMessage ||
+                                    "Risultato respinto dalla review room.",
+                                )
+                              }
                               disabled={busyJobId === activeReviewJob.id}
                               className="rounded-lg border-red-400/30 bg-transparent text-red-100 hover:bg-red-500/10"
                             >
@@ -7656,14 +10192,25 @@ export function AgentJobsClient({
                       <div className="mt-3 grid gap-2">
                         {reviewDetails?.artifacts?.length ? (
                           reviewDetails.artifacts.map((artifact) => (
-                            <div key={artifact.id} className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300">
-                              <p className="break-words font-bold text-white">{artifact.label}</p>
+                            <div
+                              key={artifact.id}
+                              className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300"
+                            >
+                              <p className="break-words font-bold text-white">
+                                {artifact.label}
+                              </p>
                               <p className="mt-1">{artifact.artifactType}</p>
-                              {artifact.r2Key ? <p className="mt-1 break-all text-slate-500">{artifact.r2Key}</p> : null}
+                              {artifact.r2Key ? (
+                                <p className="mt-1 break-all text-slate-500">
+                                  {artifact.r2Key}
+                                </p>
+                              ) : null}
                             </div>
                           ))
                         ) : (
-                          <p className="text-sm text-slate-500">Nessun artefatto indicizzato.</p>
+                          <p className="text-sm text-slate-500">
+                            Nessun artefatto indicizzato.
+                          </p>
                         )}
                       </div>
                     </section>
@@ -7673,16 +10220,29 @@ export function AgentJobsClient({
                       <div className="mt-3 grid max-h-72 min-w-0 gap-2 overflow-y-auto pr-1">
                         {reviewDetails?.events?.length ? (
                           reviewDetails.events.map((event) => (
-                            <div key={event.id} className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300">
+                            <div
+                              key={event.id}
+                              className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300"
+                            >
                               <div className="flex min-w-0 items-center justify-between gap-2">
-                                <p className="min-w-0 truncate font-bold text-white">{event.eventType}</p>
-                                <span className="shrink-0 text-slate-500">{formatRelativeTime(event.createdAt)}</span>
+                                <p className="min-w-0 truncate font-bold text-white">
+                                  {event.eventType}
+                                </p>
+                                <span className="shrink-0 text-slate-500">
+                                  {formatRelativeTime(event.createdAt)}
+                                </span>
                               </div>
-                              {event.message ? <p className="mt-1 whitespace-pre-wrap break-all text-slate-400">{event.message}</p> : null}
+                              {event.message ? (
+                                <p className="mt-1 whitespace-pre-wrap break-all text-slate-400">
+                                  {event.message}
+                                </p>
+                              ) : null}
                             </div>
                           ))
                         ) : (
-                          <p className="text-sm text-slate-500">Nessun evento registrato.</p>
+                          <p className="text-sm text-slate-500">
+                            Nessun evento registrato.
+                          </p>
                         )}
                       </div>
                     </section>
@@ -7696,10 +10256,11 @@ export function AgentJobsClient({
         <div className="mt-5 flex items-start gap-3 rounded-lg border border-emerald-300/15 bg-emerald-300/5 p-4 text-sm leading-6 text-emerald-50">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
           <p>
-            Il runner non riceve privilegi di deploy automatico: produce output, PR o report e rimanda il risultato a Óptima per approvazione.
+            Il runner non riceve privilegi di deploy automatico: produce output,
+            PR o report e rimanda il risultato a Óptima per approvazione.
           </p>
         </div>
       </div>
     </section>
-  )
+  );
 }

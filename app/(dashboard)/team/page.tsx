@@ -1,15 +1,21 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useUsers } from "@/hooks/use-users"
-import { UserInviteDialog } from "@/components/team/user-invite-dialog"
-import { UserActionsMenu } from "@/components/team/user-actions-menu"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useState } from "react";
+import { useUsers } from "@/hooks/use-users";
+import { UserInviteDialog } from "@/components/team/user-invite-dialog";
+import { UserActionsMenu } from "@/components/team/user-actions-menu";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Plus,
   Search,
@@ -23,9 +29,10 @@ import {
   Sparkles,
   Mail,
   Settings,
-} from "lucide-react"
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
+  BriefcaseBusiness,
+} from "lucide-react";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 
 const roleConfig = {
   "super-admin": {
@@ -35,17 +42,20 @@ const roleConfig = {
   },
   admin: {
     label: "Admin",
-    color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    color:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     icon: Shield,
   },
   direzione: {
     label: "Direzione",
-    color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    color:
+      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     icon: Crown,
   },
   "capo-reparto": {
     label: "Capo Reparto",
-    color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    color:
+      "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
     icon: Settings,
   },
   junior: {
@@ -53,17 +63,24 @@ const roleConfig = {
     color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     icon: User,
   },
+  freelance: {
+    label: "Freelance esterno",
+    color: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
+    icon: BriefcaseBusiness,
+  },
   client: {
     label: "Cliente",
-    color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    color:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     icon: Users,
   },
-}
+};
 
 const statusConfig = {
   active: {
     label: "Attivo",
-    color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    color:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   },
   inactive: {
     label: "Da invitare",
@@ -71,26 +88,26 @@ const statusConfig = {
   },
   invited: {
     label: "Invitato",
-    color: "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200",
+    color:
+      "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200",
   },
   suspended: {
     label: "Sospeso",
     color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
   },
-}
+};
 
-const pageClass =
-  "h-[calc(100svh-73px)] overflow-y-auto overscroll-contain bg-[#0b1323] text-slate-100 md:h-auto md:min-h-screen md:overflow-visible"
+const pageClass = "optima-ops-page";
 const surfaceClass =
-  "border border-white/10 bg-[#172235] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]"
-const mutedSurfaceClass = "border border-white/10 bg-[#111b2d] text-slate-100"
+  "border border-white/10 bg-[#172235] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]";
+const mutedSurfaceClass = "border border-white/10 bg-[#111b2d] text-slate-100";
 const inputClass =
-  "h-11 border-white/10 bg-[#172235] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
+  "h-11 border-white/10 bg-[#172235] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
 
 export default function TeamPage() {
-  const { users, loading, error, refreshUsers } = useUsers()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const { users, loading, error, refreshUsers } = useUsers();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const filteredUsers = users.filter(
     (user) =>
@@ -98,57 +115,62 @@ export default function TeamPage() {
       user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.companyName?.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  );
 
   const getRoleBadge = (role: string) => {
-    const config = roleConfig[role as keyof typeof roleConfig]
-    if (!config) return null
+    const config = roleConfig[role as keyof typeof roleConfig];
+    if (!config) return null;
 
-    const Icon = config.icon
+    const Icon = config.icon;
     return (
       <Badge className={`${config.color} flex items-center gap-1 border-0`}>
         <Icon className="h-3 w-3" />
         {config.label}
       </Badge>
-    )
-  }
+    );
+  };
 
   const getStatusBadge = (status: string) => {
-    const config = statusConfig[status as keyof typeof statusConfig]
-    if (!config) return null
+    const config = statusConfig[status as keyof typeof statusConfig];
+    if (!config) return null;
 
-    return <Badge className={`${config.color} border-0`}>{config.label}</Badge>
-  }
+    return <Badge className={`${config.color} border-0`}>{config.label}</Badge>;
+  };
 
   const getInitials = (firstName?: string, lastName?: string) => {
-    const first = firstName?.[0] || ""
-    const last = lastName?.[0] || ""
-    return (first + last).toUpperCase() || "U"
-  }
+    const first = firstName?.[0] || "";
+    const last = lastName?.[0] || "";
+    return (first + last).toUpperCase() || "U";
+  };
 
   const getFullName = (firstName?: string, lastName?: string) => {
-    return [firstName, lastName].filter(Boolean).join(" ") || "Utente"
-  }
+    return [firstName, lastName].filter(Boolean).join(" ") || "Utente";
+  };
 
   const toDate = (value: any): Date | null => {
-    if (!value) return null
-    if (value instanceof Date) return value
-    if (value?.toDate && typeof value.toDate === 'function') return value.toDate()
-    if (typeof value === 'string' || typeof value === 'number') return new Date(value)
-    return null
-  }
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (value?.toDate && typeof value.toDate === "function")
+      return value.toDate();
+    if (typeof value === "string" || typeof value === "number")
+      return new Date(value);
+    return null;
+  };
 
   const stats = {
     total: users.length,
     active: users.filter((u) => u.status === "active").length,
-    pending: users.filter((u) => u.status === "inactive" || u.status === "invited").length,
-    admins: users.filter((u) => u.role === "admin" || u.role === "super-admin").length,
-  }
+    pending: users.filter(
+      (u) => u.status === "inactive" || u.status === "invited",
+    ).length,
+    admins: users.filter((u) => u.role === "admin" || u.role === "super-admin")
+      .length,
+  };
 
   if (loading) {
     return (
       <div className={pageClass}>
-        <div className="container mx-auto px-4 py-4 md:px-6 md:py-8 max-w-7xl">
+        <div className="optima-ops-container">
           <div className="space-y-6 md:space-y-8 animate-pulse">
             <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
               <div className="space-y-2">
@@ -160,32 +182,37 @@ export default function TeamPage() {
 
             <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={`loading-card-${i}`} className="h-32 rounded-lg border border-white/10 bg-white/5"></div>
+                <div
+                  key={`loading-card-${i}`}
+                  className="h-32 rounded-lg border border-white/10 bg-white/5"
+                ></div>
               ))}
             </div>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className={pageClass}>
-        <div className="container mx-auto px-4 py-4 md:px-6 md:py-8 max-w-7xl">
+        <div className="optima-ops-container">
           <Alert className="bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800">
             <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800 dark:text-red-300">{error}</AlertDescription>
+            <AlertDescription className="text-red-800 dark:text-red-300">
+              {error}
+            </AlertDescription>
           </Alert>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className={pageClass}>
-      <div className="container mx-auto px-4 py-4 md:px-6 md:py-8 max-w-7xl">
-        <div className="space-y-6 md:space-y-8">
+      <div className="optima-ops-container">
+        <div className="optima-ops-stack md:gap-8">
           {/* Header */}
           <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
             <div className="space-y-1 md:space-y-2">
@@ -193,9 +220,11 @@ export default function TeamPage() {
                 <Users className="h-8 w-8 text-slate-400" />
                 <span className="leading-tight">Team</span>
               </h1>
-              <p className="text-slate-400 text-sm md:text-lg">Gestisci il tuo team e i permessi</p>
+              <p className="text-slate-400 text-sm md:text-lg">
+                Gestisci il tuo team e i permessi
+              </p>
             </div>
-            <Button 
+            <Button
               className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium"
               onClick={() => setInviteDialogOpen(true)}
             >
@@ -214,7 +243,9 @@ export default function TeamPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-slate-100">{stats.total}</div>
+                <div className="text-3xl font-bold text-slate-100">
+                  {stats.total}
+                </div>
                 <p className="text-xs text-slate-400 mt-1">utenti registrati</p>
               </CardContent>
             </Card>
@@ -227,8 +258,12 @@ export default function TeamPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-slate-100">{stats.active}</div>
-                <p className="text-xs text-slate-400 mt-1">con accesso operativo</p>
+                <div className="text-3xl font-bold text-slate-100">
+                  {stats.active}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  con accesso operativo
+                </p>
               </CardContent>
             </Card>
 
@@ -240,8 +275,12 @@ export default function TeamPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-slate-100">{stats.pending}</div>
-                <p className="text-xs text-slate-400 mt-1">da invitare o invitati</p>
+                <div className="text-3xl font-bold text-slate-100">
+                  {stats.pending}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  da invitare o invitati
+                </p>
               </CardContent>
             </Card>
 
@@ -253,8 +292,12 @@ export default function TeamPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-slate-100">{stats.admins}</div>
-                <p className="text-xs text-slate-400 mt-1">con privilegi admin</p>
+                <div className="text-3xl font-bold text-slate-100">
+                  {stats.admins}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  con privilegi admin
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -277,13 +320,15 @@ export default function TeamPage() {
             <Card className={surfaceClass}>
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <Users className="h-16 w-16 text-slate-400 mb-6" />
-                <h3 className="text-xl font-semibold mb-3 text-white">Nessun utente trovato</h3>
+                <h3 className="text-xl font-semibold mb-3 text-white">
+                  Nessun utente trovato
+                </h3>
                 <p className="text-slate-400 text-center mb-6 max-w-md">
                   {searchTerm
                     ? "Nessun utente corrisponde ai criteri di ricerca."
                     : "Non ci sono ancora utenti nel team."}
                 </p>
-                <Button 
+                <Button
                   className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium"
                   onClick={() => setInviteDialogOpen(true)}
                 >
@@ -299,11 +344,16 @@ export default function TeamPage() {
                   key={user.id}
                   className={`${surfaceClass} overflow-hidden transition-all duration-300 hover:border-righello-pink/35`}
                 >
-                  <CardHeader className={`${mutedSurfaceClass} border-x-0 border-t-0 border-b`}>
+                  <CardHeader
+                    className={`${mutedSurfaceClass} border-x-0 border-t-0 border-b`}
+                  >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                         <Avatar className="h-12 w-12 flex-shrink-0 border-2 border-white/90 shadow-sm">
-                          <AvatarImage src="" alt={getFullName(user.firstName, user.lastName)} />
+                          <AvatarImage
+                            src=""
+                            alt={getFullName(user.firstName, user.lastName)}
+                          />
                           <AvatarFallback className="bg-[#24324a] text-slate-100 font-semibold">
                             {getInitials(user.firstName, user.lastName)}
                           </AvatarFallback>
@@ -321,7 +371,10 @@ export default function TeamPage() {
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-2 self-end sm:self-start">
                         {user.status && getStatusBadge(user.status)}
-                        <UserActionsMenu user={user} onUserUpdated={refreshUsers} />
+                        <UserActionsMenu
+                          user={user}
+                          onUserUpdated={refreshUsers}
+                        />
                       </div>
                     </div>
                   </CardHeader>
@@ -358,7 +411,13 @@ export default function TeamPage() {
                         <Clock className="h-3 w-3" />
                         Ultimo accesso
                       </span>
-                      <span>{toDate(user.lastLoginAt) ? format(toDate(user.lastLoginAt)!, "dd MMM yyyy", { locale: it }) : "Mai"}</span>
+                      <span>
+                        {toDate(user.lastLoginAt)
+                          ? format(toDate(user.lastLoginAt)!, "dd MMM yyyy", {
+                              locale: it,
+                            })
+                          : "Mai"}
+                      </span>
                     </div>
 
                     {/* Registration Date */}
@@ -367,7 +426,13 @@ export default function TeamPage() {
                         <Calendar className="h-3 w-3" />
                         Registrato il
                       </span>
-                      <span>{toDate(user.createdAt) ? format(toDate(user.createdAt)!, "dd MMM yyyy", { locale: it }) : "N/A"}</span>
+                      <span>
+                        {toDate(user.createdAt)
+                          ? format(toDate(user.createdAt)!, "dd MMM yyyy", {
+                              locale: it,
+                            })
+                          : "N/A"}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -376,7 +441,7 @@ export default function TeamPage() {
           )}
 
           {/* Invite Dialog */}
-          <UserInviteDialog 
+          <UserInviteDialog
             open={inviteDialogOpen}
             onOpenChange={setInviteDialogOpen}
             onInvited={refreshUsers}
@@ -384,5 +449,5 @@ export default function TeamPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

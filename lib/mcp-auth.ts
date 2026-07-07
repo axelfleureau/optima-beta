@@ -1,5 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose"
 
+import { createId } from "@/lib/cloudflare-db"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import type { WorkspacePrincipal } from "@/lib/workspace-db"
 
@@ -39,13 +40,14 @@ export function mcpAuthorizationServerUrl(request?: Request) {
 export type McpAuthMode = "authorization_code" | "jwt_bearer" | "service_token" | "missing"
 
 export function getMcpAuthReadiness() {
-  const authorizationEndpoint = process.env.OPTIMA_MCP_AUTHORIZATION_ENDPOINT || ""
-  const tokenEndpoint = process.env.OPTIMA_MCP_TOKEN_ENDPOINT || ""
+  const authorizationEndpoint =
+    process.env.OPTIMA_MCP_AUTHORIZATION_ENDPOINT || `${appBaseUrl()}/api/mcp/oauth/authorize`
+  const tokenEndpoint = process.env.OPTIMA_MCP_TOKEN_ENDPOINT || `${appBaseUrl()}/api/mcp/oauth/token`
   const issuer = process.env.OPTIMA_MCP_ISSUER || ""
   const jwksUri = process.env.OPTIMA_MCP_JWKS_URI || ""
   const serviceToken = process.env.OPTIMA_MCP_SERVICE_TOKEN || ""
 
-  const authorizationCodeConfigured = Boolean(authorizationEndpoint && tokenEndpoint)
+  const authorizationCodeConfigured = process.env.OPTIMA_MCP_OAUTH_ENABLED !== "false" && Boolean(authorizationEndpoint && tokenEndpoint)
   const jwtBearerConfigured = Boolean(issuer && jwksUri)
   const serviceTokenConfigured = Boolean(serviceToken)
   const configured = authorizationCodeConfigured || jwtBearerConfigured || serviceTokenConfigured
@@ -69,6 +71,25 @@ export function getMcpAuthReadiness() {
     issuer: issuer || null,
     jwksUri: jwksUri || null,
   }
+}
+
+function toBase64Url(bytes: Uint8Array) {
+  let binary = ""
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte)
+  })
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
+}
+
+export function createOpaqueMcpToken(prefix = "opt_mcp") {
+  const bytes = new Uint8Array(48)
+  crypto.getRandomValues(bytes)
+  return `${prefix}_${toBase64Url(bytes)}`
+}
+
+export async function hashMcpToken(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))
+  return toBase64Url(new Uint8Array(digest))
 }
 
 export function unauthorizedMcpResponse(request: Request) {
@@ -163,6 +184,66 @@ async function verifySharedServiceToken(token: string, db: any) {
   return principalFromMember(db, row)
 }
 
+async function verifyInternalMcpAccessToken(token: string, db: any) {
+  try {
+    const tokenHash = await hashMcpToken(token)
+    const now = new Date().toISOString()
+    const row = await db
+      .prepare(
+        `SELECT m.id, m.organization_id, m.role, m.email
+         FROM mcp_oauth_access_tokens t
+         JOIN members m ON m.id = t.member_id AND m.organization_id = t.organization_id
+         WHERE t.token_hash = ?
+           AND t.revoked_at IS NULL
+           AND t.expires_at > ?
+           AND COALESCE(m.status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')
+         LIMIT 1`,
+      )
+      .bind(tokenHash, now)
+      .first()
+
+    return principalFromMember(db, row)
+  } catch (error) {
+    console.warn("Internal MCP OAuth token lookup unavailable:", error)
+    return null
+  }
+}
+
+export async function storeMcpAccessToken(
+  db: any,
+  input: {
+    organizationId: string
+    memberId: string
+    clientId: string
+    scopes: string[]
+    ttlSeconds?: number
+  },
+) {
+  const token = createOpaqueMcpToken()
+  const tokenHash = await hashMcpToken(token)
+  const ttlSeconds = Math.max(300, Math.min(86400, input.ttlSeconds ?? 3600))
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString()
+
+  await db
+    .prepare(
+      `INSERT INTO mcp_oauth_access_tokens (
+        id, token_hash, organization_id, member_id, client_id, scopes_json, expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      createId("mcpat"),
+      tokenHash,
+      input.organizationId,
+      input.memberId,
+      input.clientId,
+      JSON.stringify(input.scopes),
+      expiresAt,
+    )
+    .run()
+
+  return { token, expiresAt, expiresIn: ttlSeconds }
+}
+
 export async function requireMcpPrincipal(request: Request) {
   const token = bearerToken(request)
   if (!token) return { error: unauthorizedMcpResponse(request), db: null, principal: null }
@@ -179,6 +260,9 @@ export async function requireMcpPrincipal(request: Request) {
   try {
     const servicePrincipal = await verifySharedServiceToken(token, db)
     if (servicePrincipal) return { error: null, db, principal: servicePrincipal }
+
+    const internalPrincipal = await verifyInternalMcpAccessToken(token, db)
+    if (internalPrincipal) return { error: null, db, principal: internalPrincipal }
 
     const claims = await verifyConfiguredJwt(token)
     if (!claims) return { error: unauthorizedMcpResponse(request), db, principal: null }

@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useMemo, useState } from "react"
-import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
+import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -17,11 +17,11 @@ import {
   Search,
   Sparkles,
   Wand2,
-} from "lucide-react"
+} from "lucide-react";
 
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,35 +29,46 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { QuoteCard } from "@/components/quotes/quote-card"
-import { useQuotes } from "@/hooks/use-quotes"
-import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/lib/auth-context"
-import { getRighelloQuoteAreaLabels, RIGHELLO_QUOTE_FLOW_STEPS } from "@/lib/righello-quote-operating-model"
-import { applyQuoteClientDataQuality } from "@/lib/quote-data-quality"
-import { extractQuoteCommercialContext, resolveQuoteDisplayTitle } from "@/lib/quote-commercial-context"
-import { cn } from "@/lib/utils"
-import type { GeneratedQuoteData } from "@/lib/ai-quote-service"
-import type { Quote } from "@/types/quote"
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { QuoteCard } from "@/components/quotes/quote-card";
+import { useQuotes } from "@/hooks/use-quotes";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
+import {
+  getRighelloQuoteAreaLabels,
+  RIGHELLO_QUOTE_FLOW_STEPS,
+} from "@/lib/righello-quote-operating-model";
+import { applyQuoteClientDataQuality } from "@/lib/quote-data-quality";
+import {
+  extractQuoteCommercialContext,
+  resolveQuoteDisplayTitle,
+} from "@/lib/quote-commercial-context";
+import { cn } from "@/lib/utils";
+import type { GeneratedQuoteData } from "@/lib/ai-quote-service";
+import type { Quote } from "@/types/quote";
 
 const AIQuoteGenerator = dynamic(
-  () => import("@/components/ai/ai-quote-generator").then((mod) => mod.AIQuoteGenerator),
+  () =>
+    import("@/components/ai/ai-quote-generator").then(
+      (mod) => mod.AIQuoteGenerator,
+    ),
   {
     loading: () => (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
         <div className="flex w-[min(420px,calc(100vw-32px))] flex-col items-center gap-4 rounded-[8px] border border-white/10 bg-[#090b12] p-8 shadow-2xl">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-righello-pink border-t-transparent" />
-          <p className="text-center text-sm font-medium text-white">Caricamento generatore preventivi AI...</p>
+          <p className="text-center text-sm font-medium text-white">
+            Caricamento generatore preventivi AI...
+          </p>
         </div>
       </div>
     ),
     ssr: false,
-  }
-)
+  },
+);
 
-type StatusFilter = "all" | Quote["status"]
+type StatusFilter = "all" | Quote["status"];
 
 const statusTabs: Array<{ value: StatusFilter; label: string }> = [
   { value: "all", label: "Tutti" },
@@ -65,29 +76,37 @@ const statusTabs: Array<{ value: StatusFilter; label: string }> = [
   { value: "sent", label: "Inviati" },
   { value: "approved", label: "Approvati" },
   { value: "expired", label: "Scaduti" },
-]
+];
 
-const finalPositiveStates: Quote["status"][] = ["approved", "in_progress", "completed"]
-const openStates: Quote["status"][] = ["sent", "in_review", "pending_payment"]
+const finalPositiveStates: Quote["status"][] = [
+  "approved",
+  "in_progress",
+  "completed",
+];
+const openStates: Quote["status"][] = ["sent", "in_review", "pending_payment"];
 
-const righelloServiceLines = getRighelloQuoteAreaLabels()
+const righelloServiceLines = getRighelloQuoteAreaLabels();
 
-function toDate(value: Date | { toDate?: () => Date } | string | number | null | undefined) {
-  if (!value) return null
-  if (value instanceof Date) return value
-  if (typeof value === "object" && typeof value.toDate === "function") return value.toDate()
-  if (typeof value === "string" || typeof value === "number") return new Date(value)
-  return null
+function toDate(
+  value: Date | { toDate?: () => Date } | string | number | null | undefined,
+) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "object" && typeof value.toDate === "function")
+    return value.toDate();
+  if (typeof value === "string" || typeof value === "number")
+    return new Date(value);
+  return null;
 }
 
 function isQuoteExpired(quote: Quote) {
-  const validUntil = toDate(quote.validUntil)
-  if (!validUntil || finalPositiveStates.includes(quote.status)) return false
-  return validUntil < new Date()
+  const validUntil = toDate(quote.validUntil);
+  if (!validUntil || finalPositiveStates.includes(quote.status)) return false;
+  return validUntil < new Date();
 }
 
 function getEffectiveStatus(quote: Quote): Quote["status"] {
-  return isQuoteExpired(quote) ? "expired" : quote.status
+  return isQuoteExpired(quote) ? "expired" : quote.status;
 }
 
 function formatCurrency(amount: number, currency = "EUR") {
@@ -95,22 +114,26 @@ function formatCurrency(amount: number, currency = "EUR") {
     style: "currency",
     currency,
     maximumFractionDigits: amount >= 10000 ? 0 : 2,
-  }).format(amount || 0)
+  }).format(amount || 0);
 }
 
 function getQuoteLineCount(quote: Quote) {
-  const explicitCount = (quote.items?.length || 0) + (quote.voci?.length || 0) + (quote.attivita?.length || 0)
-  if (explicitCount > 0) return explicitCount
-  return (quote.total || 0) > 0 ? 3 : 0
+  const explicitCount =
+    (quote.items?.length || 0) +
+    (quote.voci?.length || 0) +
+    (quote.attivita?.length || 0);
+  if (explicitCount > 0) return explicitCount;
+  return (quote.total || 0) > 0 ? 3 : 0;
 }
 
 function inferLegacyQuoteVoices(quote: Quote) {
-  const total = quote.subtotale && quote.subtotale > 0 ? quote.subtotale : quote.total || 0
-  if (total <= 0) return []
+  const total =
+    quote.subtotale && quote.subtotale > 0 ? quote.subtotale : quote.total || 0;
+  if (total <= 0) return [];
 
-  const analysis = Math.round(total * 0.24 * 100) / 100
-  const production = Math.round(total * 0.56 * 100) / 100
-  const delivery = Math.round((total - analysis - production) * 100) / 100
+  const analysis = Math.round(total * 0.24 * 100) / 100;
+  const production = Math.round(total * 0.56 * 100) / 100;
+  const delivery = Math.round((total - analysis - production) * 100) / 100;
 
   return [
     {
@@ -137,23 +160,30 @@ function inferLegacyQuoteVoices(quote: Quote) {
       categoria: "base" as const,
       tipo: "one_time" as const,
     },
-  ]
+  ];
 }
 
 function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
-  const createdAt = toDate(quote.createdAt) || new Date()
-  const validUntil = toDate(quote.validUntil)
+  const createdAt = toDate(quote.createdAt) || new Date();
+  const validUntil = toDate(quote.validUntil);
   const validityDays = validUntil
-    ? Math.max(1, Math.ceil((validUntil.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)))
-    : 60
+    ? Math.max(
+        1,
+        Math.ceil(
+          (validUntil.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24),
+        ),
+      )
+    : 60;
   const explicitVoci =
     quote.voci?.map((voce) => ({
       descrizione: voce.descrizione,
       quantita: voce.quantita,
       prezzoUnitario: voce.prezzoUnitario,
-      totale: voce.totale ?? Math.round(voce.quantita * voce.prezzoUnitario * 100) / 100,
-      categoria: voce.categoria ?? "base" as const,
-      tipo: voce.tipo ?? "one_time" as const,
+      totale:
+        voce.totale ??
+        Math.round(voce.quantita * voce.prezzoUnitario * 100) / 100,
+      categoria: voce.categoria ?? ("base" as const),
+      tipo: voce.tipo ?? ("one_time" as const),
     })) ||
     quote.items?.map((item) => ({
       descrizione: item.name,
@@ -163,20 +193,27 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       categoria: "base" as const,
       tipo: "one_time" as const,
     })) ||
-    []
+    [];
 
-  const voci = explicitVoci.length > 0 ? explicitVoci : inferLegacyQuoteVoices(quote)
-  const inferredSubtotal = voci.reduce((sum, voce) => sum + voce.totale, 0)
-  const subtotale = quote.subtotale && quote.subtotale > 0 ? quote.subtotale : inferredSubtotal || quote.total || 0
-  const percentualeIva = quote.percentualeIva ?? 22
-  const iva = quote.iva && quote.iva > 0 ? quote.iva : Math.round(subtotale * (percentualeIva / 100) * 100) / 100
-  const quoteContext = extractQuoteCommercialContext(quote.sourceSnapshot)
-  const clientName = quote.externalClientName || quote.clientName || "Cliente"
+  const voci =
+    explicitVoci.length > 0 ? explicitVoci : inferLegacyQuoteVoices(quote);
+  const inferredSubtotal = voci.reduce((sum, voce) => sum + voce.totale, 0);
+  const subtotale =
+    quote.subtotale && quote.subtotale > 0
+      ? quote.subtotale
+      : inferredSubtotal || quote.total || 0;
+  const percentualeIva = quote.percentualeIva ?? 22;
+  const iva =
+    quote.iva && quote.iva > 0
+      ? quote.iva
+      : Math.round(subtotale * (percentualeIva / 100) * 100) / 100;
+  const quoteContext = extractQuoteCommercialContext(quote.sourceSnapshot);
+  const clientName = quote.externalClientName || quote.clientName || "Cliente";
   const title = resolveQuoteDisplayTitle({
     title: quote.title,
     clientName,
     sourceSnapshot: quote.sourceSnapshot,
-  })
+  });
 
   return applyQuoteClientDataQuality({
     projectType: quoteContext.selectedPackageId || quoteContext.projectType,
@@ -187,8 +224,10 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       projectType: quoteContext.projectType,
       sector: quoteContext.sector,
       sectorLabel: quoteContext.sectorLabel,
-      complexity: quoteContext.complexity as "basic" | "standard" | "advanced" | undefined,
-      budgetRange: quoteContext.budgetRange as { min: number; max: number } | undefined,
+      complexity: quoteContext.complexity as
+        "basic" | "standard" | "advanced" | undefined,
+      budgetRange: quoteContext.budgetRange as
+        { min: number; max: number } | undefined,
       timeline: quoteContext.timeline,
     },
     cliente: {
@@ -214,7 +253,8 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
     condizioni: {
       costVariation: 10,
       validityDays,
-      paymentTerms: quote.terminiCondizioni || "50% all'accettazione, 50% a completamento",
+      paymentTerms:
+        quote.terminiCondizioni || "50% all'accettazione, 50% a completamento",
       cancellationPenalty: 30,
     },
     brandMateriali: quote.brandMateriali,
@@ -224,46 +264,73 @@ function convertQuoteToPDFData(quote: Quote): GeneratedQuoteData {
       percentualeIva,
       totale: subtotale + iva,
     },
-  })
+  });
 }
 
 export default function PreventiviPage() {
-  const { quotes, loading, error, getQuoteStats, createQuote, deleteQuote, reloadQuotes } = useQuotes()
-  const { userData } = useAuth()
-  const router = useRouter()
-  const { toast } = useToast()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [showAIGenerator, setShowAIGenerator] = useState(false)
-  const [showNewQuoteMenu, setShowNewQuoteMenu] = useState(false)
-  const [sendingId, setSendingId] = useState<string | null>(null)
+  const {
+    quotes,
+    loading,
+    error,
+    getQuoteStats,
+    createQuote,
+    deleteQuote,
+    reloadQuotes,
+  } = useQuotes();
+  const { userData } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [showNewQuoteMenu, setShowNewQuoteMenu] = useState(false);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
-  const stats = getQuoteStats()
+  const stats = getQuoteStats();
 
   const enrichedStats = useMemo(() => {
-    const approvedQuotes = quotes.filter((quote) => finalPositiveStates.includes(quote.status))
-    const rejectedQuotes = quotes.filter((quote) => quote.status === "rejected")
-    const openQuotes = quotes.filter((quote) => openStates.includes(getEffectiveStatus(quote)))
+    const approvedQuotes = quotes.filter((quote) =>
+      finalPositiveStates.includes(quote.status),
+    );
+    const rejectedQuotes = quotes.filter(
+      (quote) => quote.status === "rejected",
+    );
+    const openQuotes = quotes.filter((quote) =>
+      openStates.includes(getEffectiveStatus(quote)),
+    );
     const activePipeline = quotes.filter((quote) => {
-      const status = getEffectiveStatus(quote)
-      return !["rejected", "expired", "completed"].includes(status)
-    })
-    const totalWon = approvedQuotes.reduce((sum, quote) => sum + (quote.total || 0), 0)
-    const pipelineValue = activePipeline.reduce((sum, quote) => sum + (quote.total || 0), 0)
-    const decisionCount = approvedQuotes.length + rejectedQuotes.length
+      const status = getEffectiveStatus(quote);
+      return !["rejected", "expired", "completed"].includes(status);
+    });
+    const totalWon = approvedQuotes.reduce(
+      (sum, quote) => sum + (quote.total || 0),
+      0,
+    );
+    const pipelineValue = activePipeline.reduce(
+      (sum, quote) => sum + (quote.total || 0),
+      0,
+    );
+    const decisionCount = approvedQuotes.length + rejectedQuotes.length;
 
     return {
       openCount: openQuotes.length,
       approvedCount: approvedQuotes.length,
       pipelineValue,
       totalWon,
-      winRate: decisionCount > 0 ? Math.round((approvedQuotes.length / decisionCount) * 100) : 0,
-      avgValue: quotes.length > 0 ? quotes.reduce((sum, quote) => sum + (quote.total || 0), 0) / quotes.length : 0,
-    }
-  }, [quotes])
+      winRate:
+        decisionCount > 0
+          ? Math.round((approvedQuotes.length / decisionCount) * 100)
+          : 0,
+      avgValue:
+        quotes.length > 0
+          ? quotes.reduce((sum, quote) => sum + (quote.total || 0), 0) /
+            quotes.length
+          : 0,
+    };
+  }, [quotes]);
 
   const filteredQuotes = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase()
+    const normalizedSearch = searchTerm.trim().toLowerCase();
 
     return quotes.filter((quote) => {
       const searchable = [
@@ -276,16 +343,18 @@ export default function PreventiviPage() {
       ]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase()
+        .toLowerCase();
 
-      const matchesSearch = !normalizedSearch || searchable.includes(normalizedSearch)
-      const matchesStatus = statusFilter === "all" || getEffectiveStatus(quote) === statusFilter
+      const matchesSearch =
+        !normalizedSearch || searchable.includes(normalizedSearch);
+      const matchesStatus =
+        statusFilter === "all" || getEffectiveStatus(quote) === statusFilter;
 
-      return matchesSearch && matchesStatus
-    })
-  }, [quotes, searchTerm, statusFilter])
+      return matchesSearch && matchesStatus;
+    });
+  }, [quotes, searchTerm, statusFilter]);
 
-  const featuredQuote = filteredQuotes[0] || quotes[0]
+  const featuredQuote = filteredQuotes[0] || quotes[0];
 
   const handleCreateEmptyQuote = async () => {
     if (!userData?.tenantId) {
@@ -293,8 +362,8 @@ export default function PreventiviPage() {
         title: "Errore",
         description: "Devi essere autenticato per creare un preventivo",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     try {
@@ -315,119 +384,133 @@ export default function PreventiviPage() {
         total: 0,
         currency: "EUR",
         validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-      }
+      };
 
-      const quoteId = await createQuote(emptyQuote)
+      const quoteId = await createQuote(emptyQuote);
 
       toast({
         title: "Preventivo creato",
         description: "Apro l'editor per completarlo.",
-      })
+      });
 
-      router.push(`/preventivi/${quoteId}/edit`)
+      router.push(`/preventivi/${quoteId}/edit`);
     } catch (createError) {
-      console.error("Error creating empty quote:", createError)
+      console.error("Error creating empty quote:", createError);
       toast({
         title: "Errore",
         description: "Impossibile creare il preventivo",
         variant: "destructive",
-      })
+      });
     } finally {
-      setShowNewQuoteMenu(false)
+      setShowNewQuoteMenu(false);
     }
-  }
+  };
 
   const handleSendQuote = async (quoteId: string) => {
-    setSendingId(quoteId)
+    setSendingId(quoteId);
 
     try {
       const response = await fetch(`/api/quotes/${quoteId}/send`, {
         method: "POST",
         credentials: "include",
-      })
+      });
 
-      const payload = await response.json().catch(() => null)
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error || "Errore nell'invio del preventivo")
+        throw new Error(payload?.error || "Errore nell'invio del preventivo");
       }
 
       if (payload?.publicUrl) {
-        await navigator.clipboard.writeText(payload.publicUrl).catch(() => undefined)
+        await navigator.clipboard
+          .writeText(payload.publicUrl)
+          .catch(() => undefined);
       }
 
-      await reloadQuotes()
+      await reloadQuotes();
 
       toast({
         title: "Preventivo pronto",
         description: payload?.publicUrl
           ? "Link pubblico generato e copiato negli appunti."
           : "Preventivo segnato come inviato.",
-      })
+      });
     } catch (sendError) {
-      console.error("Error sending quote:", sendError)
+      console.error("Error sending quote:", sendError);
       toast({
         title: "Invio non riuscito",
-        description: sendError instanceof Error ? sendError.message : "Errore nell'invio del preventivo",
+        description:
+          sendError instanceof Error
+            ? sendError.message
+            : "Errore nell'invio del preventivo",
         variant: "destructive",
-      })
+      });
     } finally {
-      setSendingId(null)
+      setSendingId(null);
     }
-  }
+  };
 
   const handleDownloadQuote = async (quoteId: string) => {
-    const quote = quotes.find((item) => item.id === quoteId)
-    if (!quote) return
+    const quote = quotes.find((item) => item.id === quoteId);
+    if (!quote) return;
 
     try {
-      const { downloadQuotePDF } = await import("@/lib/pdf-generator")
-      downloadQuotePDF(convertQuoteToPDFData(quote), `Proposta_${quote.id.slice(0, 8)}.pdf`)
+      const { downloadQuotePDF } = await import("@/lib/pdf-generator");
+      downloadQuotePDF(
+        convertQuoteToPDFData(quote),
+        `Proposta_${quote.id.slice(0, 8)}.pdf`,
+      );
       toast({
         title: "Bozza PDF scaricata",
-        description: "Per il PDF finale usa il generatore studio ReportLab con QA layout.",
-      })
+        description:
+          "Per il PDF finale usa il generatore studio ReportLab con QA layout.",
+      });
     } catch (downloadError) {
-      console.error("Error downloading quote PDF:", downloadError)
+      console.error("Error downloading quote PDF:", downloadError);
       toast({
         title: "PDF non riuscito",
-        description: downloadError instanceof Error ? downloadError.message : "Non sono riuscito a generare il PDF del preventivo.",
+        description:
+          downloadError instanceof Error
+            ? downloadError.message
+            : "Non sono riuscito a generare il PDF del preventivo.",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050914] px-4 py-4 text-white md:px-8 md:py-8">
-        <div className="mx-auto max-w-7xl space-y-5">
+      <div className="optima-ops-page">
+        <div className="optima-ops-container space-y-5">
           <div className="h-64 animate-pulse rounded-[8px] border border-white/10 bg-white/[0.04]" />
           <div className="grid gap-4 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-28 animate-pulse rounded-[8px] border border-white/10 bg-white/[0.04]" />
+              <div
+                key={index}
+                className="h-28 animate-pulse rounded-[8px] border border-white/10 bg-white/[0.04]"
+              />
             ))}
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#050914] px-4 py-4 text-white md:px-8 md:py-8">
-        <div className="mx-auto max-w-7xl">
+      <div className="optima-ops-page">
+        <div className="optima-ops-container">
           <Alert className="border-red-500/40 bg-red-950/40 text-red-100">
             <AlertCircle className="h-4 w-4 text-red-300" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#050914] text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(226,55,133,0.22),transparent_34%),radial-gradient(circle_at_80%_12%,rgba(40,206,218,0.18),transparent_28%)]" />
-      <div className="relative mx-auto max-w-7xl px-4 py-4 md:px-8 md:py-8">
+    <div className="optima-ops-page overflow-x-hidden">
+      <div className="optima-ops-container relative">
         <div className="space-y-6 md:space-y-8">
           <section className="relative overflow-hidden rounded-[8px] border border-white/10 bg-[#080d18]/90 shadow-2xl">
             <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_28%,rgba(226,55,133,0.12)_70%,transparent)]" />
@@ -440,10 +523,13 @@ export default function PreventiviPage() {
                   </Badge>
                   <div className="space-y-3">
                     <h1 className="max-w-3xl text-4xl font-black leading-[0.96] tracking-normal text-white md:text-6xl">
-                      Preventivi Righello più puntuali, revisionabili e pronti alla firma.
+                      Preventivi Righello più puntuali, revisionabili e pronti
+                      alla firma.
                     </h1>
                     <p className="max-w-2xl text-base leading-7 text-slate-300 md:text-lg">
-                      Genera proposte con template prezzo controllati, brief guidato, materiali brand, link pubblico e storico operativo.
+                      Genera proposte con template prezzo controllati, brief
+                      guidato, materiali brand, link pubblico e storico
+                      operativo.
                     </p>
                   </div>
                   <div className="flex max-w-3xl flex-wrap gap-2">
@@ -466,7 +552,9 @@ export default function PreventiviPage() {
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">
                           Step {index + 1}
                         </p>
-                        <p className="mt-1 text-xs font-bold text-white">{flowStep.label}</p>
+                        <p className="mt-1 text-xs font-bold text-white">
+                          {flowStep.label}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -480,7 +568,10 @@ export default function PreventiviPage() {
                     <Sparkles className="mr-2 h-4 w-4" />
                     Genera con AI
                   </Button>
-                  <DropdownMenu open={showNewQuoteMenu} onOpenChange={setShowNewQuoteMenu}>
+                  <DropdownMenu
+                    open={showNewQuoteMenu}
+                    onOpenChange={setShowNewQuoteMenu}
+                  >
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
@@ -491,18 +582,24 @@ export default function PreventiviPage() {
                         <ChevronDown className="ml-2 h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-60 rounded-[8px] border-white/10 bg-[#0d1320] text-white">
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-60 rounded-[8px] border-white/10 bg-[#0d1320] text-white"
+                    >
                       <DropdownMenuLabel>Crea preventivo</DropdownMenuLabel>
                       <DropdownMenuSeparator className="bg-white/10" />
-                      <DropdownMenuItem className="cursor-pointer focus:bg-white/10" onClick={handleCreateEmptyQuote}>
+                      <DropdownMenuItem
+                        className="cursor-pointer focus:bg-white/10"
+                        onClick={handleCreateEmptyQuote}
+                      >
                         <FileText className="mr-2 h-4 w-4" />
                         Preventivo vuoto
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="cursor-pointer text-righello-pink focus:bg-white/10 focus:text-righello-pink"
                         onClick={() => {
-                          setShowNewQuoteMenu(false)
-                          setShowAIGenerator(true)
+                          setShowNewQuoteMenu(false);
+                          setShowAIGenerator(true);
                         }}
                       >
                         <Wand2 className="mr-2 h-4 w-4" />
@@ -520,52 +617,77 @@ export default function PreventiviPage() {
                 </div>
                 <div className="absolute -bottom-12 -right-10 h-52 w-52 rounded-full bg-cyan-400/10 blur-3xl" />
                 <div className="relative mt-10 space-y-3">
-                  {(featuredQuote ? [featuredQuote, ...filteredQuotes.filter((quote) => quote.id !== featuredQuote.id).slice(0, 2)] : []).map(
-                    (quote, index) => (
-                      <div
-                        key={quote.id}
-                        className={cn(
-                          "rounded-[8px] border border-white/10 bg-[#101827]/90 p-4 shadow-xl",
-                          index === 0
-                            ? "translate-x-0"
-                            : index === 1
-                              ? "opacity-80 xl:translate-x-4"
-                              : "opacity-60 xl:translate-x-8"
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold uppercase text-slate-500">Slide {index + 1}</p>
-                            <h3 className="mt-1 truncate text-lg font-bold text-white">{quote.title || "Preventivo senza titolo"}</h3>
-                            <p className="mt-1 truncate text-sm text-slate-400">{quote.clientName || quote.externalClientName || "Cliente da definire"}</p>
-                          </div>
-                          <Badge className="rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
-                            {formatCurrency(quote.total || 0, quote.currency)}
-                          </Badge>
+                  {(featuredQuote
+                    ? [
+                        featuredQuote,
+                        ...filteredQuotes
+                          .filter((quote) => quote.id !== featuredQuote.id)
+                          .slice(0, 2),
+                      ]
+                    : []
+                  ).map((quote, index) => (
+                    <div
+                      key={quote.id}
+                      className={cn(
+                        "rounded-[8px] border border-white/10 bg-[#101827]/90 p-4 shadow-xl",
+                        index === 0
+                          ? "translate-x-0"
+                          : index === 1
+                            ? "opacity-80 xl:translate-x-4"
+                            : "opacity-60 xl:translate-x-8",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase text-slate-500">
+                            Slide {index + 1}
+                          </p>
+                          <h3 className="mt-1 truncate text-lg font-bold text-white">
+                            {quote.title || "Preventivo senza titolo"}
+                          </h3>
+                          <p className="mt-1 truncate text-sm text-slate-400">
+                            {quote.clientName ||
+                              quote.externalClientName ||
+                              "Cliente da definire"}
+                          </p>
                         </div>
-                        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                          <div className="rounded-[8px] bg-white/[0.04] p-3">
-                            <p className="text-xs text-slate-500">Voci</p>
-                            <p className="text-lg font-black text-white">{getQuoteLineCount(quote)}</p>
-                          </div>
-                          <div className="rounded-[8px] bg-white/[0.04] p-3">
-                            <p className="text-xs text-slate-500">Stato</p>
-                            <p className="truncate text-sm font-bold text-white">{getEffectiveStatus(quote)}</p>
-                          </div>
-                          <div className="rounded-[8px] bg-white/[0.04] p-3">
-                            <p className="text-xs text-slate-500">Link</p>
-                            <p className="text-sm font-bold text-white">{quote.shareToken ? "attivo" : "draft"}</p>
-                          </div>
+                        <Badge className="rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
+                          {formatCurrency(quote.total || 0, quote.currency)}
+                        </Badge>
+                      </div>
+                      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <div className="rounded-[8px] bg-white/[0.04] p-3">
+                          <p className="text-xs text-slate-500">Voci</p>
+                          <p className="text-lg font-black text-white">
+                            {getQuoteLineCount(quote)}
+                          </p>
+                        </div>
+                        <div className="rounded-[8px] bg-white/[0.04] p-3">
+                          <p className="text-xs text-slate-500">Stato</p>
+                          <p className="truncate text-sm font-bold text-white">
+                            {getEffectiveStatus(quote)}
+                          </p>
+                        </div>
+                        <div className="rounded-[8px] bg-white/[0.04] p-3">
+                          <p className="text-xs text-slate-500">Link</p>
+                          <p className="text-sm font-bold text-white">
+                            {quote.shareToken ? "attivo" : "draft"}
+                          </p>
                         </div>
                       </div>
-                    )
-                  )}
+                    </div>
+                  ))}
 
                   {!featuredQuote && (
                     <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[8px] border border-dashed border-white/15 text-center">
                       <Layers className="h-10 w-10 text-slate-500" />
-                      <p className="mt-3 text-sm font-semibold text-white">La prima proposta diventa il tuo deck commerciale.</p>
-                      <p className="mt-1 max-w-xs text-xs text-slate-500">Parti da una bozza vuota o lascia generare struttura e voci all'AI.</p>
+                      <p className="mt-3 text-sm font-semibold text-white">
+                        La prima proposta diventa il tuo deck commerciale.
+                      </p>
+                      <p className="mt-1 max-w-xs text-xs text-slate-500">
+                        Parti da una bozza vuota o lascia generare struttura e
+                        voci all'AI.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -574,18 +696,44 @@ export default function PreventiviPage() {
           </section>
 
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard icon={FileText} label="Preventivi totali" value={String(stats.total)} hint="documenti creati" />
-            <MetricCard icon={Clock} label="In attesa" value={String(enrichedStats.openCount)} hint="richiedono follow-up" tone="cyan" />
-            <MetricCard icon={CheckCircle} label="Win rate" value={`${enrichedStats.winRate}%`} hint={`${enrichedStats.approvedCount} confermati`} tone="green" />
-            <MetricCard icon={DollarSign} label="Pipeline" value={formatCurrency(enrichedStats.pipelineValue)} hint={`vinto ${formatCurrency(enrichedStats.totalWon)}`} tone="pink" />
+            <MetricCard
+              icon={FileText}
+              label="Preventivi totali"
+              value={String(stats.total)}
+              hint="documenti creati"
+            />
+            <MetricCard
+              icon={Clock}
+              label="In attesa"
+              value={String(enrichedStats.openCount)}
+              hint="richiedono follow-up"
+              tone="cyan"
+            />
+            <MetricCard
+              icon={CheckCircle}
+              label="Win rate"
+              value={`${enrichedStats.winRate}%`}
+              hint={`${enrichedStats.approvedCount} confermati`}
+              tone="green"
+            />
+            <MetricCard
+              icon={DollarSign}
+              label="Pipeline"
+              value={formatCurrency(enrichedStats.pipelineValue)}
+              hint={`vinto ${formatCurrency(enrichedStats.totalWon)}`}
+              tone="pink"
+            />
           </section>
 
           <section className="rounded-[8px] border border-white/10 bg-[#080d18]/88 p-4 md:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-xl font-black text-white md:text-2xl">Sala preventivi</h2>
+                <h2 className="text-xl font-black text-white md:text-2xl">
+                  Sala preventivi
+                </h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Vista operativa in stile board: cerca, filtra e apri subito editor o link pubblico.
+                  Vista operativa in stile board: cerca, filtra e apri subito
+                  editor o link pubblico.
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row lg:min-w-[520px]">
@@ -612,9 +760,13 @@ export default function PreventiviPage() {
             <div className="-mx-4 mt-5 overflow-x-auto px-4 pb-1">
               <div className="flex min-w-max gap-2">
                 {statusTabs.map((tab) => {
-                  const active = statusFilter === tab.value
+                  const active = statusFilter === tab.value;
                   const count =
-                    tab.value === "all" ? quotes.length : quotes.filter((quote) => getEffectiveStatus(quote) === tab.value).length
+                    tab.value === "all"
+                      ? quotes.length
+                      : quotes.filter(
+                          (quote) => getEffectiveStatus(quote) === tab.value,
+                        ).length;
 
                   return (
                     <button
@@ -625,13 +777,20 @@ export default function PreventiviPage() {
                         "rounded-[8px] border px-4 py-2 text-sm font-bold transition",
                         active
                           ? "border-righello-pink/70 bg-righello-pink text-white shadow-[0_12px_32px_rgba(226,55,133,0.22)]"
-                          : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
+                          : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]",
                       )}
                     >
                       {tab.label}
-                      <span className={cn("ml-2 text-xs", active ? "text-white/75" : "text-slate-500")}>{count}</span>
+                      <span
+                        className={cn(
+                          "ml-2 text-xs",
+                          active ? "text-white/75" : "text-slate-500",
+                        )}
+                      >
+                        {count}
+                      </span>
                     </button>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -642,14 +801,19 @@ export default function PreventiviPage() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[8px] border border-righello-pink/30 bg-righello-pink/15">
                 <FileText className="h-8 w-8 text-righello-pink" />
               </div>
-              <h3 className="mt-6 text-2xl font-black text-white">Nessun preventivo trovato</h3>
+              <h3 className="mt-6 text-2xl font-black text-white">
+                Nessun preventivo trovato
+              </h3>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
                 {searchTerm
                   ? "La ricerca non ha prodotto risultati. Prova a cambiare filtro o testo."
                   : "Crea una bozza e trasformala in una proposta presentabile in pochi passaggi."}
               </p>
               <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                <Button onClick={handleCreateEmptyQuote} className="rounded-[8px] bg-righello-pink text-white hover:bg-righello-pink-dark">
+                <Button
+                  onClick={handleCreateEmptyQuote}
+                  className="rounded-[8px] bg-righello-pink text-white hover:bg-righello-pink-dark"
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Crea il primo preventivo
                 </Button>
@@ -674,18 +838,19 @@ export default function PreventiviPage() {
                   onDownload={handleDownloadQuote}
                   onDelete={async (id) => {
                     try {
-                      await deleteQuote(id)
+                      await deleteQuote(id);
                       toast({
                         title: "Preventivo eliminato",
                         description: "La lista e' stata aggiornata.",
-                      })
+                      });
                     } catch (deleteError) {
-                      console.error("Error deleting quote:", deleteError)
+                      console.error("Error deleting quote:", deleteError);
                       toast({
                         title: "Eliminazione non riuscita",
-                        description: "Non sono riuscito a eliminare il preventivo.",
+                        description:
+                          "Non sono riuscito a eliminare il preventivo.",
                         variant: "destructive",
-                      })
+                      });
                     }
                   }}
                   sending={sendingId === quote.id}
@@ -703,11 +868,11 @@ export default function PreventiviPage() {
           toast({
             title: "Preventivo generato",
             description: "La lista si aggiorna in tempo reale.",
-          })
+          });
         }}
       />
     </div>
-  )
+  );
 }
 
 function MetricCard({
@@ -717,23 +882,28 @@ function MetricCard({
   hint,
   tone = "slate",
 }: {
-  icon: typeof FileText
-  label: string
-  value: string
-  hint: string
-  tone?: "slate" | "cyan" | "green" | "pink"
+  icon: typeof FileText;
+  label: string;
+  value: string;
+  hint: string;
+  tone?: "slate" | "cyan" | "green" | "pink";
 }) {
   const tones = {
     slate: "from-white/10 to-white/[0.03] text-slate-300",
     cyan: "from-cyan-400/18 to-cyan-400/[0.03] text-cyan-200",
     green: "from-emerald-400/18 to-emerald-400/[0.03] text-emerald-200",
     pink: "from-righello-pink/20 to-righello-pink/[0.04] text-righello-pink",
-  }
+  };
 
   return (
     <div className="rounded-[8px] border border-white/10 bg-[#080d18]/88 p-4">
       <div className="flex items-center justify-between gap-3">
-        <div className={cn("flex h-10 w-10 items-center justify-center rounded-[8px] bg-gradient-to-br", tones[tone])}>
+        <div
+          className={cn(
+            "flex h-10 w-10 items-center justify-center rounded-[8px] bg-gradient-to-br",
+            tones[tone],
+          )}
+        >
           <Icon className="h-5 w-5" />
         </div>
         <Link2 className="h-4 w-4 text-slate-600" />
@@ -742,5 +912,5 @@ function MetricCard({
       <p className="mt-1 break-words text-2xl font-black text-white">{value}</p>
       <p className="mt-2 text-xs text-slate-500">{hint}</p>
     </div>
-  )
+  );
 }

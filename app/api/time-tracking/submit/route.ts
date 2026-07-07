@@ -1,31 +1,37 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import type { NextRequest } from "next/server"
+import type { NextRequest } from "next/server";
 
-import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
-import { sendOperationalReportSummaryEmail } from "@/lib/email"
-import { requireClerkUser } from "@/lib/server-clerk"
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
+import { resolveEmailBrand } from "@/lib/email-branding";
+import { sendOperationalReportSummaryEmail } from "@/lib/email";
+import { requireClerkUser } from "@/lib/server-clerk";
 import {
   canManageTime,
   currentPresenceMinutes,
   netPresenceMinutes,
   normalizeDate,
+  usesTaskOnlyWorkLog,
   workScheduleForMember,
-} from "@/lib/time-tracking"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+} from "@/lib/time-tracking";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 
-const DIRECTION_ROLES = new Set(["super-admin", "admin", "direzione"])
+const DIRECTION_ROLES = new Set(["super-admin", "admin", "direzione"]);
 
 function formatName(row: any) {
-  return `${row.first_name || ""} ${row.last_name || ""}`.trim() || row.email || "Utente"
+  return (
+    `${row.first_name || ""} ${row.last_name || ""}`.trim() ||
+    row.email ||
+    "Utente"
+  );
 }
 
 function formatMinutesLabel(minutes: number) {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (!h) return `${m}m`
-  if (!m) return `${h}h`
-  return `${h}h ${m}m`
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m}m`;
+  if (!m) return `${h}h`;
+  return `${h}h ${m}m`;
 }
 
 function formatDateLabel(value: string) {
@@ -34,31 +40,43 @@ function formatDateLabel(value: string) {
     day: "2-digit",
     month: "long",
     year: "numeric",
-  }).format(new Date(`${value}T00:00:00`))
+  }).format(new Date(`${value}T00:00:00`));
 }
 
 function formatTime(value?: string | null) {
-  if (!value) return "--:--"
-  return new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
+  if (!value) return "--:--";
+  return new Intl.DateTimeFormat("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireClerkUser()
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await requireClerkUser();
+    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = await getCloudflareDb()
-    if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+    const db = await getCloudflareDb();
+    if (!db)
+      return Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      );
 
-    const principal = await ensureWorkspacePrincipal(db, user)
-    const body = await request.json().catch(() => ({}))
-    const isManager = canManageTime(principal)
-    const memberId = isManager && body.memberId ? String(body.memberId) : principal.memberId
-    const date = normalizeDate(body.date)
-    const submittedNotes = typeof body.notes === "string" ? body.notes.trim() : null
+    const principal = await ensureWorkspacePrincipal(db, user);
+    const body = await request.json().catch(() => ({}));
+    const isManager = canManageTime(principal);
+    const memberId =
+      isManager && body.memberId ? String(body.memberId) : principal.memberId;
+    const date = normalizeDate(body.date);
+    const submittedNotes =
+      typeof body.notes === "string" ? body.notes.trim() : null;
 
     if (!isManager && memberId !== principal.memberId) {
-      return Response.json({ error: "Dipendente non autorizzato" }, { status: 403 })
+      return Response.json(
+        { error: "Dipendente non autorizzato" },
+        { status: 403 },
+      );
     }
 
     const member = await db
@@ -69,10 +87,15 @@ export async function POST(request: NextRequest) {
          LIMIT 1`,
       )
       .bind(principal.organizationId, memberId)
-      .first()
+      .first();
 
-    if (!member) return Response.json({ error: "Dipendente non trovato" }, { status: 404 })
+    if (!member)
+      return Response.json(
+        { error: "Dipendente non trovato" },
+        { status: 404 },
+      );
 
+    const taskOnlyWorkLog = usesTaskOnlyWorkLog((member as any).role);
     const existing = await db
       .prepare(
         `SELECT *
@@ -81,9 +104,9 @@ export async function POST(request: NextRequest) {
          LIMIT 1`,
       )
       .bind(principal.organizationId, memberId, date)
-      .first()
+      .first();
 
-    const workDayId = existing?.id || createId("day")
+    const workDayId = existing?.id || createId("day");
     if (existing?.id) {
       await db
         .prepare(
@@ -91,14 +114,26 @@ export async function POST(request: NextRequest) {
            SET review_status = 'submitted',
                submitted_at = CURRENT_TIMESTAMP,
                submitted_by_member_id = ?,
+               status = CASE WHEN ? = 1 THEN 'closed' ELSE status END,
+               check_in_at = CASE WHEN ? = 1 THEN NULL ELSE check_in_at END,
+               check_out_at = CASE WHEN ? = 1 THEN NULL ELSE check_out_at END,
                notes = COALESCE(?, notes),
                reviewed_at = NULL,
                reviewed_by_member_id = NULL,
                updated_at = CURRENT_TIMESTAMP
            WHERE organization_id = ? AND member_id = ? AND entry_date = ?`,
         )
-        .bind(principal.memberId, submittedNotes, principal.organizationId, memberId, date)
-        .run()
+        .bind(
+          principal.memberId,
+          taskOnlyWorkLog ? 1 : 0,
+          taskOnlyWorkLog ? 1 : 0,
+          taskOnlyWorkLog ? 1 : 0,
+          submittedNotes,
+          principal.organizationId,
+          memberId,
+          date,
+        )
+        .run();
     } else {
       await db
         .prepare(
@@ -106,18 +141,26 @@ export async function POST(request: NextRequest) {
              id, organization_id, member_id, entry_date, status,
              review_status, submitted_at, submitted_by_member_id, notes
            )
-           VALUES (?, ?, ?, ?, 'open', 'submitted', CURRENT_TIMESTAMP, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP, ?, ?)`,
         )
-        .bind(workDayId, principal.organizationId, memberId, date, principal.memberId, submittedNotes)
-        .run()
+        .bind(
+          workDayId,
+          principal.organizationId,
+          memberId,
+          date,
+          taskOnlyWorkLog ? "closed" : "open",
+          principal.memberId,
+          submittedNotes,
+        )
+        .run();
     }
 
     const day = existing || {
       check_in_at: null,
       check_out_at: null,
       notes: "",
-    }
-    const emailNotes = submittedNotes ?? String(day.notes || "")
+    };
+    const emailNotes = submittedNotes ?? String(day.notes || "");
 
     const entriesResult = await db
       .prepare(
@@ -138,26 +181,43 @@ export async function POST(request: NextRequest) {
          ORDER BY te.created_at ASC`,
       )
       .bind(principal.organizationId, memberId, date)
-      .all()
+      .all();
 
-    const entries = (entriesResult.results || []) as any[]
-    const activityMinutes = entries.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0)
-    const schedule = workScheduleForMember((member as any).weekly_capacity_minutes)
-    const presenceMinutes = netPresenceMinutes(
-      currentPresenceMinutes(day.check_in_at, day.check_out_at),
-      schedule.lunchBreakMinutes,
-    )
-    const shouldEmail = !DIRECTION_ROLES.has(String(principal.role || "").toLowerCase())
-    let emailSent = false
+    const entries = (entriesResult.results || []) as any[];
+    const activityMinutes = entries.reduce(
+      (sum, entry) => sum + Number(entry.minutes || 0),
+      0,
+    );
+    const schedule = workScheduleForMember(
+      (member as any).weekly_capacity_minutes,
+    );
+    const presenceMinutes = taskOnlyWorkLog
+      ? 0
+      : netPresenceMinutes(
+          currentPresenceMinutes(day.check_in_at, day.check_out_at),
+          schedule.lunchBreakMinutes,
+        );
+    const shouldEmail = !DIRECTION_ROLES.has(
+      String(principal.role || "").toLowerCase(),
+    );
+    let emailSent = false;
 
     if (shouldEmail) {
+      const brand = await resolveEmailBrand(db, principal.organizationId);
       emailSent = await sendOperationalReportSummaryEmail({
+        brand,
         memberName: formatName(member),
         memberEmail: String((member as any).email || ""),
         dateLabel: formatDateLabel(date),
-        checkInLabel: formatTime(day.check_in_at),
-        checkOutLabel: formatTime(day.check_out_at),
-        presenceLabel: formatMinutesLabel(presenceMinutes),
+        checkInLabel: taskOnlyWorkLog
+          ? "Non richiesto"
+          : formatTime(day.check_in_at),
+        checkOutLabel: taskOnlyWorkLog
+          ? "Non richiesto"
+          : formatTime(day.check_out_at),
+        presenceLabel: taskOnlyWorkLog
+          ? "Rendiconto task"
+          : formatMinutesLabel(presenceMinutes),
         activityLabel: formatMinutesLabel(activityMinutes),
         notes: emailNotes,
         entries: entries.map((entry) => ({
@@ -167,12 +227,19 @@ export async function POST(request: NextRequest) {
           note: entry.note || "",
           minutesLabel: formatMinutesLabel(Number(entry.minutes || 0)),
         })),
-      })
+      });
     }
 
-    return Response.json({ success: true, reviewStatus: "submitted", emailSent })
+    return Response.json({
+      success: true,
+      reviewStatus: "submitted",
+      emailSent,
+    });
   } catch (error) {
-    console.error("Time tracking submit error:", error)
-    return Response.json({ error: "Errore durante l'invio del rapportino" }, { status: 500 })
+    console.error("Time tracking submit error:", error);
+    return Response.json(
+      { error: "Errore durante l'invio del rapportino" },
+      { status: 500 },
+    );
   }
 }

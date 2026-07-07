@@ -1,9 +1,10 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
-import { buildOperationalContextSnapshot } from "@/lib/operational-context"
-import type { WorkspacePrincipal } from "@/lib/workspace-db"
-import { createAgentJob } from "@/lib/agent-jobs"
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
+import { buildOperationalContextSnapshot } from "@/lib/operational-context";
+import type { WorkspacePrincipal } from "@/lib/workspace-db";
+import { createAgentJob } from "@/lib/agent-jobs";
+import { canViewAllWorkspaceData } from "@/lib/workspace-permissions";
 import {
   buildChatIdReply,
   createTelegramDocumentProposal,
@@ -14,48 +15,55 @@ import {
   normalizeTelegramChatId,
   saveTelegramAgentMemory,
   type TelegramAttachment,
-} from "@/lib/telegram-agentic-bot"
+} from "@/lib/telegram-agentic-bot";
 
-const TELEGRAM_AGENT_MODEL_LABEL = "telegram-agentic-router"
+const TELEGRAM_AGENT_MODEL_LABEL = "telegram-agentic-router";
 
 type TelegramUser = {
-  id?: number
-  username?: string
-  first_name?: string
-  last_name?: string
-}
+  id?: number;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+};
 
 type TelegramMessage = {
-  message_id?: number
-  media_group_id?: string
-  text?: string
-  caption?: string
-  chat?: { id?: number | string; type?: string }
-  from?: TelegramUser
-  document?: { file_id?: string; file_name?: string; mime_type?: string }
-  photo?: Array<{ file_id?: string; file_unique_id?: string; width?: number; height?: number }>
-}
+  message_id?: number;
+  media_group_id?: string;
+  text?: string;
+  caption?: string;
+  chat?: { id?: number | string; type?: string };
+  from?: TelegramUser;
+  document?: { file_id?: string; file_name?: string; mime_type?: string };
+  photo?: Array<{
+    file_id?: string;
+    file_unique_id?: string;
+    width?: number;
+    height?: number;
+  }>;
+};
 
 type TelegramUpdate = {
-  update_id?: number
-  message?: TelegramMessage
-  edited_message?: TelegramMessage
-}
+  update_id?: number;
+  message?: TelegramMessage;
+  edited_message?: TelegramMessage;
+};
 
 type TelegramInlineKeyboard = {
-  inline_keyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>>
-}
+  inline_keyboard: Array<
+    Array<{ text: string; url?: string; callback_data?: string }>
+  >;
+};
 
 type TelegramPreparedReply = {
-  text: string
-  replyMarkup?: TelegramInlineKeyboard
-}
+  text: string;
+  replyMarkup?: TelegramInlineKeyboard;
+};
 
 function compact(value: unknown, limit = 900) {
   return String(value || "")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, limit)
+    .slice(0, limit);
 }
 
 function todayRomeIsoDate() {
@@ -64,22 +72,86 @@ function todayRomeIsoDate() {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date())
+  }).format(new Date());
 }
 
 function addDaysIsoDate(date: string, days: number) {
-  const cursor = new Date(`${date}T12:00:00Z`)
-  cursor.setUTCDate(cursor.getUTCDate() + days)
-  return cursor.toISOString().slice(0, 10)
+  const cursor = new Date(`${date}T12:00:00Z`);
+  cursor.setUTCDate(cursor.getUTCDate() + days);
+  return cursor.toISOString().slice(0, 10);
+}
+
+const ITALIAN_WEEKDAYS = new Map([
+  ["domenica", 0],
+  ["lunedi", 1],
+  ["lunedì", 1],
+  ["martedi", 2],
+  ["martedì", 2],
+  ["mercoledi", 3],
+  ["mercoledì", 3],
+  ["giovedi", 4],
+  ["giovedì", 4],
+  ["venerdi", 5],
+  ["venerdì", 5],
+  ["sabato", 6],
+]);
+
+function normalizeSearchText(value: unknown) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function previousWeekdayIsoDate(today: string, targetDay: number) {
+  const cursor = new Date(`${today}T12:00:00Z`);
+  const currentDay = cursor.getUTCDay();
+  const daysBack = (currentDay - targetDay + 7) % 7;
+  cursor.setUTCDate(cursor.getUTCDate() - daysBack);
+  return cursor.toISOString().slice(0, 10);
+}
+
+function resolveBusinessDateFromText(text: string) {
+  const lower = text.toLowerCase();
+  const normalized = normalizeSearchText(text);
+  const today = todayRomeIsoDate();
+
+  if (/l['’]altro ieri|altroieri/.test(lower)) return addDaysIsoDate(today, -2);
+  if (/\bieri\b/.test(lower)) return addDaysIsoDate(today, -1);
+  if (/\boggi\b/.test(lower)) return today;
+
+  for (const [weekday, day] of ITALIAN_WEEKDAYS) {
+    if (normalized.includes(normalizeSearchText(weekday))) {
+      return previousWeekdayIsoDate(today, day);
+    }
+  }
+
+  const explicitDate = lower.match(
+    /\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/,
+  );
+  if (explicitDate) {
+    const currentYear = Number(today.slice(0, 4));
+    const day = explicitDate[1].padStart(2, "0");
+    const month = explicitDate[2].padStart(2, "0");
+    const rawYear = explicitDate[3];
+    const year = rawYear
+      ? rawYear.length === 2
+        ? `20${rawYear}`
+        : rawYear
+      : String(currentYear);
+    return `${year}-${month}-${day}`;
+  }
+
+  return null;
 }
 
 function formatMinutesLabel(minutes: number) {
-  const safeMinutes = Math.max(0, Math.round(Number(minutes || 0)))
-  const hours = Math.floor(safeMinutes / 60)
-  const rest = safeMinutes % 60
-  if (hours && rest) return `${hours}h ${rest}m`
-  if (hours) return `${hours}h`
-  return `${rest}m`
+  const safeMinutes = Math.max(0, Math.round(Number(minutes || 0)));
+  const hours = Math.floor(safeMinutes / 60);
+  const rest = safeMinutes % 60;
+  if (hours && rest) return `${hours}h ${rest}m`;
+  if (hours) return `${hours}h`;
+  return `${rest}m`;
 }
 
 function formatBusinessDate(date: string) {
@@ -88,81 +160,94 @@ function formatBusinessDate(date: string) {
     day: "2-digit",
     month: "long",
     year: "numeric",
-  }).format(new Date(`${date}T12:00:00Z`))
+  }).format(new Date(`${date}T12:00:00Z`));
 }
 
 function resolvePersonalWorkSummaryDate(text: string) {
-  const lower = text.toLowerCase()
+  const lower = text.toLowerCase();
   const asksPersonalWork =
     /\b(cosa|che)\s+(ho|avevo)\s+fatt/.test(lower) ||
     /\b(mie|mie[ei]|mio)\s+(attivit|task|lavor)/.test(lower) ||
-    /\b(riassum|riepilog).*\b(ieri|oggi|settimana|giornata)\b/.test(lower)
+    /\b(riassum|riepilog).*\b(ieri|oggi|settimana|giornata)\b/.test(lower);
 
-  if (!asksPersonalWork) return null
+  if (!asksPersonalWork) return null;
 
-  const today = todayRomeIsoDate()
-  if (/l['’]altro ieri|altroieri/.test(lower)) return addDaysIsoDate(today, -2)
-  if (/\bieri\b/.test(lower)) return addDaysIsoDate(today, -1)
-  if (/\boggi\b/.test(lower)) return today
+  return resolveBusinessDateFromText(text);
+}
 
-  const explicitDate = lower.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/)
-  if (explicitDate) {
-    const currentYear = Number(today.slice(0, 4))
-    const day = explicitDate[1].padStart(2, "0")
-    const month = explicitDate[2].padStart(2, "0")
-    const rawYear = explicitDate[3]
-    const year = rawYear ? (rawYear.length === 2 ? `20${rawYear}` : rawYear) : String(currentYear)
-    return `${year}-${month}-${day}`
-  }
+function resolveTeamWorkSummaryRequest(text: string) {
+  const lower = text.toLowerCase();
+  const asksTeamWork =
+    /\b(cosa|che|quali)\s+(hanno|ha)\s+fatt/.test(lower) ||
+    /\b(attivita|attività|task|rapportin|consuntiv).*\b(fatt|svolt|inserit|caricat)/.test(
+      lower,
+    );
 
-  return null
+  if (!asksTeamWork) return null;
+
+  const date = resolveBusinessDateFromText(text);
+  if (!date) return null;
+
+  return { date, text };
 }
 
 function envList(name: string) {
   return String(process.env[name] || "")
     .split(",")
     .map((item) => item.trim().toLowerCase())
-    .filter(Boolean)
+    .filter(Boolean);
 }
 
 function parseMemberEmailMap() {
-  const raw = process.env.TELEGRAM_MEMBER_EMAIL_MAP
-  if (!raw) return new Map<string, string>()
+  const raw = process.env.TELEGRAM_MEMBER_EMAIL_MAP;
+  if (!raw) return new Map<string, string>();
   try {
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return new Map<string, string>()
-    return new Map(Object.entries(parsed).map(([key, value]) => [key.toLowerCase(), String(value)]))
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return new Map<string, string>();
+    return new Map(
+      Object.entries(parsed).map(([key, value]) => [
+        key.toLowerCase(),
+        String(value),
+      ]),
+    );
   } catch {
-    return new Map<string, string>()
+    return new Map<string, string>();
   }
 }
 
 function isAllowedTelegramSender(message: TelegramMessage) {
-  const allowedChatIds = envList("TELEGRAM_ALLOWED_CHAT_IDS")
-  const allowedUsernames = envList("TELEGRAM_ALLOWED_USERNAMES")
-  if (!allowedChatIds.length && !allowedUsernames.length) return false
+  const allowedChatIds = envList("TELEGRAM_ALLOWED_CHAT_IDS");
+  const allowedUsernames = envList("TELEGRAM_ALLOWED_USERNAMES");
+  if (!allowedChatIds.length && !allowedUsernames.length) return false;
 
-  const chatId = String(message.chat?.id || "").toLowerCase()
-  const username = String(message.from?.username || "").toLowerCase()
+  const chatId = String(message.chat?.id || "").toLowerCase();
+  const username = String(message.from?.username || "").toLowerCase();
 
-  return Boolean((chatId && allowedChatIds.includes(chatId)) || (username && allowedUsernames.includes(username)))
+  return Boolean(
+    (chatId && allowedChatIds.includes(chatId)) ||
+    (username && allowedUsernames.includes(username)),
+  );
 }
 
-async function findTelegramPrincipal(db: any, message: TelegramMessage): Promise<WorkspacePrincipal | null> {
-  const authorized = await findAuthorizedTelegramPrincipal(db, message)
-  if (authorized) return authorized
+async function findTelegramPrincipal(
+  db: any,
+  message: TelegramMessage,
+): Promise<WorkspacePrincipal | null> {
+  const authorized = await findAuthorizedTelegramPrincipal(db, message);
+  if (authorized) return authorized;
 
-  const username = String(message.from?.username || "").toLowerCase()
-  const chatId = String(message.chat?.id || "").toLowerCase()
-  const emailMap = parseMemberEmailMap()
+  const username = String(message.from?.username || "").toLowerCase();
+  const chatId = String(message.chat?.id || "").toLowerCase();
+  const emailMap = parseMemberEmailMap();
   const email =
     emailMap.get(username) ||
     emailMap.get(`@${username}`) ||
     emailMap.get(chatId) ||
     process.env.TELEGRAM_DEFAULT_MEMBER_EMAIL ||
-    ""
+    "";
 
-  if (!email.trim()) return null
+  if (!email.trim()) return null;
 
   const row = await db
     .prepare(
@@ -182,18 +267,20 @@ async function findTelegramPrincipal(db: any, message: TelegramMessage): Promise
        LIMIT 1`,
     )
     .bind(email)
-    .first()
+    .first();
 
-  if (!row?.id || !row?.organization_id) return null
+  if (!row?.id || !row?.organization_id) return null;
   return {
     organizationId: String(row.organization_id),
     memberId: String(row.id),
     role: String(row.role || "member"),
     email: String(row.email || email),
-  }
+  };
 }
 
-function extractAttachment(message: TelegramMessage): TelegramAttachment | null {
+function extractAttachment(
+  message: TelegramMessage,
+): TelegramAttachment | null {
   if (message.document?.file_id) {
     return {
       kind: "document",
@@ -202,10 +289,10 @@ function extractAttachment(message: TelegramMessage): TelegramAttachment | null 
       mimeType: message.document.mime_type,
       mediaGroupId: message.media_group_id,
       messageId: message.message_id ? String(message.message_id) : undefined,
-    }
+    };
   }
 
-  const photo = message.photo?.[message.photo.length - 1]
+  const photo = message.photo?.[message.photo.length - 1];
   if (photo?.file_id) {
     return {
       kind: "photo",
@@ -214,21 +301,26 @@ function extractAttachment(message: TelegramMessage): TelegramAttachment | null 
       mimeType: "image/jpeg",
       mediaGroupId: message.media_group_id,
       messageId: message.message_id ? String(message.message_id) : undefined,
-    }
+    };
   }
 
-  return null
+  return null;
 }
 
 function preferredModelRoute(action: string) {
-  if (action === "status" || action === "reminder" || action === "classify" || action === "task_update") {
+  if (
+    action === "status" ||
+    action === "reminder" ||
+    action === "classify" ||
+    action === "task_update"
+  ) {
     return {
       lane: "operations",
       providerId: "gemma-hosted",
       model: "gemma-hosted",
       policy: "local-first-vps",
       fallback: "codex-chatgpt",
-    }
+    };
   }
 
   if (action === "query" || action === "archive" || action === "send_file") {
@@ -238,7 +330,7 @@ function preferredModelRoute(action: string) {
       model: "qwen-long-context",
       policy: "local-first-vps",
       fallback: "codex-chatgpt",
-    }
+    };
   }
 
   return {
@@ -247,50 +339,62 @@ function preferredModelRoute(action: string) {
     model: "gemma-hosted",
     policy: "local-first-vps",
     fallback: "codex-chatgpt",
-  }
+  };
 }
 
 function appBaseUrl() {
-  return String(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || "https://appbeta.wearerighello.com").replace(/\/$/, "")
+  return String(
+    process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.APP_BASE_URL ||
+      "https://appbeta.wearerighello.com",
+  ).replace(/\/$/, "");
 }
 
-function buildTelegramReplyMarkup(action: string, jobId?: string | null): TelegramInlineKeyboard | undefined {
-  const baseUrl = appBaseUrl()
-  const rows: TelegramInlineKeyboard["inline_keyboard"] = []
+function buildTelegramReplyMarkup(
+  action: string,
+  jobId?: string | null,
+): TelegramInlineKeyboard | undefined {
+  const baseUrl = appBaseUrl();
+  const rows: TelegramInlineKeyboard["inline_keyboard"] = [];
 
   if (jobId) {
-    rows.push([{ text: "Apri revisione in Optima", url: `${baseUrl}/agenti` }])
+    rows.push([{ text: "Apri revisione in Optima", url: `${baseUrl}/agenti` }]);
   }
 
   if (action === "task_update") {
-    rows.push([{ text: "Apri workspace", url: `${baseUrl}/workspace` }])
+    rows.push([{ text: "Apri workspace", url: `${baseUrl}/workspace` }]);
   } else if (action === "status" || action === "reminder") {
     rows.push([
       { text: "Rapportino", url: `${baseUrl}/rapportini` },
       { text: "Presenze", url: `${baseUrl}/presenze` },
-    ])
-  } else if (action === "query" || action === "archive" || action === "send_file" || action === "classify") {
-    rows.push([{ text: "AI Ops", url: `${baseUrl}/agenti` }])
+    ]);
+  } else if (
+    action === "query" ||
+    action === "archive" ||
+    action === "send_file" ||
+    action === "classify"
+  ) {
+    rows.push([{ text: "AI Ops", url: `${baseUrl}/agenti` }]);
   }
 
-  rows.push([{ text: "Apri Optima", url: baseUrl }])
-  return rows.length ? { inline_keyboard: rows } : undefined
+  rows.push([{ text: "Apri Optima", url: baseUrl }]);
+  return rows.length ? { inline_keyboard: rows } : undefined;
 }
 
 function buildOptimaOnlyReplyMarkup(): TelegramInlineKeyboard {
-  return { inline_keyboard: [[{ text: "Apri Optima", url: appBaseUrl() }]] }
+  return { inline_keyboard: [[{ text: "Apri Optima", url: appBaseUrl() }]] };
 }
 
 function publicTelegramReply(input: {
-  action: string
-  text: string
-  jobId?: string | null
-  confidence?: number
+  action: string;
+  text: string;
+  jobId?: string | null;
+  confidence?: number;
 }) {
-  let reply = compact(input.text, 3200)
+  let reply = compact(input.text, 3200);
 
   if (!reply || (input.confidence && input.confidence < 70)) {
-    reply = "Ci sono. Dimmi cosa vuoi fare e ti aiuto dal punto giusto."
+    reply = "Ci sono. Dimmi cosa vuoi fare e ti aiuto dal punto giusto.";
   }
 
   const technicalPatterns = [
@@ -302,19 +406,28 @@ function publicTelegramReply(input: {
     /\bcontesto Optima\b/i,
     /\boutput revisionabile\b/i,
     /\brunner\b/i,
-  ]
+  ];
 
   if (technicalPatterns.some((pattern) => pattern.test(reply))) {
     if (input.action === "task_update") {
-      reply = "Ho capito la modifica sulla task. La preparo in Optima e ti chiedo conferma se manca qualche dettaglio."
+      reply =
+        "Ho capito la modifica sulla task. La preparo in Optima e ti chiedo conferma se manca qualche dettaglio.";
     } else if (input.action === "status" || input.action === "reminder") {
-      reply = "Controllo la giornata e ti segnalo cosa manca tra entrata, uscita, rapportino e task."
-    } else if (input.action === "query" || input.action === "archive" || input.action === "send_file") {
-      reply = "Cerco il documento o l'informazione richiesta. Se trovo un solo risultato utile te lo preparo qui; se ce ne sono diversi ti faccio scegliere."
+      reply =
+        "Controllo la giornata e ti segnalo cosa manca tra entrata, uscita, rapportino e task.";
+    } else if (
+      input.action === "query" ||
+      input.action === "archive" ||
+      input.action === "send_file"
+    ) {
+      reply =
+        "Cerco il documento o l'informazione richiesta. Se trovo un solo risultato utile te lo preparo qui; se ce ne sono diversi ti faccio scegliere.";
     } else if (input.action === "classify") {
-      reply = "Ho ricevuto il file. Lo preparo per la revisione prima di salvarlo in Optima."
+      reply =
+        "Ho ricevuto il file. Lo preparo per la revisione prima di salvarlo in Optima.";
     } else {
-      reply = "Ci sono. Ho preso la richiesta e ti guido nel prossimo passaggio."
+      reply =
+        "Ci sono. Ho preso la richiesta e ti guido nel prossimo passaggio.";
     }
   }
 
@@ -322,25 +435,33 @@ function publicTelegramReply(input: {
     const suffix =
       input.action === "task_update"
         ? "Ho aperto una proposta in Optima da controllare prima di applicarla."
-        : "Ho preparato il passaggio in Optima per la verifica."
-    reply = `${reply}\n\n${suffix}`
+        : "Ho preparato il passaggio in Optima per la verifica.";
+    reply = `${reply}\n\n${suffix}`;
   }
 
-  return reply
+  return reply;
 }
 
 function isStartCommand(text: unknown) {
-  return /^\/start(?:@\w+)?(?:\s|$)/i.test(compact(text, 120))
+  return /^\/start(?:@\w+)?(?:\s|$)/i.test(compact(text, 120));
 }
 
-function telegramIdentityLines(message: TelegramMessage, chatId: string | number) {
-  const name = [message.from?.first_name, message.from?.last_name].map((item) => compact(item, 80)).filter(Boolean).join(" ")
+function telegramIdentityLines(
+  message: TelegramMessage,
+  chatId: string | number,
+) {
+  const name = [message.from?.first_name, message.from?.last_name]
+    .map((item) => compact(item, 80))
+    .filter(Boolean)
+    .join(" ");
   return [
     `chat_id: ${chatId}`,
     message.from?.id ? `telegram_user_id: ${compact(message.from.id, 80)}` : "",
-    message.from?.username ? `username: @${compact(message.from.username, 80).replace(/^@/, "")}` : "",
+    message.from?.username
+      ? `username: @${compact(message.from.username, 80).replace(/^@/, "")}`
+      : "",
     name ? `nome: ${name}` : "",
-  ].filter(Boolean)
+  ].filter(Boolean);
 }
 
 function buildStartReply(message: TelegramMessage, chatId: string | number) {
@@ -358,10 +479,13 @@ function buildStartReply(message: TelegramMessage, chatId: string | number) {
     "3. Dopo l'autorizzazione posso aiutarti con check-in, check-out, rapportini, task, deliverable e promemoria.",
     "",
     "Se sei gia autorizzato, scrivimi direttamente la richiesta operativa.",
-  ].join("\n")
+  ].join("\n");
 }
 
-function buildUnauthorizedReply(message: TelegramMessage, chatId: string | number) {
+function buildUnauthorizedReply(
+  message: TelegramMessage,
+  chatId: string | number,
+) {
   return [
     "Chat Telegram non ancora autorizzata per Optima.",
     "",
@@ -369,12 +493,16 @@ function buildUnauthorizedReply(message: TelegramMessage, chatId: string | numbe
     "",
     "Invia /chatid e autorizza questo ID in Optima:",
     ...telegramIdentityLines(message, chatId),
-  ].join("\n")
+  ].join("\n");
 }
 
-async function ensureTelegramSession(db: any, principal: WorkspacePrincipal, message: TelegramMessage) {
-  const chatId = String(message.chat?.id || "unknown").slice(0, 80)
-  const title = `Telegram ${chatId}`
+async function ensureTelegramSession(
+  db: any,
+  principal: WorkspacePrincipal,
+  message: TelegramMessage,
+) {
+  const chatId = String(message.chat?.id || "unknown").slice(0, 80);
+  const title = `Telegram ${chatId}`;
   const existing = await db
     .prepare(
       `SELECT id
@@ -384,23 +512,35 @@ async function ensureTelegramSession(db: any, principal: WorkspacePrincipal, mes
        LIMIT 1`,
     )
     .bind(principal.organizationId, principal.memberId, title)
-    .first()
+    .first();
 
-  if (existing?.id) return String(existing.id)
+  if (existing?.id) return String(existing.id);
 
-  const now = new Date().toISOString()
-  const id = createId("chat")
+  const now = new Date().toISOString();
+  const id = createId("chat");
   await db
     .prepare(
       `INSERT INTO chat_sessions (id, organization_id, member_id, title, last_message, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(id, principal.organizationId, principal.memberId, title, "Canale Telegram collegato", now, now)
-    .run()
-  return id
+    .bind(
+      id,
+      principal.organizationId,
+      principal.memberId,
+      title,
+      "Canale Telegram collegato",
+      now,
+      now,
+    )
+    .run();
+  return id;
 }
 
-async function getHistory(db: any, sessionId: string, principal: WorkspacePrincipal) {
+async function getHistory(
+  db: any,
+  sessionId: string,
+  principal: WorkspacePrincipal,
+) {
   const result = await db
     .prepare(
       `SELECT role, content
@@ -410,17 +550,19 @@ async function getHistory(db: any, sessionId: string, principal: WorkspacePrinci
        LIMIT 14`,
     )
     .bind(sessionId, principal.organizationId, principal.memberId)
-    .all()
+    .all();
 
-  return (result.results || [])
-    .reverse()
-    .map((row: any) => ({
-      role: row.role === "assistant" ? "assistant" as const : "user" as const,
-      content: compact(row.content, 1100),
-    }))
+  return (result.results || []).reverse().map((row: any) => ({
+    role: row.role === "assistant" ? ("assistant" as const) : ("user" as const),
+    content: compact(row.content, 1100),
+  }));
 }
 
-async function getSessionMemory(db: any, sessionId: string, principal: WorkspacePrincipal) {
+async function getSessionMemory(
+  db: any,
+  sessionId: string,
+  principal: WorkspacePrincipal,
+) {
   try {
     const row = await db
       .prepare(
@@ -430,33 +572,62 @@ async function getSessionMemory(db: any, sessionId: string, principal: Workspace
          LIMIT 1`,
       )
       .bind(sessionId, principal.organizationId, principal.memberId)
-      .first()
-    return compact(row?.memory_summary, 2500)
+      .first();
+    return compact(row?.memory_summary, 2500);
   } catch {
-    return ""
+    return "";
   }
 }
 
-async function saveChatMessage(db: any, sessionId: string, principal: WorkspacePrincipal, role: "user" | "assistant", content: string) {
-  const now = new Date().toISOString()
+async function saveChatMessage(
+  db: any,
+  sessionId: string,
+  principal: WorkspacePrincipal,
+  role: "user" | "assistant",
+  content: string,
+) {
+  const now = new Date().toISOString();
   await db.batch([
     db
       .prepare(
         `INSERT INTO chat_messages (id, session_id, organization_id, member_id, role, content, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(createId("msg"), sessionId, principal.organizationId, principal.memberId, role, content, now),
+      .bind(
+        createId("msg"),
+        sessionId,
+        principal.organizationId,
+        principal.memberId,
+        role,
+        content,
+        now,
+      ),
     db
       .prepare(
         `UPDATE chat_sessions
          SET last_message = ?, updated_at = ?, model = ?, context_sources_json = ?
          WHERE id = ? AND organization_id = ? AND member_id = ?`,
       )
-      .bind(content.slice(0, 200), now, TELEGRAM_AGENT_MODEL_LABEL, JSON.stringify(["telegram"]), sessionId, principal.organizationId, principal.memberId),
-  ])
+      .bind(
+        content.slice(0, 200),
+        now,
+        TELEGRAM_AGENT_MODEL_LABEL,
+        JSON.stringify(["telegram"]),
+        sessionId,
+        principal.organizationId,
+        principal.memberId,
+      ),
+  ]);
 }
 
-async function updateMemory(db: any, sessionId: string, principal: WorkspacePrincipal, previous: string, userText: string, assistantText: string) {
+async function updateMemory(
+  db: any,
+  sessionId: string,
+  principal: WorkspacePrincipal,
+  previous: string,
+  userText: string,
+  assistantText: string,
+) {
   try {
     const next = [
       previous,
@@ -465,7 +636,7 @@ async function updateMemory(db: any, sessionId: string, principal: WorkspacePrin
     ]
       .filter(Boolean)
       .join("\n")
-      .slice(-3600)
+      .slice(-3600);
 
     await db
       .prepare(
@@ -473,14 +644,24 @@ async function updateMemory(db: any, sessionId: string, principal: WorkspacePrin
          SET memory_summary = ?, updated_at = ?
          WHERE id = ? AND organization_id = ? AND member_id = ?`,
       )
-      .bind(next, new Date().toISOString(), sessionId, principal.organizationId, principal.memberId)
-      .run()
+      .bind(
+        next,
+        new Date().toISOString(),
+        sessionId,
+        principal.organizationId,
+        principal.memberId,
+      )
+      .run();
   } catch {
     // Memory columns may be absent on partially migrated environments.
   }
 }
 
-async function buildPersonalWorkSummaryReply(db: any, principal: WorkspacePrincipal, date: string) {
+async function buildPersonalWorkSummaryReply(
+  db: any,
+  principal: WorkspacePrincipal,
+  date: string,
+) {
   const [entriesResult, tasksResult] = await Promise.all([
     db
       .prepare(
@@ -527,70 +708,321 @@ async function buildPersonalWorkSummaryReply(db: any, principal: WorkspacePrinci
            t.updated_at DESC
          LIMIT 12`,
       )
-      .bind(principal.organizationId, principal.memberId, principal.memberId, date, date, date, `${date}%`)
+      .bind(
+        principal.organizationId,
+        principal.memberId,
+        principal.memberId,
+        date,
+        date,
+        date,
+        `${date}%`,
+      )
       .all()
       .catch(() => ({ results: [] })),
-  ])
+  ]);
 
-  const entries = (entriesResult.results || []) as any[]
-  const tasks = (tasksResult.results || []) as any[]
-  const totalMinutes = entries.reduce((sum, entry) => sum + Number(entry.minutes || 0), 0)
+  const entries = (entriesResult.results || []) as any[];
+  const tasks = (tasksResult.results || []) as any[];
+  const totalMinutes = entries.reduce(
+    (sum, entry) => sum + Number(entry.minutes || 0),
+    0,
+  );
   const taskMinutes = tasks.reduce((sum, task) => {
-    const minutes = Number(task.actual_minutes || task.estimated_minutes || 0)
-    return sum + (Number.isFinite(minutes) ? minutes : 0)
-  }, 0)
-  const visibleMinutes = totalMinutes || taskMinutes
+    const minutes = Number(task.actual_minutes || task.estimated_minutes || 0);
+    return sum + (Number.isFinite(minutes) ? minutes : 0);
+  }, 0);
+  const visibleMinutes = totalMinutes || taskMinutes;
 
   if (!entries.length && !tasks.length) {
     return [
       `Per ${formatBusinessDate(date)} non trovo ancora task o consuntivi collegati al tuo profilo.`,
       "",
       "Posso aiutarti a inserirli: scrivimi ad esempio “aggiungi rapportino per ieri: ...” oppure “crea task su Portopiccolo: ...”.",
-    ].join("\n")
+    ].join("\n");
   }
 
   const lines = [
     `Per ${formatBusinessDate(date)} vedo ${formatMinutesLabel(visibleMinutes)} e ${tasks.length} task collegate.`,
-  ]
+  ];
 
   if (entries.length) {
-    lines.push("", "Consuntivi:")
+    lines.push("", "Consuntivi:");
     for (const entry of entries.slice(0, 5)) {
-      const scope = [entry.client_name, entry.project_name].filter(Boolean).join(" · ")
+      const scope = [entry.client_name, entry.project_name]
+        .filter(Boolean)
+        .join(" · ");
       lines.push(
         `- ${formatMinutesLabel(Number(entry.minutes || 0))}${scope ? ` · ${compact(scope, 90)}` : ""}: ${compact(entry.task_title || entry.note || "Attivita registrata", 120)}`,
-      )
+      );
     }
   }
 
   if (tasks.length) {
-    lines.push("", "Task:")
+    lines.push("", "Task:");
     for (const task of tasks.slice(0, 6)) {
-      const scope = [task.canonical_client_name || task.client_name, task.project_name].filter(Boolean).join(" · ")
-      const state = compact(task.column_id || task.status || "stato non indicato", 40)
-      lines.push(`- ${compact(task.title, 120)}${scope ? ` · ${compact(scope, 90)}` : ""} · ${state}`)
+      const scope = [
+        task.canonical_client_name || task.client_name,
+        task.project_name,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      const state = compact(
+        task.column_id || task.status || "stato non indicato",
+        40,
+      );
+      lines.push(
+        `- ${compact(task.title, 120)}${scope ? ` · ${compact(scope, 90)}` : ""} · ${state}`,
+      );
     }
   }
 
   if (tasks.length > 6 || entries.length > 5) {
-    lines.push("", "Ho mostrato i primi risultati. Posso prepararti il dettaglio completo in Optima.")
+    lines.push(
+      "",
+      "Ho mostrato i primi risultati. Posso prepararti il dettaglio completo in Optima.",
+    );
   }
 
-  return lines.join("\n")
+  return lines.join("\n");
 }
 
-async function createTelegramReply(db: any, principal: WorkspacePrincipal, message: TelegramMessage): Promise<TelegramPreparedReply> {
-  const text = compact(message.text || message.caption, 3600)
-  const attachment = extractAttachment(message)
-  const chatId = normalizeTelegramChatId(message.chat?.id)
-  const mediaGroupId = compact(attachment?.mediaGroupId, 140)
-  const sessionId = await ensureTelegramSession(db, principal, message)
+async function findMentionedMembers(
+  db: any,
+  principal: WorkspacePrincipal,
+  text: string,
+) {
+  const normalizedText = normalizeSearchText(text);
+  const result = await db
+    .prepare(
+      `SELECT id, first_name, last_name, email, role
+       FROM members
+       WHERE organization_id = ?
+         AND COALESCE(status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')
+       ORDER BY first_name ASC, last_name ASC, email ASC
+       LIMIT 120`,
+    )
+    .bind(principal.organizationId)
+    .all()
+    .catch(() => ({ results: [] }));
+
+  const members = (result.results || []) as any[];
+  return members
+    .filter((member) => {
+      const firstName = normalizeSearchText(member.first_name);
+      const lastName = normalizeSearchText(member.last_name);
+      const fullName = [firstName, lastName].filter(Boolean).join(" ");
+      const emailLocalPart = normalizeSearchText(
+        String(member.email || "").split("@")[0],
+      );
+
+      return Boolean(
+        (firstName && normalizedText.includes(firstName)) ||
+        (lastName && normalizedText.includes(lastName)) ||
+        (fullName && normalizedText.includes(fullName)) ||
+        (emailLocalPart && normalizedText.includes(emailLocalPart)),
+      );
+    })
+    .slice(0, 6);
+}
+
+function memberDisplayName(member: any) {
+  return (
+    [member.first_name, member.last_name]
+      .map((item) => compact(item, 80))
+      .filter(Boolean)
+      .join(" ") ||
+    compact(member.email, 120) ||
+    "Membro"
+  );
+}
+
+async function loadMemberWorkForDate(
+  db: any,
+  principal: WorkspacePrincipal,
+  memberId: string,
+  date: string,
+) {
+  const [entriesResult, tasksResult] = await Promise.all([
+    db
+      .prepare(
+        `SELECT te.minutes, te.note, te.entry_date,
+                t.title AS task_title,
+                p.name AS project_name,
+                c.name AS client_name
+         FROM time_entries te
+         LEFT JOIN tasks t ON t.id = te.task_id AND t.organization_id = te.organization_id
+         LEFT JOIN projects p ON p.id = te.project_id AND p.organization_id = te.organization_id
+         LEFT JOIN clients c ON c.id = te.client_id AND c.organization_id = te.organization_id
+         WHERE te.organization_id = ?
+           AND te.member_id = ?
+           AND date(te.entry_date) = date(?)
+         ORDER BY te.created_at ASC
+         LIMIT 16`,
+      )
+      .bind(principal.organizationId, memberId, date)
+      .all()
+      .catch(() => ({ results: [] })),
+    db
+      .prepare(
+        `SELECT t.id, t.title, t.status, t.column_id, t.actual_minutes, t.estimated_minutes,
+                t.client_name,
+                p.name AS project_name,
+                c.name AS canonical_client_name
+         FROM tasks t
+         LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+         LEFT JOIN clients c ON c.id = COALESCE(t.client_id, p.client_id) AND c.organization_id = t.organization_id
+         WHERE t.organization_id = ?
+           AND (t.assignee_member_id = ? OR t.created_by_member_id = ?)
+           AND (
+             date(t.created_at) = date(?)
+             OR date(t.updated_at) = date(?)
+             OR date(t.due_at) = date(?)
+             OR EXISTS (
+               SELECT 1
+               FROM time_entries te
+               WHERE te.organization_id = t.organization_id
+                 AND te.task_id = t.id
+                 AND te.member_id = ?
+                 AND date(te.entry_date) = date(?)
+             )
+           )
+         ORDER BY
+           CASE COALESCE(t.column_id, t.status)
+             WHEN 'done' THEN 0
+             WHEN 'completed' THEN 0
+             ELSE 1
+           END,
+           t.updated_at DESC
+         LIMIT 16`,
+      )
+      .bind(
+        principal.organizationId,
+        memberId,
+        memberId,
+        date,
+        date,
+        date,
+        memberId,
+        date,
+      )
+      .all()
+      .catch(() => ({ results: [] })),
+  ]);
+
+  return {
+    entries: (entriesResult.results || []) as any[],
+    tasks: (tasksResult.results || []) as any[],
+  };
+}
+
+async function buildTeamWorkSummaryReply(
+  db: any,
+  principal: WorkspacePrincipal,
+  request: { date: string; text: string },
+) {
+  if (!canViewAllWorkspaceData(principal.role)) {
+    return "Posso mostrarti il tuo riepilogo personale, ma non quello di altri membri del team da Telegram.";
+  }
+
+  const members = await findMentionedMembers(db, principal, request.text);
+  if (!members.length) {
+    return [
+      `Ho capito la data (${formatBusinessDate(request.date)}), ma non ho trovato membri attivi citati nel messaggio.`,
+      "Scrivimi ad esempio: “Cosa hanno fatto venerdì Fatin Lachhab e Marco Rosset?”",
+    ].join("\n");
+  }
+
+  const lines = [`Riepilogo ${formatBusinessDate(request.date)}:`];
+
+  for (const member of members) {
+    const { entries, tasks } = await loadMemberWorkForDate(
+      db,
+      principal,
+      String(member.id),
+      request.date,
+    );
+    const entryMinutes = entries.reduce(
+      (sum, entry) => sum + Number(entry.minutes || 0),
+      0,
+    );
+    const taskMinutes = tasks.reduce((sum, task) => {
+      const minutes = Number(
+        task.actual_minutes || task.estimated_minutes || 0,
+      );
+      return sum + (Number.isFinite(minutes) ? minutes : 0);
+    }, 0);
+    const visibleMinutes = entryMinutes || taskMinutes;
+
+    lines.push(
+      "",
+      `${memberDisplayName(member)} — ${formatMinutesLabel(visibleMinutes)} · ${entries.length || tasks.length} attività`,
+    );
+
+    if (!entries.length && !tasks.length) {
+      lines.push("- Non trovo consuntivi o task collegate per questa data.");
+      continue;
+    }
+
+    const entryTaskTitles = new Set(
+      entries.map((entry) => compact(entry.task_title, 180)).filter(Boolean),
+    );
+    for (const entry of entries.slice(0, 5)) {
+      const scope = [entry.client_name, entry.project_name]
+        .filter(Boolean)
+        .join(" · ");
+      lines.push(
+        `- ${formatMinutesLabel(Number(entry.minutes || 0))}${scope ? ` · ${compact(scope, 90)}` : ""}: ${compact(entry.task_title || entry.note || "Attività registrata", 130)}`,
+      );
+    }
+
+    const remainingTasks = tasks.filter(
+      (task) => !entryTaskTitles.has(compact(task.title, 180)),
+    );
+    for (const task of remainingTasks.slice(
+      0,
+      Math.max(0, 5 - Math.min(entries.length, 5)),
+    )) {
+      const scope = [
+        task.canonical_client_name || task.client_name,
+        task.project_name,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      const state = compact(
+        task.column_id || task.status || "stato non indicato",
+        40,
+      );
+      lines.push(
+        `- ${compact(task.title, 130)}${scope ? ` · ${compact(scope, 90)}` : ""} · ${state}`,
+      );
+    }
+
+    if (entries.length + remainingTasks.length > 5) {
+      lines.push(
+        `- +${entries.length + remainingTasks.length - 5} altre attività in Optima.`,
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+
+async function createTelegramReply(
+  db: any,
+  principal: WorkspacePrincipal,
+  message: TelegramMessage,
+): Promise<TelegramPreparedReply> {
+  const text = compact(message.text || message.caption, 3600);
+  const attachment = extractAttachment(message);
+  const chatId = normalizeTelegramChatId(message.chat?.id);
+  const mediaGroupId = compact(attachment?.mediaGroupId, 140);
+  const sessionId = await ensureTelegramSession(db, principal, message);
   const [history, sessionMemory, agentMemory, context] = await Promise.all([
     getHistory(db, sessionId, principal),
     getSessionMemory(db, sessionId, principal),
     loadTelegramAgentMemory(db, principal, chatId),
     buildOperationalContextSnapshot(db, principal),
-  ])
+  ]);
 
   const existingGroupCount = mediaGroupId
     ? Number(
@@ -606,29 +1038,93 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
             .catch(() => ({ count: 0 }))
         )?.count || 0,
       )
-    : 0
+    : 0;
 
-  const userContent = text || `[${attachment?.kind || "allegato"}] ${attachment?.fileName || attachment?.fileId || ""}${mediaGroupId ? ` gruppo ${mediaGroupId}` : ""}`.trim()
-  await saveChatMessage(db, sessionId, principal, "user", userContent)
+  const userContent =
+    text ||
+    `[${attachment?.kind || "allegato"}] ${attachment?.fileName || attachment?.fileId || ""}${mediaGroupId ? ` gruppo ${mediaGroupId}` : ""}`.trim();
+  await saveChatMessage(db, sessionId, principal, "user", userContent);
 
-  const personalWorkDate = text ? resolvePersonalWorkSummaryDate(text) : null
+  const personalWorkDate = text ? resolvePersonalWorkSummaryDate(text) : null;
   if (personalWorkDate) {
-    const reply = await buildPersonalWorkSummaryReply(db, principal, personalWorkDate)
-    await saveChatMessage(db, sessionId, principal, "assistant", reply)
-    await updateMemory(db, sessionId, principal, sessionMemory, userContent, reply)
-    await saveTelegramAgentMemory(db, principal, chatId, agentMemory, userContent, reply, {
-      action: "status",
-      confidence: 92,
+    const reply = await buildPersonalWorkSummaryReply(
+      db,
+      principal,
+      personalWorkDate,
+    );
+    await saveChatMessage(db, sessionId, principal, "assistant", reply);
+    await updateMemory(
+      db,
+      sessionId,
+      principal,
+      sessionMemory,
+      userContent,
       reply,
-      lastResult: { kind: "personal_work_summary", date: personalWorkDate },
-    }).catch(() => null)
+    );
+    await saveTelegramAgentMemory(
+      db,
+      principal,
+      chatId,
+      agentMemory,
+      userContent,
+      reply,
+      {
+        action: "status",
+        confidence: 92,
+        reply,
+        lastResult: { kind: "personal_work_summary", date: personalWorkDate },
+      },
+    ).catch(() => null);
     return {
       text: reply,
       replyMarkup: buildTelegramReplyMarkup("status", null),
-    }
+    };
   }
 
-  const decision = inferTelegramTurnDecision({ text, memory: agentMemory, attachment })
+  const teamWorkRequest = text ? resolveTeamWorkSummaryRequest(text) : null;
+  if (teamWorkRequest) {
+    const reply = await buildTeamWorkSummaryReply(
+      db,
+      principal,
+      teamWorkRequest,
+    );
+    await saveChatMessage(db, sessionId, principal, "assistant", reply);
+    await updateMemory(
+      db,
+      sessionId,
+      principal,
+      sessionMemory,
+      userContent,
+      reply,
+    );
+    await saveTelegramAgentMemory(
+      db,
+      principal,
+      chatId,
+      agentMemory,
+      userContent,
+      reply,
+      {
+        action: "status",
+        confidence: 92,
+        reply,
+        lastResult: {
+          kind: "team_work_summary",
+          date: teamWorkRequest.date,
+        },
+      },
+    ).catch(() => null);
+    return {
+      text: reply,
+      replyMarkup: buildTelegramReplyMarkup("status", null),
+    };
+  }
+
+  const decision = inferTelegramTurnDecision({
+    text,
+    memory: agentMemory,
+    attachment,
+  });
 
   if (attachment?.fileId) {
     await createTelegramDocumentProposal(db, {
@@ -637,29 +1133,50 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
       attachment,
       decision,
       extractedText: text,
-    }).catch(() => null)
+    }).catch(() => null);
   }
 
   if (mediaGroupId && existingGroupCount > 0) {
-    const quietReply = "Allegato aggiunto allo stesso gruppo. Lo considero nella revisione unica."
-    await updateMemory(db, sessionId, principal, sessionMemory, userContent, quietReply)
-    await saveTelegramAgentMemory(db, principal, chatId, agentMemory, userContent, quietReply, {
-      ...decision,
-      needsAgentJob: false,
-      reply: quietReply,
-      lastResult: { kind: "document_group_proposal", mediaGroupId, count: existingGroupCount + 1 },
-    }).catch(() => null)
-    return { text: "" }
+    const quietReply =
+      "Allegato aggiunto allo stesso gruppo. Lo considero nella revisione unica.";
+    await updateMemory(
+      db,
+      sessionId,
+      principal,
+      sessionMemory,
+      userContent,
+      quietReply,
+    );
+    await saveTelegramAgentMemory(
+      db,
+      principal,
+      chatId,
+      agentMemory,
+      userContent,
+      quietReply,
+      {
+        ...decision,
+        needsAgentJob: false,
+        reply: quietReply,
+        lastResult: {
+          kind: "document_group_proposal",
+          mediaGroupId,
+          count: existingGroupCount + 1,
+        },
+      },
+    ).catch(() => null);
+    return { text: "" };
   }
 
-  let jobId: string | null = null
+  let jobId: string | null = null;
   if (decision.needsAgentJob && decision.jobTitle && decision.jobBrief) {
-    const route = preferredModelRoute(decision.action)
+    const route = preferredModelRoute(decision.action);
     const job = await createAgentJob(db, principal, {
       title: decision.jobTitle,
       jobType: decision.action === "task_update" ? "task_update" : "research",
       priority: decision.action === "task_update" ? 2 : 3,
-      contextSummary: "Richiesta arrivata da Telegram. Output revisionabile prima di modifiche definitive.",
+      contextSummary:
+        "Richiesta arrivata da Telegram. Output revisionabile prima di modifiche definitive.",
       brief: [
         decision.jobBrief,
         "",
@@ -681,11 +1198,15 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
         historyTurns: history.length,
         searchTerms: decision.searchTerms || [],
         attachment: attachment || null,
-        mediaGroup: mediaGroupId ? { id: mediaGroupId, knownItems: existingGroupCount + 1 } : null,
-        telegramDownloadPolicy: attachment?.fileId ? "download_in_runner_from_secret_env_then_review" : null,
+        mediaGroup: mediaGroupId
+          ? { id: mediaGroupId, knownItems: existingGroupCount + 1 }
+          : null,
+        telegramDownloadPolicy: attachment?.fileId
+          ? "download_in_runner_from_secret_env_then_review"
+          : null,
       },
-    })
-    jobId = job.id
+    });
+    jobId = job.id;
   }
 
   const reply = publicTelegramReply({
@@ -693,10 +1214,25 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
     text: decision.reply,
     jobId,
     confidence: decision.confidence,
-  })
-  await saveChatMessage(db, sessionId, principal, "assistant", reply)
-  await updateMemory(db, sessionId, principal, sessionMemory, userContent, reply)
-  await saveTelegramAgentMemory(db, principal, chatId, agentMemory, userContent, reply, decision).catch(() => null)
+  });
+  await saveChatMessage(db, sessionId, principal, "assistant", reply);
+  await updateMemory(
+    db,
+    sessionId,
+    principal,
+    sessionMemory,
+    userContent,
+    reply,
+  );
+  await saveTelegramAgentMemory(
+    db,
+    principal,
+    chatId,
+    agentMemory,
+    userContent,
+    reply,
+    decision,
+  ).catch(() => null);
 
   try {
     await db
@@ -709,10 +1245,16 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
         principal.organizationId,
         principal.memberId,
         TELEGRAM_AGENT_MODEL_LABEL,
-        Math.ceil((userContent.length + context.text.length + sessionMemory.length + agentMemory.summary.length) / 4),
+        Math.ceil(
+          (userContent.length +
+            context.text.length +
+            sessionMemory.length +
+            agentMemory.summary.length) /
+            4,
+        ),
         Math.ceil(reply.length / 3.5),
       )
-      .run()
+      .run();
   } catch {
     // Usage logging should not block Telegram replies.
   }
@@ -720,14 +1262,18 @@ async function createTelegramReply(db: any, principal: WorkspacePrincipal, messa
   return {
     text: reply,
     replyMarkup: buildTelegramReplyMarkup(decision.action, jobId),
-  }
+  };
 }
 
-async function sendTelegramMessage(chatId: string | number, text: string, replyMarkup?: TelegramInlineKeyboard) {
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  if (!token) return
+async function sendTelegramMessage(
+  chatId: string | number,
+  text: string,
+  replyMarkup?: TelegramInlineKeyboard,
+) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
 
-  const chunks = text.match(/[\s\S]{1,3800}/g) || [text]
+  const chunks = text.match(/[\s\S]{1,3800}/g) || [text];
   for (const [index, chunk] of chunks.entries()) {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
@@ -736,15 +1282,20 @@ async function sendTelegramMessage(chatId: string | number, text: string, replyM
         chat_id: chatId,
         text: chunk,
         disable_web_page_preview: true,
-        ...(index === chunks.length - 1 && replyMarkup ? { reply_markup: replyMarkup } : {}),
+        ...(index === chunks.length - 1 && replyMarkup
+          ? { reply_markup: replyMarkup }
+          : {}),
       }),
-    })
+    });
   }
 }
 
-async function sendTelegramChatAction(chatId: string | number, action = "typing") {
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  if (!token) return
+async function sendTelegramChatAction(
+  chatId: string | number,
+  action = "typing",
+) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
 
   await fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
     method: "POST",
@@ -753,49 +1304,60 @@ async function sendTelegramChatAction(chatId: string | number, action = "typing"
       chat_id: chatId,
       action,
     }),
-  }).catch(() => null)
+  }).catch(() => null);
 }
 
-function startTelegramChatActionLoop(chatId: string | number, action = "typing") {
-  let stopped = false
-  let timer: ReturnType<typeof setTimeout> | null = null
+function startTelegramChatActionLoop(
+  chatId: string | number,
+  action = "typing",
+) {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
   const tick = async () => {
-    if (stopped) return
-    await sendTelegramChatAction(chatId, action)
-    if (!stopped) timer = setTimeout(tick, 4000)
-  }
+    if (stopped) return;
+    await sendTelegramChatAction(chatId, action);
+    if (!stopped) timer = setTimeout(tick, 4000);
+  };
 
-  void tick()
+  void tick();
 
   return () => {
-    stopped = true
-    if (timer) clearTimeout(timer)
-  }
+    stopped = true;
+    if (timer) clearTimeout(timer);
+  };
 }
 
 function webhookAuthorized(request: Request) {
-  const expected = process.env.TELEGRAM_WEBHOOK_SECRET
-  if (!expected) return true
-  return request.headers.get("x-telegram-bot-api-secret-token") === expected
+  const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (!expected) return true;
+  return request.headers.get("x-telegram-bot-api-secret-token") === expected;
 }
 
 export async function POST(request: Request) {
   if (!webhookAuthorized(request)) {
-    return Response.json({ ok: false, error: "Webhook Telegram non autorizzato." }, { status: 401 })
+    return Response.json(
+      { ok: false, error: "Webhook Telegram non autorizzato." },
+      { status: 401 },
+    );
   }
 
-  const token = process.env.TELEGRAM_BOT_TOKEN
+  const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    return Response.json({ ok: false, error: "TELEGRAM_BOT_TOKEN non configurato." }, { status: 503 })
+    return Response.json(
+      { ok: false, error: "TELEGRAM_BOT_TOKEN non configurato." },
+      { status: 503 },
+    );
   }
 
-  const update = (await request.json().catch(() => null)) as TelegramUpdate | null
-  const message = update?.message || update?.edited_message
-  const text = compact(message?.text || message?.caption, 3600)
-  const chatId = message?.chat?.id
+  const update = (await request
+    .json()
+    .catch(() => null)) as TelegramUpdate | null;
+  const message = update?.message || update?.edited_message;
+  const text = compact(message?.text || message?.caption, 3600);
+  const chatId = message?.chat?.id;
 
-  if (!message || !chatId) return Response.json({ ok: true, ignored: true })
+  if (!message || !chatId) return Response.json({ ok: true, ignored: true });
 
   if (isChatIdCommand(text)) {
     await sendTelegramMessage(
@@ -807,44 +1369,74 @@ export async function POST(request: Request) {
         firstName: message.from?.first_name,
         lastName: message.from?.last_name,
       }),
-    )
-    return Response.json({ ok: true, command: "chatid" })
+    );
+    return Response.json({ ok: true, command: "chatid" });
   }
 
   if (isStartCommand(text)) {
-    await sendTelegramMessage(chatId, buildStartReply(message, chatId), buildOptimaOnlyReplyMarkup())
-    return Response.json({ ok: true, command: "start" })
+    await sendTelegramMessage(
+      chatId,
+      buildStartReply(message, chatId),
+      buildOptimaOnlyReplyMarkup(),
+    );
+    return Response.json({ ok: true, command: "start" });
   }
 
-  if (!text && !extractAttachment(message)) return Response.json({ ok: true, ignored: true })
+  if (!text && !extractAttachment(message))
+    return Response.json({ ok: true, ignored: true });
 
-  const db = await getCloudflareDb()
-  if (!db) return Response.json({ ok: false, error: "Database Cloudflare non disponibile." }, { status: 500 })
+  const db = await getCloudflareDb();
+  if (!db)
+    return Response.json(
+      { ok: false, error: "Database Cloudflare non disponibile." },
+      { status: 500 },
+    );
 
-  const principal = await findTelegramPrincipal(db, message)
+  const principal = await findTelegramPrincipal(db, message);
   if (!principal && !isAllowedTelegramSender(message)) {
-    await sendTelegramMessage(chatId, buildUnauthorizedReply(message, chatId), buildOptimaOnlyReplyMarkup())
-    return Response.json({ ok: true, ignored: true, reason: "sender-not-allowed" })
+    await sendTelegramMessage(
+      chatId,
+      buildUnauthorizedReply(message, chatId),
+      buildOptimaOnlyReplyMarkup(),
+    );
+    return Response.json({
+      ok: true,
+      ignored: true,
+      reason: "sender-not-allowed",
+    });
   }
   if (!principal) {
-    await sendTelegramMessage(chatId, "Telegram e collegato, ma non ho trovato un membro Optima autorizzato per questo account.")
-    return Response.json({ ok: true, ignored: true, reason: "principal-not-found" })
+    await sendTelegramMessage(
+      chatId,
+      "Telegram e collegato, ma non ho trovato un membro Optima autorizzato per questo account.",
+    );
+    return Response.json({
+      ok: true,
+      ignored: true,
+      reason: "principal-not-found",
+    });
   }
 
   try {
-    const stopTyping = startTelegramChatActionLoop(chatId, "typing")
+    const stopTyping = startTelegramChatActionLoop(chatId, "typing");
     try {
-      const reply = await createTelegramReply(db, principal, message)
+      const reply = await createTelegramReply(db, principal, message);
       if (reply.text.trim()) {
-        await sendTelegramMessage(chatId, reply.text, reply.replyMarkup)
+        await sendTelegramMessage(chatId, reply.text, reply.replyMarkup);
       }
     } finally {
-      stopTyping()
+      stopTyping();
     }
-    return Response.json({ ok: true })
+    return Response.json({ ok: true });
   } catch (error) {
-    console.error("Telegram AI assistant error:", error)
-    await sendTelegramMessage(chatId, "Non sono riuscito a completare la richiesta. Riprova tra poco o apri Optima per verificare lo stato.")
-    return Response.json({ ok: false, error: "Errore AI Telegram." }, { status: 500 })
+    console.error("Telegram AI assistant error:", error);
+    await sendTelegramMessage(
+      chatId,
+      "Non sono riuscito a completare la richiesta. Riprova tra poco o apri Optima per verificare lo stato.",
+    );
+    return Response.json(
+      { ok: false, error: "Errore AI Telegram." },
+      { status: 500 },
+    );
   }
 }

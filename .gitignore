@@ -35,5 +35,7 @@ cloudflare-env.d.ts
 
 # local/customer import files can contain PII
 /data/imports/
+/.graphifyignore
+/graphify-out/
 wrangler.jsonc.bak
 wrangler.jsonc.ci-backup

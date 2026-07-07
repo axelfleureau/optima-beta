@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { useQuoteDetail } from "@/hooks/use-quote-detail"
-import { GlassCard } from "@/components/ui/glass-card"
-import { LiquidButton } from "@/components/ui/liquid-button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { QuoteDetailsTab } from "@/components/quotes/quote-details-tab"
-import { QuoteTimelineTab } from "@/components/quotes/quote-timeline-tab"
-import QuoteMilestonesTab from "@/components/quotes/quote-milestones-tab"
-import { QuoteDocumentsTab } from "@/components/quotes/quote-documents-tab"
+import { useQuoteDetail } from "@/hooks/use-quote-detail";
+import { GlassCard } from "@/components/ui/glass-card";
+import { LiquidButton } from "@/components/ui/liquid-button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { QuoteDetailsTab } from "@/components/quotes/quote-details-tab";
+import { QuoteTimelineTab } from "@/components/quotes/quote-timeline-tab";
+import QuoteMilestonesTab from "@/components/quotes/quote-milestones-tab";
+import { QuoteDocumentsTab } from "@/components/quotes/quote-documents-tab";
 import {
   ArrowLeft,
   FileText,
@@ -24,9 +24,9 @@ import {
   Briefcase,
   Trophy,
   XCircle,
-} from "lucide-react"
-import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
+} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 const statusConfig = {
   draft: {
@@ -41,27 +41,32 @@ const statusConfig = {
   },
   in_review: {
     label: "In Revisione",
-    color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    color:
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
     icon: Eye,
   },
   pending_payment: {
     label: "Pagamento Atteso",
-    color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    color:
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
     icon: DollarSign,
   },
   approved: {
     label: "Approvato",
-    color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    color:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     icon: CheckCircle,
   },
   in_progress: {
     label: "In Lavorazione",
-    color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    color:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     icon: Briefcase,
   },
   completed: {
     label: "Completato",
-    color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    color:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
     icon: Trophy,
   },
   rejected: {
@@ -74,50 +79,54 @@ const statusConfig = {
     color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
     icon: Clock,
   },
-}
+};
 
 export default function QuoteDetailPage() {
-  const params = useParams()
-  const id = params.id as string
-  const router = useRouter()
-  const { quote, loading, error } = useQuoteDetail(id)
-  
+  const params = useParams();
+  const id = params.id as string;
+  const router = useRouter();
+  const { quote, loading, error } = useQuoteDetail(id);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="optima-ops-page">
+        <div className="optima-ops-container">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-48" />
             <div className="h-64 bg-slate-200 dark:bg-slate-700 rounded" />
           </div>
         </div>
       </div>
-    )
+    );
   }
-  
+
   if (error || !quote) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="optima-ops-page">
+        <div className="optima-ops-container">
           <GlassCard variant="elevated" padding="lg">
             <p className="text-red-600 dark:text-red-400">
-              Errore nel caricamento del preventivo: {error || "Preventivo non trovato"}
+              Errore nel caricamento del preventivo:{" "}
+              {error || "Preventivo non trovato"}
             </p>
-            <LiquidButton onClick={() => router.push("/preventivi")} className="mt-4">
+            <LiquidButton
+              onClick={() => router.push("/preventivi")}
+              className="mt-4"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Torna alla lista
             </LiquidButton>
           </GlassCard>
         </div>
       </div>
-    )
+    );
   }
-  
-  const statusInfo = statusConfig[quote.status as keyof typeof statusConfig]
-  
+
+  const statusInfo = statusConfig[quote.status as keyof typeof statusConfig];
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="optima-ops-page">
+      <div className="optima-ops-container space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -127,7 +136,7 @@ export default function QuoteDetailPage() {
               </LiquidButton>
             </Link>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">
                 {(quote as any).titolo || quote.title}
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -135,14 +144,18 @@ export default function QuoteDetailPage() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Badge className={`${statusInfo?.color} border-0`}>
               {statusInfo?.label}
             </Badge>
-            {quote.status === 'draft' && (
+            {quote.status === "draft" && (
               <>
-                <LiquidButton variant="outline" size="sm" onClick={() => router.push(`/preventivi/${id}/edit`)}>
+                <LiquidButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/preventivi/${id}/edit`)}
+                >
                   <Edit className="h-4 w-4 mr-2" />
                   Modifica
                 </LiquidButton>
@@ -157,7 +170,7 @@ export default function QuoteDetailPage() {
             </LiquidButton>
           </div>
         </div>
-        
+
         {/* Tabs */}
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
@@ -178,24 +191,24 @@ export default function QuoteDetailPage() {
               <span className="hidden sm:inline">Documenti</span>
             </TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="details" className="mt-6">
             <QuoteDetailsTab quote={quote} />
           </TabsContent>
-          
+
           <TabsContent value="timeline" className="mt-6">
             <QuoteTimelineTab quote={quote} />
           </TabsContent>
-          
+
           <TabsContent value="payments" className="mt-6">
             <QuoteMilestonesTab quote={quote} />
           </TabsContent>
-          
+
           <TabsContent value="documents" className="mt-6">
             <QuoteDocumentsTab quote={quote} />
           </TabsContent>
         </Tabs>
       </div>
     </div>
-  )
+  );
 }

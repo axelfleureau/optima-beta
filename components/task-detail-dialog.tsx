@@ -1,17 +1,30 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useState, useEffect, type ChangeEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  AtSign,
+  Bold,
   Calendar,
   Clock,
   User,
@@ -31,27 +44,46 @@ import {
   FileArchive,
   FileImage,
   FileText,
-} from "lucide-react"
-import type { Project, Task, SubItem, TaskComment } from "@/lib/types"
-import { useAuth } from "@/lib/auth-context"
-import { useToast } from "@/hooks/use-toast"
-import { useUsers } from "@/hooks/use-users"
-import { cn } from "@/lib/utils"
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
-import { TaskAssetGallery } from '@/components/task-asset-gallery'
+  Italic,
+  Link2,
+  List,
+  MonitorUp,
+} from "lucide-react";
+import type {
+  Project,
+  Task,
+  SubItem,
+  TaskAttachment,
+  TaskComment,
+  TaskCommentAttachment,
+  TaskCommentMention,
+  User as WorkspaceUser,
+} from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { useUsers } from "@/hooks/use-users";
+import { cn } from "@/lib/utils";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { TaskAssetGallery } from "@/components/task-asset-gallery";
 
 interface TaskDetailDialogProps {
-  task: Task | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onUpdateTask: (taskId: string, updates: Partial<Task>) => Promise<void>
-  projects?: Project[]
-  onUploadAttachments?: (taskId: string, files: File[]) => Promise<unknown>
-  onDeleteAttachment?: (taskId: string, attachmentId: string) => Promise<unknown>
-  onAddComment: (taskId: string, comment: Omit<TaskComment, "id" | "createdAt">) => Promise<void>
-  onUpdateSubItems: (taskId: string, subItems: SubItem[]) => Promise<void>
-  onAcceptAssignment?: (taskId: string) => Promise<void>
-  onRejectAssignment?: (taskId: string, reason?: string) => Promise<void>
+  task: Task | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
+  projects?: Project[];
+  onUploadAttachments?: (taskId: string, files: File[]) => Promise<unknown>;
+  onDeleteAttachment?: (
+    taskId: string,
+    attachmentId: string,
+  ) => Promise<unknown>;
+  onAddComment: (
+    taskId: string,
+    comment: Omit<TaskComment, "id" | "createdAt">,
+  ) => Promise<void>;
+  onUpdateSubItems: (taskId: string, subItems: SubItem[]) => Promise<void>;
+  onAcceptAssignment?: (taskId: string) => Promise<void>;
+  onRejectAssignment?: (taskId: string, reason?: string) => Promise<void>;
 }
 
 const taskTypes = [
@@ -64,7 +96,7 @@ const taskTypes = [
   "Testing",
   "Meeting",
   "Review",
-]
+];
 
 const statusOptions = [
   { value: "to-do", label: "Da fare" },
@@ -81,25 +113,182 @@ const statusOptions = [
   { value: "completed", label: "Completata" },
   { value: "recurring", label: "Ricorrente" },
   { value: "on-hold", label: "On hold" },
-]
+];
 
 const dialogSurfaceClass =
-  "border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-[#05070b] dark:text-slate-50"
+  "border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-[#05070b] dark:text-slate-50";
 
 const labelClass =
-  "mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+  "mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300";
 
 const compactLabelClass =
-  "mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 md:mb-2 md:text-sm"
+  "mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 md:mb-2 md:text-sm";
 
 const editableSurfaceClass =
-  "rounded-md border border-slate-200 bg-white p-3 text-slate-950 shadow-sm transition-colors hover:border-righello-pink/50 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 dark:hover:border-righello-pink/60 dark:hover:bg-slate-900/80"
+  "rounded-md border border-slate-200 bg-white p-3 text-slate-950 shadow-sm transition-colors hover:border-righello-pink/50 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 dark:hover:border-righello-pink/60 dark:hover:bg-slate-900/80";
 
 const inputSurfaceClass =
-  "border-slate-200 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:ring-righello-pink/25 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
+  "border-slate-200 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:ring-righello-pink/25 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500";
 
 const selectSurfaceClass =
-  "border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+  "border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100";
+
+const sectionClass =
+  "rounded-md border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/65";
+
+const sectionTitleClass =
+  "mb-3 flex items-center justify-between gap-3 text-sm font-semibold text-slate-900 dark:text-slate-100";
+
+const inspectorGroupClass =
+  "rounded-md border border-slate-200 bg-white/90 p-3 dark:border-slate-800 dark:bg-slate-950/70";
+
+const metaPillClass =
+  "inline-flex min-h-8 items-center gap-2 rounded-md border border-slate-200 bg-white/80 px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300";
+
+function isSafeTaskUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
+
+function renderInlineFormatting(text: string) {
+  const pattern =
+    /(\*\*[^*]+\*\*|_[^_]+_|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|https?:\/\/[^\s]+)/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    const token = match[0];
+    const markdownLink = token.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/i);
+    if (token.startsWith("**") && token.endsWith("**")) {
+      nodes.push(
+        <strong key={`${match.index}-strong`}>{token.slice(2, -2)}</strong>,
+      );
+    } else if (token.startsWith("_") && token.endsWith("_")) {
+      nodes.push(<em key={`${match.index}-em`}>{token.slice(1, -1)}</em>);
+    } else if (markdownLink && isSafeTaskUrl(markdownLink[2])) {
+      nodes.push(
+        <a
+          key={`${match.index}-link`}
+          href={markdownLink[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-cyan-700 underline decoration-cyan-400/60 underline-offset-4 hover:text-cyan-600 dark:text-cyan-300 dark:hover:text-cyan-200"
+        >
+          {markdownLink[1]}
+        </a>,
+      );
+    } else if (isSafeTaskUrl(token)) {
+      nodes.push(
+        <a
+          key={`${match.index}-url`}
+          href={token}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-cyan-700 underline decoration-cyan-400/60 underline-offset-4 hover:text-cyan-600 dark:text-cyan-300 dark:hover:text-cyan-200"
+        >
+          {token}
+        </a>,
+      );
+    } else {
+      nodes.push(token);
+    }
+
+    lastIndex = match.index + token.length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.map((node, index) =>
+    typeof node === "string" ? <span key={index}>{node}</span> : node,
+  );
+}
+
+function FormattedTaskText({ text }: { text?: string }) {
+  const lines = String(text || "").split(/\r?\n/);
+  const blocks: ReactNode[] = [];
+  let listItems: string[] = [];
+
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    const items = listItems;
+    listItems = [];
+    blocks.push(
+      <ul
+        key={`list-${blocks.length}`}
+        className="my-2 list-disc space-y-1 pl-5"
+      >
+        {items.map((item, index) => (
+          <li key={index}>{renderInlineFormatting(item)}</li>
+        ))}
+      </ul>,
+    );
+  };
+
+  lines.forEach((line, index) => {
+    const bullet = line.match(/^\s*[-*]\s+(.+)$/);
+    if (bullet) {
+      listItems.push(bullet[1]);
+      return;
+    }
+
+    flushList();
+
+    if (!line.trim()) {
+      blocks.push(<div key={`space-${index}`} className="h-2" />);
+      return;
+    }
+
+    blocks.push(<p key={index}>{renderInlineFormatting(line)}</p>);
+  });
+
+  flushList();
+
+  return (
+    <div className="space-y-1 text-sm leading-6 text-slate-700 dark:text-slate-300">
+      {blocks}
+    </div>
+  );
+}
+
+function memberDisplayName(member: WorkspaceUser) {
+  return (
+    [member.firstName, member.lastName].filter(Boolean).join(" ").trim() ||
+    member.email
+  );
+}
+
+function memberInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function attachmentToCommentAttachment(
+  attachment: any,
+  source: "task" | "upload" = "task",
+): TaskCommentAttachment {
+  return {
+    id: String(attachment.id),
+    name: String(attachment.name || "Allegato"),
+    url: String(attachment.url || ""),
+    type: attachment.type ? String(attachment.type) : undefined,
+    size:
+      typeof attachment.size === "number"
+        ? attachment.size
+        : Number(attachment.size || 0),
+    source,
+  };
+}
 
 export function TaskDetailDialog({
   task,
@@ -114,665 +303,802 @@ export function TaskDetailDialog({
   onAcceptAssignment,
   onRejectAssignment,
 }: TaskDetailDialogProps) {
-  const { userData } = useAuth()
-  const { users, loading: usersLoading } = useUsers()
-  const { toast } = useToast()
-  const router = useRouter()
+  const { userData } = useAuth();
+  const { users, loading: usersLoading } = useUsers();
+  const { toast } = useToast();
+  const router = useRouter();
 
   // Editing states
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [editingDescription, setEditingDescription] = useState(false)
-  const [editingRichDescription, setEditingRichDescription] = useState(false)
-  const [editingDeliverable, setEditingDeliverable] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [editingRichDescription, setEditingRichDescription] = useState(false);
+  const [editingDeliverable, setEditingDeliverable] = useState(false);
 
   // Form states
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [richDescription, setRichDescription] = useState("")
-  const [deliverable, setDeliverable] = useState("")
-  const [deliverableType, setDeliverableType] = useState<string>("other")
-  const [dueDate, setDueDate] = useState("")
-  const [newComment, setNewComment] = useState("")
-  const [newSubItem, setNewSubItem] = useState("")
-  const [subItems, setSubItems] = useState<SubItem[]>([])
-  const [uploadingAttachments, setUploadingAttachments] = useState(false)
-  const [previewAttachment, setPreviewAttachment] = useState<any | null>(null)
-  const [assignmentRejectionReason, setAssignmentRejectionReason] = useState("")
-  const [respondingAssignment, setRespondingAssignment] = useState<"accept" | "reject" | null>(null)
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [richDescription, setRichDescription] = useState("");
+  const [deliverable, setDeliverable] = useState("");
+  const [deliverableType, setDeliverableType] = useState<string>("other");
+  const [dueDate, setDueDate] = useState("");
+  const [newComment, setNewComment] = useState("");
+  const [commentMentionQuery, setCommentMentionQuery] = useState("");
+  const [commentMentionRange, setCommentMentionRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+  const [commentMentions, setCommentMentions] = useState<TaskCommentMention[]>(
+    [],
+  );
+  const [commentAttachments, setCommentAttachments] = useState<
+    TaskCommentAttachment[]
+  >([]);
+  const [commentAttachmentMode, setCommentAttachmentMode] = useState<
+    "closed" | "mention" | "upload" | "task"
+  >("closed");
+  const [uploadingCommentAttachments, setUploadingCommentAttachments] =
+    useState(false);
+  const [newSubItem, setNewSubItem] = useState("");
+  const [subItems, setSubItems] = useState<SubItem[]>([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<any | null>(null);
+  const [assignmentRejectionReason, setAssignmentRejectionReason] =
+    useState("");
+  const [respondingAssignment, setRespondingAssignment] = useState<
+    "accept" | "reject" | null
+  >(null);
 
   useEffect(() => {
     if (task) {
-      setTitle(task.title)
-      setDescription(task.description || "")
-      setRichDescription(task.richDescription || "")
-      setDeliverable(task.expectedDeliverable || "")
-      setDeliverableType(task.deliverableType || "other")
-      const dueDateValue = task.dueDate
+      setTitle(task.title);
+      setDescription(task.description || "");
+      setRichDescription(task.richDescription || "");
+      setDeliverable(task.expectedDeliverable || "");
+      setDeliverableType(task.deliverableType || "other");
+      const dueDateValue = task.dueDate;
       if (dueDateValue) {
-        let dateObj: Date
+        let dateObj: Date;
         if (dueDateValue instanceof Date) {
-          dateObj = dueDateValue
-        } else if ((dueDateValue as any).toDate && typeof (dueDateValue as any).toDate === 'function') {
-          dateObj = (dueDateValue as any).toDate()
+          dateObj = dueDateValue;
+        } else if (
+          (dueDateValue as any).toDate &&
+          typeof (dueDateValue as any).toDate === "function"
+        ) {
+          dateObj = (dueDateValue as any).toDate();
         } else {
-          dateObj = new Date(dueDateValue as any)
+          dateObj = new Date(dueDateValue as any);
         }
-        setDueDate(dateObj.toISOString().split("T")[0])
+        setDueDate(dateObj.toISOString().split("T")[0]);
       } else {
-        setDueDate("")
+        setDueDate("");
       }
-      setSubItems(task.subItems || [])
-      setAssignmentRejectionReason("")
+      setSubItems(task.subItems || []);
+      setAssignmentRejectionReason("");
+      setNewComment("");
+      setCommentMentionQuery("");
+      setCommentMentionRange(null);
+      setCommentMentions([]);
+      setCommentAttachments([]);
+      setCommentAttachmentMode("closed");
     }
-  }, [task])
+  }, [task]);
 
-  if (!task) return null
+  if (!task) return null;
 
-  const currentMember = users.find((member) => member.email?.toLowerCase() === userData?.email?.toLowerCase())
-  const currentMemberId = currentMember?.id
-  const assignmentStatus = task.assignmentStatus || "accepted"
-  const isPendingAssignment = assignmentStatus === "pending"
-  const isRejectedAssignment = assignmentStatus === "rejected"
-  const canRespondToAssignment = isPendingAssignment && task.assignedUserId === currentMemberId
+  const currentMember = users.find(
+    (member) => member.email?.toLowerCase() === userData?.email?.toLowerCase(),
+  );
+  const mentionOptions = users
+    .filter((member) => member.status !== "removed")
+    .filter((member) => {
+      const query = commentMentionQuery.trim().toLowerCase();
+      if (!query) return true;
+      return `${memberDisplayName(member)} ${member.email}`
+        .toLowerCase()
+        .includes(query);
+    })
+    .slice(0, 8);
+  const currentMemberId = currentMember?.id;
+  const assignmentStatus = task.assignmentStatus || "accepted";
+  const isPendingAssignment = assignmentStatus === "pending";
+  const isRejectedAssignment = assignmentStatus === "rejected";
+  const canRespondToAssignment =
+    isPendingAssignment && task.assignedUserId === currentMemberId;
 
   const handleSaveTitle = async () => {
     if (title.trim() !== task.title) {
-      await onUpdateTask(task.id, { title: title.trim() })
-      toast({ title: "Titolo aggiornato", description: "Il titolo della task è stato modificato" })
+      await onUpdateTask(task.id, { title: title.trim() });
+      toast({
+        title: "Titolo aggiornato",
+        description: "Il titolo della task è stato modificato",
+      });
     }
-    setEditingTitle(false)
-  }
+    setEditingTitle(false);
+  };
 
   const handleSaveDescription = async () => {
     if (description !== task.description) {
-      await onUpdateTask(task.id, { description })
-      toast({ title: "Descrizione aggiornata" })
+      await onUpdateTask(task.id, { description });
+      toast({ title: "Descrizione aggiornata" });
     }
-    setEditingDescription(false)
-  }
+    setEditingDescription(false);
+  };
 
   const handleSaveRichDescription = async () => {
     if (richDescription !== task.richDescription) {
-      await onUpdateTask(task.id, { richDescription })
-      toast({ title: "Descrizione dettagliata aggiornata" })
+      await onUpdateTask(task.id, { richDescription });
+      toast({ title: "Descrizione dettagliata aggiornata" });
     }
-    setEditingRichDescription(false)
-  }
+    setEditingRichDescription(false);
+  };
 
   const handleUpdateField = async (field: keyof Task, value: any) => {
-    await onUpdateTask(task.id, { [field]: value })
-    toast({ title: "Campo aggiornato", description: `${field} modificato con successo` })
-  }
+    await onUpdateTask(task.id, { [field]: value });
+    toast({
+      title: "Campo aggiornato",
+      description: `${field} modificato con successo`,
+    });
+  };
 
   const handleDeliverableTypeChange = async (value: string) => {
-    setDeliverableType(value)
-    await onUpdateTask(task.id, { deliverableType: value as Task["deliverableType"] })
-    toast({ title: "Tipo deliverable aggiornato" })
-  }
+    setDeliverableType(value);
+    await onUpdateTask(task.id, {
+      deliverableType: value as Task["deliverableType"],
+    });
+    toast({ title: "Tipo deliverable aggiornato" });
+  };
 
   const handleAcceptAssignment = async () => {
-    if (!onAcceptAssignment) return
+    if (!onAcceptAssignment) return;
 
-    setRespondingAssignment("accept")
+    setRespondingAssignment("accept");
     try {
-      await onAcceptAssignment(task.id)
+      await onAcceptAssignment(task.id);
       toast({
         title: "Assegnazione accettata",
         description: "La task ora risulta ufficialmente assegnata a te",
-      })
+      });
     } finally {
-      setRespondingAssignment(null)
+      setRespondingAssignment(null);
     }
-  }
+  };
 
   const handleRejectAssignment = async () => {
-    if (!onRejectAssignment) return
+    if (!onRejectAssignment) return;
 
-    setRespondingAssignment("reject")
+    setRespondingAssignment("reject");
     try {
-      await onRejectAssignment(task.id, assignmentRejectionReason.trim() || undefined)
+      await onRejectAssignment(
+        task.id,
+        assignmentRejectionReason.trim() || undefined,
+      );
       toast({
         title: "Assegnazione rifiutata",
         description: "La risposta è stata registrata nello storico della task",
-      })
+      });
     } finally {
-      setRespondingAssignment(null)
+      setRespondingAssignment(null);
     }
-  }
+  };
 
   const handleDueDateChange = async (newDate: string) => {
-    setDueDate(newDate)
-    await onUpdateTask(task.id, { dueDate: newDate ? new Date(newDate) : null })
-    toast({ title: "Scadenza aggiornata" })
-  }
+    setDueDate(newDate);
+    await onUpdateTask(task.id, {
+      dueDate: newDate ? new Date(newDate) : null,
+    });
+    toast({ title: "Scadenza aggiornata" });
+  };
+
+  const handleSelectMention = (member: WorkspaceUser) => {
+    const name = memberDisplayName(member);
+    const mention: TaskCommentMention = {
+      id: member.id,
+      name,
+      email: member.email,
+    };
+
+    setCommentMentions((current) =>
+      current.some((item) => item.id === mention.id)
+        ? current
+        : [...current, mention],
+    );
+    setNewComment((current) => {
+      if (commentMentionRange) {
+        return `${current.slice(0, commentMentionRange.start)}@${name} ${current.slice(commentMentionRange.end)}`;
+      }
+      const suffix = current.endsWith(" ") || current.length === 0 ? "" : " ";
+      return `${current}${suffix}@${name} `;
+    });
+    setCommentMentionQuery("");
+    setCommentMentionRange(null);
+    setCommentAttachmentMode("closed");
+  };
+
+  const handleToggleTaskAttachmentForComment = (attachment: TaskAttachment) => {
+    const nextAttachment = attachmentToCommentAttachment(attachment, "task");
+    setCommentAttachments((current) =>
+      current.some((item) => item.id === nextAttachment.id)
+        ? current.filter((item) => item.id !== nextAttachment.id)
+        : [...current, nextAttachment],
+    );
+  };
+
+  const handleUploadCommentAttachments = async (files: FileList | null) => {
+    if (!files?.length || !onUploadAttachments) return;
+
+    const existingIds = new Set(
+      (task.attachments || []).map((attachment) => String(attachment.id)),
+    );
+
+    setUploadingCommentAttachments(true);
+    try {
+      const result = await onUploadAttachments(task.id, Array.from(files));
+      const updatedTask = result as Task | undefined;
+      const uploadedAttachments = (updatedTask?.attachments || [])
+        .filter((attachment) => !existingIds.has(String(attachment.id)))
+        .map((attachment) =>
+          attachmentToCommentAttachment(attachment, "upload"),
+        );
+
+      if (uploadedAttachments.length) {
+        setCommentAttachments((current) => [
+          ...current,
+          ...uploadedAttachments.filter(
+            (attachment) => !current.some((item) => item.id === attachment.id),
+          ),
+        ]);
+      }
+
+      toast({
+        title: "File allegato al commento",
+        description: uploadedAttachments.length
+          ? "Il file è stato caricato nella task e collegato al commento."
+          : "File caricato nella task.",
+      });
+      setCommentAttachmentMode("closed");
+    } finally {
+      setUploadingCommentAttachments(false);
+    }
+  };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() || !userData) return
+    if ((!newComment.trim() && commentAttachments.length === 0) || !userData)
+      return;
 
     await onAddComment(task.id, {
-      text: newComment.trim(),
+      text: newComment.trim() || "Allegato condiviso.",
       authorId: userData.tenantId,
-      authorName: `${userData.firstName} ${userData.lastName}`.trim() || userData.email,
+      authorName:
+        `${userData.firstName} ${userData.lastName}`.trim() || userData.email,
       authorAvatar: null,
-    })
+      mentions: commentMentions,
+      attachments: commentAttachments,
+    });
 
-    setNewComment("")
-    toast({ title: "Commento aggiunto" })
-  }
+    setNewComment("");
+    setCommentMentions([]);
+    setCommentAttachments([]);
+    setCommentMentionQuery("");
+    setCommentMentionRange(null);
+    setCommentAttachmentMode("closed");
+    toast({ title: "Commento aggiunto" });
+  };
 
   const handleAddSubItem = () => {
-    if (!newSubItem.trim()) return
+    if (!newSubItem.trim()) return;
 
     const newItem: SubItem = {
       id: `subitem_${Date.now()}`,
       title: newSubItem.trim(),
       completed: false,
       createdAt: new Date(),
-    }
+    };
 
-    const updatedSubItems = [...subItems, newItem]
-    setSubItems(updatedSubItems)
-    onUpdateSubItems(task.id, updatedSubItems)
-    setNewSubItem("")
-    toast({ title: "Sub-item aggiunto" })
-  }
+    const updatedSubItems = [...subItems, newItem];
+    setSubItems(updatedSubItems);
+    onUpdateSubItems(task.id, updatedSubItems);
+    setNewSubItem("");
+    toast({ title: "Sub-item aggiunto" });
+  };
 
   const handleToggleSubItem = (itemId: string) => {
     const updatedSubItems = subItems.map((item) =>
       item.id === itemId ? { ...item, completed: !item.completed } : item,
-    )
-    setSubItems(updatedSubItems)
-    onUpdateSubItems(task.id, updatedSubItems)
-  }
+    );
+    setSubItems(updatedSubItems);
+    onUpdateSubItems(task.id, updatedSubItems);
+  };
 
   const handleRemoveSubItem = (itemId: string) => {
-    const updatedSubItems = subItems.filter((item) => item.id !== itemId)
-    setSubItems(updatedSubItems)
-    onUpdateSubItems(task.id, updatedSubItems)
-  }
+    const updatedSubItems = subItems.filter((item) => item.id !== itemId);
+    setSubItems(updatedSubItems);
+    onUpdateSubItems(task.id, updatedSubItems);
+  };
 
   const handleSubItemDragEnd = (result: any) => {
-    if (!result.destination) return
+    if (!result.destination) return;
 
-    const items = Array.from(subItems)
-    const [reorderedItem] = items.splice(result.source.index, 1)
-    items.splice(result.destination.index, 0, reorderedItem)
+    const items = Array.from(subItems);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
 
-    const updatedItems = items.map((item, index) => ({ ...item, order: index }))
-    setSubItems(updatedItems)
-    onUpdateSubItems(task.id, updatedItems)
-  }
+    const updatedItems = items.map((item, index) => ({
+      ...item,
+      order: index,
+    }));
+    setSubItems(updatedItems);
+    onUpdateSubItems(task.id, updatedItems);
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high":
-        return "bg-red-100 text-red-800"
+        return "bg-red-100 text-red-800";
       case "medium":
-        return "bg-yellow-100 text-yellow-800"
+        return "bg-yellow-100 text-yellow-800";
       case "low":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800";
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
 
-  const currentStatusValue = String(task.status || task.columnId || "to-do")
-  const currentStatusLabel = statusOptions.find((status) => status.value === currentStatusValue)?.label || currentStatusValue
+  const currentStatusValue = String(task.status || task.columnId || "to-do");
+  const currentStatusLabel =
+    statusOptions.find((status) => status.value === currentStatusValue)
+      ?.label || currentStatusValue;
   const currentStatusDotClass =
     currentStatusValue === "done" || currentStatusValue === "completed"
       ? "bg-green-500"
-      : currentStatusValue === "in-progress" || currentStatusValue === "in-corso"
+      : currentStatusValue === "in-progress" ||
+          currentStatusValue === "in-corso"
         ? "bg-blue-500"
         : currentStatusValue === "review" || currentStatusValue === "validation"
           ? "bg-yellow-500"
-          : currentStatusValue === "on-hold" || currentStatusValue === "sospensioni"
+          : currentStatusValue === "on-hold" ||
+              currentStatusValue === "sospensioni"
             ? "bg-gray-400"
             : currentStatusValue === "urgenze"
               ? "bg-red-500"
-              : currentStatusValue === "attivita-ricorrenti" || currentStatusValue === "recurring"
+              : currentStatusValue === "attivita-ricorrenti" ||
+                  currentStatusValue === "recurring"
                 ? "bg-indigo-500"
-                : "bg-gray-300"
+                : "bg-gray-300";
 
   const getScoreColor = (score: number) => {
-    if (score >= 8) return "text-red-600"
-    if (score >= 5) return "text-yellow-600"
-    return "text-green-600"
-  }
+    if (score >= 8) return "text-red-600";
+    if (score >= 5) return "text-yellow-600";
+    return "text-green-600";
+  };
 
   const calculateProgress = () => {
-    if (!subItems || subItems.length === 0) return 0
-    const completed = subItems.filter(item => item.completed).length
-    return Math.round((completed / subItems.length) * 100)
-  }
+    if (!subItems || subItems.length === 0) return 0;
+    const completed = subItems.filter((item) => item.completed).length;
+    return Math.round((completed / subItems.length) * 100);
+  };
 
   const formatFileSize = (bytes: number) => {
-    if (!bytes) return "0 KB"
-    const units = ["B", "KB", "MB", "GB"]
-    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
-    return `${Number((bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1))} ${units[index]}`
-  }
+    if (!bytes) return "0 KB";
+    const units = ["B", "KB", "MB", "GB"];
+    const index = Math.min(
+      Math.floor(Math.log(bytes) / Math.log(1024)),
+      units.length - 1,
+    );
+    return `${Number((bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1))} ${units[index]}`;
+  };
 
   const getAttachmentIcon = (type?: string, name?: string) => {
-    const normalizedType = type || ""
-    const normalizedName = (name || "").toLowerCase()
+    const normalizedType = type || "";
+    const normalizedName = (name || "").toLowerCase();
 
-    if (normalizedType.startsWith("image/")) return <FileImage className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
-    if (normalizedName.endsWith(".zip") || normalizedName.endsWith(".rar") || normalizedName.endsWith(".7z")) {
-      return <FileArchive className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+    if (normalizedType.startsWith("image/"))
+      return <FileImage className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />;
+    if (
+      normalizedName.endsWith(".zip") ||
+      normalizedName.endsWith(".rar") ||
+      normalizedName.endsWith(".7z")
+    ) {
+      return (
+        <FileArchive className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+      );
     }
-    return <FileText className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-  }
+    return <FileText className="h-4 w-4 text-slate-600 dark:text-slate-300" />;
+  };
 
   const getAttachmentPreviewKind = (attachment?: any) => {
-    const type = String(attachment?.type || "").toLowerCase()
-    const name = String(attachment?.name || "").toLowerCase()
+    const type = String(attachment?.type || "").toLowerCase();
+    const name = String(attachment?.name || "").toLowerCase();
 
-    if (type.startsWith("image/")) return "image"
-    if (type.includes("pdf") || name.endsWith(".pdf")) return "pdf"
-    if (type.startsWith("video/")) return "video"
-    if (type.startsWith("audio/")) return "audio"
-    return "file"
-  }
+    if (type.startsWith("image/")) return "image";
+    if (type.includes("pdf") || name.endsWith(".pdf")) return "pdf";
+    if (type.startsWith("video/")) return "video";
+    if (type.startsWith("audio/")) return "audio";
+    return "file";
+  };
 
   const handleUploadAttachments = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0 || !onUploadAttachments) return
+    if (!fileList || fileList.length === 0 || !onUploadAttachments) return;
 
-    const files = Array.from(fileList)
-    setUploadingAttachments(true)
+    const files = Array.from(fileList);
+    setUploadingAttachments(true);
     try {
-      await onUploadAttachments(task.id, files)
+      await onUploadAttachments(task.id, files);
       toast({
         title: "Allegati caricati",
         description: `${files.length} file aggiunti alla task`,
-      })
+      });
     } catch (error) {
       toast({
         title: "Upload non riuscito",
-        description: error instanceof Error ? error.message : "Errore durante il caricamento degli allegati",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Errore durante il caricamento degli allegati",
         variant: "destructive",
-      })
+      });
     } finally {
-      setUploadingAttachments(false)
+      setUploadingAttachments(false);
     }
-  }
+  };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!onDeleteAttachment) return
+    if (!onDeleteAttachment) return;
 
     try {
-      await onDeleteAttachment(task.id, attachmentId)
+      await onDeleteAttachment(task.id, attachmentId);
       if (previewAttachment?.id === attachmentId) {
-        setPreviewAttachment(null)
+        setPreviewAttachment(null);
       }
-      toast({ title: "Allegato rimosso" })
+      toast({ title: "Allegato rimosso" });
     } catch (error) {
       toast({
         title: "Rimozione non riuscita",
-        description: error instanceof Error ? error.message : "Errore durante la rimozione dell'allegato",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Errore durante la rimozione dell'allegato",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
+
+  const appendRichDescriptionSnippet = (snippet: string) => {
+    setRichDescription((current) =>
+      current.trim() ? `${current}\n${snippet}` : snippet,
+    );
+    setEditingRichDescription(true);
+  };
+
+  const appendCommentSnippet = (snippet: string) => {
+    setNewComment((current) =>
+      current.trim() ? `${current}\n${snippet}` : snippet,
+    );
+  };
+
+  const handleCommentChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const value = event.target.value;
+    const cursor = event.target.selectionStart ?? value.length;
+    const beforeCursor = value.slice(0, cursor);
+    const activeMention = beforeCursor.match(/(^|\s)@([^\s@]*)$/);
+
+    setNewComment(value);
+
+    if (activeMention) {
+      const start = activeMention.index! + activeMention[1].length;
+      setCommentMentionRange({ start, end: cursor });
+      setCommentMentionQuery(activeMention[2]);
+      setCommentAttachmentMode("mention");
+      return;
+    }
+
+    setCommentMentionRange(null);
+    if (commentMentionRange && commentAttachmentMode === "mention") {
+      setCommentMentionQuery("");
+      setCommentAttachmentMode("closed");
+    }
+  };
+
+  const FormattingToolbar = ({
+    onInsert,
+    compact = false,
+  }: {
+    onInsert: (snippet: string) => void;
+    compact?: boolean;
+  }) => (
+    <div className="flex flex-wrap items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950/80">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn("h-8 w-8", compact && "h-7 w-7")}
+        title="Grassetto"
+        onClick={() => onInsert("**testo in grassetto**")}
+      >
+        <Bold className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn("h-8 w-8", compact && "h-7 w-7")}
+        title="Corsivo"
+        onClick={() => onInsert("_testo in corsivo_")}
+      >
+        <Italic className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn("h-8 w-8", compact && "h-7 w-7")}
+        title="Elenco puntato"
+        onClick={() => onInsert("- punto elenco")}
+      >
+        <List className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn("h-8 w-8", compact && "h-7 w-7")}
+        title="Link"
+        onClick={() => onInsert("[testo link](https://example.com)")}
+      >
+        <Link2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={cn("left-0 top-0 h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none border-0 p-4 pt-12 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-4xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:p-6", dialogSurfaceClass)}>
-        <DialogHeader className="space-y-4 pr-8 text-left sm:pr-0">
-          {/* Title - Inline Editable */}
-          <div className="flex items-start gap-2">
-            {editingTitle ? (
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className={cn("text-lg font-semibold", inputSurfaceClass)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSaveTitle()
-                    if (e.key === "Escape") {
-                      setTitle(task.title)
-                      setEditingTitle(false)
-                    }
-                  }}
-                  autoFocus
-                />
-                <Button size="sm" className="h-11 w-11 md:h-9 md:w-auto md:px-3" onClick={handleSaveTitle}>
-                  <Check className="h-5 w-5 md:h-4 md:w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-11 w-11 md:h-9 md:w-auto md:px-3"
-                  onClick={() => {
-                    setTitle(task.title)
-                    setEditingTitle(false)
-                  }}
+        <DialogContent
+          className={cn(
+            "left-0 top-0 flex h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 sm:left-[50%] sm:top-[50%] sm:h-[min(92vh,900px)] sm:max-h-[92vh] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border",
+            dialogSurfaceClass,
+          )}
+        >
+          <DialogHeader className="border-b border-slate-200 bg-white/95 p-4 pr-12 text-left dark:border-slate-800 dark:bg-[#05070b]/95 md:p-5 md:pr-14">
+            {/* Title - Inline Editable */}
+            <div className="flex items-start gap-3">
+              {editingTitle ? (
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className={cn("text-lg font-semibold", inputSurfaceClass)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveTitle();
+                      if (e.key === "Escape") {
+                        setTitle(task.title);
+                        setEditingTitle(false);
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    className="h-11 w-11 md:h-9 md:w-auto md:px-3"
+                    onClick={handleSaveTitle}
+                  >
+                    <Check className="h-5 w-5 md:h-4 md:w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-11 w-11 md:h-9 md:w-auto md:px-3"
+                    onClick={() => {
+                      setTitle(task.title);
+                      setEditingTitle(false);
+                    }}
+                  >
+                    <X className="h-5 w-5 md:h-4 md:w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <DialogTitle
+                  className="min-w-0 flex-1 cursor-pointer rounded-md p-1 text-xl font-semibold leading-tight text-slate-950 transition-colors hover:bg-slate-100 dark:text-slate-50 dark:hover:bg-slate-900/80 md:text-2xl"
+                  onClick={() => setEditingTitle(true)}
                 >
-                  <X className="h-5 w-5 md:h-4 md:w-4" />
-                </Button>
+                  {task.title}
+                  <Edit3 className="h-4 w-4 ml-2 inline opacity-50" />
+                </DialogTitle>
+              )}
+            </div>
+
+            {/* Meta Information Row */}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-400">
+              <div className={metaPillClass}>
+                <Calendar className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">
+                  Creata il{" "}
+                  {(task.createdAt instanceof Date
+                    ? task.createdAt
+                    : (task.createdAt as any)?.toDate?.() || new Date()
+                  ).toLocaleDateString("it-IT")}
+                </span>
               </div>
-            ) : (
-              <DialogTitle
-                className="min-w-0 flex-1 cursor-pointer rounded p-2 text-xl font-semibold leading-tight text-slate-950 transition-colors hover:bg-slate-100 dark:text-slate-50 dark:hover:bg-slate-900/80 sm:text-lg"
-                onClick={() => setEditingTitle(true)}
+              <div className={metaPillClass}>
+                <Clock className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">
+                  Aggiornata il{" "}
+                  {(task.updatedAt instanceof Date
+                    ? task.updatedAt
+                    : (task.updatedAt as any)?.toDate?.() || new Date()
+                  ).toLocaleDateString("it-IT")}
+                </span>
+              </div>
+              <div className={metaPillClass}>
+                <User className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">
+                  {task.assignee ||
+                    (task.assignedUserId ? "Assegnato" : "Non assegnato")}
+                </span>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Contextual Links - Interactive */}
+          <div className="flex flex-wrap gap-2 px-4 py-3 md:px-5">
+            {/* Client Link - Clickable */}
+            {task.clientId && (
+              <button
+                onClick={() => {
+                  router.push(`/clienti?clientId=${task.clientId}`);
+                  onOpenChange(false);
+                }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-100 transition-colors dark:bg-purple-500/15 dark:text-purple-200 dark:hover:bg-purple-500/25"
               >
-                {task.title}
-                <Edit3 className="h-4 w-4 ml-2 inline opacity-50" />
-              </DialogTitle>
+                <User className="h-3 w-3" />
+                <span>{task.clientName || "Cliente"}</span>
+              </button>
             )}
-          </div>
 
-          {/* Meta Information Row */}
-          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-xs md:text-sm text-slate-600 dark:text-slate-400">
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Creata il {(task.createdAt instanceof Date ? task.createdAt : (task.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Aggiornata il {(task.updatedAt instanceof Date ? task.updatedAt : (task.updatedAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <User className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">
-                {task.assignee || (task.assignedUserId ? "Assegnato" : "Non assegnato")}
+            {task.projectId && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200">
+                <FileText className="h-3 w-3" />
+                <span>{task.projectName || "Progetto"}</span>
               </span>
-            </div>
-          </div>
-        </DialogHeader>
-
-        {/* Contextual Links - Interactive */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          {/* Client Link - Clickable */}
-          {task.clientId && (
-            <button
-              onClick={() => {
-                router.push(`/clienti?clientId=${task.clientId}`)
-                onOpenChange(false)
-              }}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-100 transition-colors dark:bg-purple-500/15 dark:text-purple-200 dark:hover:bg-purple-500/25"
-            >
-              <User className="h-3 w-3" />
-              <span>{task.clientName || "Cliente"}</span>
-            </button>
-          )}
-
-          {task.projectId && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200">
-              <FileText className="h-3 w-3" />
-              <span>{task.projectName || "Progetto"}</span>
-            </span>
-          )}
-
-          {/* Calendar Entry Link - Clickable (if calendarId exists) */}
-          {(task as any).calendarId && (
-            <button
-              onClick={() => {
-                router.push(`/calendario-editoriale?entryId=${(task as any).calendarId}`)
-                onOpenChange(false)
-              }}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition-colors dark:bg-blue-500/15 dark:text-blue-200 dark:hover:bg-blue-500/25"
-            >
-              <Calendar className="h-3 w-3" />
-              <span>Collegato a calendario</span>
-            </button>
-          )}
-
-          {/* Dependencies Link - Show count, future: open dependency dialog */}
-          {task.dependencies && task.dependencies.length > 0 && (
-            <button
-              onClick={() => {
-                toast({
-                  title: "Dipendenze",
-                  description: `Questa task dipende da ${task.dependencies?.length || 0} altre task`
-                })
-              }}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-xs font-medium hover:bg-orange-100 transition-colors dark:bg-orange-500/15 dark:text-orange-200 dark:hover:bg-orange-500/25"
-            >
-              <Star className="h-3 w-3" />
-              <span>{task.dependencies.length} dipendenze</span>
-            </button>
-          )}
-        </div>
-
-        {(isPendingAssignment || isRejectedAssignment) && (
-          <div
-            className={cn(
-              "mb-4 rounded-md border p-4",
-              isPendingAssignment
-                ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
-                : "border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100",
             )}
-          >
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div className="min-w-0 space-y-1">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  {isPendingAssignment ? <Clock className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                  <span>
+
+            {/* Calendar Entry Link - Clickable (if calendarId exists) */}
+            {(task as any).calendarId && (
+              <button
+                onClick={() => {
+                  router.push(
+                    `/calendario-editoriale?entryId=${(task as any).calendarId}`,
+                  );
+                  onOpenChange(false);
+                }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-100 transition-colors dark:bg-blue-500/15 dark:text-blue-200 dark:hover:bg-blue-500/25"
+              >
+                <Calendar className="h-3 w-3" />
+                <span>Collegato a calendario</span>
+              </button>
+            )}
+
+            {/* Dependencies Link - Show count, future: open dependency dialog */}
+            {task.dependencies && task.dependencies.length > 0 && (
+              <button
+                onClick={() => {
+                  toast({
+                    title: "Dipendenze",
+                    description: `Questa task dipende da ${task.dependencies?.length || 0} altre task`,
+                  });
+                }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-xs font-medium hover:bg-orange-100 transition-colors dark:bg-orange-500/15 dark:text-orange-200 dark:hover:bg-orange-500/25"
+              >
+                <Star className="h-3 w-3" />
+                <span>{task.dependencies.length} dipendenze</span>
+              </button>
+            )}
+          </div>
+
+          {(isPendingAssignment || isRejectedAssignment) && (
+            <div
+              className={cn(
+                "mx-4 mb-4 rounded-md border p-4 md:mx-5",
+                isPendingAssignment
+                  ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
+                  : "border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100",
+              )}
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    {isPendingAssignment ? (
+                      <Clock className="h-4 w-4" />
+                    ) : (
+                      <X className="h-4 w-4" />
+                    )}
+                    <span>
+                      {isPendingAssignment
+                        ? canRespondToAssignment
+                          ? "Assegnazione da accettare"
+                          : "Assegnazione in attesa"
+                        : "Assegnazione rifiutata"}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-6 opacity-90">
                     {isPendingAssignment
                       ? canRespondToAssignment
-                        ? "Assegnazione da accettare"
-                        : "Assegnazione in attesa"
-                      : "Assegnazione rifiutata"}
-                  </span>
-                </div>
-                <p className="text-sm leading-6 opacity-90">
-                  {isPendingAssignment
-                    ? canRespondToAssignment
-                      ? "Un collega pari ruolo ti ha proposto questa task. Accettandola diventa ufficialmente tua; puoi rifiutarla lasciando una nota facoltativa."
-                      : `La task è stata proposta a ${task.assignee || "un esecutore"} e diventerà ufficiale solo dopo l'accettazione.`
-                    : "La proposta di assegnazione è stata rifiutata e resta visibile nello storico operativo."}
-                </p>
-                {isRejectedAssignment && task.assignmentRejectionReason && (
-                  <p className="rounded-md bg-black/5 p-2 text-sm dark:bg-white/10">
-                    Motivo: {task.assignmentRejectionReason}
+                        ? "Un collega pari ruolo ti ha proposto questa task. Accettandola diventa ufficialmente tua; puoi rifiutarla lasciando una nota facoltativa."
+                        : `La task è stata proposta a ${task.assignee || "un esecutore"} e diventerà ufficiale solo dopo l'accettazione.`
+                      : "La proposta di assegnazione è stata rifiutata e resta visibile nello storico operativo."}
                   </p>
-                )}
-              </div>
-
-              {canRespondToAssignment && (
-                <div className="w-full space-y-2 md:w-[320px]">
-                  <Textarea
-                    value={assignmentRejectionReason}
-                    onChange={(event) => setAssignmentRejectionReason(event.target.value)}
-                    placeholder="Motivo del rifiuto (facoltativo)"
-                    rows={2}
-                    className={cn("text-sm", inputSurfaceClass)}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      className="h-11 border-rose-300 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-500/40 dark:bg-slate-950 dark:text-rose-200 dark:hover:bg-rose-500/10"
-                      disabled={respondingAssignment !== null}
-                      onClick={handleRejectAssignment}
-                    >
-                      {respondingAssignment === "reject" ? "Invio..." : "Rifiuta"}
-                    </Button>
-                    <Button
-                      className="h-11 bg-emerald-600 text-white hover:bg-emerald-700"
-                      disabled={respondingAssignment !== null}
-                      onClick={handleAcceptAssignment}
-                    >
-                      {respondingAssignment === "accept" ? "Invio..." : "Accetta"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-4 pb-6 md:grid md:grid-cols-3 md:gap-6 md:pb-0">
-          {/* Main Content - 2/3 width */}
-          <div className="order-2 space-y-4 md:order-1 md:col-span-2 md:space-y-6">
-            {/* Description - Inline Editable */}
-            <div>
-              <Label className={labelClass}>Descrizione</Label>
-              {editingDescription ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={3}
-                    placeholder="Descrizione breve della task..."
-                    className={inputSurfaceClass}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        setDescription(task.description || "")
-                        setEditingDescription(false)
-                      }
-                    }}
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" className="h-11 md:h-9" onClick={handleSaveDescription}>
-                      <Check className="h-5 w-5 md:h-4 md:w-4 mr-1" />
-                      Salva
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-11 md:h-9"
-                      onClick={() => {
-                        setDescription(task.description || "")
-                        setEditingDescription(false)
-                      }}
-                    >
-                      Annulla
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={cn(editableSurfaceClass, "min-h-[88px] cursor-pointer whitespace-pre-wrap break-words leading-6")}
-                  onClick={() => setEditingDescription(true)}
-                >
-                  {task.description || (
-                    <span className="text-slate-400 italic dark:text-slate-500">Clicca per aggiungere una descrizione...</span>
+                  {isRejectedAssignment && task.assignmentRejectionReason && (
+                    <p className="rounded-md bg-black/5 p-2 text-sm dark:bg-white/10">
+                      Motivo: {task.assignmentRejectionReason}
+                    </p>
                   )}
-                  <Edit3 className="h-4 w-4 ml-2 inline text-slate-500 opacity-70 dark:text-slate-400" />
                 </div>
-              )}
-            </div>
 
-            {/* Rich Description - Inline Editable */}
-            <div>
-              <Label className={labelClass}>Descrizione Dettagliata</Label>
-              {editingRichDescription ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={richDescription}
-                    onChange={(e) => setRichDescription(e.target.value)}
-                    rows={6}
-                    placeholder="Descrizione dettagliata con supporto Markdown..."
-                    className={cn("font-mono text-sm", inputSurfaceClass)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        setRichDescription(task.richDescription || "")
-                        setEditingRichDescription(false)
-                      }
-                    }}
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" className="h-11 md:h-9" onClick={handleSaveRichDescription}>
-                      <Check className="h-5 w-5 md:h-4 md:w-4 mr-1" />
-                      Salva
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-11 md:h-9"
-                      onClick={() => {
-                        setRichDescription(task.richDescription || "")
-                        setEditingRichDescription(false)
-                      }}
-                    >
-                      Annulla
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={cn(editableSurfaceClass, "min-h-[120px] cursor-pointer break-words leading-6")}
-                  onClick={() => setEditingRichDescription(true)}
-                >
-                  {task.richDescription ? (
-                    <div className="whitespace-pre-wrap">{task.richDescription}</div>
-                  ) : (
-                    <span className="text-slate-400 italic dark:text-slate-500">Clicca per aggiungere una descrizione dettagliata...</span>
-                  )}
-                  <Edit3 className="h-4 w-4 ml-2 inline text-slate-500 opacity-70 dark:text-slate-400" />
-                </div>
-              )}
-            </div>
-
-            {/* Deliverable Section with Save/Cancel */}
-            <div>
-              <Label className={labelClass}>Deliverable Atteso</Label>
-              
-              <div className="space-y-3">
-                {/* Type Select - Sempre editabile */}
-                <Select
-                  value={deliverableType}
-                  onValueChange={handleDeliverableTypeChange}
-                >
-                  <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
-                    <SelectValue placeholder="Tipo deliverable..." />
-                  </SelectTrigger>
-                  <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                    <SelectItem value="file">
-                      <div className="flex items-center gap-2">
-                        <Paperclip className="h-4 w-4" />
-                        <span>File</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="design">
-                      <div className="flex items-center gap-2">
-                        <Edit3 className="h-4 w-4" />
-                        <span>Design</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="feature">
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4" />
-                        <span>Feature</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="content">
-                      <div className="flex items-center gap-2">
-                        <Send className="h-4 w-4" />
-                        <span>Contenuto</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="other">
-                      <div className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        <span>Altro</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* Description - Editable con Save */}
-                {editingDeliverable ? (
-                  <div className="space-y-2">
+                {canRespondToAssignment && (
+                  <div className="w-full space-y-2 md:w-[320px]">
                     <Textarea
-                      placeholder="Descrivi cosa deve produrre questa task..."
-                      value={deliverable}
-                      onChange={(e) => setDeliverable(e.target.value)}
+                      value={assignmentRejectionReason}
+                      onChange={(event) =>
+                        setAssignmentRejectionReason(event.target.value)
+                      }
+                      placeholder="Motivo del rifiuto (facoltativo)"
                       rows={2}
                       className={cn("text-sm", inputSurfaceClass)}
-                      autoFocus
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        className="h-11 border-rose-300 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-500/40 dark:bg-slate-950 dark:text-rose-200 dark:hover:bg-rose-500/10"
+                        disabled={respondingAssignment !== null}
+                        onClick={handleRejectAssignment}
+                      >
+                        {respondingAssignment === "reject"
+                          ? "Invio..."
+                          : "Rifiuta"}
+                      </Button>
+                      <Button
+                        className="h-11 bg-emerald-600 text-white hover:bg-emerald-700"
+                        disabled={respondingAssignment !== null}
+                        onClick={handleAcceptAssignment}
+                      >
+                        {respondingAssignment === "accept"
+                          ? "Invio..."
+                          : "Accetta"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto border-t border-slate-200/70 p-4 dark:border-slate-800 md:grid md:grid-cols-[minmax(0,1fr)_340px] md:gap-5 md:p-5">
+            {/* Main Content - 2/3 width */}
+            <div className="order-2 space-y-4 md:order-1 md:space-y-5">
+              {/* Description - Inline Editable */}
+              <div className={sectionClass}>
+                <div className={sectionTitleClass}>
+                  <Label className="text-sm font-semibold">Descrizione</Label>
+                </div>
+                {editingDescription ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={3}
+                      placeholder="Descrizione breve della task..."
+                      className={inputSurfaceClass}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setDescription(task.description || "");
+                          setEditingDescription(false);
+                        }
+                      }}
                     />
                     <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         className="h-11 md:h-9"
-                        onClick={async () => {
-                          await handleUpdateField("expectedDeliverable", deliverable)
-                          await handleUpdateField("deliverableType", deliverableType)
-                          setEditingDeliverable(false)
-                          toast({ title: "Deliverable aggiornato" })
-                        }}
+                        onClick={handleSaveDescription}
                       >
                         <Check className="h-5 w-5 md:h-4 md:w-4 mr-1" />
                         Salva
@@ -782,9 +1108,8 @@ export function TaskDetailDialog({
                         variant="ghost"
                         className="h-11 md:h-9"
                         onClick={() => {
-                          setDeliverable(task.expectedDeliverable || "")
-                          setDeliverableType(task.deliverableType || "other")
-                          setEditingDeliverable(false)
+                          setDescription(task.description || "");
+                          setEditingDescription(false);
                         }}
                       >
                         Annulla
@@ -793,511 +1118,1251 @@ export function TaskDetailDialog({
                   </div>
                 ) : (
                   <div
-                    className={cn(editableSurfaceClass, "min-h-[60px] cursor-pointer")}
-                    onClick={() => setEditingDeliverable(true)}
+                    className={cn(
+                      editableSurfaceClass,
+                      "min-h-[88px] cursor-pointer whitespace-pre-wrap break-words leading-6",
+                    )}
+                    onClick={() => setEditingDescription(true)}
                   >
-                    {task.expectedDeliverable ? (
-                      <p className="text-sm whitespace-pre-wrap">{task.expectedDeliverable}</p>
-                    ) : (
-                      <span className="text-slate-400 italic text-sm dark:text-slate-500">Clicca per definire il deliverable atteso...</span>
+                    {task.description || (
+                      <span className="text-slate-400 italic dark:text-slate-500">
+                        Clicca per aggiungere una descrizione...
+                      </span>
                     )}
                     <Edit3 className="h-4 w-4 ml-2 inline text-slate-500 opacity-70 dark:text-slate-400" />
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Sub-items with Drag & Drop */}
-            <div>
-              <Label className={labelClass}>Sub-attività</Label>
-              <DragDropContext onDragEnd={handleSubItemDragEnd}>
-                <Droppable droppableId="subitems">
-                  {(provided) => (
-                    <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
-                      {subItems.map((item, index) => (
-                        <Draggable key={item.id} draggableId={item.id} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={`flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2 text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 ${
-                                snapshot.isDragging ? "shadow-lg" : ""
-                              }`}
-                            >
-                              <div {...provided.dragHandleProps}>
-                                <GripVertical className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                              </div>
-                              <div className="p-2 md:p-0">
-                                <Checkbox checked={item.completed} onCheckedChange={() => handleToggleSubItem(item.id)} className="h-5 w-5 md:h-4 md:w-4" />
-                              </div>
-                              <span className={`flex-1 ${item.completed ? "text-slate-500 line-through dark:text-slate-500" : ""}`}>
-                                {item.title}
-                              </span>
-                              <Button size="sm" variant="ghost" className="h-11 w-11 md:h-8 md:w-8 p-0" onClick={() => handleRemoveSubItem(item.id)}>
-                                <X className="h-5 w-5 md:h-3 md:w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
+              {/* Rich Description - Inline Editable */}
+              <div className={sectionClass}>
+                <div className={sectionTitleClass}>
+                  <Label className="text-sm font-semibold">
+                    Descrizione Dettagliata
+                  </Label>
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-500">
+                    Markdown
+                  </span>
+                </div>
+                {editingRichDescription ? (
+                  <div className="space-y-2">
+                    <FormattingToolbar
+                      onInsert={appendRichDescriptionSnippet}
+                    />
+                    <Textarea
+                      value={richDescription}
+                      onChange={(e) => setRichDescription(e.target.value)}
+                      rows={7}
+                      placeholder="Scrivi dettagli, a capo, elenchi, link e note operative..."
+                      className={cn("text-sm leading-6", inputSurfaceClass)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setRichDescription(task.richDescription || "");
+                          setEditingRichDescription(false);
+                        }
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="h-11 md:h-9"
+                        onClick={handleSaveRichDescription}
+                      >
+                        <Check className="h-5 w-5 md:h-4 md:w-4 mr-1" />
+                        Salva
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-11 md:h-9"
+                        onClick={() => {
+                          setRichDescription(task.richDescription || "");
+                          setEditingRichDescription(false);
+                        }}
+                      >
+                        Annulla
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      editableSurfaceClass,
+                      "min-h-[120px] cursor-pointer break-words leading-6",
+                    )}
+                    onClick={() => setEditingRichDescription(true)}
+                  >
+                    {task.richDescription ? (
+                      <FormattedTaskText text={task.richDescription} />
+                    ) : (
+                      <span className="text-slate-400 italic dark:text-slate-500">
+                        Clicca per aggiungere una descrizione dettagliata...
+                      </span>
+                    )}
+                    <Edit3 className="h-4 w-4 ml-2 inline text-slate-500 opacity-70 dark:text-slate-400" />
+                  </div>
+                )}
+              </div>
+
+              {/* Deliverable Section with Save/Cancel */}
+              <div className={sectionClass}>
+                <div className={sectionTitleClass}>
+                  <Label className="text-sm font-semibold">
+                    Deliverable Atteso
+                  </Label>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Type Select - Sempre editabile */}
+                  <Select
+                    value={deliverableType}
+                    onValueChange={handleDeliverableTypeChange}
+                  >
+                    <SelectTrigger
+                      className={cn("h-11 md:h-10", selectSurfaceClass)}
+                    >
+                      <SelectValue placeholder="Tipo deliverable..." />
+                    </SelectTrigger>
+                    <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                      <SelectItem value="file">
+                        <div className="flex items-center gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          <span>File</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="design">
+                        <div className="flex items-center gap-2">
+                          <Edit3 className="h-4 w-4" />
+                          <span>Design</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="feature">
+                        <div className="flex items-center gap-2">
+                          <Star className="h-4 w-4" />
+                          <span>Feature</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="content">
+                        <div className="flex items-center gap-2">
+                          <Send className="h-4 w-4" />
+                          <span>Contenuto</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="other">
+                        <div className="flex items-center gap-2">
+                          <Plus className="h-4 w-4" />
+                          <span>Altro</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Description - Editable con Save */}
+                  {editingDeliverable ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        placeholder="Descrivi cosa deve produrre questa task..."
+                        value={deliverable}
+                        onChange={(e) => setDeliverable(e.target.value)}
+                        rows={2}
+                        className={cn("text-sm", inputSurfaceClass)}
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-11 md:h-9"
+                          onClick={async () => {
+                            await handleUpdateField(
+                              "expectedDeliverable",
+                              deliverable,
+                            );
+                            await handleUpdateField(
+                              "deliverableType",
+                              deliverableType,
+                            );
+                            setEditingDeliverable(false);
+                            toast({ title: "Deliverable aggiornato" });
+                          }}
+                        >
+                          <Check className="h-5 w-5 md:h-4 md:w-4 mr-1" />
+                          Salva
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-11 md:h-9"
+                          onClick={() => {
+                            setDeliverable(task.expectedDeliverable || "");
+                            setDeliverableType(task.deliverableType || "other");
+                            setEditingDeliverable(false);
+                          }}
+                        >
+                          Annulla
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={cn(
+                        editableSurfaceClass,
+                        "min-h-[60px] cursor-pointer",
+                      )}
+                      onClick={() => setEditingDeliverable(true)}
+                    >
+                      {task.expectedDeliverable ? (
+                        <p className="text-sm whitespace-pre-wrap">
+                          {task.expectedDeliverable}
+                        </p>
+                      ) : (
+                        <span className="text-slate-400 italic text-sm dark:text-slate-500">
+                          Clicca per definire il deliverable atteso...
+                        </span>
+                      )}
+                      <Edit3 className="h-4 w-4 ml-2 inline text-slate-500 opacity-70 dark:text-slate-400" />
                     </div>
                   )}
-                </Droppable>
-              </DragDropContext>
-
-              {/* Add new sub-item */}
-              <div className="flex gap-2 mt-2">
-                <Input
-                  placeholder="Aggiungi sub-attività..."
-                  value={newSubItem}
-                  onChange={(e) => setNewSubItem(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddSubItem()
-                  }}
-                  className={cn("h-12 md:h-10", inputSurfaceClass)}
-                />
-                <Button size="sm" className="h-12 w-12 md:h-10 md:w-10" onClick={handleAddSubItem}>
-                  <Plus className="h-5 w-5 md:h-4 md:w-4" />
-                </Button>
+                </div>
               </div>
-            </div>
 
-            {/* Comments Section */}
-            <div>
-              <Label className={cn(labelClass, "mb-3")}>Commenti ({(task.comments || []).length})</Label>
+              {/* Sub-items with Drag & Drop */}
+              <div className={sectionClass}>
+                <div className={sectionTitleClass}>
+                  <Label className="text-sm font-semibold">Sub-attività</Label>
+                  {subItems.length > 0 && (
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-500">
+                      {subItems.filter((item) => item.completed).length}/
+                      {subItems.length} completate
+                    </span>
+                  )}
+                </div>
+                <DragDropContext onDragEnd={handleSubItemDragEnd}>
+                  <Droppable droppableId="subitems">
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className="space-y-2"
+                      >
+                        {subItems.map((item, index) => (
+                          <Draggable
+                            key={item.id}
+                            draggableId={item.id}
+                            index={index}
+                          >
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={`flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2 text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 ${
+                                  snapshot.isDragging ? "shadow-lg" : ""
+                                }`}
+                              >
+                                <div {...provided.dragHandleProps}>
+                                  <GripVertical className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                                </div>
+                                <div className="p-2 md:p-0">
+                                  <Checkbox
+                                    checked={item.completed}
+                                    onCheckedChange={() =>
+                                      handleToggleSubItem(item.id)
+                                    }
+                                    className="h-5 w-5 md:h-4 md:w-4"
+                                  />
+                                </div>
+                                <span
+                                  className={`flex-1 ${item.completed ? "text-slate-500 line-through dark:text-slate-500" : ""}`}
+                                >
+                                  {item.title}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-11 w-11 md:h-8 md:w-8 p-0"
+                                  onClick={() => handleRemoveSubItem(item.id)}
+                                >
+                                  <X className="h-5 w-5 md:h-3 md:w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
 
-              {/* Add new comment */}
-              <div className="flex gap-2 mb-4">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    {userData?.firstName?.[0]}
-                    {userData?.lastName?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 flex gap-2">
+                {/* Add new sub-item */}
+                <div className="flex gap-2 mt-2">
                   <Input
-                    placeholder="Aggiungi un commento..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Aggiungi sub-attività..."
+                    value={newSubItem}
+                    onChange={(e) => setNewSubItem(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleAddComment()
-                      }
+                      if (e.key === "Enter") handleAddSubItem();
                     }}
-                    className={cn("h-11 md:h-10", inputSurfaceClass)}
+                    className={cn("h-12 md:h-10", inputSurfaceClass)}
                   />
-                  <Button size="sm" className="h-11 w-11 md:h-10 md:w-10" onClick={handleAddComment} disabled={!newComment.trim()}>
-                    <Send className="h-5 w-5 md:h-4 md:w-4" />
+                  <Button
+                    size="sm"
+                    className="h-12 w-12 md:h-10 md:w-10"
+                    onClick={handleAddSubItem}
+                  >
+                    <Plus className="h-5 w-5 md:h-4 md:w-4" />
                   </Button>
                 </div>
               </div>
 
-              {/* Comments list */}
-              <div className="space-y-2 md:space-y-3 max-h-48 md:max-h-60 overflow-y-auto">
-                {(task.comments || []).map((comment) => (
-                  <div key={comment.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {comment.authorName
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm">{comment.authorName}</span>
-                        <span className="text-xs text-slate-500 dark:text-slate-500">
-                          {(comment.createdAt instanceof Date ? comment.createdAt : (comment.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap dark:text-slate-300">{comment.text}</p>
-                    </div>
-                  </div>
-                ))}
+              {/* Generated Assets Gallery */}
+              <div className={sectionClass}>
+                <TaskAssetGallery
+                  assets={task.generatedAssets ?? []}
+                  onDelete={async (assetId) => {
+                    const updatedAssets =
+                      task.generatedAssets?.filter((a) => a.id !== assetId) ||
+                      [];
+                    await onUpdateTask(task.id, {
+                      generatedAssets: updatedAssets,
+                    });
+                  }}
+                />
               </div>
-            </div>
 
-            {/* Activity Timeline */}
-            <div>
-              <Label className={cn(labelClass, "mb-3")}>Timeline Attività</Label>
-              
-              <div className="space-y-3 max-h-48 overflow-y-auto">
-                {/* Created Event */}
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center dark:bg-purple-500/15">
-                    <Plus className="h-4 w-4 text-purple-600 dark:text-purple-300" />
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <p className="text-sm font-medium">Task creata</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-500">
-                      {(task.createdAt instanceof Date ? task.createdAt : (task.createdAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT", { 
-                        day: 'numeric', 
-                        month: 'short', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+              {/* Comments Section */}
+              <div
+                className={cn(
+                  sectionClass,
+                  "border-slate-300/80 bg-white dark:border-slate-700/80 dark:bg-slate-950/80",
+                )}
+              >
+                <div className={sectionTitleClass}>
+                  <div>
+                    <Label className="text-sm font-semibold">Discussione</Label>
+                    <p className="mt-0.5 text-xs font-normal text-slate-500 dark:text-slate-500">
+                      {(task.comments || []).length} commenti
                     </p>
                   </div>
                 </div>
 
-                {/* Assignment Event (if assigned) */}
-                {task.assignedUserId && (
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center dark:bg-blue-500/15">
-                      <User className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                {/* Add new comment */}
+                <div className="mb-4 flex gap-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>
+                      {userData?.firstName?.[0]}
+                      {userData?.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="relative">
+                      <div className="flex items-end gap-2 rounded-md border border-slate-200 bg-slate-50 p-1.5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+                        <div className="relative shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-10 w-10 rounded-md text-slate-600 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white",
+                              commentAttachmentMode !== "closed" &&
+                                "bg-white text-righello-pink shadow-sm dark:bg-slate-900 dark:text-righello-pink",
+                            )}
+                            onClick={() =>
+                              setCommentAttachmentMode((current) =>
+                                current === "closed" ? "upload" : "closed",
+                              )
+                            }
+                            aria-label="Apri opzioni allegato commento"
+                          >
+                            <Plus className="h-5 w-5" />
+                          </Button>
+                          {commentAttachmentMode !== "closed" && (
+                            <div className="absolute bottom-12 left-0 z-20 w-60 rounded-md border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-950">
+                              <button
+                                type="button"
+                                className={cn(
+                                  "flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-900",
+                                  commentAttachmentMode === "upload" &&
+                                    "bg-righello-pink/10 text-righello-pink",
+                                )}
+                                onClick={() =>
+                                  setCommentAttachmentMode("upload")
+                                }
+                              >
+                                <Upload className="h-4 w-4" />
+                                Carica file
+                              </button>
+                              <button
+                                type="button"
+                                className={cn(
+                                  "flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-900",
+                                  commentAttachmentMode === "task" &&
+                                    "bg-righello-pink/10 text-righello-pink",
+                                )}
+                                onClick={() => setCommentAttachmentMode("task")}
+                              >
+                                <Paperclip className="h-4 w-4" />
+                                Dalla task
+                              </button>
+                              <button
+                                type="button"
+                                className={cn(
+                                  "flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-900",
+                                  commentAttachmentMode === "mention" &&
+                                    "bg-righello-pink/10 text-righello-pink",
+                                )}
+                                onClick={() => {
+                                  setCommentMentionQuery("");
+                                  setCommentMentionRange(null);
+                                  setCommentAttachmentMode("mention");
+                                }}
+                              >
+                                <AtSign className="h-4 w-4" />
+                                Menziona persona
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <Textarea
+                          placeholder="Scrivi un messaggio..."
+                          value={newComment}
+                          onChange={handleCommentChange}
+                          rows={1}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                              e.preventDefault();
+                              handleAddComment();
+                            }
+                          }}
+                          className={cn(
+                            "min-h-10 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-6 shadow-none focus-visible:ring-0 dark:bg-transparent",
+                          )}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-10 w-10 shrink-0 rounded-md"
+                          onClick={handleAddComment}
+                          disabled={
+                            !newComment.trim() &&
+                            commentAttachments.length === 0
+                          }
+                          title="Invia commento"
+                        >
+                          <Send className="h-5 w-5 md:h-4 md:w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex-1 pt-1">
-                      <p className="text-sm font-medium">Assegnata a {task.assignee}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-500">Data assegnazione non tracciata</p>
-                    </div>
-                  </div>
-                )}
+                    <div className="flex flex-wrap gap-1.5">
+                      <FormattingToolbar
+                        onInsert={appendCommentSnippet}
+                        compact
+                      />
 
-                {/* Due Date Event (if exists) */}
-                {task.dueDate && (
+                      {commentMentions.length > 0 && (
+                        <>
+                          {commentMentions.map((mention) => (
+                            <Badge
+                              key={mention.id}
+                              className="rounded-md border border-cyan-300/30 bg-cyan-100 text-cyan-900 dark:bg-cyan-950/50 dark:text-cyan-100"
+                            >
+                              @{mention.name}
+                              <button
+                                type="button"
+                                className="ml-1 text-cyan-700 hover:text-cyan-950 dark:text-cyan-200"
+                                onClick={() =>
+                                  setCommentMentions((current) =>
+                                    current.filter(
+                                      (item) => item.id !== mention.id,
+                                    ),
+                                  )
+                                }
+                                aria-label={`Rimuovi menzione ${mention.name}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </>
+                      )}
+                    </div>
+
+                    {commentAttachmentMode !== "closed" && (
+                      <div className="rounded-md border border-slate-200 bg-slate-50/80 p-2 dark:border-slate-800 dark:bg-slate-950/70">
+                        {commentAttachmentMode === "mention" ? (
+                          <div>
+                            <Input
+                              autoFocus
+                              value={commentMentionQuery}
+                              onChange={(event) =>
+                                setCommentMentionQuery(event.target.value)
+                              }
+                              placeholder="Cerca persona..."
+                              className={cn("h-9 text-xs", inputSurfaceClass)}
+                            />
+                            <div className="mt-2 max-h-56 overflow-y-auto">
+                              {usersLoading ? (
+                                <div className="px-2 py-3 text-xs text-slate-500">
+                                  Caricamento utenti...
+                                </div>
+                              ) : mentionOptions.length ? (
+                                mentionOptions.map((member) => {
+                                  const name = memberDisplayName(member);
+                                  const selected = commentMentions.some(
+                                    (item) => item.id === member.id,
+                                  );
+
+                                  return (
+                                    <button
+                                      key={member.id}
+                                      type="button"
+                                      className={cn(
+                                        "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-900",
+                                        selected &&
+                                          "bg-cyan-50 text-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100",
+                                      )}
+                                      onClick={() =>
+                                        handleSelectMention(member)
+                                      }
+                                    >
+                                      <Avatar className="h-7 w-7">
+                                        <AvatarFallback className="text-[10px]">
+                                          {memberInitials(name)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span className="min-w-0">
+                                        <span className="block truncate font-medium">
+                                          {name}
+                                        </span>
+                                        <span className="block truncate text-xs text-slate-500">
+                                          {member.email}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  );
+                                })
+                              ) : (
+                                <div className="px-2 py-3 text-xs text-slate-500">
+                                  Nessun utente trovato.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : commentAttachmentMode === "upload" ? (
+                          <div>
+                            <input
+                              id={`task-comment-attachment-upload-${task.id}`}
+                              type="file"
+                              multiple
+                              className="hidden"
+                              onChange={(event) => {
+                                void handleUploadCommentAttachments(
+                                  event.target.files,
+                                );
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-9 border-slate-200 bg-white text-xs dark:border-slate-800 dark:bg-slate-950"
+                              disabled={
+                                !onUploadAttachments ||
+                                uploadingCommentAttachments
+                              }
+                              onClick={() =>
+                                document
+                                  .getElementById(
+                                    `task-comment-attachment-upload-${task.id}`,
+                                  )
+                                  ?.click()
+                              }
+                            >
+                              {uploadingCommentAttachments ? (
+                                <span className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-righello-pink border-t-transparent" />
+                              ) : (
+                                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                              )}
+                              Scegli file da caricare
+                            </Button>
+                          </div>
+                        ) : task.attachments?.length ? (
+                          <div className="grid gap-1.5 sm:grid-cols-2">
+                            {task.attachments.map((attachment) => {
+                              const selected = commentAttachments.some(
+                                (item) => item.id === attachment.id,
+                              );
+                              return (
+                                <button
+                                  key={attachment.id}
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleTaskAttachmentForComment(
+                                      attachment,
+                                    )
+                                  }
+                                  className={cn(
+                                    "flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs",
+                                    selected
+                                      ? "border-cyan-300 bg-cyan-50 text-cyan-900 dark:border-cyan-500/40 dark:bg-cyan-950/35 dark:text-cyan-100"
+                                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900",
+                                  )}
+                                >
+                                  {getAttachmentIcon(
+                                    attachment.type,
+                                    attachment.name,
+                                  )}
+                                  <span className="min-w-0 flex-1 truncate">
+                                    {attachment.name}
+                                  </span>
+                                  {selected && (
+                                    <Check className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            Nessun file già presente nella task.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {commentAttachments.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {commentAttachments.map((attachment) => (
+                          <Badge
+                            key={attachment.id}
+                            variant="secondary"
+                            className="rounded-md border border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                          >
+                            <Paperclip className="mr-1 h-3 w-3" />
+                            <span className="max-w-[14rem] truncate">
+                              {attachment.name}
+                            </span>
+                            <button
+                              type="button"
+                              className="ml-1 text-slate-500 hover:text-slate-950 dark:hover:text-white"
+                              onClick={() =>
+                                setCommentAttachments((current) =>
+                                  current.filter(
+                                    (item) => item.id !== attachment.id,
+                                  ),
+                                )
+                              }
+                              aria-label={`Rimuovi allegato ${attachment.name}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Comments list */}
+                <div className="space-y-2 md:space-y-3 max-h-48 md:max-h-60 overflow-y-auto">
+                  {(task.comments || []).map((comment) => (
+                    <div key={comment.id} className="flex gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          {comment.authorName
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm">
+                            {comment.authorName}
+                          </span>
+                          <span className="text-xs text-slate-500 dark:text-slate-500">
+                            {(comment.createdAt instanceof Date
+                              ? comment.createdAt
+                              : (comment.createdAt as any)?.toDate?.() ||
+                                new Date()
+                            ).toLocaleDateString("it-IT")}
+                          </span>
+                        </div>
+                        <FormattedTaskText text={comment.text} />
+                        {comment.mentions?.length ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {comment.mentions.map((mention) => (
+                              <Badge
+                                key={mention.id}
+                                className="rounded-md border border-cyan-300/25 bg-cyan-50 text-cyan-800 dark:bg-cyan-950/35 dark:text-cyan-100"
+                              >
+                                @{mention.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
+                        {comment.attachments?.length ? (
+                          <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                            {comment.attachments.map((attachment) => (
+                              <button
+                                key={attachment.id}
+                                type="button"
+                                onClick={() => setPreviewAttachment(attachment)}
+                                className="flex min-w-0 items-center gap-2 rounded-md border border-slate-200 bg-white p-2 text-left text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900"
+                              >
+                                {getAttachmentIcon(
+                                  attachment.type,
+                                  attachment.name,
+                                )}
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate font-medium">
+                                    {attachment.name}
+                                  </span>
+                                  <span className="block text-slate-500">
+                                    Allegato al commento
+                                  </span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Activity Timeline */}
+              <div className={sectionClass}>
+                <div className={sectionTitleClass}>
+                  <Label className="text-sm font-semibold">
+                    Timeline Attività
+                  </Label>
+                </div>
+
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {/* Created Event */}
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center dark:bg-orange-500/15">
-                      <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center dark:bg-purple-500/15">
+                      <Plus className="h-4 w-4 text-purple-600 dark:text-purple-300" />
                     </div>
                     <div className="flex-1 pt-1">
-                      <p className="text-sm font-medium">Scadenza impostata</p>
+                      <p className="text-sm font-medium">Task creata</p>
                       <p className="text-xs text-slate-500 dark:text-slate-500">
-                        {(task.dueDate instanceof Date ? task.dueDate : (task.dueDate as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT")}
+                        {(task.createdAt instanceof Date
+                          ? task.createdAt
+                          : (task.createdAt as any)?.toDate?.() || new Date()
+                        ).toLocaleDateString("it-IT", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </p>
                     </div>
                   </div>
-                )}
 
-                {/* Last Updated */}
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center dark:bg-slate-800">
-                    <Edit3 className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <p className="text-sm font-medium">Ultimo aggiornamento</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-500">
-                      {(task.updatedAt instanceof Date ? task.updatedAt : (task.updatedAt as any)?.toDate?.() || new Date()).toLocaleDateString("it-IT", {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
+                  {/* Assignment Event (if assigned) */}
+                  {task.assignedUserId && (
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center dark:bg-blue-500/15">
+                        <User className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <p className="text-sm font-medium">
+                          Assegnata a {task.assignee}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-500">
+                          Data assegnazione non tracciata
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Due Date Event (if exists) */}
+                  {task.dueDate && (
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center dark:bg-orange-500/15">
+                        <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <p className="text-sm font-medium">
+                          Scadenza impostata
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-500">
+                          {(task.dueDate instanceof Date
+                            ? task.dueDate
+                            : (task.dueDate as any)?.toDate?.() || new Date()
+                          ).toLocaleDateString("it-IT")}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Last Updated */}
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center dark:bg-slate-800">
+                      <Edit3 className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                    </div>
+                    <div className="flex-1 pt-1">
+                      <p className="text-sm font-medium">
+                        Ultimo aggiornamento
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-500">
+                        {(task.updatedAt instanceof Date
+                          ? task.updatedAt
+                          : (task.updatedAt as any)?.toDate?.() || new Date()
+                        ).toLocaleDateString("it-IT", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Generated Assets Gallery */}
-            <div className="mt-6">
-              <TaskAssetGallery
-                assets={task.generatedAssets ?? []}
-                onDelete={async (assetId) => {
-                  const updatedAssets = task.generatedAssets?.filter(a => a.id !== assetId) || []
-                  await onUpdateTask(task.id, { generatedAssets: updatedAssets })
-                }}
-              />
-            </div>
-          </div>
+            {/* Sidebar - 1/3 width */}
+            <div
+              className={cn(
+                inspectorGroupClass,
+                "order-1 mb-4 space-y-3 md:sticky md:top-0 md:order-2 md:mb-0 md:self-start md:space-y-4",
+              )}
+            >
+              {/* Project */}
+              <div>
+                <Label className={compactLabelClass}>Progetto</Label>
+                <Select
+                  value={task.projectId || "none"}
+                  onValueChange={(value) => {
+                    void handleUpdateField(
+                      "projectId",
+                      value === "none" ? null : value,
+                    );
+                  }}
+                >
+                  <SelectTrigger
+                    className={cn("h-11 md:h-10", selectSurfaceClass)}
+                  >
+                    <SelectValue placeholder="Collega a progetto" />
+                  </SelectTrigger>
+                  <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                    <SelectItem value="none">Senza progetto</SelectItem>
+                    {projects
+                      .filter((project) =>
+                        task.clientId === "tenant"
+                          ? !project.clientId
+                          : !project.clientId ||
+                            project.clientId === task.clientId,
+                      )
+                      .map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                          {project.members?.length
+                            ? ` · ${project.members.length} persone`
+                            : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Sidebar - 1/3 width */}
-          <div className="order-1 space-y-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-950/60 md:order-2 md:border-0 md:bg-transparent md:p-0 dark:md:bg-transparent md:space-y-4">
-            {/* Project */}
-            <div>
-              <Label className={compactLabelClass}>Progetto</Label>
-              <Select
-                value={task.projectId || "none"}
-                onValueChange={(value) => {
-                  void handleUpdateField("projectId", value === "none" ? null : value)
-                }}
-              >
-                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
-                  <SelectValue placeholder="Collega a progetto" />
-                </SelectTrigger>
-                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                  <SelectItem value="none">Senza progetto</SelectItem>
-                  {projects
-                    .filter((project) => (task.clientId === "tenant" ? !project.clientId : !project.clientId || project.clientId === task.clientId))
-                    .map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                        {project.members?.length ? ` · ${project.members.length} persone` : ""}
+              {/* Status */}
+              <div className="space-y-2">
+                <Label className={compactLabelClass}>Stato</Label>
+
+                <Select
+                  value={currentStatusValue}
+                  onValueChange={(value) =>
+                    handleUpdateField("columnId", value)
+                  }
+                >
+                  <SelectTrigger
+                    className={cn("h-11 md:h-10", selectSurfaceClass)}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={cn(
+                          "h-3 w-3 shrink-0 rounded-full",
+                          currentStatusDotClass,
+                        )}
+                      />
+                      <span className="truncate">{currentStatusLabel}</span>
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                    {statusOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
-            </div>
+                  </SelectContent>
+                </Select>
 
-            {/* Status */}
-            <div className="space-y-2">
-              <Label className={compactLabelClass}>Stato</Label>
-
-              <Select
-                value={currentStatusValue}
-                onValueChange={(value) => handleUpdateField("columnId", value)}
-              >
-                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={cn("h-3 w-3 shrink-0 rounded-full", currentStatusDotClass)} />
-                    <span className="truncate">{currentStatusLabel}</span>
-                  </span>
-                </SelectTrigger>
-                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                  {statusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Progress Bar (if has sub-items) */}
-              {subItems && subItems.length > 0 && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                    <span>Progresso sub-attività</span>
-                    <span>{calculateProgress()}%</span>
-                  </div>
-                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden dark:bg-slate-800">
-                    <div
-                      className="h-full bg-purple-500 transition-all duration-300"
-                      style={{ width: `${calculateProgress()}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Type/Category */}
-            <div>
-              <Label className={compactLabelClass}>Tipologia</Label>
-              <Select value={task.type || ""} onValueChange={(value) => handleUpdateField("type", value)}>
-                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
-                  <SelectValue placeholder="Seleziona tipologia" />
-                </SelectTrigger>
-                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                  {taskTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Priority */}
-            <div>
-              <Label className={compactLabelClass}>Priorità</Label>
-              <Select value={task.priority} onValueChange={(value) => handleUpdateField("priority", value)}>
-                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                  <SelectItem value="low">Bassa</SelectItem>
-                  <SelectItem value="medium">Media</SelectItem>
-                  <SelectItem value="high">Alta</SelectItem>
-                </SelectContent>
-              </Select>
-              <Badge className={`mt-1 ${getPriorityColor(task.priority)}`}>
-                {task.priority === "high" ? "Alta" : task.priority === "medium" ? "Media" : "Bassa"}
-              </Badge>
-            </div>
-
-            {/* Score */}
-            <div>
-              <Label className={compactLabelClass}>Punteggio Valutazione</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min="0"
-                  max="10"
-                  value={task.score || 0}
-                  onChange={(e) => handleUpdateField("score", Number.parseInt(e.target.value) || 0)}
-                  className={cn("w-20 h-11 md:h-10", inputSurfaceClass)}
-                />
-                <div className="flex items-center gap-1">
-                  <Star className={`h-4 w-4 ${getScoreColor(task.score || 0)}`} />
-                  <span className={`text-sm font-medium ${getScoreColor(task.score || 0)}`}>{task.score || 0}/10</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Due Date */}
-            <div>
-              <Label className={compactLabelClass}>Scadenza</Label>
-              <Input type="date" value={dueDate} onChange={(e) => handleDueDateChange(e.target.value)} className={cn("h-11 md:h-10", inputSurfaceClass)} />
-            </div>
-
-            {/* Assignee */}
-            <div>
-              <Label className={compactLabelClass}>Assegnato a</Label>
-              <Select
-                value={task.assignedUserId || "unassigned"}
-                onValueChange={(value) => {
-                  if (value === "unassigned") {
-                    handleUpdateField("assignedUserId", null)
-                  } else {
-                    const selectedUser = users.find(u => u.id === value)
-                    if (selectedUser) {
-                      handleUpdateField("assignedUserId", value)
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className={cn("h-11 md:h-10", selectSurfaceClass)}>
-                  <SelectValue placeholder="Seleziona utente..." />
-                </SelectTrigger>
-                <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                  <SelectItem value="unassigned">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                      <span className="text-slate-500 italic dark:text-slate-400">Non assegnato</span>
+                {/* Progress Bar (if has sub-items) */}
+                {subItems && subItems.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+                      <span>Progresso sub-attività</span>
+                      <span>{calculateProgress()}%</span>
                     </div>
-                  </SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs">
-                            {user.firstName?.[0]}{user.lastName?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>{`${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {usersLoading && (
-                <p className="text-xs text-slate-500 mt-1 dark:text-slate-500">Caricamento utenti...</p>
-              )}
-              
-              {users.length === 0 && !usersLoading && (
-                <p className="text-xs text-slate-500 mt-1 dark:text-slate-500">Nessun utente disponibile nel tenant</p>
-              )}
-            </div>
-
-            {/* Tags */}
-            <div>
-              <Label className={compactLabelClass}>Tags</Label>
-              <div className="flex flex-wrap gap-1">
-                {(task.tags || []).map((tag, index) => (
-                  <Badge key={`${tag}-${index}`} variant="secondary" className="text-xs">
-                    <Tag className="h-3 w-3 mr-1" />
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Attachments */}
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Allegati ({task.attachments?.length || 0})
-                </Label>
-                {onUploadAttachments && (
-                  <>
-                    <input
-                      id={`task-attachment-upload-${task.id}`}
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={(event) => {
-                        void handleUploadAttachments(event.target.files)
-                        event.currentTarget.value = ""
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                    className="h-10 border-slate-200 bg-white text-xs text-slate-800 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-900 md:h-8"
-                      disabled={uploadingAttachments}
-                      onClick={() => document.getElementById(`task-attachment-upload-${task.id}`)?.click()}
-                    >
-                      {uploadingAttachments ? (
-                        <span className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-righello-pink border-t-transparent" />
-                      ) : (
-                        <Upload className="mr-2 h-3.5 w-3.5" />
-                      )}
-                      Carica
-                    </Button>
-                  </>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden dark:bg-slate-800">
+                      <div
+                        className="h-full bg-purple-500 transition-all duration-300"
+                        style={{ width: `${calculateProgress()}%` }}
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {task.attachments && task.attachments.length > 0 ? (
-                <div className="space-y-2">
-                  {task.attachments.map((attachment: any) => (
-                    <div
-                      key={attachment.id}
-                      className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2 text-slate-800 shadow-sm dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
+              {/* Type/Category */}
+              <div>
+                <Label className={compactLabelClass}>Tipologia</Label>
+                <Select
+                  value={task.type || ""}
+                  onValueChange={(value) => handleUpdateField("type", value)}
+                >
+                  <SelectTrigger
+                    className={cn("h-11 md:h-10", selectSurfaceClass)}
+                  >
+                    <SelectValue placeholder="Seleziona tipologia" />
+                  </SelectTrigger>
+                  <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                    {taskTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Priority */}
+              <div>
+                <Label className={compactLabelClass}>Priorità</Label>
+                <Select
+                  value={task.priority}
+                  onValueChange={(value) =>
+                    handleUpdateField("priority", value)
+                  }
+                >
+                  <SelectTrigger
+                    className={cn("h-11 md:h-10", selectSurfaceClass)}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                    <SelectItem value="low">Bassa</SelectItem>
+                    <SelectItem value="medium">Media</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Badge className={`mt-1 ${getPriorityColor(task.priority)}`}>
+                  {task.priority === "high"
+                    ? "Alta"
+                    : task.priority === "medium"
+                      ? "Media"
+                      : "Bassa"}
+                </Badge>
+              </div>
+
+              <div>
+                <Label className={compactLabelClass}>Modalità lavoro</Label>
+                <Select
+                  value={task.workMode || "office"}
+                  onValueChange={(value) =>
+                    handleUpdateField("workMode", value as Task["workMode"])
+                  }
+                >
+                  <SelectTrigger
+                    className={cn("h-11 md:h-10", selectSurfaceClass)}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                    <SelectItem value="office">
+                      <span className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        In sede
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="remote">
+                      <span className="flex items-center gap-2">
+                        <MonitorUp className="h-4 w-4" />
+                        Remoto
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {task.workMode === "remote" && (
+                  <Badge className="mt-1 gap-1 border border-cyan-300/60 bg-cyan-50 text-cyan-800 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-100">
+                    <MonitorUp className="h-3 w-3" />
+                    Remoto
+                  </Badge>
+                )}
+              </div>
+
+              {/* Score */}
+              <div>
+                <Label className={compactLabelClass}>
+                  Punteggio Valutazione
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={task.score || 0}
+                    onChange={(e) =>
+                      handleUpdateField(
+                        "score",
+                        Number.parseInt(e.target.value) || 0,
+                      )
+                    }
+                    className={cn("w-20 h-11 md:h-10", inputSurfaceClass)}
+                  />
+                  <div className="flex items-center gap-1">
+                    <Star
+                      className={`h-4 w-4 ${getScoreColor(task.score || 0)}`}
+                    />
+                    <span
+                      className={`text-sm font-medium ${getScoreColor(task.score || 0)}`}
                     >
-                      {getAttachmentIcon(attachment.type, attachment.name)}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{attachment.name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{formatFileSize(Number(attachment.size || 0))}</p>
+                      {task.score || 0}/10
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <Label className={compactLabelClass}>Scadenza</Label>
+                <Input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => handleDueDateChange(e.target.value)}
+                  className={cn("h-11 md:h-10", inputSurfaceClass)}
+                />
+              </div>
+
+              {/* Assignee */}
+              <div>
+                <Label className={compactLabelClass}>Assegnato a</Label>
+                <Select
+                  value={task.assignedUserId || "unassigned"}
+                  onValueChange={(value) => {
+                    if (value === "unassigned") {
+                      handleUpdateField("assignedUserId", null);
+                    } else {
+                      const selectedUser = users.find((u) => u.id === value);
+                      if (selectedUser) {
+                        handleUpdateField("assignedUserId", value);
+                      }
+                    }
+                  }}
+                >
+                  <SelectTrigger
+                    className={cn("h-11 md:h-10", selectSurfaceClass)}
+                  >
+                    <SelectValue placeholder="Seleziona utente..." />
+                  </SelectTrigger>
+                  <SelectContent className="border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+                    <SelectItem value="unassigned">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                        <span className="text-slate-500 italic dark:text-slate-400">
+                          Non assegnato
+                        </span>
                       </div>
-                      {attachment.url && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
-                          onClick={() => setPreviewAttachment(attachment)}
-                          aria-label={`Visualizza ${attachment.name}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {attachment.url && (
-                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                          <a href={attachment.url} target="_blank" rel="noreferrer" aria-label={`Apri ${attachment.name}`}>
-                            <Download className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      )}
-                      {onDeleteAttachment && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 hover:text-rose-400"
-                          onClick={() => void handleDeleteAttachment(attachment.id)}
-                          aria-label={`Rimuovi ${attachment.name}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                    </SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-xs">
+                              {user.firstName?.[0]}
+                              {user.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>
+                            {`${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+                              user.email}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {usersLoading && (
+                  <p className="text-xs text-slate-500 mt-1 dark:text-slate-500">
+                    Caricamento utenti...
+                  </p>
+                )}
+
+                {users.length === 0 && !usersLoading && (
+                  <p className="text-xs text-slate-500 mt-1 dark:text-slate-500">
+                    Nessun utente disponibile nel tenant
+                  </p>
+                )}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <Label className={compactLabelClass}>Tags</Label>
+                <div className="flex flex-wrap gap-1">
+                  {(task.tags || []).map((tag, index) => (
+                    <Badge
+                      key={`${tag}-${index}`}
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      <Tag className="h-3 w-3 mr-1" />
+                      {tag}
+                    </Badge>
                   ))}
                 </div>
-              ) : (
-                <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400">
-                  <Paperclip className="mb-2 h-4 w-4" />
-                  Nessun allegato. Puoi caricare immagini, PDF, ZIP e documenti operativi.
+              </div>
+
+              {/* Attachments */}
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Allegati ({task.attachments?.length || 0})
+                  </Label>
+                  {onUploadAttachments && (
+                    <>
+                      <input
+                        id={`task-attachment-upload-${task.id}`}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(event) => {
+                          void handleUploadAttachments(event.target.files);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-10 border-slate-200 bg-white text-xs text-slate-800 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-900 md:h-8"
+                        disabled={uploadingAttachments}
+                        onClick={() =>
+                          document
+                            .getElementById(`task-attachment-upload-${task.id}`)
+                            ?.click()
+                        }
+                      >
+                        {uploadingAttachments ? (
+                          <span className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-righello-pink border-t-transparent" />
+                        ) : (
+                          <Upload className="mr-2 h-3.5 w-3.5" />
+                        )}
+                        Carica
+                      </Button>
+                    </>
+                  )}
                 </div>
-              )}
+
+                {task.attachments && task.attachments.length > 0 ? (
+                  <div className="space-y-2">
+                    {task.attachments.map((attachment: any) => (
+                      <div
+                        key={attachment.id}
+                        className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2 text-slate-800 shadow-sm dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
+                      >
+                        {getAttachmentIcon(attachment.type, attachment.name)}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {attachment.name}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {formatFileSize(Number(attachment.size || 0))}
+                          </p>
+                        </div>
+                        {attachment.url && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
+                            onClick={() => setPreviewAttachment(attachment)}
+                            aria-label={`Visualizza ${attachment.name}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {attachment.url && (
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <a
+                              href={attachment.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`Apri ${attachment.name}`}
+                            >
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                        {onDeleteAttachment && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 hover:text-rose-400"
+                            onClick={() =>
+                              void handleDeleteAttachment(attachment.id)
+                            }
+                            aria-label={`Rimuovi ${attachment.name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400">
+                    <Paperclip className="mb-2 h-4 w-4" />
+                    Nessun allegato. Puoi caricare immagini, PDF, ZIP e
+                    documenti operativi.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!previewAttachment} onOpenChange={(isOpen) => !isOpen && setPreviewAttachment(null)}>
-        <DialogContent className={cn("left-0 top-0 h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[92vh] sm:max-w-[96vw] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border md:max-w-5xl", dialogSurfaceClass)}>
+      <Dialog
+        open={!!previewAttachment}
+        onOpenChange={(isOpen) => !isOpen && setPreviewAttachment(null)}
+      >
+        <DialogContent
+          className={cn(
+            "left-0 top-0 h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[92vh] sm:max-w-[96vw] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border md:max-w-5xl",
+            dialogSurfaceClass,
+          )}
+        >
           {previewAttachment && (
             <>
               <DialogHeader className="border-b border-slate-200 px-4 py-3 dark:border-slate-800 md:px-5">
                 <DialogTitle className="flex min-w-0 items-center gap-2 text-base md:text-lg">
-                  {getAttachmentIcon(previewAttachment.type, previewAttachment.name)}
+                  {getAttachmentIcon(
+                    previewAttachment.type,
+                    previewAttachment.name,
+                  )}
                   <span className="truncate">{previewAttachment.name}</span>
                 </DialogTitle>
               </DialogHeader>
@@ -1331,29 +2396,53 @@ export function TaskDetailDialog({
 
                 {getAttachmentPreviewKind(previewAttachment) === "audio" && (
                   <div className="mx-auto flex min-h-[260px] max-w-xl flex-col items-center justify-center gap-4 rounded-lg border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-950">
-                    {getAttachmentIcon(previewAttachment.type, previewAttachment.name)}
+                    {getAttachmentIcon(
+                      previewAttachment.type,
+                      previewAttachment.name,
+                    )}
                     <div>
-                      <p className="font-medium text-slate-950 dark:text-slate-50">{previewAttachment.name}</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">{formatFileSize(Number(previewAttachment.size || 0))}</p>
+                      <p className="font-medium text-slate-950 dark:text-slate-50">
+                        {previewAttachment.name}
+                      </p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {formatFileSize(Number(previewAttachment.size || 0))}
+                      </p>
                     </div>
-                    <audio src={previewAttachment.url} controls className="w-full" />
+                    <audio
+                      src={previewAttachment.url}
+                      controls
+                      className="w-full"
+                    />
                   </div>
                 )}
 
                 {getAttachmentPreviewKind(previewAttachment) === "file" && (
                   <div className="mx-auto flex min-h-[320px] max-w-xl flex-col items-center justify-center gap-4 rounded-lg border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-950">
-                    {getAttachmentIcon(previewAttachment.type, previewAttachment.name)}
+                    {getAttachmentIcon(
+                      previewAttachment.type,
+                      previewAttachment.name,
+                    )}
                     <div>
-                      <p className="font-medium text-slate-950 dark:text-slate-50">{previewAttachment.name}</p>
+                      <p className="font-medium text-slate-950 dark:text-slate-50">
+                        {previewAttachment.name}
+                      </p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">
                         {formatFileSize(Number(previewAttachment.size || 0))}
                       </p>
                     </div>
                     <p className="max-w-sm text-sm text-slate-600 dark:text-slate-300">
-                      Questo formato non ha anteprima browser affidabile. Puoi comunque aprirlo o scaricarlo.
+                      Questo formato non ha anteprima browser affidabile. Puoi
+                      comunque aprirlo o scaricarlo.
                     </p>
-                    <Button asChild className="bg-righello-pink text-white hover:bg-righello-pink/90">
-                      <a href={previewAttachment.url} target="_blank" rel="noreferrer">
+                    <Button
+                      asChild
+                      className="bg-righello-pink text-white hover:bg-righello-pink/90"
+                    >
+                      <a
+                        href={previewAttachment.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         <Download className="mr-2 h-4 w-4" />
                         Apri file
                       </a>
@@ -1366,5 +2455,5 @@ export function TaskDetailDialog({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

@@ -1,71 +1,100 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import type { NextRequest } from "next/server"
-import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal, mapProjectRows } from "@/lib/workspace-db"
+import type { NextRequest } from "next/server";
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal, mapProjectRows } from "@/lib/workspace-db";
+import {
+  canViewAllWorkspaceData,
+  canViewInternalEconomicData,
+} from "@/lib/workspace-permissions";
 
 function normalizeProjectStatus(value: unknown) {
-  const status = typeof value === "string" ? value : ""
-  return ["planned", "active", "in-progress", "completed", "on-hold", "archived"].includes(status)
+  const status = typeof value === "string" ? value : "";
+  return [
+    "planned",
+    "active",
+    "in-progress",
+    "completed",
+    "on-hold",
+    "archived",
+  ].includes(status)
     ? status
-    : "active"
+    : "active";
 }
 
 function normalizeNullableId(value: unknown) {
-  if (typeof value !== "string") return null
-  const nextValue = value.trim()
-  if (!nextValue || nextValue === "tenant" || nextValue === "all") return null
-  return nextValue
+  if (typeof value !== "string") return null;
+  const nextValue = value.trim();
+  if (!nextValue || nextValue === "tenant" || nextValue === "all") return null;
+  return nextValue;
 }
 
 function normalizeMemberIds(value: unknown) {
-  if (!Array.isArray(value)) return []
+  if (!Array.isArray(value)) return [];
   return [
     ...new Set(
       value
-        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
         .map((item) => item.trim()),
     ),
-  ]
+  ];
 }
 
-async function assertClient(db: any, organizationId: string, clientId: string | null) {
-  if (!clientId) return null
+function maskProjectEconomics(projects: any[], canViewEconomics: boolean) {
+  if (canViewEconomics) return projects;
+  return projects.map((project) => ({ ...project, budgetCents: 0 }));
+}
+
+async function assertClient(
+  db: any,
+  organizationId: string,
+  clientId: string | null,
+) {
+  if (!clientId) return null;
 
   const client = await db
-    .prepare(`SELECT id, name FROM clients WHERE organization_id = ? AND id = ? LIMIT 1`)
+    .prepare(
+      `SELECT id, name FROM clients WHERE organization_id = ? AND id = ? LIMIT 1`,
+    )
     .bind(organizationId, clientId)
-    .first()
+    .first();
 
   if (!client?.id) {
-    throw new Error("Cliente non trovato")
+    throw new Error("Cliente non trovato");
   }
 
-  return client
+  return client;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireClerkUser()
+    const user = await requireClerkUser();
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const db = await getCloudflareDb()
+    const db = await getCloudflareDb();
     if (!db) {
-      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+      return Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      );
     }
 
-    const principal = await ensureWorkspacePrincipal(db, user)
-    const { searchParams } = new URL(request.url)
-    const clientId = normalizeNullableId(searchParams.get("clientId"))
+    const principal = await ensureWorkspacePrincipal(db, user);
+    const { searchParams } = new URL(request.url);
+    const clientId = normalizeNullableId(searchParams.get("clientId"));
+    const canViewAllProjects = canViewAllWorkspaceData(principal.role);
+    const canViewEconomics = canViewInternalEconomicData(principal.role);
 
-    const projectQuery =
-      principal.role === "junior"
-        ? db
-            .prepare(
-              `SELECT p.*, c.name AS client_name
+    const projectQuery = !canViewAllProjects
+      ? db
+          .prepare(
+            `SELECT p.*, c.name AS client_name
                FROM projects p
                LEFT JOIN clients c ON c.id = p.client_id AND c.organization_id = p.organization_id
                WHERE p.organization_id = ?
@@ -78,18 +107,23 @@ export async function GET(request: NextRequest) {
                      AND pm.organization_id = p.organization_id
                  )
                ORDER BY p.updated_at DESC`,
-            )
-            .bind(principal.organizationId, clientId, clientId, principal.memberId)
-        : db
-            .prepare(
-              `SELECT p.*, c.name AS client_name
+          )
+          .bind(
+            principal.organizationId,
+            clientId,
+            clientId,
+            principal.memberId,
+          )
+      : db
+          .prepare(
+            `SELECT p.*, c.name AS client_name
                FROM projects p
                LEFT JOIN clients c ON c.id = p.client_id AND c.organization_id = p.organization_id
                WHERE p.organization_id = ?
                  AND (? IS NULL OR p.client_id = ?)
                ORDER BY p.updated_at DESC`,
-            )
-            .bind(principal.organizationId, clientId, clientId)
+          )
+          .bind(principal.organizationId, clientId, clientId);
 
     const [projectResult, memberResult] = await Promise.all([
       projectQuery.all(),
@@ -102,48 +136,66 @@ export async function GET(request: NextRequest) {
         )
         .bind(principal.organizationId)
         .all(),
-    ])
+    ]);
 
     return Response.json({
-      projects: mapProjectRows(projectResult.results || [], memberResult.results || []),
-    })
+      projects: maskProjectEconomics(
+        mapProjectRows(projectResult.results || [], memberResult.results || []),
+        canViewEconomics,
+      ),
+    });
   } catch (error) {
-    console.error("Projects GET error:", error)
-    return Response.json({ error: "Errore nel caricamento dei progetti" }, { status: 500 })
+    console.error("Projects GET error:", error);
+    return Response.json(
+      { error: "Errore nel caricamento dei progetti" },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireClerkUser()
+    const user = await requireClerkUser();
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const db = await getCloudflareDb()
+    const db = await getCloudflareDb();
     if (!db) {
-      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+      return Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      );
     }
 
-    const principal = await ensureWorkspacePrincipal(db, user)
-    if (principal.role === "junior") {
-      return Response.json({ error: "Permessi insufficienti" }, { status: 403 })
+    const principal = await ensureWorkspacePrincipal(db, user);
+    if (!canViewAllWorkspaceData(principal.role)) {
+      return Response.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      );
     }
+    const canViewEconomics = canViewInternalEconomicData(principal.role);
 
-    const body = await request.json()
-    const name = typeof body.name === "string" ? body.name.trim() : ""
+    const body = await request.json();
+    const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name) {
-      return Response.json({ error: "Il nome del progetto è obbligatorio" }, { status: 400 })
+      return Response.json(
+        { error: "Il nome del progetto è obbligatorio" },
+        { status: 400 },
+      );
     }
 
-    const clientId = normalizeNullableId(body.clientId)
-    await assertClient(db, principal.organizationId, clientId)
+    const clientId = normalizeNullableId(body.clientId);
+    await assertClient(db, principal.organizationId, clientId);
 
-    const memberIds = normalizeMemberIds(body.memberIds)
-    const projectId = createId("proj")
-    const now = new Date().toISOString()
-    const dueAt = body.dueAt ? new Date(body.dueAt).toISOString() : null
-    const startsAt = body.startsAt ? new Date(body.startsAt).toISOString() : null
+    const memberIds = normalizeMemberIds(body.memberIds);
+    const projectId = createId("proj");
+    const now = new Date().toISOString();
+    const dueAt = body.dueAt ? new Date(body.dueAt).toISOString() : null;
+    const startsAt = body.startsAt
+      ? new Date(body.startsAt).toISOString()
+      : null;
 
     await db
       .prepare(
@@ -163,9 +215,10 @@ export async function POST(request: NextRequest) {
         now,
         now,
       )
-      .run()
+      .run();
 
-    const safeMemberIds = memberIds.length > 0 ? memberIds : [principal.memberId]
+    const safeMemberIds =
+      memberIds.length > 0 ? memberIds : [principal.memberId];
     for (const memberId of safeMemberIds) {
       await db
         .prepare(
@@ -174,8 +227,13 @@ export async function POST(request: NextRequest) {
            FROM members
            WHERE organization_id = ? AND id = ?`,
         )
-        .bind(projectId, memberId === principal.memberId ? "owner" : "member", principal.organizationId, memberId)
-        .run()
+        .bind(
+          projectId,
+          memberId === principal.memberId ? "owner" : "member",
+          principal.organizationId,
+          memberId,
+        )
+        .run();
     }
 
     const [projectResult, memberResult] = await Promise.all([
@@ -197,14 +255,30 @@ export async function POST(request: NextRequest) {
         )
         .bind(principal.organizationId, projectId)
         .all(),
-    ])
+    ]);
 
-    return Response.json({ project: mapProjectRows(projectResult.results || [], memberResult.results || [])[0] }, { status: 201 })
-  } catch (error) {
-    console.error("Projects POST error:", error)
     return Response.json(
-      { error: error instanceof Error ? error.message : "Errore durante la creazione del progetto" },
+      {
+        project: maskProjectEconomics(
+          mapProjectRows(
+            projectResult.results || [],
+            memberResult.results || [],
+          ),
+          canViewEconomics,
+        )[0],
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error("Projects POST error:", error);
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Errore durante la creazione del progetto",
+      },
       { status: 500 },
-    )
+    );
   }
 }

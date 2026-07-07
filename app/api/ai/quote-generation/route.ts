@@ -1,28 +1,32 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import type { NextRequest } from "next/server"
+import type { NextRequest } from "next/server";
 import {
   enrichQuoteWithClientData,
   generateQuoteFromEnrichedData,
   generateQuoteFromText,
   type EnrichedPromptData,
   type QuoteGenerationData,
-} from "@/lib/ai-quote-service"
-import { getCloudflareDb } from "@/lib/cloudflare-db"
-import { rateLimit, rateLimitResponse } from "@/lib/rate-limit"
-import { requireClerkUser } from "@/lib/server-clerk"
-import type { Client } from "@/lib/types"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+} from "@/lib/ai-quote-service";
+import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { requireClerkUser } from "@/lib/server-clerk";
+import type { Client } from "@/lib/types";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { canViewInternalEconomicData } from "@/lib/workspace-permissions";
 
 function parseDate(value: unknown): Date {
   if (typeof value === "string" && value) {
-    const date = new Date(value)
-    if (!Number.isNaN(date.getTime())) return date
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date;
   }
-  return new Date()
+  return new Date();
 }
 
-async function loadWorkspaceClients(db: any, organizationId: string): Promise<Client[]> {
+async function loadWorkspaceClients(
+  db: any,
+  organizationId: string,
+): Promise<Client[]> {
   const rows = await db
     .prepare(
       `
@@ -55,10 +59,10 @@ async function loadWorkspaceClients(db: any, organizationId: string): Promise<Cl
       WHERE organization_id = ?
       ORDER BY updated_at DESC, created_at DESC
       LIMIT 500
-      `
+      `,
     )
     .bind(organizationId)
-    .all()
+    .all();
 
   return ((rows.results as any[]) || []).map((row) => ({
     id: String(row.id),
@@ -87,7 +91,7 @@ async function loadWorkspaceClients(db: any, organizationId: string): Promise<Cl
     status: row.status || "active",
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
-  }))
+  }));
 }
 
 function toEnrichedPromptData(body: any): EnrichedPromptData {
@@ -120,40 +124,63 @@ function toEnrichedPromptData(body: any): EnrichedPromptData {
     logoNotes: body.logoNotes,
     brandAssets: body.brandAssets,
     referenceMaterials: body.referenceMaterials,
-    missingMaterials: Array.isArray(body.missingMaterials) ? body.missingMaterials : [],
-    discoveryQuestions: Array.isArray(body.discoveryQuestions) ? body.discoveryQuestions : [],
-  }
+    missingMaterials: Array.isArray(body.missingMaterials)
+      ? body.missingMaterials
+      : [],
+    discoveryQuestions: Array.isArray(body.discoveryQuestions)
+      ? body.discoveryQuestions
+      : [],
+  };
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const rateLimitResult = await rateLimit(request, "AI")
+    const rateLimitResult = await rateLimit(request, "AI");
     if (!rateLimitResult.success) {
-      return rateLimitResponse(rateLimitResult.reset)
+      return rateLimitResponse(rateLimitResult.reset);
     }
 
-    const user = await requireClerkUser()
-    const db = await getCloudflareDb()
+    const user = await requireClerkUser();
+    const db = await getCloudflareDb();
 
     if (!user) {
-      return Response.json({ error: "Sessione non valida o scaduta" }, { status: 401 })
+      return Response.json(
+        { error: "Sessione non valida o scaduta" },
+        { status: 401 },
+      );
     }
 
     if (!db) {
-      return Response.json({ error: "Database Cloudflare non disponibile" }, { status: 500 })
+      return Response.json(
+        { error: "Database Cloudflare non disponibile" },
+        { status: 500 },
+      );
     }
 
-    const principal = await ensureWorkspacePrincipal(db, user)
-    const body = await request.json().catch(() => null)
+    const principal = await ensureWorkspacePrincipal(db, user);
+    if (!canViewInternalEconomicData(principal.role)) {
+      return Response.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      );
+    }
+
+    const body = await request.json().catch(() => null);
 
     if (!body || typeof body !== "object") {
-      return Response.json({ error: "Payload preventivo non valido" }, { status: 400 })
+      return Response.json(
+        { error: "Payload preventivo non valido" },
+        { status: 400 },
+      );
     }
 
-    let generatedQuote
+    let generatedQuote;
 
     if (body.projectType && body.sector) {
-      generatedQuote = await generateQuoteFromEnrichedData(toEnrichedPromptData(body), user.id)
+      generatedQuote = await generateQuoteFromEnrichedData(
+        toEnrichedPromptData(body),
+        user.id,
+      );
     } else {
       const {
         projectDescription,
@@ -163,10 +190,13 @@ export async function POST(request: NextRequest) {
         budget,
         deadline,
         additionalRequirements,
-      } = body
+      } = body;
 
       if (!projectDescription) {
-        return Response.json({ error: "Missing required field: projectDescription" }, { status: 400 })
+        return Response.json(
+          { error: "Missing required field: projectDescription" },
+          { status: 400 },
+        );
       }
 
       const quoteData: QuoteGenerationData = {
@@ -177,40 +207,46 @@ export async function POST(request: NextRequest) {
         budget,
         deadline,
         additionalRequirements,
-      }
+      };
 
-      generatedQuote = await generateQuoteFromText(quoteData, user.id)
+      generatedQuote = await generateQuoteFromText(quoteData, user.id);
     }
 
-    const existingClients = await loadWorkspaceClients(db, principal.organizationId)
-    const enrichedQuote = await enrichQuoteWithClientData(generatedQuote, existingClients)
+    const existingClients = await loadWorkspaceClients(
+      db,
+      principal.organizationId,
+    );
+    const enrichedQuote = await enrichQuoteWithClientData(
+      generatedQuote,
+      existingClients,
+    );
 
     return Response.json({
       success: true,
       data: enrichedQuote,
-    })
+    });
   } catch (error: any) {
     console.error("Quote generation API error:", {
       name: error?.name,
       message: error?.message,
       stack: error?.stack,
       cause: error?.cause,
-    })
+    });
 
-    const message = error?.message || ""
+    const message = error?.message || "";
     const errorMessage =
       message.includes("fetch failed") || message.includes("network")
         ? "Errore di connessione con il servizio AI. Riprova tra qualche istante."
         : message.includes("timeout") || error?.name === "AbortError"
           ? "La generazione del preventivo ha richiesto troppo tempo. Riprova tra qualche istante."
-          : "Errore durante la generazione del preventivo. Riprova tra qualche istante."
+          : "Errore durante la generazione del preventivo. Riprova tra qualche istante.";
 
     return Response.json(
       {
         error: errorMessage,
         details: message || "Errore interno",
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

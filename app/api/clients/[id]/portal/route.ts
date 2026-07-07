@@ -1,15 +1,19 @@
-import { NextRequest, NextResponse } from "next/server"
-import { decryptClientPortalSecret, encryptClientPortalSecret } from "@/lib/client-portal-crypto"
-import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
-import { hasPermission, type UserRole } from "@/lib/role-hierarchy"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+import { NextRequest, NextResponse } from "next/server";
+import {
+  decryptClientPortalSecret,
+  encryptClientPortalSecret,
+} from "@/lib/client-portal-crypto";
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
+import { hasPermission, type UserRole } from "@/lib/role-hierarchy";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { canViewInternalEconomicData } from "@/lib/workspace-permissions";
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
 type RouteContext = {
-  params: Promise<{ id: string }>
-}
+  params: Promise<{ id: string }>;
+};
 
 const VALID_CATEGORIES = new Set([
   "note",
@@ -20,11 +24,14 @@ const VALID_CATEGORIES = new Set([
   "persona",
   "strategy",
   "link",
-])
+]);
 
 function parseTags(value: unknown) {
   if (Array.isArray(value)) {
-    return value.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 12)
+    return value
+      .map((tag) => String(tag).trim())
+      .filter(Boolean)
+      .slice(0, 12);
   }
 
   if (typeof value === "string") {
@@ -32,18 +39,93 @@ function parseTags(value: unknown) {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean)
-      .slice(0, 12)
+      .slice(0, 12);
   }
 
-  return []
+  return [];
 }
 
 function canUseClientPortal(role: string) {
-  return hasPermission(role as UserRole, "canViewAllClients")
+  return hasPermission(role as UserRole, "canViewAllClients");
 }
 
 function canEditClientPortal(role: string) {
-  return hasPermission(role as UserRole, "canEditClients")
+  return hasPermission(role as UserRole, "canEditClients");
+}
+
+function maskProjectEconomics(projects: any[], canViewEconomics: boolean) {
+  if (canViewEconomics) return projects;
+  return projects.map((project) => ({
+    ...project,
+    budget_cents: null,
+  }));
+}
+
+async function hasScopedClientAccess(
+  db: any,
+  organizationId: string,
+  memberId: string,
+  clientId: string,
+) {
+  const row = await db
+    .prepare(
+      `SELECT 1
+       FROM clients c
+       WHERE c.organization_id = ?
+         AND c.id = ?
+         AND (
+           EXISTS (
+             SELECT 1
+             FROM member_client_assignments mca
+             WHERE mca.organization_id = c.organization_id
+               AND mca.client_id = c.id
+               AND mca.member_id = ?
+           )
+           OR
+           EXISTS (
+             SELECT 1
+             FROM projects p
+             JOIN project_members pm
+               ON pm.project_id = p.id
+              AND pm.organization_id = p.organization_id
+             WHERE p.organization_id = c.organization_id
+               AND p.client_id = c.id
+               AND pm.member_id = ?
+           )
+           OR EXISTS (
+             SELECT 1
+             FROM tasks t
+             LEFT JOIN projects tp
+               ON tp.id = t.project_id
+              AND tp.organization_id = t.organization_id
+             WHERE t.organization_id = c.organization_id
+               AND (t.client_id = c.id OR tp.client_id = c.id)
+               AND (
+                 t.assignee_member_id = ?
+                 OR t.created_by_member_id = ?
+                 OR EXISTS (
+                   SELECT 1
+                   FROM project_members tpm
+                   WHERE tpm.organization_id = t.organization_id
+                     AND tpm.project_id = t.project_id
+                     AND tpm.member_id = ?
+                 )
+               )
+           )
+         )
+       LIMIT 1`,
+    )
+    .bind(
+      organizationId,
+      clientId,
+      memberId,
+      memberId,
+      memberId,
+      memberId,
+      memberId,
+    )
+    .first();
+  return Boolean(row);
 }
 
 async function mapEntry(row: any) {
@@ -54,36 +136,46 @@ async function mapEntry(row: any) {
     body: row.body || "",
     url: row.url || "",
     username: row.username || "",
-    secretValue: await decryptClientPortalSecret(String(row.secret_value || "")),
+    secretValue: await decryptClientPortalSecret(
+      String(row.secret_value || ""),
+    ),
     isSensitive: Boolean(row.is_sensitive),
     status: String(row.status || "active"),
     tags: (() => {
       try {
-        return JSON.parse(String(row.tags_json || "[]"))
+        return JSON.parse(String(row.tags_json || "[]"));
       } catch {
-        return []
+        return [];
       }
     })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-  }
+  };
 }
 
 async function getPortalContext(clientId: string) {
-  const user = await requireClerkUser()
+  const user = await requireClerkUser();
   if (!user) {
-    return { response: NextResponse.json({ error: "Non autenticato" }, { status: 401 }) }
+    return {
+      response: NextResponse.json(
+        { error: "Non autenticato" },
+        { status: 401 },
+      ),
+    };
   }
 
-  const db = await getCloudflareDb()
+  const db = await getCloudflareDb();
   if (!db) {
-    return { response: NextResponse.json({ error: "Database non configurato" }, { status: 500 }) }
+    return {
+      response: NextResponse.json(
+        { error: "Database non configurato" },
+        { status: 500 },
+      ),
+    };
   }
 
-  const principal = await ensureWorkspacePrincipal(db, user)
-  if (!canUseClientPortal(principal.role)) {
-    return { response: NextResponse.json({ error: "Permessi insufficienti" }, { status: 403 }) }
-  }
+  const principal = await ensureWorkspacePrincipal(db, user);
+  const fullAccess = canUseClientPortal(principal.role);
 
   const client = await db
     .prepare(
@@ -95,21 +187,45 @@ async function getPortalContext(clientId: string) {
        LIMIT 1`,
     )
     .bind(clientId, principal.organizationId)
-    .first()
+    .first();
 
   if (!client?.id) {
-    return { response: NextResponse.json({ error: "Cliente non trovato" }, { status: 404 }) }
+    return {
+      response: NextResponse.json(
+        { error: "Cliente non trovato" },
+        { status: 404 },
+      ),
+    };
   }
 
-  return { db, principal, client }
+  const scopedAccess = fullAccess
+    ? true
+    : await hasScopedClientAccess(
+        db,
+        principal.organizationId,
+        principal.memberId,
+        clientId,
+      );
+
+  if (!scopedAccess) {
+    return {
+      response: NextResponse.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return { db, principal, client, fullAccess };
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
-  const { id: clientId } = await context.params
-  const portalContext = await getPortalContext(clientId)
-  if ("response" in portalContext) return portalContext.response
+  const { id: clientId } = await context.params;
+  const portalContext = await getPortalContext(clientId);
+  if ("response" in portalContext) return portalContext.response;
 
-  const { db, principal, client } = portalContext
+  const { db, principal, client, fullAccess } = portalContext;
+  const canViewEconomics = canViewInternalEconomicData(principal.role);
 
   const [entriesResult, projectsResult, tasksResult] = await Promise.all([
     db
@@ -119,55 +235,106 @@ export async function GET(_request: NextRequest, context: RouteContext) {
          WHERE organization_id = ?
            AND client_id = ?
            AND COALESCE(status, 'active') = 'active'
+           AND (
+             ? = 1
+             OR (
+               COALESCE(is_sensitive, 0) = 0
+               AND COALESCE(category, 'note') NOT IN ('credentials')
+             )
+           )
          ORDER BY updated_at DESC, created_at DESC`,
       )
-      .bind(principal.organizationId, clientId)
+      .bind(principal.organizationId, clientId, fullAccess ? 1 : 0)
       .all(),
     db
       .prepare(
         `SELECT id, name, status, due_at, budget_cents, created_at, updated_at
          FROM projects
          WHERE organization_id = ? AND client_id = ?
+           AND (
+             ? = 1
+             OR EXISTS (
+               SELECT 1
+               FROM project_members pm
+               WHERE pm.organization_id = projects.organization_id
+                 AND pm.project_id = projects.id
+                 AND pm.member_id = ?
+             )
+           )
          ORDER BY updated_at DESC
          LIMIT 24`,
       )
-      .bind(principal.organizationId, clientId)
+      .bind(
+        principal.organizationId,
+        clientId,
+        fullAccess ? 1 : 0,
+        principal.memberId,
+      )
       .all(),
     db
       .prepare(
         `SELECT id, title, column_id, status, priority, due_at, assignee_name, updated_at
          FROM tasks
          WHERE organization_id = ? AND client_id = ?
+           AND (
+             ? = 1
+             OR assignee_member_id = ?
+             OR created_by_member_id = ?
+             OR EXISTS (
+               SELECT 1
+               FROM project_members pm
+               WHERE pm.organization_id = tasks.organization_id
+                 AND pm.project_id = tasks.project_id
+                 AND pm.member_id = ?
+             )
+           )
          ORDER BY updated_at DESC
          LIMIT 32`,
       )
-      .bind(principal.organizationId, clientId)
+      .bind(
+        principal.organizationId,
+        clientId,
+        fullAccess ? 1 : 0,
+        principal.memberId,
+        principal.memberId,
+        principal.memberId,
+      )
       .all(),
-  ])
+  ]);
 
   return NextResponse.json({
     client,
+    canEdit: canEditClientPortal(principal.role),
+    canViewEconomics,
     entries: await Promise.all((entriesResult.results || []).map(mapEntry)),
-    projects: projectsResult.results || [],
+    projects: maskProjectEconomics(
+      projectsResult.results || [],
+      canViewEconomics,
+    ),
     tasks: tasksResult.results || [],
-  })
+  });
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const { id: clientId } = await context.params
-  const portalContext = await getPortalContext(clientId)
-  if ("response" in portalContext) return portalContext.response
+  const { id: clientId } = await context.params;
+  const portalContext = await getPortalContext(clientId);
+  if ("response" in portalContext) return portalContext.response;
 
-  const { db, principal } = portalContext
+  const { db, principal } = portalContext;
   if (!canEditClientPortal(principal.role)) {
-    return NextResponse.json({ error: "Permessi insufficienti" }, { status: 403 })
+    return NextResponse.json(
+      { error: "Permessi insufficienti" },
+      { status: 403 },
+    );
   }
 
-  const payload = await request.json().catch(() => ({}))
-  const category = VALID_CATEGORIES.has(String(payload.category)) ? String(payload.category) : "note"
-  const title = String(payload.title || "").trim()
+  const payload = await request.json().catch(() => ({}));
+  const category = VALID_CATEGORIES.has(String(payload.category))
+    ? String(payload.category)
+    : "note";
+  const title = String(payload.title || "").trim();
   if (title.length < 2) {
-    return NextResponse.json({ error: "Titolo obbligatorio" }, { status: 400 })
+    return NextResponse.json({ error: "Titolo obbligatorio" }, { status: 400 });
   }
 
   const entry = {
@@ -178,9 +345,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     secretValue: String(payload.secretValue || "").trim(),
     isSensitive: Boolean(payload.isSensitive || category === "credentials"),
     tags: parseTags(payload.tags),
-  }
+  };
 
-  const encryptedSecret = await encryptClientPortalSecret(entry.secretValue)
+  const encryptedSecret = await encryptClientPortalSecret(entry.secretValue);
 
   await db
     .prepare(
@@ -204,12 +371,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       principal.memberId,
       principal.memberId,
     )
-    .run()
+    .run();
 
   const saved = await db
     .prepare(`SELECT * FROM client_knowledge_entries WHERE id = ? LIMIT 1`)
     .bind(entry.id)
-    .first()
+    .first();
 
-  return NextResponse.json({ entry: await mapEntry(saved) }, { status: 201 })
+  return NextResponse.json({ entry: await mapEntry(saved) }, { status: 201 });
 }

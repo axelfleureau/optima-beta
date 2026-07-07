@@ -1,46 +1,54 @@
-"use client"
+"use client";
 
-import { useState, useMemo, useEffect } from "react"
-import { Tabs, TabsContent } from "@/components/ui/tabs"
-import { useEditorialPosts } from "@/hooks/use-editorial-posts"
-import { useClients } from "@/hooks/use-clients"
-import { useAuth } from "@/lib/auth-context"
-import { useToast } from "@/hooks/use-toast"
-import type { EditorialPost, EditorialPostStatus } from "@/lib/types"
+import { useState, useMemo, useEffect } from "react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { useEditorialPosts } from "@/hooks/use-editorial-posts";
+import { useClients } from "@/hooks/use-clients";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import type { EditorialPost, EditorialPostStatus } from "@/lib/types";
 import {
   EditorialPostStatus as PostStatusEnum,
   EditorialPostFormat as PostFormatEnum,
   SocialPlatform as PlatformEnum,
-} from "@/lib/types"
-import { Timestamp } from "firebase/firestore"
-import type { DropResult } from "@hello-pangea/dnd"
+} from "@/lib/types";
+import { Timestamp } from "firebase/firestore";
+import type { DropResult } from "@hello-pangea/dnd";
 
-import { CalendarHeader } from "../../../components/ui/calendar-header"
-import { CalendarTabs } from "../../../components/ui/calendar-tabs"
-import { TableView } from "../../../components/ui/table-view"
-import { KanbanView } from "../../../components/ui/kanban-view"
-import { CalendarView } from "../../../components/ui/calendar-view"
-import { PostFormDialog as EditorialPostFormDialog } from "../../../components/ui/post-form-dialog"
-import { AutoGenPreview } from "../../../components/calendar/auto-gen-preview"
-import { statusConfig, statusOrder } from "./utils/status-config"
-import { useCalendarExperience } from "@/lib/calendar-experience-context"
-import { ViewSwitcher } from "../../../components/calendar/view-switcher"
-import { CalendarWeekView } from "../../../components/calendar/calendar-week-view"
-import { CalendarDayView } from "../../../components/calendar/calendar-day-view"
+import { CalendarHeader } from "../../../components/ui/calendar-header";
+import { CalendarTabs } from "../../../components/ui/calendar-tabs";
+import { TableView } from "../../../components/ui/table-view";
+import { KanbanView } from "../../../components/ui/kanban-view";
+import { CalendarView } from "../../../components/ui/calendar-view";
+import { PostFormDialog as EditorialPostFormDialog } from "../../../components/ui/post-form-dialog";
+import { AutoGenPreview } from "../../../components/calendar/auto-gen-preview";
+import { statusConfig, statusOrder } from "./utils/status-config";
+import { useCalendarExperience } from "@/lib/calendar-experience-context";
+import { ViewSwitcher } from "../../../components/calendar/view-switcher";
+import { CalendarWeekView } from "../../../components/calendar/calendar-week-view";
+import { CalendarDayView } from "../../../components/calendar/calendar-day-view";
 
 export default function EditorialCalendarClient() {
-  const { userData } = useAuth()
-  const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<"table" | "kanban" | "calendar">("calendar")
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [editingPost, setEditingPost] = useState<EditorialPost | null>(null)
-  const [mounted, setMounted] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const { userData } = useAuth();
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<"table" | "kanban" | "calendar">(
+    "calendar",
+  );
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<EditorialPost | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
-  const { viewMode, selectedDate, setSelectedDate, setPosts, filteredPosts: contextFilteredPosts } = useCalendarExperience()
+  const {
+    viewMode,
+    selectedDate,
+    setSelectedDate,
+    setPosts,
+    filteredPosts: contextFilteredPosts,
+  } = useCalendarExperience();
 
-  const { clients, loading: clientsLoading } = useClients()
+  const { clients, loading: clientsLoading } = useClients();
   const {
     posts,
     loading: postsLoading,
@@ -48,50 +56,53 @@ export default function EditorialCalendarClient() {
     updatePost,
     deletePost,
     updatePostStatus,
-  } = useEditorialPosts(selectedClientId)
+  } = useEditorialPosts(selectedClientId);
 
   // Ensure component is mounted before rendering
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (userData?.role === "client" && userData.clientId && !selectedClientId) {
-      setSelectedClientId(userData.clientId)
+      setSelectedClientId(userData.clientId);
     }
-  }, [userData, selectedClientId])
+  }, [userData, selectedClientId]);
 
   useEffect(() => {
-    setPosts(posts)
-  }, [posts, setPosts])
+    setPosts(posts);
+  }, [posts, setPosts]);
 
   const filteredPosts = useMemo(() => {
-    const search = searchTerm.toLowerCase()
+    const search = searchTerm.toLowerCase();
     return posts.filter((post) => {
-      const platform = Array.isArray(post.platform) ? post.platform.join(" ") : post.platform
+      const platform = Array.isArray(post.platform)
+        ? post.platform.join(" ")
+        : post.platform;
       return (
         post.name?.toLowerCase().includes(search) ||
         post.title?.toLowerCase().includes(search) ||
         post.caption?.toLowerCase().includes(search) ||
         post.content?.toLowerCase().includes(search) ||
         platform?.toLowerCase().includes(search)
-      )
-    })
-  }, [posts, searchTerm])
+      );
+    });
+  }, [posts, searchTerm]);
 
   const postsByStatus = useMemo(() => {
-    const grouped: Record<string, EditorialPost[]> = {}
-    statusOrder.forEach((status) => (grouped[status] = []))
+    const grouped: Record<string, EditorialPost[]> = {};
+    statusOrder.forEach((status) => (grouped[status] = []));
     filteredPosts.forEach((post) => {
       if (grouped[post.status]) {
-        grouped[post.status].push(post)
+        grouped[post.status].push(post);
       } else {
-        if (!grouped[PostStatusEnum.ARCHIVIATO]) grouped[PostStatusEnum.ARCHIVIATO] = []
-        grouped[PostStatusEnum.ARCHIVIATO].push(post)
+        if (!grouped[PostStatusEnum.ARCHIVIATO])
+          grouped[PostStatusEnum.ARCHIVIATO] = [];
+        grouped[PostStatusEnum.ARCHIVIATO].push(post);
       }
-    })
-    return grouped
-  }, [filteredPosts])
+    });
+    return grouped;
+  }, [filteredPosts]);
 
   // Don't render anything until mounted
   if (!mounted) {
@@ -99,10 +110,12 @@ export default function EditorialCalendarClient() {
       <div className="flex h-[calc(100svh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Inizializzazione...</p>
+          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">
+            Inizializzazione...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   // Show loading if user data is not available
@@ -111,37 +124,50 @@ export default function EditorialCalendarClient() {
       <div className="flex h-[calc(100svh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Autenticazione...</p>
+          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">
+            Autenticazione...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   const handleAddOrEditPost = async (values: Partial<EditorialPost>) => {
     try {
       if (!values.clientId && selectedClientId) {
-        values.clientId = selectedClientId
-      } else if (!values.clientId && userData?.role === "client" && userData.clientId) {
-        values.clientId = userData.clientId
+        values.clientId = selectedClientId;
+      } else if (
+        !values.clientId &&
+        userData?.role === "client" &&
+        userData.clientId
+      ) {
+        values.clientId = userData.clientId;
       }
 
       if (!values.clientId) {
-        toast({ title: "Errore", description: "Seleziona un cliente per il post.", variant: "destructive" })
-        return
+        toast({
+          title: "Errore",
+          description: "Seleziona un cliente per il post.",
+          variant: "destructive",
+        });
+        return;
       }
 
       if (editingPost) {
-        const postExists = posts.find((p) => p.id === editingPost.id)
+        const postExists = posts.find((p) => p.id === editingPost.id);
         if (!postExists) {
           toast({
             title: "Errore",
             description: "Il post non esiste più. Ricarica la pagina.",
             variant: "destructive",
-          })
-          return
+          });
+          return;
         }
-        await updatePost(editingPost.id, values)
-        toast({ title: "Successo", description: "Post aggiornato con successo." })
+        await updatePost(editingPost.id, values);
+        toast({
+          title: "Successo",
+          description: "Post aggiornato con successo.",
+        });
       } else {
         const newPostData = {
           name: values.name || values.title || "Nuovo Post",
@@ -157,104 +183,129 @@ export default function EditorialCalendarClient() {
           scheduledTime: values.scheduledTime,
           attachments: values.attachments || [],
           type: values.type || "post",
-        } as Omit<EditorialPost, "id" | "createdAt" | "updatedAt" | "tenantId" | "createdBy">
+        } as Omit<
+          EditorialPost,
+          "id" | "createdAt" | "updatedAt" | "tenantId" | "createdBy"
+        >;
 
-        await addPost(newPostData)
-        toast({ title: "Successo", description: "Post creato con successo." })
+        await addPost(newPostData);
+        toast({ title: "Successo", description: "Post creato con successo." });
       }
-      setIsFormOpen(false)
-      setEditingPost(null)
+      setIsFormOpen(false);
+      setEditingPost(null);
     } catch (error) {
-      console.error("Error saving post:", error)
-      toast({ title: "Errore", description: "Impossibile salvare il post.", variant: "destructive" })
+      console.error("Error saving post:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile salvare il post.",
+        variant: "destructive",
+      });
     }
-  }
+  };
 
   const openEditForm = (post: EditorialPost) => {
-    setEditingPost(post)
-    setIsFormOpen(true)
-  }
+    setEditingPost(post);
+    setIsFormOpen(true);
+  };
 
   const openNewForm = () => {
-    setEditingPost(null)
-    setIsFormOpen(true)
-  }
+    setEditingPost(null);
+    setIsFormOpen(true);
+  };
 
   const handleDeletePost = async (postId: string) => {
     if (window.confirm("Sei sicuro di voler eliminare questo post?")) {
       try {
-        await deletePost(postId)
-        toast({ title: "Successo", description: "Post eliminato." })
+        await deletePost(postId);
+        toast({ title: "Successo", description: "Post eliminato." });
       } catch (error) {
-        console.error("Error deleting post:", error)
-        toast({ title: "Errore", description: "Impossibile eliminare il post.", variant: "destructive" })
+        console.error("Error deleting post:", error);
+        toast({
+          title: "Errore",
+          description: "Impossibile eliminare il post.",
+          variant: "destructive",
+        });
       }
     }
-  }
+  };
 
   const onDragEnd = (result: DropResult) => {
-    const { source, destination, draggableId } = result
+    const { source, destination, draggableId } = result;
 
-    if (!destination) return
-    if (source.droppableId === destination.droppableId && source.index === destination.index) return
+    if (!destination) return;
+    if (
+      source.droppableId === destination.droppableId &&
+      source.index === destination.index
+    )
+      return;
 
-    const postExists = posts.find((post) => post.id === draggableId)
+    const postExists = posts.find((post) => post.id === draggableId);
     if (!postExists) {
-      console.error("[v0] Post not found in local state:", draggableId)
+      console.error("[v0] Post not found in local state:", draggableId);
       toast({
         title: "Errore",
         description: "Il post non è più disponibile. Ricarica la pagina.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    const newStatus = destination.droppableId as EditorialPostStatus
+    const newStatus = destination.droppableId as EditorialPostStatus;
 
-    console.log("[v0] Updating post status:", { postId: draggableId, newStatus, postName: postExists.name })
+    console.log("[v0] Updating post status:", {
+      postId: draggableId,
+      newStatus,
+      postName: postExists.name,
+    });
 
     updatePostStatus(draggableId, newStatus)
       .then(() => {
-        console.log("[v0] Post status updated successfully")
-        toast({ title: "Aggiornato", description: `Stato del post aggiornato a ${statusConfig[newStatus].label}.` })
+        console.log("[v0] Post status updated successfully");
+        toast({
+          title: "Aggiornato",
+          description: `Stato del post aggiornato a ${statusConfig[newStatus].label}.`,
+        });
       })
       .catch((err) => {
-        console.error("[v0] Failed to update post status:", err)
+        console.error("[v0] Failed to update post status:", err);
         if (err.message?.includes("No document to update")) {
           toast({
             title: "Errore",
-            description: "Il post non esiste più nel database. Ricarica la pagina.",
+            description:
+              "Il post non esiste più nel database. Ricarica la pagina.",
             variant: "destructive",
-          })
+          });
         } else {
           toast({
             title: "Errore",
             description: "Impossibile aggiornare lo stato del post.",
             variant: "destructive",
-          })
+          });
         }
-      })
-  }
+      });
+  };
 
   if (postsLoading || clientsLoading) {
     return (
-      <div className="flex h-[calc(100svh-73px)] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800 md:min-h-screen">
+      <div className="optima-ops-page flex items-center justify-center overflow-hidden">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Caricamento calendario editoriale...</p>
+          <div className="w-16 h-16 border-4 border-white/10 border-t-righello-pink rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-medium text-slate-400">
+            Caricamento calendario editoriale...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   const clientOptions = clients.map((client) => ({
     value: client.id,
     label: client.name,
-  }))
+  }));
 
   return (
-    <div className="h-[calc(100svh-73px)] overflow-y-auto overflow-x-hidden overscroll-contain bg-slate-50 text-slate-950 touch-pan-y dark:bg-[#0b1323] dark:text-slate-100 md:h-auto md:min-h-screen md:overflow-visible">
-      <div className="sticky top-0 z-30 min-w-0 border-b border-slate-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-[#111827]/95">
+    <div className="optima-ops-page">
+      <div className="sticky top-0 z-30 min-w-0 border-b border-white/10 bg-[#111827]/95 backdrop-blur-xl">
         <CalendarHeader
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -266,9 +317,18 @@ export default function EditorialCalendarClient() {
         />
       </div>
 
-      <div className="mx-auto w-full overflow-x-hidden px-4 py-4 md:px-6">
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="min-w-0 space-y-4 md:space-y-6">
-          <CalendarTabs activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as "table" | "kanban" | "calendar")} />
+      <div className="optima-ops-container overflow-x-hidden">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as any)}
+          className="min-w-0 space-y-4 md:space-y-6"
+        >
+          <CalendarTabs
+            activeTab={activeTab}
+            onTabChange={(tab) =>
+              setActiveTab(tab as "table" | "kanban" | "calendar")
+            }
+          />
 
           <TabsContent value="table" className="min-w-0 space-y-4 md:space-y-6">
             <TableView
@@ -281,7 +341,10 @@ export default function EditorialCalendarClient() {
             />
           </TabsContent>
 
-          <TabsContent value="kanban" className="min-w-0 space-y-4 md:space-y-6">
+          <TabsContent
+            value="kanban"
+            className="min-w-0 space-y-4 md:space-y-6"
+          >
             <KanbanView
               postsByStatus={postsByStatus}
               onDragEnd={onDragEnd}
@@ -290,11 +353,14 @@ export default function EditorialCalendarClient() {
             />
           </TabsContent>
 
-          <TabsContent value="calendar" className="min-w-0 space-y-4 md:space-y-6">
+          <TabsContent
+            value="calendar"
+            className="min-w-0 space-y-4 md:space-y-6"
+          >
             <div className="mb-2 min-w-0 md:mb-4">
               <ViewSwitcher />
             </div>
-            
+
             {viewMode === "month" && (
               <CalendarView
                 posts={filteredPosts}
@@ -328,8 +394,8 @@ export default function EditorialCalendarClient() {
       <EditorialPostFormDialog
         open={isFormOpen}
         onOpenChange={(open) => {
-          setIsFormOpen(open)
-          if (!open) setEditingPost(null)
+          setIsFormOpen(open);
+          if (!open) setEditingPost(null);
         }}
         onSave={handleAddOrEditPost}
         editingPost={editingPost}
@@ -340,5 +406,5 @@ export default function EditorialCalendarClient() {
 
       <AutoGenPreview />
     </div>
-  )
+  );
 }

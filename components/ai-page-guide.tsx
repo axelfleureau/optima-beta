@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowRight,
   Bot,
@@ -14,41 +14,41 @@ import {
   RotateCcw,
   Sparkles,
   X,
-} from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
+} from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
-import { RighelloIcon } from "@/components/brand/righello-icon"
-import { Button } from "@/components/ui/button"
-import { useAuth } from "@/lib/auth-context"
-import { useCommandBarStore } from "@/lib/stores/command-bar-store"
-import { cn } from "@/lib/utils"
+import { RighelloIcon } from "@/components/brand/righello-icon";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-context";
+import { useCommandBarStore } from "@/lib/stores/command-bar-store";
+import { cn } from "@/lib/utils";
 
-type GuideRole = "all" | "leadership" | "junior"
+type GuideRole = "all" | "leadership" | "junior";
 
 type GuideAction = {
-  label: string
-  description?: string
-  href?: string
-  prompt?: string
-}
+  label: string;
+  description?: string;
+  href?: string;
+  prompt?: string;
+};
 
 type PageGuide = {
-  id: string
-  path: string
-  allowSubpaths?: boolean
-  title: string
-  eyebrow: string
-  summary: string
-  role?: GuideRole
+  id: string;
+  path: string;
+  allowSubpaths?: boolean;
+  title: string;
+  eyebrow: string;
+  summary: string;
+  role?: GuideRole;
   steps: Array<{
-    title: string
-    body: string
-  }>
-  actions: GuideAction[]
-}
+    title: string;
+    body: string;
+  }>;
+  actions: GuideAction[];
+};
 
-const STORAGE_PREFIX = "optima-page-guide:v2"
-const ASSISTANT_HINT_KEY = "optima-ai-sidekick:v1:hint-dismissed"
+const STORAGE_PREFIX = "optima-page-guide:v2";
+const ASSISTANT_HINT_KEY = "optima-ai-sidekick:v1:hint-dismissed";
 
 const PAGE_GUIDES: PageGuide[] = [
   {
@@ -73,7 +73,11 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Analizza progetti", prompt: "Analizza lo stato dei progetti e indicami cosa va presidiato oggi" },
+      {
+        label: "Analizza progetti",
+        prompt:
+          "Analizza lo stato dei progetti e indicami cosa va presidiato oggi",
+      },
       { label: "Apri workspace", href: "/workspace" },
     ],
   },
@@ -100,7 +104,10 @@ const PAGE_GUIDES: PageGuide[] = [
     ],
     actions: [
       { label: "Crea task", prompt: "Crea una task operativa nel workspace" },
-      { label: "Cerca task critiche", prompt: "Mostrami le task urgenti o in ritardo" },
+      {
+        label: "Cerca task critiche",
+        prompt: "Mostrami le task urgenti o in ritardo",
+      },
     ],
   },
   {
@@ -126,7 +133,11 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Spiega segnali", prompt: "Spiegami i segnali di controllo aziendale e indicami le priorità" },
+      {
+        label: "Spiega segnali",
+        prompt:
+          "Spiegami i segnali di controllo aziendale e indicami le priorità",
+      },
       { label: "Apri presenze", href: "/presenze" },
     ],
   },
@@ -152,7 +163,10 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Analizza copertura", prompt: "Analizza presenze e capacità del team per oggi" },
+      {
+        label: "Analizza copertura",
+        prompt: "Analizza presenze e capacità del team per oggi",
+      },
       { label: "Apri calendario team", href: "/calendario-team" },
     ],
   },
@@ -178,7 +192,11 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Compila rapportino", prompt: "Aiutami a preparare il rapportino di oggi dalle task completate" },
+      {
+        label: "Compila rapportino",
+        prompt:
+          "Aiutami a preparare il rapportino di oggi dalle task completate",
+      },
       { label: "Apri workspace", href: "/workspace" },
     ],
   },
@@ -206,7 +224,10 @@ const PAGE_GUIDES: PageGuide[] = [
     ],
     actions: [
       { label: "Aggiungi membro", prompt: "Aggiungi un nuovo membro del team" },
-      { label: "Controlla inviti", prompt: "Mostrami membri da invitare o inviti in sospeso" },
+      {
+        label: "Controlla inviti",
+        prompt: "Mostrami membri da invitare o inviti in sospeso",
+      },
     ],
   },
   {
@@ -233,8 +254,15 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Genera preventivo", prompt: "Aiutami a creare un preventivo per un cliente interno alla piattaforma" },
-      { label: "Analizza preventivi", prompt: "Mostrami preventivi aperti e prossime azioni" },
+      {
+        label: "Genera preventivo",
+        prompt:
+          "Aiutami a creare un preventivo per un cliente interno alla piattaforma",
+      },
+      {
+        label: "Analizza preventivi",
+        prompt: "Mostrami preventivi aperti e prossime azioni",
+      },
     ],
   },
   {
@@ -286,7 +314,10 @@ const PAGE_GUIDES: PageGuide[] = [
     ],
     actions: [
       { label: "Crea post", prompt: "Crea un post social per un cliente" },
-      { label: "Pianifica settimana", prompt: "Pianifica contenuti editoriali per questa settimana" },
+      {
+        label: "Pianifica settimana",
+        prompt: "Pianifica contenuti editoriali per questa settimana",
+      },
     ],
   },
   {
@@ -313,8 +344,14 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Cerca cliente", prompt: "Cerca un cliente e mostrami lo stato operativo" },
-      { label: "Crea follow-up", prompt: "Crea una task di follow-up per il cliente aperto o indicato" },
+      {
+        label: "Cerca cliente",
+        prompt: "Cerca un cliente e mostrami lo stato operativo",
+      },
+      {
+        label: "Crea follow-up",
+        prompt: "Crea una task di follow-up per il cliente aperto o indicato",
+      },
       { label: "Apri workspace", href: "/workspace" },
     ],
   },
@@ -341,9 +378,21 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Crea job agentico", prompt: "Crea un job agentico revisionabile per questa esigenza operativa" },
-      { label: "Diagnostica runner", prompt: "Controlla stato runner, heartbeat, coda e prossime azioni per sbloccare AI Ops" },
-      { label: "Sincronizza grafo", prompt: "Prepara un job per sincronizzare know-how, Notion, clienti e sorgenti nel grafo operativo" },
+      {
+        label: "Crea job agentico",
+        prompt:
+          "Crea un job agentico revisionabile per questa esigenza operativa",
+      },
+      {
+        label: "Diagnostica runner",
+        prompt:
+          "Controlla stato runner, heartbeat, coda e prossime azioni per sbloccare AI Ops",
+      },
+      {
+        label: "Sincronizza grafo",
+        prompt:
+          "Prepara un job per sincronizzare know-how, Notion, clienti e sorgenti nel grafo operativo",
+      },
     ],
   },
   {
@@ -368,8 +417,16 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Pianifica campagna", prompt: "Pianifica una campagna per un cliente con canali, asset, task e calendario" },
-      { label: "Crea contenuti", prompt: "Crea una scaletta di contenuti editoriali per la campagna selezionata" },
+      {
+        label: "Pianifica campagna",
+        prompt:
+          "Pianifica una campagna per un cliente con canali, asset, task e calendario",
+      },
+      {
+        label: "Crea contenuti",
+        prompt:
+          "Crea una scaletta di contenuti editoriali per la campagna selezionata",
+      },
       { label: "Apri calendario", href: "/calendario-editoriale" },
     ],
   },
@@ -395,8 +452,16 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Importa report", prompt: "Importa questo report operativo creando task senza duplicati e collegandole a cliente e progetto" },
-      { label: "Controlla duplicati", prompt: "Confronta le attivita incollate con le task esistenti e segnala duplicati o ore mancanti" },
+      {
+        label: "Importa report",
+        prompt:
+          "Importa questo report operativo creando task senza duplicati e collegandole a cliente e progetto",
+      },
+      {
+        label: "Controlla duplicati",
+        prompt:
+          "Confronta le attivita incollate con le task esistenti e segnala duplicati o ore mancanti",
+      },
       { label: "Apri workspace", href: "/workspace" },
     ],
   },
@@ -423,8 +488,16 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Audit configurazione", prompt: "Esegui un audit della configurazione tenant, email, ruoli e integrazioni mancanti" },
-      { label: "Crea job setup", prompt: "Crea un job agentico per configurare il setup mancante in modo verificabile" },
+      {
+        label: "Audit configurazione",
+        prompt:
+          "Esegui un audit della configurazione tenant, email, ruoli e integrazioni mancanti",
+      },
+      {
+        label: "Crea job setup",
+        prompt:
+          "Crea un job agentico per configurare il setup mancante in modo verificabile",
+      },
     ],
   },
   {
@@ -451,8 +524,16 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Audit piattaforma", prompt: "Crea un audit super-admin su tenant, token AI, database e rischi operativi" },
-      { label: "Crea job cleanup", prompt: "Prepara un job agentico di cleanup database con output revisionabile e nessuna modifica distruttiva automatica" },
+      {
+        label: "Audit piattaforma",
+        prompt:
+          "Crea un audit super-admin su tenant, token AI, database e rischi operativi",
+      },
+      {
+        label: "Crea job cleanup",
+        prompt:
+          "Prepara un job agentico di cleanup database con output revisionabile e nessuna modifica distruttiva automatica",
+      },
     ],
   },
   {
@@ -477,8 +558,15 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Sintesi cliente", prompt: "Prepara una sintesi cliente sicura dello stato progetto senza dati interni" },
-      { label: "Crea richiesta", prompt: "Crea una richiesta cliente da trasformare in task interna" },
+      {
+        label: "Sintesi cliente",
+        prompt:
+          "Prepara una sintesi cliente sicura dello stato progetto senza dati interni",
+      },
+      {
+        label: "Crea richiesta",
+        prompt: "Crea una richiesta cliente da trasformare in task interna",
+      },
     ],
   },
   {
@@ -503,139 +591,161 @@ const PAGE_GUIDES: PageGuide[] = [
       },
     ],
     actions: [
-      { label: "Apri command bar", prompt: "Cosa posso fare adesso in questa pagina?" },
-      { label: "Analizza workspace", prompt: "Analizza workspace, persone e priorità operative" },
+      {
+        label: "Apri command bar",
+        prompt: "Cosa posso fare adesso in questa pagina?",
+      },
+      {
+        label: "Analizza workspace",
+        prompt: "Analizza workspace, persone e priorità operative",
+      },
     ],
   },
-]
+];
 
 function normalizePath(pathname: string) {
-  if (pathname.startsWith("/dashboard/ai-assistant")) return "/ai-assistant"
-  if (pathname.startsWith("/dashboard/settings")) return "/settings"
-  return pathname
+  if (pathname.startsWith("/dashboard/ai-assistant")) return "/ai-assistant";
+  if (pathname.startsWith("/dashboard/settings")) return "/settings";
+  return pathname;
 }
 
 function getPageGuide(pathname: string) {
-  const normalized = normalizePath(pathname)
-  return PAGE_GUIDES.find((guide) => normalized === guide.path || (guide.allowSubpaths && normalized.startsWith(`${guide.path}/`)))
+  const normalized = normalizePath(pathname);
+  return PAGE_GUIDES.find(
+    (guide) =>
+      normalized === guide.path ||
+      (guide.allowSubpaths && normalized.startsWith(`${guide.path}/`)),
+  );
 }
 
 function isLeadershipRole(role?: string | null) {
-  return role === "admin" || role === "super-admin" || role === "direzione"
+  return role === "admin" || role === "super-admin" || role === "direzione";
 }
 
 function guideVisibleForRole(guide: PageGuide, role?: string | null) {
-  if (!guide.role || guide.role === "all") return true
-  if (guide.role === "leadership") return isLeadershipRole(role)
-  if (guide.role === "junior") return !isLeadershipRole(role)
-  return true
+  if (!guide.role || guide.role === "all") return true;
+  if (guide.role === "leadership") return isLeadershipRole(role);
+  if (guide.role === "junior") return !isLeadershipRole(role);
+  return true;
 }
 
 function storageKey(guideId: string) {
-  return `${STORAGE_PREFIX}:${guideId}`
+  return `${STORAGE_PREFIX}:${guideId}`;
 }
 
 function hasSeenGuide(guideId: string) {
-  if (typeof window === "undefined") return true
-  return window.localStorage.getItem(storageKey(guideId)) === "seen"
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(storageKey(guideId)) === "seen";
 }
 
 function markGuideSeen(guideId: string) {
-  if (typeof window === "undefined") return
-  window.localStorage.setItem(storageKey(guideId), "seen")
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(storageKey(guideId), "seen");
 }
 
 function hasDismissedAssistantHint() {
-  if (typeof window === "undefined") return true
-  return window.localStorage.getItem(ASSISTANT_HINT_KEY) === "true"
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(ASSISTANT_HINT_KEY) === "true";
 }
 
 function dismissAssistantHint() {
-  if (typeof window === "undefined") return
-  window.localStorage.setItem(ASSISTANT_HINT_KEY, "true")
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ASSISTANT_HINT_KEY, "true");
 }
 
 export function AiPageGuide() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const reduceMotion = useReducedMotion()
-  const { userData } = useAuth()
-  const { open: openCommandBar, setInput } = useCommandBarStore()
+  const pathname = usePathname();
+  const router = useRouter();
+  const reduceMotion = useReducedMotion();
+  const { userData } = useAuth();
+  const { open: openCommandBar, setInput } = useCommandBarStore();
 
-  const guide = useMemo(() => getPageGuide(pathname), [pathname])
-  const [panelOpen, setPanelOpen] = useState(false)
-  const [hintOpen, setHintOpen] = useState(false)
-  const [currentStep, setCurrentStep] = useState(0)
+  const guide = useMemo(() => getPageGuide(pathname), [pathname]);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
 
-  const canShowGuide = guide ? guideVisibleForRole(guide, userData?.role) : false
-  const visibleGuide = canShowGuide ? guide : undefined
-  const isAssistantWorkspace = pathname.startsWith("/ai-assistant") || pathname.startsWith("/dashboard/ai-assistant")
+  const canShowGuide = guide
+    ? guideVisibleForRole(guide, userData?.role)
+    : false;
+  const visibleGuide = canShowGuide ? guide : undefined;
+  const isAssistantWorkspace =
+    pathname.startsWith("/ai-assistant") ||
+    pathname.startsWith("/dashboard/ai-assistant");
 
   useEffect(() => {
-    setCurrentStep(0)
+    setCurrentStep(0);
 
-    if (!visibleGuide) return
+    if (!visibleGuide) return;
 
     const timeout = window.setTimeout(() => {
-      setHintOpen(!hasDismissedAssistantHint())
-    }, 1200)
+      setHintOpen(!hasDismissedAssistantHint());
+    }, 1200);
 
-    return () => window.clearTimeout(timeout)
-  }, [visibleGuide?.id])
+    return () => window.clearTimeout(timeout);
+  }, [visibleGuide?.id]);
 
-  if (!visibleGuide || isAssistantWorkspace) return null
+  if (!visibleGuide || isAssistantWorkspace) return null;
 
-  const activeGuide = visibleGuide
-  const stepCount = activeGuide.steps.length
-  const step = activeGuide.steps[currentStep]
-  const progress = ((currentStep + 1) / stepCount) * 100
-  const guideSeen = hasSeenGuide(activeGuide.id)
+  const activeGuide = visibleGuide;
+  const stepCount = activeGuide.steps.length;
+  const step = activeGuide.steps[currentStep];
+  const progress = ((currentStep + 1) / stepCount) * 100;
+  const guideSeen = hasSeenGuide(activeGuide.id);
 
   function closeAndRemember() {
-    markGuideSeen(activeGuide.id)
-    setPanelOpen(false)
+    markGuideSeen(activeGuide.id);
+    setPanelOpen(false);
   }
 
   function openTour() {
-    setCurrentStep(0)
-    setPanelOpen(true)
-    setHintOpen(false)
-    dismissAssistantHint()
+    setCurrentStep(0);
+    setPanelOpen(true);
+    setHintOpen(false);
+    dismissAssistantHint();
   }
 
   function runAction(action: GuideAction) {
     if (action.prompt) {
-      markGuideSeen(activeGuide.id)
-      openCommandBar()
-      setInput(action.prompt)
-      setPanelOpen(false)
-      setHintOpen(false)
-      return
+      markGuideSeen(activeGuide.id);
+      openCommandBar();
+      setInput(action.prompt);
+      setPanelOpen(false);
+      setHintOpen(false);
+      return;
     }
 
     if (action.href) {
-      markGuideSeen(activeGuide.id)
-      setPanelOpen(false)
-      setHintOpen(false)
-      router.push(action.href)
+      markGuideSeen(activeGuide.id);
+      setPanelOpen(false);
+      setHintOpen(false);
+      router.push(action.href);
     }
   }
 
   function dismissHint() {
-    dismissAssistantHint()
-    setHintOpen(false)
+    dismissAssistantHint();
+    setHintOpen(false);
   }
 
   return (
     <>
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] right-3 z-[80] md:bottom-[5rem] md:right-4">
+      <div className="fixed right-3 top-[calc(env(safe-area-inset-top)+4.5rem)] z-[80] md:bottom-[5rem] md:right-4 md:top-auto">
         <AnimatePresence>
           {hintOpen && !panelOpen ? (
             <motion.div
               key="sidekick-hint"
-              initial={reduceMotion ? false : { opacity: 0, x: 8, y: 8, scale: 0.96 }}
-              animate={reduceMotion ? undefined : { opacity: 1, x: 0, y: 0, scale: 1 }}
-              exit={reduceMotion ? undefined : { opacity: 0, x: 8, y: 8, scale: 0.96 }}
+              initial={
+                reduceMotion ? false : { opacity: 0, x: 8, y: 8, scale: 0.96 }
+              }
+              animate={
+                reduceMotion ? undefined : { opacity: 1, x: 0, y: 0, scale: 1 }
+              }
+              exit={
+                reduceMotion
+                  ? undefined
+                  : { opacity: 0, x: 8, y: 8, scale: 0.96 }
+              }
               className="mb-3 max-w-[280px] rounded-md border border-righello-pink/25 bg-[#080b12]/95 p-3 text-white shadow-2xl backdrop-blur-xl"
             >
               <button
@@ -646,9 +756,12 @@ export function AiPageGuide() {
               >
                 <X className="h-3.5 w-3.5" />
               </button>
-              <p className="pr-5 text-sm font-black leading-5">Ciao, sono Opi.</p>
+              <p className="pr-5 text-sm font-black leading-5">
+                Ciao, sono Opi.
+              </p>
               <p className="mt-1 text-xs leading-5 text-slate-300">
-                Ti spiego questa pagina solo quando mi chiami. Niente tour obbligatori.
+                Ti spiego questa pagina solo quando mi chiami. Niente tour
+                obbligatori.
               </p>
             </motion.div>
           ) : null}
@@ -657,9 +770,9 @@ export function AiPageGuide() {
         <motion.button
           type="button"
           onClick={() => {
-            setPanelOpen((value) => !value)
-            setHintOpen(false)
-            dismissAssistantHint()
+            setPanelOpen((value) => !value);
+            setHintOpen(false);
+            dismissAssistantHint();
           }}
           className="group relative flex h-14 min-w-14 items-center justify-center gap-2 rounded-[8px] border border-white/10 bg-[#070b12]/95 px-1.5 text-white shadow-2xl backdrop-blur-xl transition hover:border-righello-pink/50 md:min-w-[10.5rem] md:justify-start md:px-3"
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
@@ -674,13 +787,18 @@ export function AiPageGuide() {
             transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
           />
           <span className="relative grid h-11 w-11 place-items-center rounded-[8px] border border-white/10 bg-[radial-gradient(circle_at_30%_20%,rgba(214,72,126,0.45),transparent_42%),#0b1220]">
-            <RighelloIcon className="h-8 w-8" imageClassName="h-[18px] w-[18px]" />
+            <RighelloIcon
+              className="h-8 w-8"
+              imageClassName="h-[18px] w-[18px]"
+            />
             <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border border-[#070b12] bg-righello-pink">
               <Bot className="h-3 w-3 text-white" />
             </span>
           </span>
           <span className="relative hidden min-w-0 text-left md:block">
-            <span className="block text-sm font-black leading-4 text-white">Guida pagina</span>
+            <span className="block text-sm font-black leading-4 text-white">
+              Guida pagina
+            </span>
             <span className="mt-0.5 block max-w-[7rem] truncate text-[0.68rem] font-bold uppercase tracking-[0.12em] text-righello-cyan/75">
               {activeGuide.eyebrow}
             </span>
@@ -691,28 +809,47 @@ export function AiPageGuide() {
           {panelOpen ? (
             <motion.div
               key="sidekick-panel"
-              initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
-              animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
-              exit={reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.96 }}
+              initial={
+                reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }
+              }
+              animate={
+                reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }
+              }
+              exit={
+                reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.96 }
+              }
               transition={{ duration: 0.2 }}
-              className="absolute bottom-[4.25rem] right-0 w-[min(340px,calc(100vw-1.5rem))] overflow-hidden rounded-[8px] border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl"
+              className="absolute right-0 top-[4.25rem] w-[min(340px,calc(100vw-1.5rem))] overflow-hidden rounded-[8px] border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl md:bottom-[4.25rem] md:top-auto"
             >
               <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(214,72,126,0.22),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.96))] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <motion.div
-                      animate={reduceMotion ? undefined : { rotate: [0, 2, -2, 0] }}
-                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                      animate={
+                        reduceMotion ? undefined : { rotate: [0, 2, -2, 0] }
+                      }
+                      transition={{
+                        duration: 4,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
                       className="relative shrink-0"
                     >
-                      <RighelloIcon className="h-10 w-10" imageClassName="h-[20px] w-[20px]" />
+                      <RighelloIcon
+                        className="h-10 w-10"
+                        imageClassName="h-[20px] w-[20px]"
+                      />
                       <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-white/10 bg-righello-pink">
                         <Sparkles className="h-3 w-3 text-white" />
                       </span>
                     </motion.div>
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-black uppercase tracking-[0.22em] text-righello-pink">{activeGuide.eyebrow}</p>
-                      <h2 className="mt-1 text-base font-black leading-tight text-white">Guida operativa pagina</h2>
+                      <p className="truncate text-xs font-black uppercase tracking-[0.22em] text-righello-pink">
+                        {activeGuide.eyebrow}
+                      </p>
+                      <h2 className="mt-1 text-base font-black leading-tight text-white">
+                        Guida operativa pagina
+                      </h2>
                     </div>
                   </div>
                   <button
@@ -724,14 +861,22 @@ export function AiPageGuide() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="mt-3 text-sm font-black leading-5 text-white">{activeGuide.title}</p>
-                <p className="mt-2 text-xs leading-5 text-slate-300">{activeGuide.summary}</p>
+                <p className="mt-3 text-sm font-black leading-5 text-white">
+                  {activeGuide.title}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-slate-300">
+                  {activeGuide.summary}
+                </p>
               </div>
 
               <div className="max-h-[min(62svh,560px)] space-y-4 overflow-y-auto p-4 [-webkit-overflow-scrolling:touch]">
                 <div className="rounded-md border border-righello-cyan/20 bg-righello-cyan/[0.055] p-3">
-                  <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-cyan">Cosa fare qui</div>
-                  <p className="mt-2 text-sm leading-6 text-slate-200">{activeGuide.summary}</p>
+                  <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-cyan">
+                    Cosa fare qui
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
+                    {activeGuide.summary}
+                  </p>
                 </div>
 
                 <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
@@ -747,135 +892,159 @@ export function AiPageGuide() {
                     ) : null}
                   </div>
 
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-slate-500">
-                    {currentStep + 1}/{stepCount}
-                  </span>
-                </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-bold text-slate-500">
+                      {currentStep + 1}/{stepCount}
+                    </span>
+                  </div>
 
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                  <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-righello-pink to-righello-cyan"
-                    initial={false}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: reduceMotion ? 0 : 0.25 }}
-                  />
-                </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-righello-pink to-righello-cyan"
+                      initial={false}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ duration: reduceMotion ? 0 : 0.25 }}
+                    />
+                  </div>
 
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={`${activeGuide.id}-${currentStep}`}
-                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                    animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                    exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-                    transition={{ duration: 0.18 }}
-                    className="mt-4"
-                  >
-                    <h3 className="text-base font-black text-white">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">{step.body}</p>
-                  </motion.div>
-                </AnimatePresence>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`${activeGuide.id}-${currentStep}`}
+                      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                      animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                      exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
+                      transition={{ duration: 0.18 }}
+                      className="mt-4"
+                    >
+                      <h3 className="text-base font-black text-white">
+                        {step.title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {step.body}
+                      </p>
+                    </motion.div>
+                  </AnimatePresence>
 
-                <div className="mt-5 flex items-center justify-between gap-2">
-                  <Button type="button" variant="outline" disabled={currentStep === 0} onClick={() => setCurrentStep((value) => Math.max(0, value - 1))} className="h-10 rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white disabled:opacity-40">
-                    Indietro
-                  </Button>
-                  {currentStep < stepCount - 1 ? (
+                  <div className="mt-5 flex items-center justify-between gap-2">
                     <Button
                       type="button"
-                      onClick={() => setCurrentStep((value) => Math.min(stepCount - 1, value + 1))}
-                      className="h-10 rounded-md bg-righello-pink text-white hover:bg-righello-pink/90"
+                      variant="outline"
+                      disabled={currentStep === 0}
+                      onClick={() =>
+                        setCurrentStep((value) => Math.max(0, value - 1))
+                      }
+                      className="h-10 rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white disabled:opacity-40"
                     >
-                      Avanti
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                      Indietro
                     </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      onClick={closeAndRemember}
-                      className="h-10 rounded-md bg-righello-pink text-white hover:bg-righello-pink/90"
-                    >
-                      Ho capito
-                      <CheckCircle2 className="ml-2 h-4 w-4" />
-                    </Button>
-                  )}
+                    {currentStep < stepCount - 1 ? (
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          setCurrentStep((value) =>
+                            Math.min(stepCount - 1, value + 1),
+                          )
+                        }
+                        className="h-10 rounded-md bg-righello-pink text-white hover:bg-righello-pink/90"
+                      >
+                        Avanti
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        onClick={closeAndRemember}
+                        className="h-10 rounded-md bg-righello-pink text-white hover:bg-righello-pink/90"
+                      >
+                        Ho capito
+                        <CheckCircle2 className="ml-2 h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  <ListChecks className="h-4 w-4 text-righello-pink" />
-                  Azioni rapide
-                </div>
-                <div className="mt-3 space-y-2">
-                  {activeGuide.actions.map((action) => (
-                    <button
-                      key={action.label}
-                      type="button"
-                      onClick={() => runAction(action)}
-                      className="group flex w-full items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-righello-pink/40 hover:bg-righello-pink/10"
-                    >
-                      <span>
-                        <span className="block text-sm font-bold text-white">{action.label}</span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">
-                          {action.description || (action.prompt ? "Apre la command bar con un prompt pronto." : "Apre la pagina collegata.")}
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                    <ListChecks className="h-4 w-4 text-righello-pink" />
+                    Azioni rapide
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {activeGuide.actions.map((action) => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={() => runAction(action)}
+                        className="group flex w-full items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-righello-pink/40 hover:bg-righello-pink/10"
+                      >
+                        <span>
+                          <span className="block text-sm font-bold text-white">
+                            {action.label}
+                          </span>
+                          <span className="mt-1 block text-xs leading-5 text-slate-400">
+                            {action.description ||
+                              (action.prompt
+                                ? "Apre la command bar con un prompt pronto."
+                                : "Apre la pagina collegata.")}
+                          </span>
                         </span>
-                      </span>
-                      {action.prompt ? (
-                        <Command className="h-4 w-4 shrink-0 text-righello-cyan" />
-                      ) : (
-                        <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-white" />
-                      )}
-                    </button>
-                  ))}
+                        {action.prompt ? (
+                          <Command className="h-4 w-4 shrink-0 text-righello-cyan" />
+                        ) : (
+                          <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-white" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className="rounded-md border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center gap-2 text-sm font-black text-white">
-                  <MessageSquareText className="h-4 w-4 text-righello-cyan" />
-                  Come usarla bene
+                <div className="rounded-md border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex items-center gap-2 text-sm font-black text-white">
+                    <MessageSquareText className="h-4 w-4 text-righello-cyan" />
+                    Come usarla bene
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Opi resta chiuso finche non lo chiami. Per eseguire davvero
+                    un comando, usa le azioni rapide o{" "}
+                    <span className="font-bold text-white">⌘K</span>.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openTour}
+                      className="rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white"
+                    >
+                      <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                      Riparti
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        runAction({
+                          label: "Spiegami la pagina",
+                          prompt: `Spiegami come usare questa pagina di Optima: ${activeGuide.title}`,
+                        })
+                      }
+                      className="rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white"
+                    >
+                      <Eye className="mr-2 h-3.5 w-3.5" />
+                      Chiedi all'AI
+                    </Button>
+                  </div>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Opi resta chiuso finche non lo chiami. Per eseguire davvero un comando, usa le azioni rapide o <span className="font-bold text-white">⌘K</span>.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={openTour}
-                    className="rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white"
-                  >
-                    <RotateCcw className="mr-2 h-3.5 w-3.5" />
-                    Riparti
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      runAction({
-                        label: "Spiegami la pagina",
-                        prompt: `Spiegami come usare questa pagina di Optima: ${activeGuide.title}`,
-                      })
-                    }
-                    className="rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white"
-                  >
-                    <Eye className="mr-2 h-3.5 w-3.5" />
-                    Chiedi all'AI
-                  </Button>
-                </div>
-              </div>
 
-              <div className="pb-2 text-xs leading-5 text-slate-500">
-                Non parte piu da solo: e una mascotte contestuale, non un onboarding obbligatorio.
-              </div>
+                <div className="pb-2 text-xs leading-5 text-slate-500">
+                  Non parte piu da solo: e una mascotte contestuale, non un
+                  onboarding obbligatorio.
+                </div>
               </div>
             </motion.div>
           ) : null}
         </AnimatePresence>
       </div>
     </>
-  )
+  );
 }

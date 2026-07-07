@@ -7,17 +7,17 @@ export async function GET(request: Request) {
   const issuer = mcpAuthorizationServerUrl(request)
   const origin = new URL(request.url).origin
   const readiness = getMcpAuthReadiness()
-  const authorizationEndpoint = process.env.OPTIMA_MCP_AUTHORIZATION_ENDPOINT
-  const tokenEndpoint = process.env.OPTIMA_MCP_TOKEN_ENDPOINT
+  const authorizationEndpoint = process.env.OPTIMA_MCP_AUTHORIZATION_ENDPOINT || `${origin}/api/mcp/oauth/authorize`
+  const tokenEndpoint = process.env.OPTIMA_MCP_TOKEN_ENDPOINT || `${origin}/api/mcp/oauth/token`
   const jwksUri = process.env.OPTIMA_MCP_JWKS_URI
 
-  if (!authorizationEndpoint || !tokenEndpoint) {
+  if (process.env.OPTIMA_MCP_OAUTH_ENABLED === "false") {
     if (!readiness.serviceTokenConfigured && !readiness.jwtBearerConfigured) {
       return Response.json(
         {
           issuer,
           warning:
-            "Configura OPTIMA_MCP_AUTHORIZATION_ENDPOINT e OPTIMA_MCP_TOKEN_ENDPOINT, oppure abilita OPTIMA_MCP_SERVICE_TOKEN/JWT per accesso MCP server-to-server.",
+            "OAuth Authorization Code MCP disabilitato. Configura OPTIMA_MCP_SERVICE_TOKEN/JWT per accesso MCP server-to-server.",
         },
         { status: 503 },
       )
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         readiness.jwtBearerConfigured ? "jwt_bearer" : null,
       ].filter(Boolean),
       warning:
-        "OAuth Authorization Code + PKCE non e ancora configurato. Questa metadata espone la modalita MCP server-to-server tramite token endpoint.",
+        "OAuth Authorization Code + PKCE e disabilitato. Questa metadata espone la modalita MCP server-to-server tramite token endpoint.",
     })
   }
 
@@ -51,7 +51,9 @@ export async function GET(request: Request) {
     authorization_endpoint: authorizationEndpoint,
     token_endpoint: tokenEndpoint,
     jwks_uri: jwksUri,
-    grant_types_supported: ["authorization_code", "refresh_token"],
+    grant_types_supported: readiness.serviceTokenConfigured
+      ? ["authorization_code", "client_credentials"]
+      : ["authorization_code"],
     response_types_supported: ["code"],
     token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post", "none"],
     code_challenge_methods_supported: ["S256"],

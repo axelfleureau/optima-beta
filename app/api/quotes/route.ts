@@ -1,56 +1,73 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import { getCloudflareDb } from "@/lib/cloudflare-db"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
-import { sanitizeQuoteClient } from "@/lib/quote-data-quality"
-import { extractQuoteCommercialContext, resolveQuoteDisplayTitle } from "@/lib/quote-commercial-context"
+import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { sanitizeQuoteClient } from "@/lib/quote-data-quality";
+import {
+  extractQuoteCommercialContext,
+  resolveQuoteDisplayTitle,
+} from "@/lib/quote-commercial-context";
+import { canViewInternalEconomicData } from "@/lib/workspace-permissions";
 
 function parseJson(value: unknown, fallback: unknown) {
-  if (typeof value !== "string" || !value.trim()) return fallback
+  if (typeof value !== "string" || !value.trim()) return fallback;
   try {
-    return JSON.parse(value)
+    return JSON.parse(value);
   } catch {
-    return fallback
+    return fallback;
   }
 }
 
 function euros(cents: unknown) {
-  return Number(cents || 0) / 100
+  return Number(cents || 0) / 100;
 }
 
 function mapQuote(row: any) {
-  const items = parseJson(row.items_json, []) as any[]
-  const voices = parseJson(row.voices_json, []) as any[]
-  const shareRecord = parseJson(row.share_record_json, {}) as { shareToken?: string; sentAt?: string }
+  const items = parseJson(row.items_json, []) as any[];
+  const voices = parseJson(row.voices_json, []) as any[];
+  const shareRecord = parseJson(row.share_record_json, {}) as {
+    shareToken?: string;
+    sentAt?: string;
+  };
   const approvalRecord = parseJson(row.approval_record_json, {}) as {
-    approvedAt?: string
-    approvedByName?: string
-    approvedByEmail?: string
-  }
-  const total = euros(row.total_cents)
-  const itemSubtotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0)
-  const voiceSubtotal = voices.reduce(
-    (sum, item) => sum + Number(item.totale ?? Number(item.quantita || 0) * Number(item.prezzoUnitario || 0)),
+    approvedAt?: string;
+    approvedByName?: string;
+    approvedByEmail?: string;
+  };
+  const total = euros(row.total_cents);
+  const itemSubtotal = items.reduce(
+    (sum, item) => sum + Number(item.total || 0),
     0,
-  )
-  const subtotal = euros(row.subtotal_cents) || itemSubtotal || voiceSubtotal || total
-  const vat = euros(row.vat_cents)
+  );
+  const voiceSubtotal = voices.reduce(
+    (sum, item) =>
+      sum +
+      Number(
+        item.totale ??
+          Number(item.quantita || 0) * Number(item.prezzoUnitario || 0),
+      ),
+    0,
+  );
+  const subtotal =
+    euros(row.subtotal_cents) || itemSubtotal || voiceSubtotal || total;
+  const vat = euros(row.vat_cents);
   const client = sanitizeQuoteClient({
     nome: row.client_name || row.external_client_name || "Cliente",
     email: row.client_email || row.external_client_email || "",
-  })
+  });
   const externalClient = sanitizeQuoteClient({
     nome: row.external_client_name || undefined,
     email: row.external_client_email || undefined,
-  })
-  const sourceSnapshot = parseJson(row.source_snapshot_json, undefined) as Record<string, unknown> | undefined
+  });
+  const sourceSnapshot = parseJson(row.source_snapshot_json, undefined) as
+    Record<string, unknown> | undefined;
   const title = resolveQuoteDisplayTitle({
     title: String(row.title || ""),
     clientName: externalClient.nome || client.nome || "Cliente",
     sourceSnapshot,
-  })
-  const quoteContext = extractQuoteCommercialContext(sourceSnapshot)
+  });
+  const quoteContext = extractQuoteCommercialContext(sourceSnapshot);
 
   return {
     id: String(row.id),
@@ -74,7 +91,8 @@ function mapQuote(row: any) {
     shareToken: shareRecord.shareToken || row.share_token || undefined,
     sentAt: shareRecord.sentAt || row.sent_at || undefined,
     approvedAt: approvalRecord.approvedAt || row.approved_at || undefined,
-    approvedBy: approvalRecord.approvedByName || row.approved_by_name || undefined,
+    approvedBy:
+      approvalRecord.approvedByName || row.approved_by_name || undefined,
     tenantId: row.organization_id,
     createdBy: row.created_by_member_id || "",
     brandMateriali: parseJson(row.brand_materials_json, undefined),
@@ -89,22 +107,32 @@ function mapQuote(row: any) {
     projectTypeLabel: quoteContext.projectTypeLabel,
     pricingTemplateId: quoteContext.pricingTemplateId,
     selectedPackageId: quoteContext.selectedPackageId,
-  }
+  };
 }
 
 export async function GET() {
   try {
-    const user = await requireClerkUser()
+    const user = await requireClerkUser();
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const db = await getCloudflareDb()
+    const db = await getCloudflareDb();
     if (!db) {
-      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+      return Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      );
     }
 
-    const principal = await ensureWorkspacePrincipal(db, user)
+    const principal = await ensureWorkspacePrincipal(db, user);
+    if (!canViewInternalEconomicData(principal.role)) {
+      return Response.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      );
+    }
+
     const result = await db
       .prepare(
         `SELECT q.*,
@@ -126,11 +154,14 @@ export async function GET() {
          LIMIT 200`,
       )
       .bind(principal.organizationId)
-      .all()
+      .all();
 
-    return Response.json({ quotes: (result.results || []).map(mapQuote) })
+    return Response.json({ quotes: (result.results || []).map(mapQuote) });
   } catch (error) {
-    console.error("Quotes GET error:", error)
-    return Response.json({ error: "Errore nel caricamento dei preventivi" }, { status: 500 })
+    console.error("Quotes GET error:", error);
+    return Response.json(
+      { error: "Errore nel caricamento dei preventivi" },
+      { status: 500 },
+    );
   }
 }

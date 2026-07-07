@@ -1,34 +1,37 @@
-import { createId } from "@/lib/cloudflare-db"
-import type { Project, ProjectMember, Task } from "@/lib/types"
+import { createId } from "@/lib/cloudflare-db";
+import type { Project, ProjectMember, Task } from "@/lib/types";
 
 type ClerkWorkspaceUser = {
-  id: string
-  organizationId: string
-  role: string
-  email: string
-  firstName: string
-  lastName: string
-}
+  id: string;
+  organizationId: string;
+  role: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+};
 
 export type WorkspacePrincipal = {
-  organizationId: string
-  memberId: string
-  role: string
-  email: string
-}
+  organizationId: string;
+  memberId: string;
+  role: string;
+  email: string;
+};
 
 function parseJson<T>(value: unknown, fallback: T): T {
-  if (typeof value !== "string" || !value) return fallback
+  if (typeof value !== "string" || !value) return fallback;
   try {
-    return JSON.parse(value) as T
+    return JSON.parse(value) as T;
   } catch {
-    return fallback
+    return fallback;
   }
 }
 
-export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser): Promise<WorkspacePrincipal> {
-  const personalOrganizationId = user.organizationId || `org_${user.id}`
-  const email = String(user.email || "").trim()
+export async function ensureWorkspacePrincipal(
+  db: any,
+  user: ClerkWorkspaceUser,
+): Promise<WorkspacePrincipal> {
+  const personalOrganizationId = user.organizationId || `org_${user.id}`;
+  const email = String(user.email || "").trim();
 
   const preferredMember = await db
     .prepare(
@@ -40,48 +43,49 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
        LIMIT 1`,
     )
     .bind(user.id, personalOrganizationId)
-    .first()
+    .first();
 
-  const existingMember = preferredMember ?? await db
-    .prepare(
-      `SELECT m.id, m.organization_id, m.role
+  const existingMember =
+    preferredMember ??
+    (await db
+      .prepare(
+        `SELECT m.id, m.organization_id, m.role
        FROM members m
        WHERE m.clerk_user_id = ?
        ORDER BY m.created_at ASC
        LIMIT 1`,
-    )
-    .bind(user.id)
-    .first()
+      )
+      .bind(user.id)
+      .first());
 
   const teamMemberByEmail = email
     ? await db
-    .prepare(
-      `SELECT id, organization_id, role, status, clerk_user_id
+        .prepare(
+          `SELECT id, organization_id, role, status, clerk_user_id
        FROM members
        WHERE lower(email) = lower(?)
-         AND COALESCE(status, 'active') IN ('active', 'invited', 'inactive')
-         AND (
-           status IN ('invited', 'inactive')
-           OR clerk_user_id LIKE 'invite:%'
-           OR clerk_user_id LIKE 'placeholder:%'
-         )
+         AND COALESCE(status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled', 'suspended')
        ORDER BY
          CASE WHEN organization_id = ? THEN 0 ELSE 1 END,
          CASE status WHEN 'invited' THEN 0 WHEN 'inactive' THEN 1 WHEN 'active' THEN 2 ELSE 3 END,
          created_at ASC
        LIMIT 1`,
-    )
-    .bind(email, personalOrganizationId)
-    .first()
-    : null
+        )
+        .bind(email, personalOrganizationId)
+        .first()
+    : null;
 
   const existingIsPersonalFallback =
     existingMember?.id &&
     String(existingMember.organization_id) === personalOrganizationId &&
     teamMemberByEmail?.id &&
-    String(teamMemberByEmail.id) !== String(existingMember.id)
+    String(teamMemberByEmail.id) !== String(existingMember.id);
 
-  if (existingMember?.id && existingMember?.organization_id && !existingIsPersonalFallback) {
+  if (
+    existingMember?.id &&
+    existingMember?.organization_id &&
+    !existingIsPersonalFallback
+  ) {
     await db
       .prepare(
         `UPDATE members
@@ -90,14 +94,14 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
          WHERE id = ?`,
       )
       .bind(existingMember.id)
-      .run()
+      .run();
 
     return {
       organizationId: String(existingMember.organization_id),
       memberId: String(existingMember.id),
       role: String(existingMember.role || user.role),
       email,
-    }
+    };
   }
 
   if (teamMemberByEmail?.id && teamMemberByEmail?.organization_id) {
@@ -111,7 +115,7 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
            AND id <> ?`,
       )
       .bind(user.id, user.id, teamMemberByEmail.id)
-      .run()
+      .run();
 
     await db
       .prepare(
@@ -125,19 +129,21 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
          WHERE id = ?`,
       )
       .bind(user.id, user.firstName, user.lastName, teamMemberByEmail.id)
-      .run()
+      .run();
 
     return {
       organizationId: String(teamMemberByEmail.organization_id),
       memberId: String(teamMemberByEmail.id),
       role: String(teamMemberByEmail.role || user.role),
       email,
-    }
+    };
   }
 
-  const organizationId = personalOrganizationId
-  const memberId = createId("mem")
-  const organizationName = email.endsWith("@wearerighello.com") ? "Righello" : email || "Optima"
+  const organizationId = personalOrganizationId;
+  const memberId = createId("mem");
+  const organizationName = email.endsWith("@wearerighello.com")
+    ? "Righello"
+    : email || "Optima";
 
   await db
     .prepare(
@@ -145,7 +151,7 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
        VALUES (?, ?, 'active')`,
     )
     .bind(organizationId, organizationName)
-    .run()
+    .run();
 
   await db
     .prepare(
@@ -153,8 +159,16 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
        (id, organization_id, clerk_user_id, email, first_name, last_name, role, status, last_login_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)`,
     )
-    .bind(memberId, organizationId, user.id, email, user.firstName, user.lastName, user.role)
-    .run()
+    .bind(
+      memberId,
+      organizationId,
+      user.id,
+      email,
+      user.firstName,
+      user.lastName,
+      user.role,
+    )
+    .run();
 
   const member = await db
     .prepare(
@@ -164,18 +178,18 @@ export async function ensureWorkspacePrincipal(db: any, user: ClerkWorkspaceUser
        LIMIT 1`,
     )
     .bind(organizationId, user.id)
-    .first()
+    .first();
 
   return {
     organizationId,
     memberId: String(member?.id || memberId),
     role: String(member?.role || user.role),
     email,
-  }
+  };
 }
 
 export function mapTaskRow(row: any): Task {
-  const columnId = String(row.column_id || row.status || "to-do")
+  const columnId = String(row.column_id || row.status || "to-do");
 
   return {
     id: String(row.id),
@@ -185,15 +199,21 @@ export function mapTaskRow(row: any): Task {
     status: columnId as Task["status"],
     columnId,
     priority: (row.priority || "medium") as Task["priority"],
+    workMode: row.work_mode === "remote" ? "remote" : "office",
     type: row.type || "",
     score: Number(row.score || 0),
     dueDate: row.due_at ? new Date(String(row.due_at)) : null,
     assignee: row.assignee_name || "",
     assignedUserId: row.assignee_member_id || null,
     assignmentStatus: row.assignment_status || "accepted",
-    assignmentRequestedByMemberId: row.assignment_requested_by_member_id || null,
-    assignmentRequestedAt: row.assignment_requested_at ? new Date(String(row.assignment_requested_at)) : null,
-    assignmentRespondedAt: row.assignment_responded_at ? new Date(String(row.assignment_responded_at)) : null,
+    assignmentRequestedByMemberId:
+      row.assignment_requested_by_member_id || null,
+    assignmentRequestedAt: row.assignment_requested_at
+      ? new Date(String(row.assignment_requested_at))
+      : null,
+    assignmentRespondedAt: row.assignment_responded_at
+      ? new Date(String(row.assignment_responded_at))
+      : null,
     assignmentRejectionReason: row.assignment_rejection_reason || null,
     clientId: row.client_id || "tenant",
     clientName: row.client_name || "",
@@ -220,15 +240,18 @@ export function mapTaskRow(row: any): Task {
     generatedAssets: parseJson<any[]>(row.generated_assets_json, []),
     expectedDeliverable: row.expected_deliverable || "",
     deliverableType: row.deliverable_type || "other",
-  }
+  };
 }
 
-export function mapProjectRows(projectRows: any[], memberRows: any[]): Project[] {
-  const membersByProject = new Map<string, ProjectMember[]>()
+export function mapProjectRows(
+  projectRows: any[],
+  memberRows: any[],
+): Project[] {
+  const membersByProject = new Map<string, ProjectMember[]>();
 
   for (const row of memberRows) {
-    const projectId = String(row.project_id || "")
-    if (!projectId) continue
+    const projectId = String(row.project_id || "");
+    if (!projectId) continue;
 
     const member: ProjectMember = {
       id: String(row.member_id),
@@ -237,13 +260,16 @@ export function mapProjectRows(projectRows: any[], memberRows: any[]): Project[]
         String(row.email || "Utente"),
       email: String(row.email || ""),
       role: row.role ? String(row.role) : undefined,
-    }
+    };
 
-    membersByProject.set(projectId, [...(membersByProject.get(projectId) || []), member])
+    membersByProject.set(projectId, [
+      ...(membersByProject.get(projectId) || []),
+      member,
+    ]);
   }
 
   return projectRows.map((row) => {
-    const members = membersByProject.get(String(row.id)) || []
+    const members = membersByProject.get(String(row.id)) || [];
 
     return {
       id: String(row.id),
@@ -259,10 +285,10 @@ export function mapProjectRows(projectRows: any[], memberRows: any[]): Project[]
       memberIds: members.map((member) => member.id),
       createdAt: row.created_at ? new Date(String(row.created_at)) : new Date(),
       updatedAt: row.updated_at ? new Date(String(row.updated_at)) : new Date(),
-    }
-  })
+    };
+  });
 }
 
 export function stringifyJson(value: unknown) {
-  return JSON.stringify(value ?? [])
+  return JSON.stringify(value ?? []);
 }

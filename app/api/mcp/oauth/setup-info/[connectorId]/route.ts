@@ -8,15 +8,15 @@
 // 2026-06-25: nata per supportare device_flow (Cloudflare, GitHub) + oauth_pkce
 // (Google, Meta, LinkedIn, Notion, Vercel) + external_oauth (Vercel legacy).
 
-import { NextRequest } from "next/server"
+import { NextRequest } from "next/server";
 
-import { AGENT_ADMIN_ROLES } from "@/lib/agent-jobs"
-import { getCloudflareDb } from "@/lib/cloudflare-db"
-import { getStrategicMcpConnectors } from "@/lib/mcp-connectors"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+import { AGENT_ADMIN_ROLES } from "@/lib/agent-jobs";
+import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { getStrategicMcpConnectors } from "@/lib/mcp-connectors";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
 type AuthMethod =
   | "oauth_pkce"
@@ -26,32 +26,32 @@ type AuthMethod =
   | "github_app"
   | "api_key_secret"
   | "service_account"
-  | "runner_env"
+  | "runner_env";
 
 interface SetupGuide {
-  provider: string
-  authMethod: AuthMethod
-  redirectUri: string
-  consentUrl: string | null
-  setupSteps: string[]
-  scopes: string[]
-  envVars: { name: string; description: string; sensitive: boolean }[]
-  oneClick: boolean
-  notes: string
+  provider: string;
+  authMethod: AuthMethod;
+  redirectUri: string;
+  consentUrl: string | null;
+  setupSteps: string[];
+  scopes: string[];
+  envVars: { name: string; description: string; sensitive: boolean }[];
+  oneClick: boolean;
+  notes: string;
 }
 
 const REDIRECT_BASE = (request: Request) => {
   const configured =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.OPTIMA_PUBLIC_URL
-  if (configured) return configured.replace(/\/$/, "")
-  const url = new URL(request.url)
-  return `${url.protocol}//${url.host}`
-}
+    process.env.OPTIMA_PUBLIC_URL;
+  if (configured) return configured.replace(/\/$/, "");
+  const url = new URL(request.url);
+  return `${url.protocol}//${url.host}`;
+};
 
 function setupForGoogle(connectorId: string, request: Request): SetupGuide {
-  const base = REDIRECT_BASE(request)
+  const base = REDIRECT_BASE(request);
   return {
     provider: "Google Cloud Console",
     authMethod: "oauth_pkce",
@@ -76,24 +76,42 @@ function setupForGoogle(connectorId: string, request: Request): SetupGuide {
       `6. Redeploy del worker. Da Optima clicca "Apri OAuth provider".`,
     ],
     envVars: [
-      { name: "GOOGLE_OAUTH_CLIENT_ID", description: "OAuth Client ID (pubblico)", sensitive: false },
-      { name: "GOOGLE_OAUTH_CLIENT_SECRET", description: "OAuth Client Secret", sensitive: true },
-      { name: "GOOGLE_OAUTH_REDIRECT_URI", description: "Override redirect URI (opzionale)", sensitive: false },
+      {
+        name: "GOOGLE_OAUTH_CLIENT_ID",
+        description: "OAuth Client ID (pubblico)",
+        sensitive: false,
+      },
+      {
+        name: "GOOGLE_OAUTH_CLIENT_SECRET",
+        description: "OAuth Client Secret",
+        sensitive: true,
+      },
+      {
+        name: "GOOGLE_OAUTH_REDIRECT_URI",
+        description: "Override redirect URI (opzionale)",
+        sensitive: false,
+      },
     ],
     notes:
       "Servono redirect URI esatti. Se cambi dominio Optima, aggiorna il Client ID.",
-  }
+  };
 }
 
 function setupForMeta(connectorId: string, request: Request): SetupGuide {
-  const base = REDIRECT_BASE(request)
+  const base = REDIRECT_BASE(request);
   return {
     provider: "Meta for Developers",
     authMethod: "oauth_pkce",
     oneClick: false,
     redirectUri: `${base}/api/mcp/oauth/callback/${connectorId}`,
     consentUrl: "https://developers.facebook.com/apps/",
-    scopes: ["pages_show_list", "pages_manage_posts", "pages_read_engagement", "instagram_basic", "instagram_content_publish"],
+    scopes: [
+      "pages_show_list",
+      "pages_manage_posts",
+      "pages_read_engagement",
+      "instagram_basic",
+      "instagram_content_publish",
+    ],
     setupSteps: [
       "1. Vai su developers.facebook.com → My Apps → Create App (tipo Business).",
       "2. Aggiungi il prodotto 'Facebook Login for Business' e configura OAuth redirect:",
@@ -106,23 +124,43 @@ function setupForMeta(connectorId: string, request: Request): SetupGuide {
       "6. Redeploy. Da Optima clicca 'Apri OAuth provider'.",
     ],
     envVars: [
-      { name: "META_APP_ID", description: "Facebook App ID (pubblico)", sensitive: false },
-      { name: "META_APP_SECRET", description: "Facebook App Secret", sensitive: true },
-      { name: "META_OAUTH_REDIRECT_URI", description: "Override redirect URI (opzionale)", sensitive: false },
+      {
+        name: "META_APP_ID",
+        description: "Facebook App ID (pubblico)",
+        sensitive: false,
+      },
+      {
+        name: "META_APP_SECRET",
+        description: "Facebook App Secret",
+        sensitive: true,
+      },
+      {
+        name: "META_OAUTH_REDIRECT_URI",
+        description: "Override redirect URI (opzionale)",
+        sensitive: false,
+      },
     ],
-    notes: "Senza App Review Meta, i token hanno scope limitati e scadono in 60 giorni.",
-  }
+    notes:
+      "Senza App Review Meta, i token hanno scope limitati e scadono in 60 giorni.",
+  };
 }
 
 function setupForLinkedin(connectorId: string, request: Request): SetupGuide {
-  const base = REDIRECT_BASE(request)
+  const base = REDIRECT_BASE(request);
   return {
     provider: "LinkedIn Developers",
     authMethod: "oauth_pkce",
     oneClick: false,
     redirectUri: `${base}/api/mcp/oauth/callback/${connectorId}`,
     consentUrl: "https://www.linkedin.com/developers/apps",
-    scopes: ["openid", "profile", "email", "w_member_social", "r_organization_social", "rw_organization_admin"],
+    scopes: [
+      "openid",
+      "profile",
+      "email",
+      "w_member_social",
+      "r_organization_social",
+      "rw_organization_admin",
+    ],
     setupSteps: [
       "1. Crea un'app su LinkedIn Developers → Products → Richiedi 'Share on LinkedIn' e 'Sign In with LinkedIn'.",
       `2. Aggiungi redirect URI OAuth 2.0: ${base}/api/mcp/oauth/callback/${connectorId}`,
@@ -132,15 +170,24 @@ function setupForLinkedin(connectorId: string, request: Request): SetupGuide {
       "5. Redeploy. Da Optima clicca 'Apri OAuth provider'.",
     ],
     envVars: [
-      { name: "LINKEDIN_CLIENT_ID", description: "LinkedIn Client ID (pubblico)", sensitive: false },
-      { name: "LINKEDIN_CLIENT_SECRET", description: "LinkedIn Client Secret", sensitive: true },
+      {
+        name: "LINKEDIN_CLIENT_ID",
+        description: "LinkedIn Client ID (pubblico)",
+        sensitive: false,
+      },
+      {
+        name: "LINKEDIN_CLIENT_SECRET",
+        description: "LinkedIn Client Secret",
+        sensitive: true,
+      },
     ],
-    notes: "Serve verifica LinkedIn Developer per pubblicare contenuti. Senza, hai solo lettura.",
-  }
+    notes:
+      "Serve verifica LinkedIn Developer per pubblicare contenuti. Senza, hai solo lettura.",
+  };
 }
 
 function setupForNotion(connectorId: string, request: Request): SetupGuide {
-  const base = REDIRECT_BASE(request)
+  const base = REDIRECT_BASE(request);
   return {
     provider: "Notion Integrations",
     authMethod: "oauth_pkce",
@@ -156,23 +203,38 @@ function setupForNotion(connectorId: string, request: Request): SetupGuide {
       "5. Redeploy. Da Optima clicca 'Apri OAuth provider'.",
     ],
     envVars: [
-      { name: "NOTION_OAUTH_CLIENT_ID", description: "Notion integration token", sensitive: false },
-      { name: "NOTION_OAUTH_CLIENT_SECRET", description: "Notion OAuth client secret", sensitive: true },
+      {
+        name: "NOTION_OAUTH_CLIENT_ID",
+        description: "Notion integration token",
+        sensitive: false,
+      },
+      {
+        name: "NOTION_OAUTH_CLIENT_SECRET",
+        description: "Notion OAuth client secret",
+        sensitive: true,
+      },
     ],
     notes:
       "Notion OAuth è pubblico (no App Review), ma i workspace autorizzati vanno aggiunti manualmente.",
-  }
+  };
 }
 
 function setupForVercel(connectorId: string, request: Request): SetupGuide {
-  const base = REDIRECT_BASE(request)
+  const base = REDIRECT_BASE(request);
   return {
     provider: "Vercel",
     authMethod: "external_oauth",
     oneClick: false,
     redirectUri: `${base}/api/mcp/oauth/callback/${connectorId}`,
     consentUrl: "https://vercel.com/dashboard/integrations/create",
-    scopes: ["user:read", "team:read", "project:read", "deployment:read", "deployment:list", "log:read"],
+    scopes: [
+      "user:read",
+      "team:read",
+      "project:read",
+      "deployment:read",
+      "deployment:list",
+      "log:read",
+    ],
     setupSteps: [
       "1. Vai su vercel.com/dashboard/integrations/create.",
       `2. Redirect URL: ${base}/api/mcp/oauth/callback/${connectorId}`,
@@ -182,23 +244,44 @@ function setupForVercel(connectorId: string, request: Request): SetupGuide {
       "5. Redeploy. Da Optima clicca 'Apri OAuth provider'.",
     ],
     envVars: [
-      { name: "VERCEL_CLIENT_ID", description: "Vercel OAuth Client ID (pubblico)", sensitive: false },
-      { name: "VERCEL_CLIENT_SECRET", description: "Vercel OAuth Client Secret", sensitive: true },
+      {
+        name: "VERCEL_CLIENT_ID",
+        description: "Vercel OAuth Client ID (pubblico)",
+        sensitive: false,
+      },
+      {
+        name: "VERCEL_CLIENT_SECRET",
+        description: "Vercel OAuth Client Secret",
+        sensitive: true,
+      },
     ],
     notes:
       "Per uso programmatico (CI), wrangler secret put VERCEL_TOKEN=... è più semplice ma meno sicuro.",
-  }
+  };
 }
 
-function setupForCloudflare(_connectorId: string, request: Request): SetupGuide {
-  const base = REDIRECT_BASE(request)
+function setupForCloudflare(
+  _connectorId: string,
+  request: Request,
+): SetupGuide {
+  const base = REDIRECT_BASE(request);
   return {
     provider: "Cloudflare",
     authMethod: "device_flow",
     oneClick: true,
     redirectUri: `${base}/api/mcp/oauth/device-poll/cloudflare`,
     consentUrl: "https://dash.cloudflare.com/profile/api-tokens",
-    scopes: ["account:read", "workers:read", "workers:write", "d1:read", "d1:write", "r2:read", "r2:write", "pages:read", "pages:write"],
+    scopes: [
+      "account:read",
+      "workers:read",
+      "workers:write",
+      "d1:read",
+      "d1:write",
+      "r2:read",
+      "r2:write",
+      "pages:read",
+      "pages:write",
+    ],
     setupSteps: [
       "1. Vai su dash.cloudflare.com → My Profile → API Tokens → Create Token.",
       "2. Usa template 'Create Custom Token'.",
@@ -217,17 +300,18 @@ function setupForCloudflare(_connectorId: string, request: Request): SetupGuide 
       },
       {
         name: "CLOUDFLARE_OAUTH_CLIENT_ID",
-        description: "OAuth Client ID pubblico per Device Flow 1-click (richiede supporto Cloudflare)",
+        description:
+          "OAuth Client ID pubblico per Device Flow 1-click (richiede supporto Cloudflare)",
         sensitive: false,
       },
     ],
     notes:
       "Il vero OAuth Device Flow richiede un OAuth Client autorizzato da Cloudflare (disponibile solo per piani Business/Enterprise). Per il momento usa API Token + questo connector ricade su service_account.",
-  }
+  };
 }
 
 function setupForGithub(_connectorId: string, request: Request): SetupGuide {
-  const base = REDIRECT_BASE(request)
+  const base = REDIRECT_BASE(request);
   return {
     provider: "GitHub",
     authMethod: "device_flow",
@@ -244,7 +328,11 @@ function setupForGithub(_connectorId: string, request: Request): SetupGuide {
       "6. Redeploy. Da Optima: clicca 'Connetti GitHub' → user_code 'ABCD-1234' → vai su github.com/login/device → incolla → fatto.",
     ],
     envVars: [
-      { name: "GITHUB_OAUTH_CLIENT_ID", description: "GitHub OAuth App Client ID (pubblico)", sensitive: false },
+      {
+        name: "GITHUB_OAUTH_CLIENT_ID",
+        description: "GitHub OAuth App Client ID (pubblico)",
+        sensitive: false,
+      },
       {
         name: "GITHUB_TOKEN",
         description: "Personal Access Token (fallback programmatico)",
@@ -253,7 +341,55 @@ function setupForGithub(_connectorId: string, request: Request): SetupGuide {
     ],
     notes:
       "Device Flow OAuth è ufficiale su GitHub. NON serve Client Secret per device_flow. Crea un'app 'Public' (no client secret needed) o 'Confidential' (con secret) — entrambe funzionano per device flow.",
-  }
+  };
+}
+
+function setupForCodex(_connectorId: string, _request: Request): SetupGuide {
+  return {
+    provider: "Codex CLI sul runner Optima",
+    authMethod: "runner_env",
+    oneClick: false,
+    redirectUri: "",
+    consentUrl: null,
+    scopes: ["agent_jobs", "repository_links", "task", "progetti", "review"],
+    setupSteps: [
+      "1. Accedi al runner/VPS che esegue i job Optima. Questo login non si fa dalla callback web di Optima.",
+      "2. Crea una home Codex separata, per esempio `export CODEX_HOME=/root/.codex-chatgpt`.",
+      "3. Fai backup dell'auth esistente senza stampare token: `mkdir -p ~/.codex/auth-backups && if [ -f ~/.codex/auth.json ]; then cp ~/.codex/auth.json ~/.codex/auth-backups/auth-$(date -u +%Y%m%dT%H%M%SZ).json; fi`.",
+      "4. Esegui `CODEX_HOME=/root/.codex-chatgpt codex logout || true`.",
+      "5. Esegui `CODEX_HOME=/root/.codex-chatgpt codex login --device-auth`.",
+      "6. Apri nel browser l'URL mostrato dal CLI, inserisci il codice one-time e tieni aperta la sessione finche il CLI conferma il login.",
+      "7. Verifica con un prompt innocuo: `printf 'Rispondi solo con: OK-CODEX-OAUTH\\n' | CODEX_HOME=/root/.codex-chatgpt codex exec --sandbox workspace-write --skip-git-repo-check -`.",
+      "8. Configura il runner Optima con `AGENT_RUNNER_ENABLED=true`, `CODEX_HOME=/root/.codex-chatgpt` e `AGENT_RUNNER_API_KEY` come token interno runner.",
+      "9. Da Optima esegui la verifica runtime: heartbeat runner, dry-run Codex e output in review prima di usarlo in produzione.",
+    ],
+    envVars: [
+      {
+        name: "AGENT_RUNNER_ENABLED",
+        description: "Abilita il polling del runner Optima",
+        sensitive: false,
+      },
+      {
+        name: "CODEX_HOME",
+        description:
+          "Home isolata del Codex CLI autenticata con OAuth/device-auth",
+        sensitive: false,
+      },
+      {
+        name: "AGENT_RUNNER_API_KEY",
+        description: "Token interno Optima-runner, non una OpenAI API key",
+        sensitive: true,
+      },
+      {
+        name: "CODEX_CLI_BIN",
+        description:
+          "Wrapper opzionale, per esempio codex-chatgpt, se il runner usa piu profili",
+        sensitive: false,
+      },
+    ],
+    notes:
+      "Codex CLI usa OAuth/device-auth sul runner. Non serve client_id/client_secret provider e non esiste redirect /api/mcp/oauth/callback/codex. API key OpenAI solo fallback esplicito a consumo, non percorso principale.",
+  };
 }
 
 function setupForBrowser(_connectorId: string, _request: Request): SetupGuide {
@@ -272,12 +408,26 @@ function setupForBrowser(_connectorId: string, _request: Request): SetupGuide {
       "5. Redeploy. Da Optima: clicca 'Prepara ChatGPT' / 'Prepara Gemini' → apri login sul VPS → fatto.",
     ],
     envVars: [
-      { name: "BROWSER_MCP_GATEWAY_URL", description: "URL del gateway Playwright/Chromium sul VPS", sensitive: false },
-      { name: "BROWSER_PROFILE_SECRET_REF", description: "Riferimento al profilo persistente (no cookie/token in chiaro)", sensitive: true },
-      { name: "BROWSER_ALLOWED_ORIGINS", description: "Lista origini consentite separate da virgola", sensitive: false },
+      {
+        name: "BROWSER_MCP_GATEWAY_URL",
+        description: "URL del gateway Playwright/Chromium sul VPS",
+        sensitive: false,
+      },
+      {
+        name: "BROWSER_PROFILE_SECRET_REF",
+        description:
+          "Riferimento al profilo persistente (no cookie/token in chiaro)",
+        sensitive: true,
+      },
+      {
+        name: "BROWSER_ALLOWED_ORIGINS",
+        description: "Lista origini consentite separate da virgola",
+        sensitive: false,
+      },
     ],
-    notes: "Il browser MCP è il fallback per servizi senza API o per QA visuale. Mai per scraping non autorizzato.",
-  }
+    notes:
+      "Il browser MCP è il fallback per servizi senza API o per QA visuale. Mai per scraping non autorizzato.",
+  };
 }
 
 function setupForGeneric(connectorId: string, _request: Request): SetupGuide {
@@ -294,11 +444,15 @@ function setupForGeneric(connectorId: string, _request: Request): SetupGuide {
       "Redeploy. Da Optima clicca 'Verifica runtime'.",
     ],
     envVars: [],
-    notes: "Vedi lib/mcp-connectors.ts per la lista env richieste di questo connector.",
-  }
+    notes:
+      "Vedi lib/mcp-connectors.ts per la lista env richieste di questo connector.",
+  };
 }
 
-const SETUP_BUILDERS: Record<string, (connectorId: string, request: Request) => SetupGuide> = {
+const SETUP_BUILDERS: Record<
+  string,
+  (connectorId: string, request: Request) => SetupGuide
+> = {
   "google-business-profile": setupForGoogle,
   "google-calendar": setupForGoogle,
   "google-drive": setupForGoogle,
@@ -308,33 +462,71 @@ const SETUP_BUILDERS: Record<string, (connectorId: string, request: Request) => 
   vercel: setupForVercel,
   cloudflare: setupForCloudflare,
   github: setupForGithub,
+  codex: setupForCodex,
   browser: setupForBrowser,
-}
+};
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ connectorId: string }> },
 ) {
   const auth = await (async () => {
-    const user = await requireClerkUser()
-    if (!user) return { error: "Non autenticato.", status: 401 as const }
-    const db = await getCloudflareDb()
-    if (!db) return { error: "Database Cloudflare non disponibile.", status: 500 as const }
-    const principal = await ensureWorkspacePrincipal(db, user)
+    const user = await requireClerkUser();
+    if (!user) return { error: "Non autenticato.", status: 401 as const };
+    const db = await getCloudflareDb();
+    if (!db)
+      return {
+        error: "Database Cloudflare non disponibile.",
+        status: 500 as const,
+      };
+    const principal = await ensureWorkspacePrincipal(db, user);
     if (!AGENT_ADMIN_ROLES.has(principal.role)) {
-      return { error: "Solo direzione e admin possono consultare setup OAuth.", status: 403 as const }
+      return {
+        error: "Solo direzione e admin possono consultare setup OAuth.",
+        status: 403 as const,
+      };
     }
-    return { principal }
-  })()
+    return { principal };
+  })();
 
-  if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status })
+  if ("error" in auth)
+    return Response.json({ error: auth.error }, { status: auth.status });
 
-  const { connectorId } = await context.params
-  const connector = getStrategicMcpConnectors().find((item) => item.id === connectorId)
-  if (!connector) return Response.json({ error: "Connector MCP non supportato." }, { status: 404 })
+  const { connectorId } = await context.params;
+  const connector = getStrategicMcpConnectors().find(
+    (item) => item.id === connectorId,
+  );
+  if (!connector)
+    return Response.json(
+      { error: "Connector MCP non supportato." },
+      { status: 404 },
+    );
 
-  const builder = SETUP_BUILDERS[connectorId] ?? setupForGeneric
-  const guide = builder(connectorId, request)
+  const builder = SETUP_BUILDERS[connectorId] ?? setupForGeneric;
+  const baseGuide = builder(connectorId, request);
+  const isCustomBuilder = Boolean(SETUP_BUILDERS[connectorId]);
+  const guide = isCustomBuilder
+    ? baseGuide
+    : {
+        ...baseGuide,
+        provider: connector.label,
+        authMethod: connector.authMethod as AuthMethod,
+        redirectUri: "",
+        consentUrl: null,
+        scopes: connector.graphUse,
+        setupSteps: connector.setupSteps,
+        envVars: [
+          ...connector.requiredEnv,
+          ...(connector.optionalEnv || []),
+        ].map((name) => ({
+          name,
+          description: connector.requiredEnv.includes(name)
+            ? "Variabile runtime richiesta dal connector"
+            : "Variabile runtime opzionale",
+          sensitive: /TOKEN|SECRET|KEY/i.test(name),
+        })),
+        notes: connector.notes,
+      };
 
   return Response.json({
     connectorId: connector.id,
@@ -345,5 +537,5 @@ export async function GET(
     purpose: connector.purpose,
     notes: connector.notes,
     guide,
-  })
+  });
 }

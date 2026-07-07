@@ -1,121 +1,130 @@
-import type { Timestamp } from "firebase/firestore"
+import type { Timestamp } from "firebase/firestore";
 
 // Existing types (keeping what was already there)
 export interface User {
-  id: string
-  clerkUserId?: string
-  email: string
-  emailMissing?: boolean
-  firstName: string
-  lastName: string
-  role: "super-admin" | "admin" | "direzione" | "capo-reparto" | "junior" | "client"
-  tenantId: string
-  parentTenantId?: string
-  clientId?: string
-  companyName?: string
-  createdAt: Timestamp | Date
-  updatedAt?: Timestamp | Date
-  aiTokensUsed?: number
-  aiTokensLimit?: number
-  isSuspended?: boolean
-  assignedClientIds?: string[]
-  plan?: string
-  stripeSubscriptionId?: string
-  stripeCustomerId?: string
-  stripeConnectedAccountId?: string
-  stripeAccountStatus?: 'pending' | 'active' | 'restricted' | 'rejected'
-  stripeOnboardingComplete?: boolean
-  billingCycleEnd?: string
-  status?: string
-  lastLoginAt?: Timestamp | Date
+  id: string;
+  clerkUserId?: string;
+  email: string;
+  emailMissing?: boolean;
+  firstName: string;
+  lastName: string;
+  role:
+    | "super-admin"
+    | "admin"
+    | "direzione"
+    | "capo-reparto"
+    | "junior"
+    | "freelance"
+    | "client";
+  tenantId: string;
+  parentTenantId?: string;
+  clientId?: string;
+  companyName?: string;
+  createdAt: Timestamp | Date;
+  updatedAt?: Timestamp | Date;
+  aiTokensUsed?: number;
+  aiTokensLimit?: number;
+  isSuspended?: boolean;
+  assignedClientIds?: string[];
+  plan?: string;
+  stripeSubscriptionId?: string;
+  stripeCustomerId?: string;
+  stripeConnectedAccountId?: string;
+  stripeAccountStatus?: "pending" | "active" | "restricted" | "rejected";
+  stripeOnboardingComplete?: boolean;
+  billingCycleEnd?: string;
+  status?: string;
+  lastLoginAt?: Timestamp | Date;
 }
 
 export interface Client {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  company?: string
-  tenantId: string
-  clientTenantId?: string
-  color?: string
-  industry?: string
-  code?: string
-  type?: string
-  source?: string
-  contactName?: string
-  pec?: string
-  vatNumber?: string
-  fiscalCode?: string
-  sdiCode?: string
-  city?: string
-  postalCode?: string
-  workType?: string
-  notes?: string
-  oneDriveFolder?: string
-  oneDriveRemotePath?: string
-  notionUrl?: string
-  contactEmail?: string
-  contactPhone?: string
-  address?: string
-  status?: string
-  stripeCustomerId?: string
-  defaultPaymentMethodId?: string
-  paymentMethodType?: 'card' | 'sepa_debit' | 'bank_transfer'
-  last4?: string // Last 4 digits of card/IBAN for display
-  createdAt: Timestamp | Date
-  updatedAt: Timestamp | Date
-  projectsCount?: number
-  activeTasksCount?: number
-  completedTasksCount?: number
-  totalValue?: number
-  lastActivity?: Timestamp | Date
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  tenantId: string;
+  clientTenantId?: string;
+  color?: string;
+  industry?: string;
+  code?: string;
+  type?: string;
+  source?: string;
+  contactName?: string;
+  pec?: string;
+  vatNumber?: string;
+  fiscalCode?: string;
+  sdiCode?: string;
+  city?: string;
+  postalCode?: string;
+  workType?: string;
+  notes?: string;
+  oneDriveFolder?: string;
+  oneDriveRemotePath?: string;
+  notionUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  address?: string;
+  status?: string;
+  stripeCustomerId?: string;
+  defaultPaymentMethodId?: string;
+  paymentMethodType?: "card" | "sepa_debit" | "bank_transfer";
+  last4?: string; // Last 4 digits of card/IBAN for display
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  projectsCount?: number;
+  activeTasksCount?: number;
+  completedTasksCount?: number;
+  totalValue?: number;
+  canViewEconomics?: boolean;
+  lastActivity?: Timestamp | Date;
 }
 
 export interface ProjectMember {
-  id: string
-  name: string
-  email: string
-  role?: string
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
 }
 
 export interface Project {
-  id: string
-  name: string
-  clientId?: string | null
-  clientName?: string
-  tenantId: string
-  status: "planned" | "active" | "in-progress" | "completed" | "on-hold" | "archived"
-  budgetCents?: number
-  startsAt?: Timestamp | Date | null
-  dueAt?: Timestamp | Date | null
-  members?: ProjectMember[]
-  memberIds?: string[]
-  createdAt: Timestamp | Date
-  updatedAt: Timestamp | Date
+  id: string;
+  name: string;
+  clientId?: string | null;
+  clientName?: string;
+  tenantId: string;
+  status:
+    "planned" | "active" | "in-progress" | "completed" | "on-hold" | "archived";
+  budgetCents?: number;
+  startsAt?: Timestamp | Date | null;
+  dueAt?: Timestamp | Date | null;
+  members?: ProjectMember[];
+  memberIds?: string[];
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 export interface Campaign {
-  id: string
-  name: string
-  description?: string
-  status: "draft" | "active" | "paused" | "completed"
-  startDate: Timestamp
-  endDate?: Timestamp
-  budget?: number
-  clientId: string
-  tenantId: string
-  createdAt: Timestamp
-  updatedAt: Timestamp
-  createdBy: string
+  id: string;
+  name: string;
+  description?: string;
+  status: "draft" | "active" | "paused" | "completed";
+  startDate: Timestamp;
+  endDate?: Timestamp;
+  budget?: number;
+  clientId: string;
+  tenantId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
 }
 
 // Task Management Types
 export interface Task {
-  id: string
-  title: string
-  description?: string
-  richDescription?: string
+  id: string;
+  title: string;
+  description?: string;
+  richDescription?: string;
   status:
     | "todo"
     | "to-do"
@@ -131,112 +140,138 @@ export interface Task {
     | "attivita-ricorrenti"
     | "recurring"
     | "backlog"
-    | "planning"
-  columnId: string
-  priority: "low" | "medium" | "high" | "urgent"
-  type?: string
-  contentType?: "post" | "video" | "campaign" | "analysis" | "website" | "promo-video" | "other"
-  dueDate?: Timestamp | Date | null
-  assignee?: string
-  assignedUserId?: string | null
-  assignmentStatus?: "accepted" | "pending" | "rejected"
-  assignmentRequestedByMemberId?: string | null
-  assignmentRequestedAt?: Timestamp | Date | null
-  assignmentRespondedAt?: Timestamp | Date | null
-  assignmentRejectionReason?: string | null
-  clientId: string
-  clientName?: string
-  projectId?: string | null
-  projectName?: string
-  tenantId: string
-  createdAt: Timestamp | Date
-  updatedAt: Timestamp | Date
-  createdBy?: string
-  tags?: string[]
-  attachments?: TaskAttachment[]
-  comments?: TaskComment[]
-  subItems?: SubItem[]
-  parentItemId?: string | null
-  dependencies?: string[] // IDs of tasks this task depends on
-  estimatedHours?: number
-  actualHours?: number
-  score?: number // For AI optimization
-  generatedAssets?: GeneratedAsset[] // DALL-E generated assets
-  expectedDeliverable?: string // "Sito web responsive", "Logo vettoriale", etc
-  deliverableType?: "file" | "design" | "feature" | "content" | "other"
+    | "planning";
+  columnId: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  workMode?: "office" | "remote";
+  type?: string;
+  contentType?:
+    | "post"
+    | "video"
+    | "campaign"
+    | "analysis"
+    | "website"
+    | "promo-video"
+    | "other";
+  dueDate?: Timestamp | Date | null;
+  assignee?: string;
+  assignedUserId?: string | null;
+  assignmentStatus?: "accepted" | "pending" | "rejected";
+  assignmentRequestedByMemberId?: string | null;
+  assignmentRequestedAt?: Timestamp | Date | null;
+  assignmentRespondedAt?: Timestamp | Date | null;
+  assignmentRejectionReason?: string | null;
+  clientId: string;
+  clientName?: string;
+  projectId?: string | null;
+  projectName?: string;
+  tenantId: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy?: string;
+  tags?: string[];
+  attachments?: TaskAttachment[];
+  comments?: TaskComment[];
+  subItems?: SubItem[];
+  parentItemId?: string | null;
+  dependencies?: string[]; // IDs of tasks this task depends on
+  estimatedHours?: number;
+  actualHours?: number;
+  score?: number; // For AI optimization
+  generatedAssets?: GeneratedAsset[]; // DALL-E generated assets
+  expectedDeliverable?: string; // "Sito web responsive", "Logo vettoriale", etc
+  deliverableType?: "file" | "design" | "feature" | "content" | "other";
 }
 
 export interface GeneratedAsset {
-  id: string
-  url: string // Firebase Storage download URL
-  storagePath: string // For delete operation
-  type: 'image' | 'video' // Type of asset
-  format: 'png' | 'jpg' | 'mp4' // File format
+  id: string;
+  url: string; // Firebase Storage download URL
+  storagePath: string; // For delete operation
+  type: "image" | "video"; // Type of asset
+  format: "png" | "jpg" | "mp4"; // File format
   metadata: {
-    prompt?: string // DALL-E prompt
-    dalleModel?: string // dall-e-3
-    platform?: string // instagram-feed-grid, etc
-    dalleSourceSize?: string // Original DALL-E size
-    targetFormat?: string // Final Instagram format
-    generatedAt: string // ISO timestamp
-    generatedBy: string // User ID
-  }
+    prompt?: string; // DALL-E prompt
+    dalleModel?: string; // dall-e-3
+    platform?: string; // instagram-feed-grid, etc
+    dalleSourceSize?: string; // Original DALL-E size
+    targetFormat?: string; // Final Instagram format
+    generatedAt: string; // ISO timestamp
+    generatedBy: string; // User ID
+  };
 }
 
 export interface TaskAttachment {
-  id: string
-  name: string
-  url: string
-  type: string
-  size: number
-  uploadedAt: Timestamp
-  uploadedBy: string
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  uploadedAt: Timestamp;
+  uploadedBy: string;
+}
+
+export interface TaskCommentMention {
+  id: string;
+  name: string;
+  email?: string;
+}
+
+export interface TaskCommentAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type?: string;
+  size?: number;
+  source?: "task" | "upload";
 }
 
 export interface TaskComment {
-  id: string
-  text: string
-  authorId: string
-  authorName: string
-  authorAvatar?: string | null
-  createdAt: Timestamp | Date
-  updatedAt?: Timestamp | Date
+  id: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string | null;
+  mentions?: TaskCommentMention[];
+  attachments?: TaskCommentAttachment[];
+  createdAt: Timestamp | Date;
+  updatedAt?: Timestamp | Date;
 }
 
 export interface TaskSubItem {
-  id: string
-  title: string
-  completed: boolean
-  createdAt: Timestamp
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: Timestamp;
 }
 
 export interface SubItem {
-  id: string
-  title: string
-  completed: boolean
-  createdAt: Timestamp | Date
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: Timestamp | Date;
 }
 
 // AI Task Optimization Types
 export interface TaskOptimizationRequest {
-  tasks: Task[]
-  columnId: string
-  optimizationType: "blocking_operations" | "priority_based" | "deadline_focused"
-  clientId?: string
+  tasks: Task[];
+  columnId: string;
+  optimizationType:
+    "blocking_operations" | "priority_based" | "deadline_focused";
+  clientId?: string;
 }
 
 export interface TaskOptimizationResponse {
-  optimizedTasks: Task[]
-  reasoning: string
-  estimatedTokens: number
-  actualTokens: number
+  optimizedTasks: Task[];
+  reasoning: string;
+  estimatedTokens: number;
+  actualTokens: number;
 }
 
 export interface AIOptimizationCostEstimate {
-  estimatedTokens: number
-  estimatedCost: string
-  taskCount: number
-  optimizationType: string
+  estimatedTokens: number;
+  estimatedCost: string;
+  taskCount: number;
+  optimizationType: string;
 }
 
 // Editorial Calendar Types
@@ -292,44 +327,44 @@ export enum PostObjective {
 }
 
 export interface EditorialPostVisual {
-  url: string
-  type: "image" | "video" | "document"
-  description?: string
+  url: string;
+  type: "image" | "video" | "document";
+  description?: string;
 }
 
 export interface AIGeneratedContent {
-  id: string
-  postId: string // riferimento al post editorialPosts
-  type: "caption" | "visual" | "hashtags" | "analysis"
-  content: string
+  id: string;
+  postId: string; // riferimento al post editorialPosts
+  type: "caption" | "visual" | "hashtags" | "analysis";
+  content: string;
   metadata?: {
-    score?: number
-    suggestions?: string[]
-    strengths?: string[]
-    improvements?: string[]
-    platform?: SocialPlatform
-    generatedAt: Timestamp
-    model?: string
-    tokensUsed?: number
-  }
-  tenantId: string
-  createdBy: string
-  createdAt: Timestamp
+    score?: number;
+    suggestions?: string[];
+    strengths?: string[];
+    improvements?: string[];
+    platform?: SocialPlatform;
+    generatedAt: Timestamp;
+    model?: string;
+    tokensUsed?: number;
+  };
+  tenantId: string;
+  createdBy: string;
+  createdAt: Timestamp;
 }
 
 export interface EditorialPost {
-  id: string
+  id: string;
 
   // Campi principali (esattamente come nel database Firebase)
-  title: string
-  content: string
-  description?: string
+  title: string;
+  content: string;
+  description?: string;
 
   // Date e programmazione
-  scheduledDate: string // formato "YYYY-MM-DD" come nel database
-  scheduledTime?: string // formato "HH:MM" come nel database
-  createdAt: Timestamp
-  updatedAt: Timestamp
+  scheduledDate: string; // formato "YYYY-MM-DD" come nel database
+  scheduledTime?: string; // formato "HH:MM" come nel database
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 
   // Stato e formato
   status:
@@ -341,7 +376,7 @@ export interface EditorialPost {
     | "programmato"
     | "pubblicato"
     | "rifiutato"
-    | "archiviato"
+    | "archiviato";
   type:
     | "post"
     | "carosello"
@@ -352,7 +387,7 @@ export interface EditorialPost {
     | "newsletter"
     | "podcast"
     | "live"
-    | "altro"
+    | "altro";
   format:
     | "post_singolo"
     | "carosello"
@@ -363,7 +398,7 @@ export interface EditorialPost {
     | "newsletter"
     | "podcast"
     | "live"
-    | "altro"
+    | "altro";
 
   // Piattaforma (singola stringa come nel database)
   platform:
@@ -376,11 +411,11 @@ export interface EditorialPost {
     | "blog"
     | "pinterest"
     | "threads"
-    | "altro"
+    | "altro";
 
   // Contenuti e metadata
-  keywords?: string[] // array di parole chiave
-  hashtags?: string[] // array di hashtag
+  keywords?: string[]; // array di parole chiave
+  hashtags?: string[]; // array di hashtag
 
   // Campi opzionali
   objective?:
@@ -393,43 +428,43 @@ export interface EditorialPost {
     | "brand_building"
     | "educazione"
     | "intrattenimento"
-    | "community"
-  targetAudience?: string
-  notes?: string
+    | "community";
+  targetAudience?: string;
+  notes?: string;
 
   // Identificatori
-  clientId: string
-  tenantId: string
-  createdBy: string
+  clientId: string;
+  tenantId: string;
+  createdBy: string;
 
   // Campi legacy mantenuti per compatibilità (saranno rimossi nella migrazione)
-  name?: string // deprecato, usa title
-  date?: Timestamp // deprecato, usa scheduledDate
-  postType?: string // deprecato, usa type
-  caption?: string // deprecato, usa content
-  visuals?: any[] // deprecato, i media saranno gestiti separatamente
-  attachments?: any[] // deprecato, i media saranno gestiti separatamente
+  name?: string; // deprecato, usa title
+  date?: Timestamp; // deprecato, usa scheduledDate
+  postType?: string; // deprecato, usa type
+  caption?: string; // deprecato, usa content
+  visuals?: any[]; // deprecato, i media saranno gestiti separatamente
+  attachments?: any[]; // deprecato, i media saranno gestiti separatamente
 
   // IMPORTANTE: Rimuovere completamente aiGenerated - sarà spostato in AIGeneratedContent
 }
 
 export interface PostFormData {
-  title: string
-  description?: string
-  content: string
-  platform: string
-  type: string
-  postType: string
-  scheduledDate: string
-  scheduledTime?: string
-  status: string
-  keywords?: string[]
-  hashtags?: string[]
-  mediaUrls?: string[]
-  clientId: string
-  objective?: string
-  targetAudience?: string
-  notes?: string
+  title: string;
+  description?: string;
+  content: string;
+  platform: string;
+  type: string;
+  postType: string;
+  scheduledDate: string;
+  scheduledTime?: string;
+  status: string;
+  keywords?: string[];
+  hashtags?: string[];
+  mediaUrls?: string[];
+  clientId: string;
+  objective?: string;
+  targetAudience?: string;
+  notes?: string;
 }
 
 // Command Bar Types
@@ -460,65 +495,65 @@ export enum CommandIntent {
 }
 
 export interface CommandSuggestion {
-  id: string
-  title: string
-  description?: string
-  icon?: string
-  intent: CommandIntent
-  shortcut?: string
-  category?: "task" | "client" | "campaign" | "navigation" | "ai"
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  intent: CommandIntent;
+  shortcut?: string;
+  category?: "task" | "client" | "campaign" | "navigation" | "ai";
 }
 
 export interface CommandContext {
-  tenantId: string
-  userId: string
-  userRole: string
-  currentView?: string
-  selectedClient?: string
-  availableClients?: Client[]
-  availableUsers?: User[]
+  tenantId: string;
+  userId: string;
+  userRole: string;
+  currentView?: string;
+  selectedClient?: string;
+  availableClients?: Client[];
+  availableUsers?: User[];
   graphIndex?: {
     stats: {
-      nodes: number
-      edges: number
-      completenessScore: number
-      orphanNodes: number
-    }
+      nodes: number;
+      edges: number;
+      completenessScore: number;
+      orphanNodes: number;
+    };
     domains: Array<{
-      id: string
-      label: string
-      count: number
-      connectedCount: number
-      action: string
-    }>
+      id: string;
+      label: string;
+      count: number;
+      connectedCount: number;
+      action: string;
+    }>;
     hubs: Array<{
-      title: string
-      nodeType: string
-      sourceType: string
-      degree: number
-    }>
+      title: string;
+      nodeType: string;
+      sourceType: string;
+      degree: number;
+    }>;
     actions: Array<{
-      label: string
-      description: string
-    }>
-    qualityNotes: string[]
-  }
+      label: string;
+      description: string;
+    }>;
+    qualityNotes: string[];
+  };
 }
 
 export interface NLPResponse {
-  intent: CommandIntent
-  confidence: number
-  entities: Record<string, any>
-  missingParams?: string[]
-  suggestedAction?: string
-  reasoning?: string
-  requiresConfirmation?: boolean
-  source?: "ai" | "deterministic" | "fallback"
+  intent: CommandIntent;
+  confidence: number;
+  entities: Record<string, any>;
+  missingParams?: string[];
+  suggestedAction?: string;
+  reasoning?: string;
+  requiresConfirmation?: boolean;
+  source?: "ai" | "deterministic" | "fallback";
 }
 
 export interface CommandExecutionResult {
-  success: boolean
-  message: string
-  data?: any
-  error?: string
+  success: boolean;
+  message: string;
+  data?: any;
+  error?: string;
 }

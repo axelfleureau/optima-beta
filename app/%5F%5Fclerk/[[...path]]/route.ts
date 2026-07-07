@@ -15,6 +15,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 ])
 
 const RESPONSE_HEADERS_TO_STRIP = new Set(["content-encoding", "content-length"])
+const ALLOWED_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 
 function getDynamicHopByHopHeaders(headers: Headers) {
   const connection = headers.get("connection")
@@ -53,6 +54,28 @@ function jsonError(code: string, message: string, status = 500) {
       },
     },
   )
+}
+
+function getSetCookieHeaders(headers: Headers) {
+  const headersWithSetCookie = headers as Headers & { getSetCookie?: () => string[] }
+  const setCookies = headersWithSetCookie.getSetCookie?.()
+  if (setCookies?.length) return setCookies
+
+  const singleHeader = headers.get("set-cookie")
+  return singleHeader ? [singleHeader] : []
+}
+
+function corsHeaders(request: Request) {
+  const origin = request.headers.get("origin")
+  const requestHeaders = request.headers.get("access-control-request-headers")
+  return {
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods": ALLOWED_METHODS,
+    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Headers": requestHeaders || "Authorization, Content-Type, Clerk-Proxy-Url, Clerk-Secret-Key",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin, Access-Control-Request-Headers",
+  }
 }
 
 async function proxyClerkFrontendApi(request: Request) {
@@ -111,14 +134,15 @@ async function proxyClerkFrontendApi(request: Request) {
 
   response.headers.forEach((value, key) => {
     const lower = key.toLowerCase()
+    if (lower === "set-cookie") return
     if (!HOP_BY_HOP_HEADERS.has(lower) && !RESPONSE_HEADERS_TO_STRIP.has(lower) && !responseDynamicHopByHop.has(lower)) {
-      if (lower === "set-cookie") {
-        responseHeaders.append(key, value)
-      } else {
-        responseHeaders.set(key, value)
-      }
+      responseHeaders.set(key, value)
     }
   })
+
+  for (const cookie of getSetCookieHeaders(response.headers)) {
+    responseHeaders.append("Set-Cookie", cookie)
+  }
 
   const location = response.headers.get("location")
   if (location) {
@@ -144,3 +168,10 @@ export const POST = proxyClerkFrontendApi
 export const PUT = proxyClerkFrontendApi
 export const DELETE = proxyClerkFrontendApi
 export const PATCH = proxyClerkFrontendApi
+
+export function OPTIONS(request: Request) {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders(request),
+  })
+}

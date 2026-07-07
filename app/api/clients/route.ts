@@ -1,38 +1,50 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import { getCloudflareDb } from "@/lib/cloudflare-db"
-import type { NextRequest } from "next/server"
-import { createId } from "@/lib/cloudflare-db"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+import { getCloudflareDb } from "@/lib/cloudflare-db";
+import type { NextRequest } from "next/server";
+import { createId } from "@/lib/cloudflare-db";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import {
+  canBrowseClientDirectory,
+  canViewInternalEconomicData,
+} from "@/lib/workspace-permissions";
 
 // Allineato con `lib/role-hierarchy.ts` -> `canViewAllClients`.
 // Aggiunto `junior` (2026-06-23): i junior possono consultare l'anagrafica
 // clienti per inserire task operative anche quando il task non è ancora
 // legato a un progetto. La creazione/modifica/eliminazione resta gated da
 // `CLIENT_MANAGER_WRITE_ROLES` qui sotto.
-const CLIENT_MANAGER_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto", "junior"])
-const CLIENT_MANAGER_WRITE_ROLES = new Set(["super-admin", "admin", "direzione", "capo-reparto"])
+const CLIENT_MANAGER_WRITE_ROLES = new Set([
+  "super-admin",
+  "admin",
+  "direzione",
+  "capo-reparto",
+]);
 
 function normalizeClientStatus(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : "active"
+  return typeof value === "string" && value.trim() ? value.trim() : "active";
 }
 
 export async function GET() {
   try {
-    const user = await requireClerkUser()
+    const user = await requireClerkUser();
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const db = await getCloudflareDb()
+    const db = await getCloudflareDb();
     if (!db) {
-      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+      return Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      );
     }
 
-    const principal = await ensureWorkspacePrincipal(db, user)
-    const canViewAllClients = CLIENT_MANAGER_ROLES.has(principal.role)
-    const canBrowseClientDirectory = canViewAllClients
+    const principal = await ensureWorkspacePrincipal(db, user);
+    const canViewAllClients = canBrowseClientDirectory(principal.role);
+    const canBrowseFullDirectory = canViewAllClients;
+    const canViewEconomics = canViewInternalEconomicData(principal.role);
     const memberScopedVisibilitySql = `(
       t.assignee_member_id = ?
       OR t.created_by_member_id = ?
@@ -43,7 +55,7 @@ export async function GET() {
           AND tpm.project_id = t.project_id
           AND tpm.member_id = ?
       )
-    )`
+    )`;
     const result = await db
       .prepare(
         `SELECT id, name, email, company, status, created_at, updated_at,
@@ -112,6 +124,13 @@ export async function GET() {
              ? = 1
              OR EXISTS (
                SELECT 1
+               FROM member_client_assignments mca
+               WHERE mca.organization_id = clients.organization_id
+                 AND mca.client_id = clients.id
+                 AND mca.member_id = ?
+             )
+             OR EXISTS (
+               SELECT 1
                FROM tasks vt
                LEFT JOIN projects vtp
                  ON vtp.id = vt.project_id
@@ -160,12 +179,13 @@ export async function GET() {
         principal.memberId,
         principal.memberId,
         principal.organizationId,
-        canBrowseClientDirectory ? 1 : 0,
+        canBrowseFullDirectory ? 1 : 0,
+        principal.memberId,
         principal.memberId,
         principal.memberId,
         principal.memberId,
       )
-      .all()
+      .all();
 
     return Response.json({
       clients: (result.results || []).map((client: any) => ({
@@ -183,7 +203,9 @@ export async function GET() {
         vatNumber: client.vat_number || "",
         fiscalCode: client.fiscal_code || "",
         sdiCode: client.sdi_code || "",
-        address: [client.address, client.city, client.postal_code].filter(Boolean).join(", "),
+        address: [client.address, client.city, client.postal_code]
+          .filter(Boolean)
+          .join(", "),
         city: client.city || "",
         postalCode: client.postal_code || "",
         industry: client.work_type || "",
@@ -198,49 +220,66 @@ export async function GET() {
         projectsCount: Number(client.projects_count || 0),
         activeTasksCount: Number(client.active_tasks_count || 0),
         completedTasksCount: Number(client.completed_tasks_count || 0),
-        totalValue: Number(client.total_value_cents || 0) / 100,
-        lastActivity: client.last_activity_at ? new Date(client.last_activity_at) : null,
+        totalValue: canViewEconomics
+          ? Number(client.total_value_cents || 0) / 100
+          : 0,
+        canViewEconomics,
+        lastActivity: client.last_activity_at
+          ? new Date(client.last_activity_at)
+          : null,
         createdAt: client.created_at ? new Date(client.created_at) : new Date(),
         updatedAt: client.updated_at ? new Date(client.updated_at) : new Date(),
       })),
-    })
+    });
   } catch (error) {
-    console.error("Clients GET error:", error)
-    return Response.json({ error: "Errore nel caricamento dei clienti" }, { status: 500 })
+    console.error("Clients GET error:", error);
+    return Response.json(
+      { error: "Errore nel caricamento dei clienti" },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireClerkUser()
+    const user = await requireClerkUser();
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const db = await getCloudflareDb()
+    const db = await getCloudflareDb();
     if (!db) {
-      return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+      return Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      );
     }
 
-    const principal = await ensureWorkspacePrincipal(db, user)
+    const principal = await ensureWorkspacePrincipal(db, user);
     if (!CLIENT_MANAGER_WRITE_ROLES.has(principal.role)) {
-      return Response.json({ error: "Permessi insufficienti" }, { status: 403 })
+      return Response.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      );
     }
 
-    const body = await request.json()
-    const name = typeof body.name === "string" ? body.name.trim() : ""
+    const body = await request.json();
+    const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name) {
-      return Response.json({ error: "Il nome del cliente è obbligatorio" }, { status: 400 })
+      return Response.json(
+        { error: "Il nome del cliente è obbligatorio" },
+        { status: 400 },
+      );
     }
 
-    const clientId = createId("client")
-    const now = new Date().toISOString()
+    const clientId = createId("client");
+    const now = new Date().toISOString();
     const email =
       typeof body.contactEmail === "string" && body.contactEmail.trim()
         ? body.contactEmail.trim()
         : typeof body.email === "string"
           ? body.email.trim()
-          : ""
+          : "";
 
     await db
       .prepare(
@@ -252,12 +291,14 @@ export async function POST(request: NextRequest) {
         principal.organizationId,
         name,
         email,
-        typeof body.company === "string" && body.company.trim() ? body.company.trim() : name,
+        typeof body.company === "string" && body.company.trim()
+          ? body.company.trim()
+          : name,
         normalizeClientStatus(body.status),
         now,
         now,
       )
-      .run()
+      .run();
 
     return Response.json(
       {
@@ -266,7 +307,10 @@ export async function POST(request: NextRequest) {
           name,
           email,
           contactEmail: email,
-          company: typeof body.company === "string" && body.company.trim() ? body.company.trim() : name,
+          company:
+            typeof body.company === "string" && body.company.trim()
+              ? body.company.trim()
+              : name,
           tenantId: principal.organizationId,
           status: normalizeClientStatus(body.status),
           color: "bg-gradient-to-br from-righello-pink to-righello-cyan",
@@ -279,12 +323,17 @@ export async function POST(request: NextRequest) {
         },
       },
       { status: 201 },
-    )
+    );
   } catch (error) {
-    console.error("Clients POST error:", error)
+    console.error("Clients POST error:", error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "Errore durante la creazione del cliente" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Errore durante la creazione del cliente",
+      },
       { status: 500 },
-    )
+    );
   }
 }

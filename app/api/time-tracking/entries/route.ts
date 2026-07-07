@@ -1,111 +1,347 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import type { NextRequest } from "next/server"
-import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
-import { canManageTime, normalizeDate, normalizeMinutes } from "@/lib/time-tracking"
+import type { NextRequest } from "next/server";
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { syncTaskActualMinutesFromEntries } from "@/lib/time-entry-sync";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import {
+  canManageTime,
+  normalizeDate,
+  normalizeMinutes,
+  usesTaskOnlyWorkLog,
+} from "@/lib/time-tracking";
+import { isExternalWorkspaceMember } from "@/lib/workspace-permissions";
+
+function normalizeNullableId(value: unknown) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  const lower = normalized.toLowerCase();
+  if (
+    !normalized ||
+    ["tenant", "all", "none", "null", "undefined"].includes(lower) ||
+    lower.includes("nessun cliente")
+  ) {
+    return null;
+  }
+  return normalized;
+}
+
+function normalizeWorkMode(value: unknown) {
+  return value === "remote" || value === true ? "remote" : "office";
+}
+
+const ACTIVITY_CATEGORIES = [
+  "Strategia e pianificazione",
+  "Creatività e produzione",
+  "Account e project management",
+  "Digital e media",
+  "PR e relazioni esterne",
+  "Attività interna non fatturabile",
+];
+
+function normalizeBillable(value: unknown, category: string) {
+  if (category === "Attività interna non fatturabile") return 0;
+  return value === false || value === "false" || value === 0 ? 0 : 1;
+}
+
+function normalizeActivityCategory(value: unknown) {
+  const category = String(value || "").trim();
+  return ACTIVITY_CATEGORIES.includes(category) ? category : "";
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireClerkUser()
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await requireClerkUser();
+    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = await getCloudflareDb()
-    if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+    const db = await getCloudflareDb();
+    if (!db)
+      return Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      );
 
-    const principal = await ensureWorkspacePrincipal(db, user)
-    const body = await request.json()
-    const isManager = canManageTime(principal)
-    const memberId = isManager && body.memberId ? String(body.memberId) : principal.memberId
-    const date = normalizeDate(body.date)
-    const minutes = normalizeMinutes(body.minutes)
-    const note = String(body.note || "").trim()
-    let projectId = body.projectId ? String(body.projectId) : null
-    const taskId = body.taskId ? String(body.taskId) : null
-    let clientId = body.clientId ? String(body.clientId) : null
+    const principal = await ensureWorkspacePrincipal(db, user);
+    const body = await request.json();
+    const isManager = canManageTime(principal);
+    let memberId =
+      isManager && body.memberId ? String(body.memberId) : principal.memberId;
+    const date = normalizeDate(body.date);
+    const minutes = normalizeMinutes(body.minutes);
+    const note = String(body.note || "").trim();
+    let projectId = normalizeNullableId(body.projectId);
+    const taskId = normalizeNullableId(body.taskId);
+    let clientId = normalizeNullableId(body.clientId);
+    const workMode = normalizeWorkMode(body.workMode ?? body.isRemote);
+    const activityCategory = normalizeActivityCategory(body.activityCategory);
+    const billable = normalizeBillable(body.billable, activityCategory);
+    const entryNote = activityCategory ? `[${activityCategory}] ${note}` : note;
 
     if (!note) {
-      return Response.json({ error: "Descrivi l'attività svolta" }, { status: 400 })
+      return Response.json(
+        { error: "Descrivi l'attività svolta" },
+        { status: 400 },
+      );
     }
 
     const member = await db
-      .prepare(`SELECT id FROM members WHERE organization_id = ? AND id = ? LIMIT 1`)
+      .prepare(
+        `SELECT id, first_name, last_name, email, role
+         FROM members
+         WHERE organization_id = ? AND id = ?
+         LIMIT 1`,
+      )
       .bind(principal.organizationId, memberId)
-      .first()
+      .first();
 
     if (!member || (!isManager && memberId !== principal.memberId)) {
-      return Response.json({ error: "Dipendente non autorizzato" }, { status: 403 })
+      return Response.json(
+        { error: "Dipendente non autorizzato" },
+        { status: 403 },
+      );
     }
+
+    const isExternalSelf =
+      !isManager && isExternalWorkspaceMember((member as any).role);
+    const memberUsesTaskOnlyWorkLog = usesTaskOnlyWorkLog((member as any).role);
 
     if (taskId) {
       const task = await db
         .prepare(
-          `SELECT id, project_id, client_id
+          `SELECT id, project_id, client_id, assignee_member_id
            FROM tasks
            WHERE organization_id = ?
              AND id = ?
              AND (? = 1 OR assignee_member_id = ? OR created_by_member_id = ?)
            LIMIT 1`,
         )
-        .bind(principal.organizationId, taskId, isManager ? 1 : 0, memberId, memberId)
-        .first()
+        .bind(
+          principal.organizationId,
+          taskId,
+          isManager ? 1 : 0,
+          memberId,
+          memberId,
+        )
+        .first();
 
       if (!task) {
-        return Response.json({ error: "Task non disponibile per questo dipendente" }, { status: 400 })
+        return Response.json(
+          { error: "Task non disponibile per questo dipendente" },
+          { status: 400 },
+        );
       }
 
-      projectId = projectId || String((task as any).project_id || "") || null
-      clientId = clientId || String((task as any).client_id || "") || null
+      const taskAssigneeMemberId = String(
+        (task as any).assignee_member_id || "",
+      );
+      if (taskAssigneeMemberId && memberId !== taskAssigneeMemberId) {
+        if (!isManager) {
+          return Response.json(
+            { error: "Task non assegnata a questo dipendente" },
+            { status: 403 },
+          );
+        }
+        memberId = taskAssigneeMemberId;
+      }
+
+      projectId = projectId || normalizeNullableId((task as any).project_id);
+      clientId = clientId || normalizeNullableId((task as any).client_id);
     }
 
     if (projectId) {
       const project = await db
         .prepare(
-          `SELECT id, client_id
-           FROM projects
-           WHERE organization_id = ? AND id = ?
+          `SELECT p.id, p.client_id
+           FROM projects p
+           WHERE p.organization_id = ?
+             AND p.id = ?
+             AND (
+               ? = 0
+               OR EXISTS (
+                 SELECT 1
+                 FROM project_members pm
+                 WHERE pm.organization_id = p.organization_id
+                   AND pm.project_id = p.id
+                   AND pm.member_id = ?
+               )
+             )
            LIMIT 1`,
         )
-        .bind(principal.organizationId, projectId)
-        .first()
+        .bind(
+          principal.organizationId,
+          projectId,
+          isExternalSelf && !taskId ? 1 : 0,
+          memberId,
+        )
+        .first();
 
       if (!project) {
-        return Response.json({ error: "Progetto non disponibile" }, { status: 400 })
+        return Response.json(
+          { error: "Progetto non disponibile" },
+          { status: 400 },
+        );
       }
 
-      clientId = clientId || String((project as any).client_id || "") || null
+      clientId = clientId || normalizeNullableId((project as any).client_id);
     }
 
+    let clientName = "";
     if (clientId) {
       const client = await db
         .prepare(
-          `SELECT id
+          `SELECT id, name
            FROM clients
-           WHERE organization_id = ? AND id = ?
+           WHERE organization_id = ?
+             AND id = ?
+             AND (
+               ? = 0
+               OR EXISTS (
+                 SELECT 1
+                 FROM member_client_assignments mca
+                 WHERE mca.organization_id = clients.organization_id
+                   AND mca.client_id = clients.id
+                   AND mca.member_id = ?
+               )
+             )
            LIMIT 1`,
         )
-        .bind(principal.organizationId, clientId)
-        .first()
+        .bind(
+          principal.organizationId,
+          clientId,
+          isExternalSelf && !projectId && !taskId ? 1 : 0,
+          memberId,
+        )
+        .first();
 
       if (!client) {
-        return Response.json({ error: "Cliente non disponibile" }, { status: 400 })
+        return Response.json(
+          { error: "Cliente non disponibile per questo dipendente" },
+          { status: 403 },
+        );
+      } else {
+        clientName = String((client as any).name || "");
       }
     }
 
-    const entryId = createId("time")
+    const linkedTaskId = taskId || createId("task");
+    if (!taskId) {
+      const now = new Date().toISOString();
+      const taskWorkDateTime = `${date}T12:00:00+02:00`;
+      const assigneeName =
+        `${(member as any).first_name || ""} ${(member as any).last_name || ""}`.trim() ||
+        String((member as any).email || "");
+
+      await db
+        .prepare(
+          `INSERT INTO tasks
+           (
+             id, organization_id, project_id, assignee_member_id, title,
+             description, status, priority, estimated_minutes, actual_minutes,
+             due_at, created_at, updated_at, column_id, client_id, client_name,
+             work_mode, type, score, rich_description, assignee_name,
+             tags_json, attachments_json, comments_json, sub_items_json,
+             parent_item_id, created_by_member_id, assignment_status,
+             assignment_requested_by_member_id, assignment_requested_at,
+             assignment_responded_at, assignment_rejection_reason
+           )
+             VALUES (?, ?, ?, ?, ?, ?, 'done', 'medium', ?, ?, ?, ?, ?, 'done', ?, ?, ?, ?, 0, ?, ?, '[]', '[]', '[]', '[]', NULL, ?, 'accepted', ?, ?, ?, NULL)`,
+        )
+        .bind(
+          linkedTaskId,
+          principal.organizationId,
+          projectId,
+          memberId,
+          note,
+          "Auto-creata da attività inserita nel rapportino.",
+          minutes,
+          minutes,
+          taskWorkDateTime,
+          taskWorkDateTime,
+          now,
+          clientId,
+          clientName,
+          workMode,
+          activityCategory || "rapportino",
+          note,
+          assigneeName,
+          principal.memberId,
+          principal.memberId,
+          now,
+          now,
+        )
+        .run();
+    }
+
+    const entryId = createId("time");
     await db
       .prepare(
         `INSERT INTO time_entries
-         (id, organization_id, member_id, task_id, project_id, client_id, entry_date, minutes, billable, note)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+         (id, organization_id, member_id, task_id, project_id, client_id, entry_date, minutes, billable, note, work_mode)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(entryId, principal.organizationId, memberId, taskId, projectId, clientId, date, minutes, note)
-      .run()
+      .bind(
+        entryId,
+        principal.organizationId,
+        memberId,
+        linkedTaskId,
+        projectId,
+        clientId,
+        date,
+        minutes,
+        billable,
+        entryNote,
+        workMode,
+      )
+      .run();
 
-    return Response.json({ success: true, id: entryId }, { status: 201 })
+    await db
+      .prepare(
+        `INSERT INTO work_days (
+           id, organization_id, member_id, entry_date, status,
+           review_status, submitted_at, submitted_by_member_id
+         )
+         VALUES (?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP, ?)
+         ON CONFLICT(organization_id, member_id, entry_date) DO UPDATE SET
+           status = CASE
+             WHEN ? = 1 THEN 'closed'
+             WHEN work_days.status = 'absent' THEN 'open'
+             ELSE work_days.status
+           END,
+           review_status = 'submitted',
+           submitted_at = CURRENT_TIMESTAMP,
+           submitted_by_member_id = ?,
+           reviewed_at = NULL,
+           reviewed_by_member_id = NULL,
+           review_notes = NULL,
+           updated_at = CURRENT_TIMESTAMP`,
+      )
+      .bind(
+        createId("day"),
+        principal.organizationId,
+        memberId,
+        date,
+        memberUsesTaskOnlyWorkLog ? "closed" : "open",
+        principal.memberId,
+        memberUsesTaskOnlyWorkLog ? 1 : 0,
+        principal.memberId,
+      )
+      .run();
+
+    if (linkedTaskId) {
+      await syncTaskActualMinutesFromEntries(
+        db,
+        principal.organizationId,
+        linkedTaskId,
+      );
+    }
+
+    return Response.json({ success: true, id: entryId }, { status: 201 });
   } catch (error) {
-    console.error("Time tracking entry POST error:", error)
-    return Response.json({ error: "Errore durante il salvataggio attività" }, { status: 500 })
+    console.error("Time tracking entry POST error:", error);
+    return Response.json(
+      { error: "Errore durante il salvataggio attività" },
+      { status: 500 },
+    );
   }
 }

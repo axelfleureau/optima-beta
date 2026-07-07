@@ -1,52 +1,65 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import type { NextRequest } from "next/server"
+import type { NextRequest } from "next/server";
 
-import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
-import { generateShareToken } from "@/lib/quote-utils"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
+import { generateShareToken } from "@/lib/quote-utils";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { canViewInternalEconomicData } from "@/lib/workspace-permissions";
 
 function getPublicOrigin(request: NextRequest) {
-  const forwardedHost = request.headers.get("x-forwarded-host")
-  const forwardedProto = request.headers.get("x-forwarded-proto") || "https"
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
   if (forwardedHost) {
-    return `${forwardedProto}://${forwardedHost}`
+    return `${forwardedProto}://${forwardedHost}`;
   }
 
-  return request.headers.get("origin") || new URL(request.url).origin
+  return request.headers.get("origin") || new URL(request.url).origin;
 }
 
 function parseShareRecord(row: any) {
-  if (!row?.raw_json) return ""
+  if (!row?.raw_json) return "";
   try {
-    const raw = JSON.parse(String(row.raw_json))
-    return typeof raw.shareToken === "string" ? raw.shareToken : ""
+    const raw = JSON.parse(String(row.raw_json));
+    return typeof raw.shareToken === "string" ? raw.shareToken : "";
   } catch {
-    return ""
+    return "";
   }
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await requireClerkUser()
+    const user = await requireClerkUser();
     if (!user) {
-      return Response.json({ error: "Sessione non valida o scaduta" }, { status: 401 })
+      return Response.json(
+        { error: "Sessione non valida o scaduta" },
+        { status: 401 },
+      );
     }
 
-    const db = await getCloudflareDb()
+    const db = await getCloudflareDb();
     if (!db) {
-      return Response.json({ error: "Database Cloudflare non disponibile" }, { status: 500 })
+      return Response.json(
+        { error: "Database Cloudflare non disponibile" },
+        { status: 500 },
+      );
     }
 
-    const principal = await ensureWorkspacePrincipal(db, user)
+    const principal = await ensureWorkspacePrincipal(db, user);
+    if (!canViewInternalEconomicData(principal.role)) {
+      return Response.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      );
+    }
 
-    const { id: quoteId } = await params
+    const { id: quoteId } = await params;
     if (!quoteId) {
-      return Response.json({ error: "Quote ID mancante" }, { status: 400 })
+      return Response.json({ error: "Quote ID mancante" }, { status: 400 });
     }
 
     const quote = await db
@@ -57,10 +70,13 @@ export async function POST(
          LIMIT 1`,
       )
       .bind(principal.organizationId, quoteId)
-      .first()
+      .first();
 
     if (!quote?.id) {
-      return Response.json({ error: "Preventivo non trovato" }, { status: 404 })
+      return Response.json(
+        { error: "Preventivo non trovato" },
+        { status: 404 },
+      );
     }
 
     const existingShare = await db
@@ -75,17 +91,17 @@ export async function POST(
          LIMIT 1`,
       )
       .bind(principal.organizationId, quoteId)
-      .first()
+      .first();
 
-    const shareToken = parseShareRecord(existingShare) || generateShareToken()
-    const publicUrl = `${getPublicOrigin(request)}/quotes/public/${shareToken}`
+    const shareToken = parseShareRecord(existingShare) || generateShareToken();
+    const publicUrl = `${getPublicOrigin(request)}/quotes/public/${shareToken}`;
     const sharePayload = JSON.stringify({
       shareToken,
       publicUrl,
       quoteId,
       sentAt: new Date().toISOString(),
-    })
-    const sourceId = `source_quote_public_${principal.organizationId}`
+    });
+    const sourceId = `source_quote_public_${principal.organizationId}`;
 
     await db
       .prepare(
@@ -95,7 +111,7 @@ export async function POST(
          WHERE organization_id = ? AND id = ?`,
       )
       .bind(principal.organizationId, quoteId)
-      .run()
+      .run();
 
     await db
       .prepare(
@@ -104,7 +120,7 @@ export async function POST(
         ) VALUES (?, ?, 'optima', 'system', 'quote_public_sharing', 'Optima public quote sharing', 'quotes', 'manual', '{}', '[]', '[]')`,
       )
       .bind(sourceId, principal.organizationId)
-      .run()
+      .run();
 
     if (existingShare?.id) {
       await db
@@ -129,7 +145,7 @@ export async function POST(
           principal.organizationId,
           existingShare.id,
         )
-        .run()
+        .run();
     } else {
       await db
         .prepare(
@@ -151,19 +167,24 @@ export async function POST(
           sharePayload,
           sharePayload,
         )
-        .run()
+        .run();
     }
 
     return Response.json({
       success: true,
       publicUrl,
       shareToken,
-    })
+    });
   } catch (error) {
-    console.error("Error sending quote:", error)
+    console.error("Error sending quote:", error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "Errore nell'invio del preventivo" },
-      { status: 500 }
-    )
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Errore nell'invio del preventivo",
+      },
+      { status: 500 },
+    );
   }
 }

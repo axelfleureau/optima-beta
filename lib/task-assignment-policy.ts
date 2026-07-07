@@ -4,13 +4,14 @@ const ROLE_LEVELS: Record<string, number> = {
   direzione: 4,
   "capo-reparto": 3,
   junior: 2,
+  freelance: 1,
   client: 1,
-}
+};
 
-export type TaskAssignmentStatus = "accepted" | "pending" | "rejected"
+export type TaskAssignmentStatus = "accepted" | "pending" | "rejected";
 
 export function getRoleLevel(role: unknown) {
-  return ROLE_LEVELS[String(role || "").toLowerCase()] || 0
+  return ROLE_LEVELS[String(role || "").toLowerCase()] || 0;
 }
 
 export function requiresAssignmentAcceptance({
@@ -19,22 +20,22 @@ export function requiresAssignmentAcceptance({
   assignerMemberId,
   assigneeMemberId,
 }: {
-  assignerRole: unknown
-  assigneeRole: unknown
-  assignerMemberId: string
-  assigneeMemberId?: string | null
+  assignerRole: unknown;
+  assigneeRole: unknown;
+  assignerMemberId: string;
+  assigneeMemberId?: string | null;
 }) {
-  if (!assigneeMemberId || assignerMemberId === assigneeMemberId) return false
+  if (!assigneeMemberId || assignerMemberId === assigneeMemberId) return false;
 
-  const assignerLevel = getRoleLevel(assignerRole)
-  const assigneeLevel = getRoleLevel(assigneeRole)
+  const assignerLevel = getRoleLevel(assignerRole);
+  const assigneeLevel = getRoleLevel(assigneeRole);
 
-  return assignerLevel > 0 && assignerLevel === assigneeLevel
+  return assignerLevel > 0 && assignerLevel === assigneeLevel;
 }
 
 export function buildMemberDisplayName(member: any) {
   return (
     [member?.first_name, member?.last_name].filter(Boolean).join(" ").trim() ||
     String(member?.email || "")
-  )
+  );
 }

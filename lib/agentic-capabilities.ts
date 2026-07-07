@@ -1,14 +1,20 @@
-import { createId } from "@/lib/cloudflare-db"
-import type { WorkspacePrincipal } from "@/lib/workspace-db"
-import { getStrategicMcpConnectors, type StrategicMcpConnector } from "@/lib/mcp-connectors"
-import { safeAll } from "@/lib/operational-context"
-import { getRuntimeSecret } from "@/lib/ai/openai-runtime"
-import { getHermesBlueprint } from "@/lib/hermes-reference"
+import { createId } from "@/lib/cloudflare-db";
+import type { WorkspacePrincipal } from "@/lib/workspace-db";
+import {
+  getStrategicMcpConnectors,
+  type StrategicMcpConnector,
+} from "@/lib/mcp-connectors";
+import { safeAll } from "@/lib/operational-context";
+import { getRuntimeSecret } from "@/lib/ai/openai-runtime";
+import { getHermesBlueprint } from "@/lib/hermes-reference";
 
-export type AgenticProviderKind = "ai_model" | "code_agent" | "media_model" | "local_model" | "router"
-export type AgenticModelLane = "code" | "research" | "media" | "operations" | "chat" | "router"
-export type AgenticModelMode = "hosted" | "self_hosted" | "gateway" | "router"
-export type AgenticRuntimeStatus = "ready" | "needs_secret" | "needs_endpoint" | "reference_only"
+export type AgenticProviderKind =
+  "ai_model" | "code_agent" | "media_model" | "local_model" | "router";
+export type AgenticModelLane =
+  "code" | "research" | "media" | "operations" | "chat" | "router";
+export type AgenticModelMode = "hosted" | "self_hosted" | "gateway" | "router";
+export type AgenticRuntimeStatus =
+  "ready" | "needs_secret" | "needs_endpoint" | "reference_only";
 export type AgenticAuthMethod =
   | "none"
   | "oauth_pkce"
@@ -19,149 +25,156 @@ export type AgenticAuthMethod =
   | "local_install"
   | "external_oauth"
   | "browser_session_oauth"
-  | "device_flow"
+  | "device_flow";
 
-export type AgenticInstallState = "not_installed" | "guide_required" | "configured" | "healthy" | "blocked" | "installed"
+export type AgenticInstallState =
+  | "not_installed"
+  | "guide_required"
+  | "configured"
+  | "healthy"
+  | "blocked"
+  | "installed";
 
 export interface AgenticProviderSpec {
-  id: string
-  label: string
-  kind: AgenticProviderKind
-  defaultModel: string
-  lane: AgenticModelLane
-  authMethod: AgenticAuthMethod
-  installPattern: string
-  tenantUse: string
-  strengths: string[]
-  requiredSecrets: string[]
-  recommendedMcpConnectors: string[]
-  notes: string
+  id: string;
+  label: string;
+  kind: AgenticProviderKind;
+  defaultModel: string;
+  lane: AgenticModelLane;
+  authMethod: AgenticAuthMethod;
+  installPattern: string;
+  tenantUse: string;
+  strengths: string[];
+  requiredSecrets: string[];
+  recommendedMcpConnectors: string[];
+  notes: string;
 }
 
 export interface AgenticModelHostSpec {
-  id: string
-  label: string
-  providerId: string
-  lane: AgenticModelLane
-  mode: AgenticModelMode
-  defaultModel: string
-  runtimeAdapter: "openai_compatible" | "codex_cli" | "local_gateway"
-  apiKeyEnv: string | null
-  baseUrlEnv: string | null
-  endpointEnv: string | null
-  secretRefHint: string | null
-  dataPolicy: string
-  installSteps: string[]
+  id: string;
+  label: string;
+  providerId: string;
+  lane: AgenticModelLane;
+  mode: AgenticModelMode;
+  defaultModel: string;
+  runtimeAdapter: "openai_compatible" | "codex_cli" | "local_gateway";
+  apiKeyEnv: string | null;
+  baseUrlEnv: string | null;
+  endpointEnv: string | null;
+  secretRefHint: string | null;
+  dataPolicy: string;
+  installSteps: string[];
 }
 
 export interface AgenticProviderInstallation {
-  id: string
-  organizationId: string
-  providerId: string
-  providerKind: string
-  displayName: string
-  status: string
-  authMethod: string
-  installState: AgenticInstallState
-  tenantPolicy: Record<string, unknown>
-  config: Record<string, unknown>
-  secretRef: string | null
-  installedByMemberId: string | null
-  installedAt: string | null
-  createdAt: string
-  updatedAt: string
+  id: string;
+  organizationId: string;
+  providerId: string;
+  providerKind: string;
+  displayName: string;
+  status: string;
+  authMethod: string;
+  installState: AgenticInstallState;
+  tenantPolicy: Record<string, unknown>;
+  config: Record<string, unknown>;
+  secretRef: string | null;
+  installedByMemberId: string | null;
+  installedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AgenticModelRoute {
-  id: string
-  organizationId: string
-  lane: AgenticModelLane
-  providerId: string
-  model: string
-  mode: AgenticModelMode
-  status: string
-  priority: number
-  endpointRef: string | null
-  secretRef: string | null
-  config: Record<string, unknown>
-  lastHealthAt: string | null
-  lastHealthStatus: string | null
-  createdByMemberId: string | null
-  createdAt: string
-  updatedAt: string
+  id: string;
+  organizationId: string;
+  lane: AgenticModelLane;
+  providerId: string;
+  model: string;
+  mode: AgenticModelMode;
+  status: string;
+  priority: number;
+  endpointRef: string | null;
+  secretRef: string | null;
+  config: Record<string, unknown>;
+  lastHealthAt: string | null;
+  lastHealthStatus: string | null;
+  createdByMemberId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AgenticModelRuntimeSnapshot {
   hosts: Array<
     AgenticModelHostSpec & {
-      runtimeStatus: AgenticRuntimeStatus
-      runtimeDetail: string
+      runtimeStatus: AgenticRuntimeStatus;
+      runtimeDetail: string;
     }
-  >
-  routes: AgenticModelRoute[]
+  >;
+  routes: AgenticModelRoute[];
   lanePlan: Array<{
-    lane: AgenticModelLane
-    providerId: string
-    model: string
-    mode: AgenticModelMode
-    source: "tenant_route" | "default_host"
-    status: string
-    runtimeStatus: AgenticRuntimeStatus
-  }>
+    lane: AgenticModelLane;
+    providerId: string;
+    model: string;
+    mode: AgenticModelMode;
+    source: "tenant_route" | "default_host";
+    status: string;
+    runtimeStatus: AgenticRuntimeStatus;
+  }>;
 }
 
-export type AgenticExecutionContext = "interactive_chat" | "agent_job" | "scheduled_job" | "subagent_handoff"
+export type AgenticExecutionContext =
+  "interactive_chat" | "agent_job" | "scheduled_job" | "subagent_handoff";
 
 export interface NativeAgenticRuntimePolicy {
-  source: "optima_native_hermes_derived"
+  source: "optima_native_hermes_derived";
   contexts: Array<{
-    id: AgenticExecutionContext
-    label: string
-    allowedToolsets: string[]
-    blockedToolsets: string[]
-    requiredReview: string[]
-    notes: string
-  }>
+    id: AgenticExecutionContext;
+    label: string;
+    allowedToolsets: string[];
+    blockedToolsets: string[];
+    requiredReview: string[];
+    notes: string;
+  }>;
   lanePolicies: Array<{
-    lane: AgenticModelLane
-    defaultProviderId: string
-    allowedConnectors: string[]
-    blockedActions: string[]
-    fallbackProviderId: string | null
-  }>
-  rules: string[]
+    lane: AgenticModelLane;
+    defaultProviderId: string;
+    allowedConnectors: string[];
+    blockedActions: string[];
+    fallbackProviderId: string | null;
+  }>;
+  rules: string[];
 }
 
 export interface AgenticTenantIsolation {
-  organizationId: string
-  memberId: string
-  secretBoundary: "secret_ref_only"
-  dataBoundary: "organization_id"
-  runnerBoundary: "job_payload_scoped"
-  graphBoundary: "tenant_scoped_nodes_edges_sessions"
-  reviewBoundary: "irreversible_actions_require_review"
-  defaultBootstrapActions: string[]
-  warnings: string[]
+  organizationId: string;
+  memberId: string;
+  secretBoundary: "secret_ref_only";
+  dataBoundary: "organization_id";
+  runnerBoundary: "job_payload_scoped";
+  graphBoundary: "tenant_scoped_nodes_edges_sessions";
+  reviewBoundary: "irreversible_actions_require_review";
+  defaultBootstrapActions: string[];
+  warnings: string[];
 }
 
 export interface McpConnectorInstallation {
-  id: string
-  organizationId: string
-  connectorId: string
-  displayName: string
-  status: string
-  authMethod: AgenticAuthMethod
-  installState: AgenticInstallState
-  scopes: string[]
-  config: Record<string, unknown>
-  secretRef: string | null
-  oauthSubject: string | null
-  installedByMemberId: string | null
-  installedAt: string | null
-  lastHealthAt: string | null
-  lastHealthStatus: string | null
-  createdAt: string
-  updatedAt: string
+  id: string;
+  organizationId: string;
+  connectorId: string;
+  displayName: string;
+  status: string;
+  authMethod: AgenticAuthMethod;
+  installState: AgenticInstallState;
+  scopes: string[];
+  config: Record<string, unknown>;
+  secretRef: string | null;
+  oauthSubject: string | null;
+  installedByMemberId: string | null;
+  installedAt: string | null;
+  lastHealthAt: string | null;
+  lastHealthStatus: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type AgenticConnectorSetupKind =
@@ -170,79 +183,84 @@ export type AgenticConnectorSetupKind =
   | "github_owner"
   | "runtime"
   | "service_account"
-  | "secret_ref"
+  | "secret_ref";
 
 export type AgenticConnectorOperationalState =
   | "connected"
   | "ready_to_connect"
   | "needs_runtime"
   | "needs_review"
-  | "blocked"
+  | "blocked";
 
 export interface AgenticConnectorSetupStatus {
-  connectorId: string
-  label: string
-  category: string
-  setupKind: AgenticConnectorSetupKind
-  authMethod: AgenticAuthMethod
-  installState: AgenticInstallState
-  operationalState: AgenticConnectorOperationalState
-  operationalLabel: string
-  catalogStatus: string
-  healthOk: boolean
-  healthLabel: string
-  primaryAction: "open_oauth" | "open_browser_pairing" | "open_github_policy" | "run_health_check" | "save_secret_ref"
-  primaryActionLabel: string
-  primaryActionAvailable: boolean
-  primaryIntent: string
-  verifyActionLabel: string
-  nextAction: string
-  requirementLabel: string
-  blockedReason: string | null
-  canStartOauth: boolean
-  canStartBrowserPairing: boolean
-  canRunHealthCheck: boolean
-  requiredEnv: string[]
-  missingRuntimeEnv: string[]
-  lastHealthAt: string | null
-  lastHealthStatus: string | null
-  secretRef: string | null
-  oauthSubject: string | null
+  connectorId: string;
+  label: string;
+  category: string;
+  setupKind: AgenticConnectorSetupKind;
+  authMethod: AgenticAuthMethod;
+  installState: AgenticInstallState;
+  operationalState: AgenticConnectorOperationalState;
+  operationalLabel: string;
+  catalogStatus: string;
+  healthOk: boolean;
+  healthLabel: string;
+  primaryAction:
+    | "open_oauth"
+    | "open_browser_pairing"
+    | "open_github_policy"
+    | "run_health_check"
+    | "save_secret_ref";
+  primaryActionLabel: string;
+  primaryActionAvailable: boolean;
+  primaryIntent: string;
+  verifyActionLabel: string;
+  nextAction: string;
+  requirementLabel: string;
+  blockedReason: string | null;
+  canStartOauth: boolean;
+  canStartBrowserPairing: boolean;
+  canRunHealthCheck: boolean;
+  requiredEnv: string[];
+  missingRuntimeEnv: string[];
+  lastHealthAt: string | null;
+  lastHealthStatus: string | null;
+  secretRef: string | null;
+  oauthSubject: string | null;
 }
 
 export interface AgentSubagent {
-  id: string
-  organizationId: string
-  name: string
-  slug: string
-  lane: string
-  status: string
-  primaryProviderId: string
-  modelHint: string | null
-  connectorIds: string[]
-  systemPrompt: string
-  permissions: Record<string, unknown>
-  handoffPolicy: Record<string, unknown>
-  createdByMemberId: string | null
-  createdAt: string
-  updatedAt: string
+  id: string;
+  organizationId: string;
+  name: string;
+  slug: string;
+  lane: string;
+  status: string;
+  primaryProviderId: string;
+  modelHint: string | null;
+  connectorIds: string[];
+  systemPrompt: string;
+  permissions: Record<string, unknown>;
+  handoffPolicy: Record<string, unknown>;
+  createdByMemberId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AgenticCapabilitySnapshot {
-  providerCatalog: AgenticProviderSpec[]
-  mcpConnectorCatalog: ReturnType<typeof getStrategicMcpConnectors>
-  providerInstallations: AgenticProviderInstallation[]
-  connectorInstallations: McpConnectorInstallation[]
-  connectorSetupStatuses: AgenticConnectorSetupStatus[]
-  subagents: AgentSubagent[]
-  modelRuntime: AgenticModelRuntimeSnapshot
+  providerCatalog: AgenticProviderSpec[];
+  mcpConnectorCatalog: ReturnType<typeof getStrategicMcpConnectors>;
+  providerInstallations: AgenticProviderInstallation[];
+  connectorInstallations: McpConnectorInstallation[];
+  connectorSetupStatuses: AgenticConnectorSetupStatus[];
+  subagents: AgentSubagent[];
+  modelRuntime: AgenticModelRuntimeSnapshot;
   oauthGuidance: {
-    pattern: string
-    rules: string[]
-  }
-  tenantIsolation: AgenticTenantIsolation
-  runtimePolicy: NativeAgenticRuntimePolicy
-  hermesBlueprint: ReturnType<typeof getHermesBlueprint>
+    pattern: string;
+    rules: string[];
+  };
+  tenantIsolation: AgenticTenantIsolation;
+  runtimePolicy: NativeAgenticRuntimePolicy;
+  hermesBlueprint: ReturnType<typeof getHermesBlueprint>;
 }
 
 const PROVIDERS: AgenticProviderSpec[] = [
@@ -253,12 +271,21 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "codex-cli",
     lane: "code",
     authMethod: "runner_env",
-    installPattern: "Installazione guidata su VPS/runner con CODEX_HOME ChatGPT separata, wrapper dedicato, token interno runner e review in Optima.",
-    tenantUse: "Patch, PR, audit tecnico, task update da repository e deploy controllati.",
+    installPattern:
+      "Installazione guidata su VPS/runner con CODEX_HOME separata autenticata via `codex login --device-auth`, wrapper dedicato, token interno runner e review in Optima.",
+    tenantUse:
+      "Patch, PR, audit tecnico, task update da repository e deploy controllati.",
     strengths: ["coding", "patch", "git", "reviewable artifacts"],
     requiredSecrets: ["AGENT_RUNNER_API_KEY"],
-    recommendedMcpConnectors: ["github", "browser", "cloudflare", "vercel", "hostinger"],
-    notes: "Codex non deve mutare produzione senza job esplicito e approvazione. Autenticazione preferita: CODEX_HOME separata autenticata ChatGPT sul runner, richiamata da wrapper dedicato. API key a consumo solo fallback facoltativo. AGENT_RUNNER_API_KEY e token interno Optima-runner.",
+    recommendedMcpConnectors: [
+      "github",
+      "browser",
+      "cloudflare",
+      "vercel",
+      "hostinger",
+    ],
+    notes:
+      "Codex non deve mutare produzione senza job esplicito e approvazione. Autenticazione preferita: CODEX_HOME separata autenticata con OAuth/device-auth sul runner, richiamata da wrapper dedicato. API key a consumo solo fallback esplicito. AGENT_RUNNER_API_KEY e token interno Optima-runner.",
   },
   {
     id: "open-code",
@@ -267,12 +294,15 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "opencode-cli",
     lane: "code",
     authMethod: "local_install",
-    installPattern: "Installazione guidata sul runner; Optima conserva solo stato, policy e audit.",
-    tenantUse: "Alternativa o subagente locale per lavori codice dove serve controllo self-hosted.",
+    installPattern:
+      "Installazione guidata sul runner; Optima conserva solo stato, policy e audit.",
+    tenantUse:
+      "Alternativa o subagente locale per lavori codice dove serve controllo self-hosted.",
     strengths: ["local tooling", "code edits", "terminal workflows"],
     requiredSecrets: [],
     recommendedMcpConnectors: ["github", "browser"],
-    notes: "Da usare come adapter dietro control plane, non come processo opaco fuori audit.",
+    notes:
+      "Da usare come adapter dietro control plane, non come processo opaco fuori audit.",
   },
   {
     id: "gemma-hosted",
@@ -281,12 +311,20 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "gemma-hosted",
     lane: "operations",
     authMethod: "api_key_secret",
-    installPattern: "Gateway hosted o provider compatibile solo se serve: API key facoltativa con secret_ref, endpoint_ref, quota e policy tenant.",
-    tenantUse: "Operations agentiche, triage rapportini, classificazione richieste e assistant privacy-aware.",
-    strengths: ["operations", "classification", "cost control", "privacy policy"],
+    installPattern:
+      "Gateway hosted o provider compatibile solo se serve: API key facoltativa con secret_ref, endpoint_ref, quota e policy tenant.",
+    tenantUse:
+      "Operations agentiche, triage rapportini, classificazione richieste e assistant privacy-aware.",
+    strengths: [
+      "operations",
+      "classification",
+      "cost control",
+      "privacy policy",
+    ],
     requiredSecrets: ["GEMMA_API_KEY"],
     recommendedMcpConnectors: ["notion", "telegram", "sendgrid"],
-    notes: "Da preferire al modello locale solo quando il costo e sostenibile. API key facoltativa, con quota e budget.",
+    notes:
+      "Da preferire al modello locale solo quando il costo e sostenibile. API key facoltativa, con quota e budget.",
   },
   {
     id: "gemma",
@@ -295,12 +333,15 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "gemma-local",
     lane: "operations",
     authMethod: "local_install",
-    installPattern: "Modello locale sul runner o gateway interno; nessun dato tenant inviato a provider esterni.",
-    tenantUse: "Classificazione, bozze, triage leggero, privacy-first assistant.",
+    installPattern:
+      "Modello locale sul runner o gateway interno; nessun dato tenant inviato a provider esterni.",
+    tenantUse:
+      "Classificazione, bozze, triage leggero, privacy-first assistant.",
     strengths: ["local privacy", "classification", "low-latency triage"],
     requiredSecrets: [],
     recommendedMcpConnectors: ["notion", "telegram", "sendgrid"],
-    notes: "Preferibile per dati sensibili quando non serve massima capacita reasoning.",
+    notes:
+      "Preferibile per dati sensibili quando non serve massima capacita reasoning.",
   },
   {
     id: "qwen",
@@ -309,12 +350,15 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "qwen-long-context",
     lane: "research",
     authMethod: "api_key_secret",
-    installPattern: "Secret tenant/provider in vault o env solo come fallback; Optima salva solo secret_ref e policy.",
-    tenantUse: "Research, sintesi lunga, analisi documentale e contesto multi-repository.",
+    installPattern:
+      "Secret tenant/provider in vault o env solo come fallback; Optima salva solo secret_ref e policy.",
+    tenantUse:
+      "Research, sintesi lunga, analisi documentale e contesto multi-repository.",
     strengths: ["long context", "research", "summarization"],
     requiredSecrets: ["QWEN_API_KEY"],
     recommendedMcpConnectors: ["github", "notion", "browser", "cloudinary"],
-    notes: "API key facoltativa e a consumo: usarla solo con policy chiara su dati tenant, budget e quota.",
+    notes:
+      "API key facoltativa e a consumo: usarla solo con policy chiara su dati tenant, budget e quota.",
   },
   {
     id: "minimax",
@@ -323,12 +367,15 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "minimax-media",
     lane: "media",
     authMethod: "api_key_secret",
-    installPattern: "Secret per tenant o organization solo se serve provider a consumo; asset e risultati collegati al grafo media.",
-    tenantUse: "Generazione/trasformazione contenuti audio-video e media operations.",
+    installPattern:
+      "Secret per tenant o organization solo se serve provider a consumo; asset e risultati collegati al grafo media.",
+    tenantUse:
+      "Generazione/trasformazione contenuti audio-video e media operations.",
     strengths: ["media generation", "video", "voice", "creative variants"],
     requiredSecrets: ["MINIMAX_API_KEY"],
     recommendedMcpConnectors: ["browser", "cloudinary"],
-    notes: "API key facoltativa e ultima spiaggia rispetto a strumenti gia inclusi o Browser MCP. Ogni output deve avere provenienza, prompt, asset sorgenti e stato review.",
+    notes:
+      "API key facoltativa e ultima spiaggia rispetto a strumenti gia inclusi o Browser MCP. Ogni output deve avere provenienza, prompt, asset sorgenti e stato review.",
   },
   {
     id: "openai",
@@ -337,14 +384,23 @@ const PROVIDERS: AgenticProviderSpec[] = [
     defaultModel: "gpt-5.2",
     lane: "chat",
     authMethod: "api_key_secret",
-    installPattern: "Browser MCP/login utente prima; secret server-side o tenant-specific solo come fallback a consumo per API.",
-    tenantUse: "Assistant principale, reasoning, tool orchestration e generazione strutturata.",
+    installPattern:
+      "Browser MCP/login utente prima; secret server-side o tenant-specific solo come fallback a consumo per API.",
+    tenantUse:
+      "Assistant principale, reasoning, tool orchestration e generazione strutturata.",
     strengths: ["reasoning", "tool use", "structured output"],
     requiredSecrets: ["OPENAI_API_KEY"],
-    recommendedMcpConnectors: ["github", "notion", "browser", "cloudflare", "sendgrid"],
-    notes: "API key OpenAI e facoltativa e ultima spiaggia a consumo. Il modello non sostituisce autorizzazioni e grafo: opera sempre nel principal tenant.",
+    recommendedMcpConnectors: [
+      "github",
+      "notion",
+      "browser",
+      "cloudflare",
+      "sendgrid",
+    ],
+    notes:
+      "API key OpenAI e facoltativa e ultima spiaggia a consumo. Il modello non sostituisce autorizzazioni e grafo: opera sempre nel principal tenant.",
   },
-]
+];
 
 const MODEL_HOSTS: AgenticModelHostSpec[] = [
   {
@@ -359,7 +415,8 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     baseUrlEnv: "QWEN_BASE_URL",
     endpointEnv: null,
     secretRefHint: "secret://tenant/{organizationId}/qwen",
-    dataPolicy: "Usare per research e sintesi lunga. Dati tenant ammessi solo se policy e consenso organizzazione lo permettono.",
+    dataPolicy:
+      "Usare per research e sintesi lunga. Dati tenant ammessi solo se policy e consenso organizzazione lo permettono.",
     installSteps: [
       "Prima valuta modello locale, Browser MCP o piano gia incluso; collega Qwen/OpenAI-compatible solo se serve davvero.",
       "Se usi API key a consumo, imposta budget/quota e salvala in secret manager o env runtime; Optima conserva solo secret_ref.",
@@ -379,7 +436,8 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     baseUrlEnv: "GEMMA_BASE_URL",
     endpointEnv: null,
     secretRefHint: "secret://tenant/{organizationId}/gemma",
-    dataPolicy: "Usare per triage operativo, bozze, rapportini e classificazione a costo controllato.",
+    dataPolicy:
+      "Usare per triage operativo, bozze, rapportini e classificazione a costo controllato.",
     installSteps: [
       "Preferisci Gemma locale o piano incluso quando basta.",
       "Se scegli provider hosted a consumo, configura GEMMA_API_KEY e GEMMA_BASE_URL con quota e budget nel runtime o secret manager.",
@@ -399,7 +457,8 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     baseUrlEnv: null,
     endpointEnv: "GEMMA_LOCAL_ENDPOINT",
     secretRefHint: null,
-    dataPolicy: "Usare quando i dati non devono uscire dal perimetro VPS/rete privata.",
+    dataPolicy:
+      "Usare quando i dati non devono uscire dal perimetro VPS/rete privata.",
     installSteps: [
       "Installa il gateway locale sul VPS o su nodo GPU dedicato.",
       "Esponi solo endpoint privato/Tailscale e imposta GEMMA_LOCAL_ENDPOINT.",
@@ -418,7 +477,8 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     baseUrlEnv: "MINIMAX_BASE_URL",
     endpointEnv: null,
     secretRefHint: "secret://tenant/{organizationId}/minimax",
-    dataPolicy: "Usare per asset, audio, video e varianti creative collegate a task, clienti e review.",
+    dataPolicy:
+      "Usare per asset, audio, video e varianti creative collegate a task, clienti e review.",
     installSteps: [
       "Prima valuta strumenti gia inclusi, Browser MCP o workflow manuale assistito.",
       "Se serve MiniMax/gateway a consumo, configura MINIMAX_API_KEY e opzionalmente MINIMAX_BASE_URL con quota e budget.",
@@ -438,41 +498,46 @@ const MODEL_HOSTS: AgenticModelHostSpec[] = [
     baseUrlEnv: null,
     endpointEnv: null,
     secretRefHint: "secret://tenant/{organizationId}/openai",
-    dataPolicy: "Usare come router/reasoning principale e fallback quando Qwen/Gemma non bastano.",
+    dataPolicy:
+      "Usare come router/reasoning principale e fallback quando Qwen/Gemma non bastano.",
     installSteps: [
       "Per ChatGPT web o strumenti senza API usa Browser MCP/login utente prima di API key.",
       "Configura OPENAI_API_KEY solo se serve API server-side, con tetto budget e quota.",
       "Usa il grafo operativo per decidere quando delegare a provider specializzati o locali.",
     ],
   },
-]
+];
 
 function parseJsonObject(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "string") return {}
+  if (!value || typeof value !== "string") return {};
   try {
-    const parsed = JSON.parse(value)
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
   } catch {
-    return {}
+    return {};
   }
 }
 
 function parseJsonArray(value: unknown): string[] {
-  if (!value || typeof value !== "string") return []
+  if (!value || typeof value !== "string") return [];
   try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.map((item) => String(item)).filter(Boolean) : []
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.map((item) => String(item)).filter(Boolean)
+      : [];
   } catch {
-    return []
+    return [];
   }
 }
 
 function stringifyJson(value: unknown) {
-  return JSON.stringify(value && typeof value === "object" ? value : {})
+  return JSON.stringify(value && typeof value === "object" ? value : {});
 }
 
 function hasRuntimeEnv(name: string) {
-  return Boolean(process.env[name]?.trim())
+  return Boolean(process.env[name]?.trim());
 }
 
 function mapProviderInstallation(row: any): AgenticProviderInstallation {
@@ -484,15 +549,19 @@ function mapProviderInstallation(row: any): AgenticProviderInstallation {
     displayName: String(row.display_name || row.provider_id),
     status: String(row.status || "available"),
     authMethod: String(row.auth_method || "none"),
-    installState: String(row.install_state || "not_installed") as AgenticInstallState,
+    installState: String(
+      row.install_state || "not_installed",
+    ) as AgenticInstallState,
     tenantPolicy: parseJsonObject(row.tenant_policy_json),
     config: parseJsonObject(row.config_json),
     secretRef: row.secret_ref ? String(row.secret_ref) : null,
-    installedByMemberId: row.installed_by_member_id ? String(row.installed_by_member_id) : null,
+    installedByMemberId: row.installed_by_member_id
+      ? String(row.installed_by_member_id)
+      : null,
     installedAt: row.installed_at ? String(row.installed_at) : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
-  }
+  };
 }
 
 function mapConnectorInstallation(row: any): McpConnectorInstallation {
@@ -503,18 +572,24 @@ function mapConnectorInstallation(row: any): McpConnectorInstallation {
     displayName: String(row.display_name || row.connector_id),
     status: String(row.status || "available"),
     authMethod: String(row.auth_method || "oauth_pkce") as AgenticAuthMethod,
-    installState: String(row.install_state || "not_installed") as AgenticInstallState,
+    installState: String(
+      row.install_state || "not_installed",
+    ) as AgenticInstallState,
     scopes: parseJsonArray(row.scopes_json),
     config: parseJsonObject(row.config_json),
     secretRef: row.secret_ref ? String(row.secret_ref) : null,
     oauthSubject: row.oauth_subject ? String(row.oauth_subject) : null,
-    installedByMemberId: row.installed_by_member_id ? String(row.installed_by_member_id) : null,
+    installedByMemberId: row.installed_by_member_id
+      ? String(row.installed_by_member_id)
+      : null,
     installedAt: row.installed_at ? String(row.installed_at) : null,
     lastHealthAt: row.last_health_at ? String(row.last_health_at) : null,
-    lastHealthStatus: row.last_health_status ? String(row.last_health_status) : null,
+    lastHealthStatus: row.last_health_status
+      ? String(row.last_health_status)
+      : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
-  }
+  };
 }
 
 function mapSubagent(row: any): AgentSubagent {
@@ -531,10 +606,12 @@ function mapSubagent(row: any): AgentSubagent {
     systemPrompt: String(row.system_prompt || ""),
     permissions: parseJsonObject(row.permissions_json),
     handoffPolicy: parseJsonObject(row.handoff_policy_json),
-    createdByMemberId: row.created_by_member_id ? String(row.created_by_member_id) : null,
+    createdByMemberId: row.created_by_member_id
+      ? String(row.created_by_member_id)
+      : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
-  }
+  };
 }
 
 function mapModelRoute(row: any): AgenticModelRoute {
@@ -551,24 +628,29 @@ function mapModelRoute(row: any): AgenticModelRoute {
     secretRef: row.secret_ref ? String(row.secret_ref) : null,
     config: parseJsonObject(row.config_json),
     lastHealthAt: row.last_health_at ? String(row.last_health_at) : null,
-    lastHealthStatus: row.last_health_status ? String(row.last_health_status) : null,
-    createdByMemberId: row.created_by_member_id ? String(row.created_by_member_id) : null,
+    lastHealthStatus: row.last_health_status
+      ? String(row.last_health_status)
+      : null,
+    createdByMemberId: row.created_by_member_id
+      ? String(row.created_by_member_id)
+      : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
-  }
+  };
 }
 
 export function getAgenticProviderCatalog() {
-  return PROVIDERS
+  return PROVIDERS;
 }
 
 export function getAgenticModelHosts() {
-  return MODEL_HOSTS
+  return MODEL_HOSTS;
 }
 
 export function getOAuthGuidance() {
   return {
-    pattern: "Authorization Code + PKCE per installazioni utente; GitHub App per repository; Browser MCP con profilo/sessione controllata per strumenti web senza API; secret_ref per API key solo fallback facoltativo a consumo; local_install per runner self-hosted.",
+    pattern:
+      "Authorization Code + PKCE per installazioni utente; GitHub App per repository; Browser MCP con profilo/sessione controllata per strumenti web senza API; secret_ref per API key solo fallback facoltativo a consumo; local_install per runner self-hosted.",
     rules: [
       "Ogni installazione e sempre scoped a organization_id.",
       "D1 salva stato, scope, policy e secret_ref; non salva token o API key.",
@@ -577,7 +659,7 @@ export function getOAuthGuidance() {
       "Le installazioni manuali devono avere una guida esplicita e un health check.",
       "I subagenti ricevono solo connector e tool dichiarati nella loro lane.",
     ],
-  }
+  };
 }
 
 export function getNativeAgenticRuntimePolicy(): NativeAgenticRuntimePolicy {
@@ -587,42 +669,109 @@ export function getNativeAgenticRuntimePolicy(): NativeAgenticRuntimePolicy {
       {
         id: "interactive_chat",
         label: "Chat e command bar",
-        allowedToolsets: ["graph_read", "business_lookup", "memory_read", "job_create"],
+        allowedToolsets: [
+          "graph_read",
+          "business_lookup",
+          "memory_read",
+          "job_create",
+        ],
         blockedToolsets: ["deploy", "shell", "secret_read", "bulk_write"],
-        requiredReview: ["job_create_with_repository", "customer_facing_send", "financial_statement"],
-        notes: "La chat risponde subito solo quando il dato e nel grafo o nelle tabelle Optima; il lavoro operativo diventa job revisionabile.",
+        requiredReview: [
+          "job_create_with_repository",
+          "customer_facing_send",
+          "financial_statement",
+        ],
+        notes:
+          "La chat risponde subito solo quando il dato e nel grafo o nelle tabelle Optima; il lavoro operativo diventa job revisionabile.",
       },
       {
         id: "agent_job",
         label: "Job agentico",
-        allowedToolsets: ["graph_read", "artifact_write", "git_read", "patch_propose", "mcp_allowlist", "browser_control_reviewed"],
-        blockedToolsets: ["direct_deploy", "unscoped_customer_export", "secret_print"],
-        requiredReview: ["patch_apply", "pull_request", "email_send", "database_mutation", "production_deploy"],
-        notes: "Il runner riceve lane, connector concessi e brief; restituisce output in review prima di mutare stato irreversibile.",
+        allowedToolsets: [
+          "graph_read",
+          "artifact_write",
+          "git_read",
+          "patch_propose",
+          "mcp_allowlist",
+          "browser_control_reviewed",
+        ],
+        blockedToolsets: [
+          "direct_deploy",
+          "unscoped_customer_export",
+          "secret_print",
+        ],
+        requiredReview: [
+          "patch_apply",
+          "pull_request",
+          "email_send",
+          "database_mutation",
+          "production_deploy",
+        ],
+        notes:
+          "Il runner riceve lane, connector concessi e brief; restituisce output in review prima di mutare stato irreversibile.",
       },
       {
         id: "scheduled_job",
         label: "Scheduler e cron",
-        allowedToolsets: ["graph_read", "health_check", "digest_generate", "notification_draft"],
-        blockedToolsets: ["interactive_messaging", "deploy", "shell", "secret_read"],
-        requiredReview: ["write_business_records", "send_external_email", "modify_clients"],
-        notes: "I cron devono essere visibili, cancellabili e non devono ereditare tool interattivi o privilegi larghi.",
+        allowedToolsets: [
+          "graph_read",
+          "health_check",
+          "digest_generate",
+          "notification_draft",
+        ],
+        blockedToolsets: [
+          "interactive_messaging",
+          "deploy",
+          "shell",
+          "secret_read",
+        ],
+        requiredReview: [
+          "write_business_records",
+          "send_external_email",
+          "modify_clients",
+        ],
+        notes:
+          "I cron devono essere visibili, cancellabili e non devono ereditare tool interattivi o privilegi larghi.",
       },
       {
         id: "subagent_handoff",
         label: "Handoff subagenti",
-        allowedToolsets: ["graph_read", "memory_scoped", "connector_lane_allowlist", "handoff_event"],
-        blockedToolsets: ["all_connectors", "cross_tenant_memory", "unreviewed_irreversible_action"],
-        requiredReview: ["lane_escalation", "connector_escalation", "external_delivery"],
-        notes: "Ogni subagente eredita solo lane, provider e connector dichiarati; l'escalation crea evento tracciato.",
+        allowedToolsets: [
+          "graph_read",
+          "memory_scoped",
+          "connector_lane_allowlist",
+          "handoff_event",
+        ],
+        blockedToolsets: [
+          "all_connectors",
+          "cross_tenant_memory",
+          "unreviewed_irreversible_action",
+        ],
+        requiredReview: [
+          "lane_escalation",
+          "connector_escalation",
+          "external_delivery",
+        ],
+        notes:
+          "Ogni subagente eredita solo lane, provider e connector dichiarati; l'escalation crea evento tracciato.",
       },
     ],
     lanePolicies: [
       {
         lane: "code",
         defaultProviderId: "codex",
-        allowedConnectors: ["github", "browser", "cloudflare", "vercel", "hostinger"],
-        blockedActions: ["direct_production_deploy", "secret_exfiltration", "unreviewed_force_push"],
+        allowedConnectors: [
+          "github",
+          "browser",
+          "cloudflare",
+          "vercel",
+          "hostinger",
+        ],
+        blockedActions: [
+          "direct_production_deploy",
+          "secret_exfiltration",
+          "unreviewed_force_push",
+        ],
         fallbackProviderId: "open-code",
       },
       {
@@ -665,8 +814,17 @@ export function getNativeAgenticRuntimePolicy(): NativeAgenticRuntimePolicy {
       {
         lane: "chat",
         defaultProviderId: "openai",
-        allowedConnectors: ["github", "notion", "browser", "cloudflare", "sendgrid"],
-        blockedActions: ["answer_with_empty_model_content", "invent_missing_business_data"],
+        allowedConnectors: [
+          "github",
+          "notion",
+          "browser",
+          "cloudflare",
+          "sendgrid",
+        ],
+        blockedActions: [
+          "answer_with_empty_model_content",
+          "invent_missing_business_data",
+        ],
         fallbackProviderId: null,
       },
       {
@@ -697,10 +855,12 @@ export function getNativeAgenticRuntimePolicy(): NativeAgenticRuntimePolicy {
       "Fallback provider esplicito: non sostituire modello/provider in silenzio.",
       "Azioni irreversibili passano dalla review room con evento audit.",
     ],
-  }
+  };
 }
 
-export function getAgenticTenantIsolation(principal: WorkspacePrincipal): AgenticTenantIsolation {
+export function getAgenticTenantIsolation(
+  principal: WorkspacePrincipal,
+): AgenticTenantIsolation {
   return {
     organizationId: principal.organizationId,
     memberId: principal.memberId,
@@ -721,7 +881,7 @@ export function getAgenticTenantIsolation(principal: WorkspacePrincipal): Agenti
       "Il runner e condivisibile solo se ogni job contiene organizationId e non riceve segreti tenant in chiaro.",
       "Le sorgenti esterne importano indici redatti tenant-scoped, non dump completi.",
     ],
-  }
+  };
 }
 
 export async function listModelRoutes(db: any, organizationId: string) {
@@ -731,91 +891,130 @@ export async function listModelRoutes(db: any, organizationId: string) {
      WHERE organization_id = ?
      ORDER BY lane ASC, priority ASC, updated_at DESC`,
     [organizationId],
-  )
-  return rows.map(mapModelRoute)
+  );
+  return rows.map(mapModelRoute);
 }
 
 async function getHostRuntimeStatus(host: AgenticModelHostSpec) {
-  const apiKey = host.apiKeyEnv ? (await getRuntimeSecret(host.apiKeyEnv)).trim() : ""
-  const baseUrl = host.baseUrlEnv ? (await getRuntimeSecret(host.baseUrlEnv)).trim() : ""
-  const endpoint = host.endpointEnv ? (await getRuntimeSecret(host.endpointEnv)).trim() : ""
+  const apiKey = host.apiKeyEnv
+    ? (await getRuntimeSecret(host.apiKeyEnv)).trim()
+    : "";
+  const baseUrl = host.baseUrlEnv
+    ? (await getRuntimeSecret(host.baseUrlEnv)).trim()
+    : "";
+  const endpoint = host.endpointEnv
+    ? (await getRuntimeSecret(host.endpointEnv)).trim()
+    : "";
 
   if (host.mode === "self_hosted") {
     return endpoint
-      ? { runtimeStatus: "ready" as const, runtimeDetail: `${host.endpointEnv} configurato` }
-      : { runtimeStatus: "needs_endpoint" as const, runtimeDetail: `${host.endpointEnv} non configurato` }
+      ? {
+          runtimeStatus: "ready" as const,
+          runtimeDetail: `${host.endpointEnv} configurato`,
+        }
+      : {
+          runtimeStatus: "needs_endpoint" as const,
+          runtimeDetail: `${host.endpointEnv} non configurato`,
+        };
   }
 
   if (host.mode === "router" || host.mode === "hosted") {
     if (apiKey) {
       return {
         runtimeStatus: "ready" as const,
-        runtimeDetail: host.baseUrlEnv ? `${host.apiKeyEnv} presente${baseUrl ? `, ${host.baseUrlEnv} configurato` : ""}` : `${host.apiKeyEnv} presente`,
-      }
+        runtimeDetail: host.baseUrlEnv
+          ? `${host.apiKeyEnv} presente${baseUrl ? `, ${host.baseUrlEnv} configurato` : ""}`
+          : `${host.apiKeyEnv} presente`,
+      };
     }
-    return { runtimeStatus: "needs_secret" as const, runtimeDetail: `${host.apiKeyEnv} non configurato` }
+    return {
+      runtimeStatus: "needs_secret" as const,
+      runtimeDetail: `${host.apiKeyEnv} non configurato`,
+    };
   }
 
-  return { runtimeStatus: "reference_only" as const, runtimeDetail: "Runtime solo documentato" }
+  return {
+    runtimeStatus: "reference_only" as const,
+    runtimeDetail: "Runtime solo documentato",
+  };
 }
 
 export async function getAgenticModelRuntimeSnapshot(
   db: any,
   principal: WorkspacePrincipal,
 ): Promise<AgenticModelRuntimeSnapshot> {
-  const routes = await listModelRoutes(db, principal.organizationId)
+  const routes = await listModelRoutes(db, principal.organizationId);
   const hosts = await Promise.all(
     MODEL_HOSTS.map(async (host) => ({
       ...host,
       ...(await getHostRuntimeStatus(host)),
     })),
-  )
+  );
 
-  const preferredLanes: AgenticModelLane[] = ["research", "operations", "chat", "code", "media"]
+  const preferredLanes: AgenticModelLane[] = [
+    "research",
+    "operations",
+    "chat",
+    "code",
+    "media",
+  ];
   const lanePlan = preferredLanes
     .map((lane) => {
-      const route = routes.find((item) => item.lane === lane && item.status !== "disabled")
+      const route = routes.find(
+        (item) => item.lane === lane && item.status !== "disabled",
+      );
       const host = route
-        ? hosts.find((item) => item.providerId === route.providerId && item.mode === route.mode) ?? hosts.find((item) => item.providerId === route.providerId)
-        : hosts.find((item) => item.lane === lane)
+        ? (hosts.find(
+            (item) =>
+              item.providerId === route.providerId && item.mode === route.mode,
+          ) ?? hosts.find((item) => item.providerId === route.providerId))
+        : hosts.find((item) => item.lane === lane);
 
-      if (!route && !host) return null
+      if (!route && !host) return null;
 
       return {
         lane,
         providerId: route?.providerId ?? host!.providerId,
         model: route?.model || host!.defaultModel,
         mode: route?.mode ?? host!.mode,
-        source: route ? "tenant_route" as const : "default_host" as const,
+        source: route ? ("tenant_route" as const) : ("default_host" as const),
         status: route?.status ?? "suggested",
         runtimeStatus: host?.runtimeStatus ?? ("reference_only" as const),
-      }
+      };
     })
-    .filter((item): item is AgenticModelRuntimeSnapshot["lanePlan"][number] => Boolean(item))
+    .filter((item): item is AgenticModelRuntimeSnapshot["lanePlan"][number] =>
+      Boolean(item),
+    );
 
-  return { hosts, routes, lanePlan }
+  return { hosts, routes, lanePlan };
 }
 
-export async function listProviderInstallations(db: any, organizationId: string) {
+export async function listProviderInstallations(
+  db: any,
+  organizationId: string,
+) {
   const rows = await safeAll(
     db,
     `SELECT * FROM agentic_provider_installations
      WHERE organization_id = ?
      ORDER BY updated_at DESC`,
     [organizationId],
-  )
-  return rows.map(mapProviderInstallation)
+  );
+  return rows.map(mapProviderInstallation);
 }
 
-export async function listConnectorInstallations(db: any, organizationId: string) {
+export async function listConnectorInstallations(
+  db: any,
+  organizationId: string,
+) {
   const rows = await safeAll(
     db,
     `SELECT * FROM mcp_connector_installations
      WHERE organization_id = ?
      ORDER BY updated_at DESC`,
     [organizationId],
-  )
-  return rows.map(mapConnectorInstallation)
+  );
+  return rows.map(mapConnectorInstallation);
 }
 
 export async function listSubagents(db: any, organizationId: string) {
@@ -828,17 +1027,23 @@ export async function listSubagents(db: any, organizationId: string) {
        lane ASC,
        name ASC`,
     [organizationId],
-  )
-  return rows.map(mapSubagent)
+  );
+  return rows.map(mapSubagent);
 }
 
-function connectorSetupKind(connector: StrategicMcpConnector): AgenticConnectorSetupKind {
-  if (connector.authMethod === "oauth_pkce" || connector.authMethod === "external_oauth") return "oauth"
-  if (connector.authMethod === "browser_session_oauth") return "browser"
-  if (connector.authMethod === "github_app") return "github_owner"
-  if (connector.authMethod === "runner_env") return "runtime"
-  if (connector.authMethod === "service_account") return "service_account"
-  return "secret_ref"
+function connectorSetupKind(
+  connector: StrategicMcpConnector,
+): AgenticConnectorSetupKind {
+  if (
+    connector.authMethod === "oauth_pkce" ||
+    connector.authMethod === "external_oauth"
+  )
+    return "oauth";
+  if (connector.authMethod === "browser_session_oauth") return "browser";
+  if (connector.authMethod === "github_app") return "github_owner";
+  if (connector.authMethod === "runner_env") return "runtime";
+  if (connector.authMethod === "service_account") return "service_account";
+  return "secret_ref";
 }
 
 function connectorSetupCopy(
@@ -846,12 +1051,44 @@ function connectorSetupCopy(
   installation: McpConnectorInstallation | null,
 ): Pick<
   AgenticConnectorSetupStatus,
-  "primaryAction" | "primaryActionLabel" | "primaryIntent" | "verifyActionLabel" | "nextAction" | "requirementLabel" | "blockedReason"
+  | "primaryAction"
+  | "primaryActionLabel"
+  | "primaryIntent"
+  | "verifyActionLabel"
+  | "nextAction"
+  | "requirementLabel"
+  | "blockedReason"
 > {
-  const state = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
-  const missingRuntimeEnv = connector.requiredEnv.filter((env) => !hasRuntimeEnv(env))
-  const hasMissingRuntime = missingRuntimeEnv.length > 0
-  const joinedMissing = missingRuntimeEnv.slice(0, 4).join(", ")
+  const state =
+    installation?.installState ??
+    (connector.status === "enabled" ? "healthy" : "not_installed");
+  const missingRuntimeEnv = connector.requiredEnv.filter(
+    (env) => !hasRuntimeEnv(env),
+  );
+  const hasMissingRuntime = missingRuntimeEnv.length > 0;
+  const joinedMissing = missingRuntimeEnv.slice(0, 4).join(", ");
+
+  if (connector.id === "codex") {
+    return {
+      primaryAction: "run_health_check",
+      primaryActionLabel: "Guida login Codex",
+      primaryIntent: "Codex CLI OAuth",
+      verifyActionLabel:
+        state === "healthy" || state === "configured"
+          ? "Aggiorna prova Codex"
+          : "Verifica Codex OAuth",
+      nextAction:
+        state === "healthy" || state === "configured"
+          ? "Codex CLI risulta configurato: aggiorna heartbeat e dry-run prima di usarlo come cervello operativo."
+          : "Esegui `codex login --device-auth` sul runner con CODEX_HOME separata, poi verifica con prompt innocuo.",
+      requirementLabel: hasMissingRuntime
+        ? `Runner Codex incompleto: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
+        : "Runner pronto: completa login OAuth/device-auth del Codex CLI e lancia il dry-run.",
+      blockedReason: hasMissingRuntime
+        ? "Runner Codex o token interno Optima-runner mancanti."
+        : null,
+    };
+  }
 
   switch (connectorSetupKind(connector)) {
     case "oauth":
@@ -859,7 +1096,10 @@ function connectorSetupCopy(
         primaryAction: "open_oauth",
         primaryActionLabel: "Apri consenso OAuth",
         primaryIntent: "Consenso provider",
-        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna health-check" : "Verifica collegamento",
+        verifyActionLabel:
+          state === "healthy" || state === "configured"
+            ? "Aggiorna health-check"
+            : "Verifica collegamento",
         nextAction:
           state === "healthy" || state === "configured"
             ? "OAuth registrato: aggiorna il controllo permessi prima di usarlo in produzione."
@@ -867,14 +1107,19 @@ function connectorSetupCopy(
         requirementLabel: hasMissingRuntime
           ? `Configura app OAuth/runtime: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
           : "App OAuth pronta lato runtime: apri il consenso, poi verifica.",
-        blockedReason: hasMissingRuntime ? "OAuth app o secret_ref runtime mancanti." : null,
-      }
+        blockedReason: hasMissingRuntime
+          ? "OAuth app o secret_ref runtime mancanti."
+          : null,
+      };
     case "browser":
       return {
         primaryAction: "open_browser_pairing",
         primaryActionLabel: "Prepara login browser",
         primaryIntent: "Sessione controllata",
-        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna sessione" : "Verifica gateway/sessione",
+        verifyActionLabel:
+          state === "healthy" || state === "configured"
+            ? "Aggiorna sessione"
+            : "Verifica gateway/sessione",
         nextAction:
           state === "healthy" || state === "configured"
             ? "Sessione browser registrata: aggiorna stato o health-check prima di assegnarla ai subagenti."
@@ -882,96 +1127,143 @@ function connectorSetupCopy(
         requirementLabel: hasMissingRuntime
           ? `Gateway Browser MCP mancante: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
           : "Gateway Browser MCP disponibile: crea pairing per ChatGPT, Gemini, Perplexity o Claude.",
-        blockedReason: hasMissingRuntime ? "Gateway Browser MCP non configurato nel runtime." : null,
-      }
+        blockedReason: hasMissingRuntime
+          ? "Gateway Browser MCP non configurato nel runtime."
+          : null,
+      };
     case "github_owner":
       return {
         primaryAction: "open_github_policy",
         primaryActionLabel: "Apri policy GitHub",
         primaryIntent: "Owner approval",
-        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna dry-run GitHub" : "Verifica permessi GitHub",
+        verifyActionLabel:
+          state === "healthy" || state === "configured"
+            ? "Aggiorna dry-run GitHub"
+            : "Verifica permessi GitHub",
         nextAction:
           "Solo Axel autorizza repository, commit, PR e deploy. Dopo la policy esegui un dry-run read-only.",
         requirementLabel: hasMissingRuntime
           ? `Serve GitHub App/token owner-scoped nel runtime: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
           : "Policy owner-scoped pronta: collega repository allowlist e permessi distinti.",
-        blockedReason: hasMissingRuntime ? "Credenziali GitHub owner-scoped non presenti nel runtime." : null,
-      }
+        blockedReason: hasMissingRuntime
+          ? "Credenziali GitHub owner-scoped non presenti nel runtime."
+          : null,
+      };
     case "runtime":
       return {
         primaryAction: "run_health_check",
         primaryActionLabel: "Verifica runtime CLI",
         primaryIntent: "Runner/VPS",
-        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna prova runtime" : "Health-check runtime",
+        verifyActionLabel:
+          state === "healthy" || state === "configured"
+            ? "Aggiorna prova runtime"
+            : "Health-check runtime",
         nextAction:
           "Configura wrapper, CODEX_HOME o runtime sul VPS autorizzato. Optima deve vedere heartbeat e comando funzionante.",
         requirementLabel: hasMissingRuntime
           ? `Runtime incompleto: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
           : "Runtime configurato: esegui health-check revisionabile prima dell'uso.",
-        blockedReason: hasMissingRuntime ? "Env/runtime richiesti non presenti." : null,
-      }
+        blockedReason: hasMissingRuntime
+          ? "Env/runtime richiesti non presenti."
+          : null,
+      };
     case "service_account":
       return {
         primaryAction: "run_health_check",
         primaryActionLabel: "Verifica service token",
         primaryIntent: "Service account",
-        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna service check" : "Verifica service token",
+        verifyActionLabel:
+          state === "healthy" || state === "configured"
+            ? "Aggiorna service check"
+            : "Verifica service token",
         nextAction:
           "Salva solo secret_ref e policy nel runtime sicuro, poi verifica con una chiamata read-only.",
         requirementLabel: hasMissingRuntime
           ? `Service runtime incompleto: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
           : "Service account pronto per health-check read-only.",
-        blockedReason: hasMissingRuntime ? "Service token o runtime non configurati." : null,
-      }
+        blockedReason: hasMissingRuntime
+          ? "Service token o runtime non configurati."
+          : null,
+      };
     default:
       return {
         primaryAction: "save_secret_ref",
         primaryActionLabel: "Salva secret_ref",
         primaryIntent: "Fallback controllato",
-        verifyActionLabel: state === "healthy" || state === "configured" ? "Aggiorna verifica" : "Verifica secret_ref",
+        verifyActionLabel:
+          state === "healthy" || state === "configured"
+            ? "Aggiorna verifica"
+            : "Verifica secret_ref",
         nextAction:
           "API key e token sono fallback facoltativi: salva solo riferimenti protetti, poi verifica quote e permessi minimi.",
         requirementLabel: hasMissingRuntime
           ? `Secret runtime richiesti: ${joinedMissing}${missingRuntimeEnv.length > 4 ? "..." : ""}`
           : "Nessun env mancante dal catalogo: registra policy e verifica.",
-        blockedReason: hasMissingRuntime ? "Secret runtime richiesti non presenti." : null,
-      }
+        blockedReason: hasMissingRuntime
+          ? "Secret runtime richiesti non presenti."
+          : null,
+      };
   }
 }
 
 function connectorOperationalState(input: {
-  connector: StrategicMcpConnector
-  setupKind: AgenticConnectorSetupKind
-  installation: McpConnectorInstallation | null
-  installState: AgenticInstallState
-  healthOk: boolean
-  missingRuntimeEnv: string[]
+  connector: StrategicMcpConnector;
+  setupKind: AgenticConnectorSetupKind;
+  installation: McpConnectorInstallation | null;
+  installState: AgenticInstallState;
+  healthOk: boolean;
+  missingRuntimeEnv: string[];
 }): {
-  operationalState: AgenticConnectorOperationalState
-  operationalLabel: string
-  primaryActionAvailable: boolean
+  operationalState: AgenticConnectorOperationalState;
+  operationalLabel: string;
+  primaryActionAvailable: boolean;
 } {
-  const { connector, setupKind, installation, installState, healthOk, missingRuntimeEnv } = input
+  const {
+    connector,
+    setupKind,
+    installation,
+    installState,
+    healthOk,
+    missingRuntimeEnv,
+  } = input;
 
   if (installState === "blocked") {
     return {
       operationalState: "blocked",
       operationalLabel: "Bloccato",
       primaryActionAvailable: false,
-    }
+    };
   }
 
   if (missingRuntimeEnv.length > 0) {
     return {
       operationalState: "needs_runtime",
       operationalLabel:
-        setupKind === "oauth"
-          ? "OAuth app mancante"
-          : setupKind === "browser"
-            ? "Gateway mancante"
-            : "Runtime incompleto",
+        connector.id === "codex"
+          ? "Runner Codex incompleto"
+          : setupKind === "oauth"
+            ? "OAuth app mancante"
+            : setupKind === "browser"
+              ? "Gateway mancante"
+              : "Runtime incompleto",
       primaryActionAvailable: false,
+    };
+  }
+
+  if (connector.id === "codex") {
+    if (healthOk) {
+      return {
+        operationalState: "needs_review",
+        operationalLabel: "Codex verificato, da approvare",
+        primaryActionAvailable: true,
+      };
     }
+
+    return {
+      operationalState: "ready_to_connect",
+      operationalLabel: "Login Codex richiesto",
+      primaryActionAvailable: true,
+    };
   }
 
   if (setupKind === "oauth") {
@@ -980,80 +1272,103 @@ function connectorOperationalState(input: {
         operationalState: "connected",
         operationalLabel: "OAuth collegato",
         primaryActionAvailable: true,
-      }
+      };
     }
 
     return {
       operationalState: "ready_to_connect",
       operationalLabel: "Pronto al consenso",
       primaryActionAvailable: true,
-    }
+    };
   }
 
   if (setupKind === "browser") {
-    const connectedSessions = Array.isArray(installation?.config?.connectedSessions)
+    const connectedSessions = Array.isArray(
+      installation?.config?.connectedSessions,
+    )
       ? installation?.config.connectedSessions
-      : []
+      : [];
     if (healthOk && connectedSessions.length > 0) {
       return {
         operationalState: "connected",
         operationalLabel: "Browser collegato",
         primaryActionAvailable: true,
-      }
+      };
     }
 
     return {
       operationalState: "ready_to_connect",
       operationalLabel: "Pronto al login",
       primaryActionAvailable: true,
-    }
+    };
   }
 
   if (setupKind === "github_owner") {
-    if (healthOk && (installation?.secretRef || connector.status === "enabled")) {
+    if (
+      healthOk &&
+      (installation?.secretRef || connector.status === "enabled")
+    ) {
       return {
         operationalState: "needs_review",
         operationalLabel: "Policy owner da verificare",
         primaryActionAvailable: true,
-      }
+      };
     }
 
     return {
       operationalState: "ready_to_connect",
       operationalLabel: "Policy da definire",
       primaryActionAvailable: true,
-    }
+    };
   }
 
   if (healthOk) {
     return {
       operationalState: "needs_review",
-      operationalLabel: setupKind === "runtime" ? "Runtime verificato, da approvare" : "Secret verificato, da approvare",
+      operationalLabel:
+        setupKind === "runtime"
+          ? "Runtime verificato, da approvare"
+          : "Secret verificato, da approvare",
       primaryActionAvailable: true,
-    }
+    };
   }
 
   return {
     operationalState: "ready_to_connect",
-    operationalLabel: setupKind === "runtime" ? "Runtime da collegare" : "Secret_ref da collegare",
+    operationalLabel:
+      setupKind === "runtime"
+        ? "Runtime da collegare"
+        : "Secret_ref da collegare",
     primaryActionAvailable: true,
-  }
+  };
 }
 
 export function getConnectorSetupStatuses(
   connectors: StrategicMcpConnector[],
   installations: McpConnectorInstallation[],
 ): AgenticConnectorSetupStatus[] {
-  const installationsById = new Map(installations.map((installation) => [installation.connectorId, installation]))
+  const installationsById = new Map(
+    installations.map((installation) => [
+      installation.connectorId,
+      installation,
+    ]),
+  );
 
   return connectors.map((connector) => {
-    const installation = installationsById.get(connector.id) ?? null
-    const setupKind = connectorSetupKind(connector)
-    const installState = installation?.installState ?? (connector.status === "enabled" ? "healthy" : "not_installed")
-    const lastHealthStatus = installation?.lastHealthStatus ?? null
-    const healthOk = lastHealthStatus === "ok" || installState === "healthy" || installState === "configured"
-    const missingRuntimeEnv = connector.requiredEnv.filter((env) => !hasRuntimeEnv(env))
-    const copy = connectorSetupCopy(connector, installation)
+    const installation = installationsById.get(connector.id) ?? null;
+    const setupKind = connectorSetupKind(connector);
+    const installState =
+      installation?.installState ??
+      (connector.status === "enabled" ? "healthy" : "not_installed");
+    const lastHealthStatus = installation?.lastHealthStatus ?? null;
+    const healthOk =
+      lastHealthStatus === "ok" ||
+      installState === "healthy" ||
+      installState === "configured";
+    const missingRuntimeEnv = connector.requiredEnv.filter(
+      (env) => !hasRuntimeEnv(env),
+    );
+    const copy = connectorSetupCopy(connector, installation);
     const operational = connectorOperationalState({
       connector,
       setupKind,
@@ -1061,7 +1376,7 @@ export function getConnectorSetupStatuses(
       installState,
       healthOk,
       missingRuntimeEnv,
-    })
+    });
 
     return {
       connectorId: connector.id,
@@ -1074,11 +1389,15 @@ export function getConnectorSetupStatuses(
       operationalLabel: operational.operationalLabel,
       catalogStatus: connector.status,
       healthOk,
-      healthLabel: lastHealthStatus ? `Health: ${lastHealthStatus}` : "Health-check non eseguito",
+      healthLabel: lastHealthStatus
+        ? `Health: ${lastHealthStatus}`
+        : "Health-check non eseguito",
       primaryActionAvailable: operational.primaryActionAvailable,
       canStartOauth: setupKind === "oauth" && missingRuntimeEnv.length === 0,
-      canStartBrowserPairing: setupKind === "browser" && missingRuntimeEnv.length === 0,
-      canRunHealthCheck: installState !== "not_installed" || connector.status !== "missing",
+      canStartBrowserPairing:
+        setupKind === "browser" && missingRuntimeEnv.length === 0,
+      canRunHealthCheck:
+        installState !== "not_installed" || connector.status !== "missing",
       requiredEnv: connector.requiredEnv,
       missingRuntimeEnv,
       lastHealthAt: installation?.lastHealthAt ?? null,
@@ -1086,35 +1405,39 @@ export function getConnectorSetupStatuses(
       secretRef: installation?.secretRef ?? null,
       oauthSubject: installation?.oauthSubject ?? null,
       ...copy,
-    }
-  })
+    };
+  });
 }
 
 export async function getAgenticCapabilitySnapshot(
   db: any,
   principal: WorkspacePrincipal,
 ): Promise<AgenticCapabilitySnapshot> {
-  const [providerInstallations, connectorInstallations, subagents] = await Promise.all([
-    listProviderInstallations(db, principal.organizationId),
-    listConnectorInstallations(db, principal.organizationId),
-    listSubagents(db, principal.organizationId),
-  ])
+  const [providerInstallations, connectorInstallations, subagents] =
+    await Promise.all([
+      listProviderInstallations(db, principal.organizationId),
+      listConnectorInstallations(db, principal.organizationId),
+      listSubagents(db, principal.organizationId),
+    ]);
 
-  const mcpConnectorCatalog = getStrategicMcpConnectors()
+  const mcpConnectorCatalog = getStrategicMcpConnectors();
 
   return {
     providerCatalog: getAgenticProviderCatalog(),
     mcpConnectorCatalog,
     providerInstallations,
     connectorInstallations,
-    connectorSetupStatuses: getConnectorSetupStatuses(mcpConnectorCatalog, connectorInstallations),
+    connectorSetupStatuses: getConnectorSetupStatuses(
+      mcpConnectorCatalog,
+      connectorInstallations,
+    ),
     subagents,
     modelRuntime: await getAgenticModelRuntimeSnapshot(db, principal),
     oauthGuidance: getOAuthGuidance(),
     tenantIsolation: getAgenticTenantIsolation(principal),
     runtimePolicy: getNativeAgenticRuntimePolicy(),
     hermesBlueprint: getHermesBlueprint(),
-  }
+  };
 }
 
 const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
@@ -1125,9 +1448,18 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "codex",
     modelHint: "codex-cli",
     connectorIds: ["github", "browser", "cloudflare", "vercel", "hostinger"],
-    systemPrompt: "Produce patch, report e PR in worktree isolato. Non fa deploy, push o mutazioni produzione senza approvazione esplicita del control plane.",
-    permissions: { canCreatePatch: true, canCreatePullRequest: true, canDeploy: false, requiresReview: true },
-    handoffPolicy: { onMissingRepository: "ask_or_infer_from_graph", onRiskyAction: "return_to_review" },
+    systemPrompt:
+      "Produce patch, report e PR in worktree isolato. Non fa deploy, push o mutazioni produzione senza approvazione esplicita del control plane.",
+    permissions: {
+      canCreatePatch: true,
+      canCreatePullRequest: true,
+      canDeploy: false,
+      requiresReview: true,
+    },
+    handoffPolicy: {
+      onMissingRepository: "ask_or_infer_from_graph",
+      onRiskyAction: "return_to_review",
+    },
   },
   {
     name: "Research Analyst",
@@ -1136,8 +1468,13 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "qwen",
     modelHint: "qwen-long-context",
     connectorIds: ["github", "notion", "browser", "cloudinary"],
-    systemPrompt: "Raccoglie contesto, fonti e sintesi operative. Non inventa dati: segnala lacune e produce output revisionabile.",
-    permissions: { canReadGraph: true, canWriteTasks: false, requiresSources: true },
+    systemPrompt:
+      "Raccoglie contesto, fonti e sintesi operative. Non inventa dati: segnala lacune e produce output revisionabile.",
+    permissions: {
+      canReadGraph: true,
+      canWriteTasks: false,
+      requiresSources: true,
+    },
     handoffPolicy: { onInsufficientSources: "return_to_review" },
   },
   {
@@ -1147,8 +1484,13 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "minimax",
     modelHint: "minimax-media",
     connectorIds: ["browser", "cloudinary", "google-drive"],
-    systemPrompt: "Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
-    permissions: { canCreateMedia: true, canMutateAssets: false, requiresReview: true },
+    systemPrompt:
+      "Gestisce generazione e trasformazione asset collegati a clienti, campagne e task, usando solo asset autorizzati.",
+    permissions: {
+      canCreateMedia: true,
+      canMutateAssets: false,
+      requiresReview: true,
+    },
     handoffPolicy: { onCopyrightRisk: "return_to_review" },
   },
   {
@@ -1157,7 +1499,14 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     lane: "operations",
     primaryProviderId: "gemma-hosted",
     modelHint: "gemma-hosted",
-    connectorIds: ["google-business-profile", "google-calendar", "meta-business-suite", "linkedin-pages", "google-drive", "cloudinary"],
+    connectorIds: [
+      "google-business-profile",
+      "google-calendar",
+      "meta-business-suite",
+      "linkedin-pages",
+      "google-drive",
+      "cloudinary",
+    ],
     systemPrompt:
       "Coordina pubblicazioni cliente, Google Business Profile, calendario editoriale, asset e approvazioni. Crea bozze e preview collegate a task/progetto; pubblicazioni e modifiche pubbliche richiedono approvazione esplicita.",
     permissions: {
@@ -1181,8 +1530,14 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "gemma-hosted",
     modelHint: "gemma-hosted",
     connectorIds: ["notion", "sendgrid", "telegram"],
-    systemPrompt: "Classifica richieste operative, rapportini e comunicazioni interne con modello leggero o hosted quando basta.",
-    permissions: { canSendEmail: false, canDraftEmail: true, canCreateJob: true, requiresReview: true },
+    systemPrompt:
+      "Classifica richieste operative, rapportini e comunicazioni interne con modello leggero o hosted quando basta.",
+    permissions: {
+      canSendEmail: false,
+      canDraftEmail: true,
+      canCreateJob: true,
+      requiresReview: true,
+    },
     handoffPolicy: { onExternalMessage: "create_job_or_draft" },
   },
   {
@@ -1192,9 +1547,19 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "qwen",
     modelHint: "qwen-long-context",
     connectorIds: ["github", "notion", "browser", "cloudinary"],
-    systemPrompt: "Audita flussi reali, screenshot, feedback e telemetry per trovare attriti UI/UX, overflow, mobile regressions e copy ambiguo. Produce evidenze e patch suggestion, non mutazioni dirette.",
-    permissions: { canReadGraph: true, canAuditUi: true, canCreateJob: true, canWriteCode: false, requiresEvidence: true },
-    handoffPolicy: { onBugConfirmed: "handoff_to_codex_engineer", onMissingEvidence: "request_observation" },
+    systemPrompt:
+      "Audita flussi reali, screenshot, feedback e telemetry per trovare attriti UI/UX, overflow, mobile regressions e copy ambiguo. Produce evidenze e patch suggestion, non mutazioni dirette.",
+    permissions: {
+      canReadGraph: true,
+      canAuditUi: true,
+      canCreateJob: true,
+      canWriteCode: false,
+      requiresEvidence: true,
+    },
+    handoffPolicy: {
+      onBugConfirmed: "handoff_to_codex_engineer",
+      onMissingEvidence: "request_observation",
+    },
   },
   {
     name: "Browser Operator",
@@ -1203,9 +1568,19 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "openai",
     modelHint: "browser-mcp-controller",
     connectorIds: ["browser", "notion", "cloudinary"],
-    systemPrompt: "Usa Browser MCP per siti allowlist, sessioni OAuth autorizzate, QA visuale, ricerche e compilazione bozze. Non invia form, acquista, pubblica o modifica dati esterni senza review.",
-    permissions: { canUseBrowser: true, canCaptureScreenshot: true, canSubmitForms: false, requiresReview: true, allowlistedOriginsOnly: true },
-    handoffPolicy: { onLoginRequired: "request_owner_pairing", onIrreversibleAction: "return_to_review" },
+    systemPrompt:
+      "Usa Browser MCP per siti allowlist, sessioni OAuth autorizzate, QA visuale, ricerche e compilazione bozze. Non invia form, acquista, pubblica o modifica dati esterni senza review.",
+    permissions: {
+      canUseBrowser: true,
+      canCaptureScreenshot: true,
+      canSubmitForms: false,
+      requiresReview: true,
+      allowlistedOriginsOnly: true,
+    },
+    handoffPolicy: {
+      onLoginRequired: "request_owner_pairing",
+      onIrreversibleAction: "return_to_review",
+    },
   },
   {
     name: "Proposal PDF Engineer",
@@ -1214,9 +1589,19 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "codex",
     modelHint: "codex-cli",
     connectorIds: ["github", "browser", "cloudinary"],
-    systemPrompt: "Migliora preventivi, PDF, layout, brand kit, overflow e generatori riproducibili. Lavora su componenti e script, con screenshot/PDF di verifica e output in review.",
-    permissions: { canCreatePatch: true, canRunBuild: true, canGeneratePdfPreview: true, canDeploy: false, requiresReview: true },
-    handoffPolicy: { onBrandAssetNeeded: "handoff_to_media_operator", onApprovedPatch: "return_to_review_room" },
+    systemPrompt:
+      "Migliora preventivi, PDF, layout, brand kit, overflow e generatori riproducibili. Lavora su componenti e script, con screenshot/PDF di verifica e output in review.",
+    permissions: {
+      canCreatePatch: true,
+      canRunBuild: true,
+      canGeneratePdfPreview: true,
+      canDeploy: false,
+      requiresReview: true,
+    },
+    handoffPolicy: {
+      onBrandAssetNeeded: "handoff_to_media_operator",
+      onApprovedPatch: "return_to_review_room",
+    },
   },
   {
     name: "Graph Knowledge Curator",
@@ -1225,9 +1610,19 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "qwen",
     modelHint: "qwen-long-context",
     connectorIds: ["notion", "github", "cloudinary"],
-    systemPrompt: "Indicizza knowhow, Notion, dossier, repo e fonti aziendali in nodi/archi tenant-scoped con confidence, source_id e deduplica. Non salva segreti e non importa dump non redatti.",
-    permissions: { canReadGraph: true, canProposeGraphWrites: true, canBulkImport: false, requiresSourceId: true, requiresReview: true },
-    handoffPolicy: { onSchemaGap: "create_codex_patch_job", onSensitiveData: "redact_and_review" },
+    systemPrompt:
+      "Indicizza knowhow, Notion, dossier, repo e fonti aziendali in nodi/archi tenant-scoped con confidence, source_id e deduplica. Non salva segreti e non importa dump non redatti.",
+    permissions: {
+      canReadGraph: true,
+      canProposeGraphWrites: true,
+      canBulkImport: false,
+      requiresSourceId: true,
+      requiresReview: true,
+    },
+    handoffPolicy: {
+      onSchemaGap: "create_codex_patch_job",
+      onSensitiveData: "redact_and_review",
+    },
   },
   {
     name: "Presence Ops Auditor",
@@ -1236,9 +1631,19 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "gemma-hosted",
     modelHint: "gemma-hosted",
     connectorIds: ["sendgrid", "telegram"],
-    systemPrompt: "Controlla presenze, rapportini, ore, task collegate e anomalie calendario. Evidenzia incongruenze e prepara richieste di chiarimento o job correttivi revisionabili.",
-    permissions: { canReadPresence: true, canDraftEmail: true, canCreateJob: true, canModifyTimesheets: false, requiresReview: true },
-    handoffPolicy: { onTimesheetMutationNeeded: "return_to_admin_review", onMissingReport: "draft_reminder" },
+    systemPrompt:
+      "Controlla presenze, rapportini, ore, task collegate e anomalie calendario. Evidenzia incongruenze e prepara richieste di chiarimento o job correttivi revisionabili.",
+    permissions: {
+      canReadPresence: true,
+      canDraftEmail: true,
+      canCreateJob: true,
+      canModifyTimesheets: false,
+      requiresReview: true,
+    },
+    handoffPolicy: {
+      onTimesheetMutationNeeded: "return_to_admin_review",
+      onMissingReport: "draft_reminder",
+    },
   },
   {
     name: "Release Manager",
@@ -1247,9 +1652,19 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "codex",
     modelHint: "codex-cli",
     connectorIds: ["github", "cloudflare", "vercel", "hostinger"],
-    systemPrompt: "Coordina build, test, commit, push e deploy solo dopo approvazione owner-scoped. Produce audit, version id, rollback plan e non usa force push.",
-    permissions: { canCreatePatch: true, canRunBuild: true, canCommitPush: false, canDeploy: false, requiresOwnerApproval: true },
-    handoffPolicy: { onApprovalGranted: "create_deploy_job", onBuildFailure: "return_to_review_with_logs" },
+    systemPrompt:
+      "Coordina build, test, commit, push e deploy solo dopo approvazione owner-scoped. Produce audit, version id, rollback plan e non usa force push.",
+    permissions: {
+      canCreatePatch: true,
+      canRunBuild: true,
+      canCommitPush: false,
+      canDeploy: false,
+      requiresOwnerApproval: true,
+    },
+    handoffPolicy: {
+      onApprovalGranted: "create_deploy_job",
+      onBuildFailure: "return_to_review_with_logs",
+    },
   },
   {
     name: "Security Governance Analyst",
@@ -1258,9 +1673,19 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "openai",
     modelHint: "gpt-5.2",
     connectorIds: ["github", "notion"],
-    systemPrompt: "Rivede OAuth, MCP, secret_ref, tenant isolation, permessi subagenti, cron e runner. Cerca escalation, token leakage e azioni irreversibili non protette.",
-    permissions: { canReadPolicies: true, canAuditSecurity: true, canCreateJob: true, canReadSecrets: false, requiresReview: true },
-    handoffPolicy: { onCriticalRisk: "create_high_priority_codex_patch", onSecretNeeded: "ask_owner" },
+    systemPrompt:
+      "Rivede OAuth, MCP, secret_ref, tenant isolation, permessi subagenti, cron e runner. Cerca escalation, token leakage e azioni irreversibili non protette.",
+    permissions: {
+      canReadPolicies: true,
+      canAuditSecurity: true,
+      canCreateJob: true,
+      canReadSecrets: false,
+      requiresReview: true,
+    },
+    handoffPolicy: {
+      onCriticalRisk: "create_high_priority_codex_patch",
+      onSecretNeeded: "ask_owner",
+    },
   },
   {
     name: "Client Intelligence Analyst",
@@ -1269,9 +1694,19 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "qwen",
     modelHint: "qwen-long-context",
     connectorIds: ["notion", "github", "cloudinary"],
-    systemPrompt: "Ricostruisce contesto clienti da Notion, preventivi, task, case study, asset e repo. Risponde solo con fonti verificabili e segnala dati mancanti.",
-    permissions: { canReadClients: true, canReadQuotes: true, canReadGraph: true, canWriteClientRecords: false, requiresSources: true },
-    handoffPolicy: { onMissingCommercialData: "create_import_job", onUsefulInsight: "propose_graph_node" },
+    systemPrompt:
+      "Ricostruisce contesto clienti da Notion, preventivi, task, case study, asset e repo. Risponde solo con fonti verificabili e segnala dati mancanti.",
+    permissions: {
+      canReadClients: true,
+      canReadQuotes: true,
+      canReadGraph: true,
+      canWriteClientRecords: false,
+      requiresSources: true,
+    },
+    handoffPolicy: {
+      onMissingCommercialData: "create_import_job",
+      onUsefulInsight: "propose_graph_node",
+    },
   },
   {
     name: "Self Improvement Orchestrator",
@@ -1280,25 +1715,36 @@ const DEFAULT_SUBAGENTS: Array<Parameters<typeof createSubagent>[2]> = [
     primaryProviderId: "openai",
     modelHint: "gpt-5.2",
     connectorIds: ["github", "browser", "cloudflare", "notion"],
-    systemPrompt: "Legge telemetry, feedback, job falliti, richieste utente e readiness per decidere quali subagenti coinvolgere. Crea job piccoli, revisionabili e misurabili per migliorare Optima.",
-    permissions: { canRouteSubagents: true, canCreateJob: true, canDeploy: false, requiresReview: true, tenantScopedOnly: true },
-    handoffPolicy: { onUxIssue: "handoff_to_ux_quality_analyst", onCodePatch: "handoff_to_codex_engineer", onKnowledgeGap: "handoff_to_graph_knowledge_curator" },
+    systemPrompt:
+      "Legge telemetry, feedback, job falliti, richieste utente e readiness per decidere quali subagenti coinvolgere. Crea job piccoli, revisionabili e misurabili per migliorare Optima.",
+    permissions: {
+      canRouteSubagents: true,
+      canCreateJob: true,
+      canDeploy: false,
+      requiresReview: true,
+      tenantScopedOnly: true,
+    },
+    handoffPolicy: {
+      onUxIssue: "handoff_to_ux_quality_analyst",
+      onCodePatch: "handoff_to_codex_engineer",
+      onKnowledgeGap: "handoff_to_graph_knowledge_curator",
+    },
   },
-]
+];
 
 export async function upsertProviderInstallation(
   db: any,
   principal: WorkspacePrincipal,
   input: {
-    providerId: string
-    installState?: AgenticInstallState
-    config?: Record<string, unknown>
-    tenantPolicy?: Record<string, unknown>
-    secretRef?: string | null
+    providerId: string;
+    installState?: AgenticInstallState;
+    config?: Record<string, unknown>;
+    tenantPolicy?: Record<string, unknown>;
+    secretRef?: string | null;
   },
 ) {
-  const provider = PROVIDERS.find((item) => item.id === input.providerId)
-  if (!provider) throw new Error("Provider agentico non supportato.")
+  const provider = PROVIDERS.find((item) => item.id === input.providerId);
+  if (!provider) throw new Error("Provider agentico non supportato.");
 
   await db
     .prepare(
@@ -1332,26 +1778,30 @@ export async function upsertProviderInstallation(
       input.secretRef || null,
       principal.memberId,
     )
-    .run()
+    .run();
 }
 
 export async function upsertConnectorInstallation(
   db: any,
   principal: WorkspacePrincipal,
   input: {
-    connectorId: string
-    installState?: AgenticInstallState
-    authMethod?: AgenticAuthMethod
-    scopes?: string[]
-    config?: Record<string, unknown>
-    secretRef?: string | null
-    oauthSubject?: string | null
+    connectorId: string;
+    installState?: AgenticInstallState;
+    authMethod?: AgenticAuthMethod;
+    scopes?: string[];
+    config?: Record<string, unknown>;
+    secretRef?: string | null;
+    oauthSubject?: string | null;
   },
 ) {
-  const connector = getStrategicMcpConnectors().find((item) => item.id === input.connectorId)
-  if (!connector) throw new Error("Connector MCP non supportato.")
+  const connector = getStrategicMcpConnectors().find(
+    (item) => item.id === input.connectorId,
+  );
+  if (!connector) throw new Error("Connector MCP non supportato.");
 
-  const authMethod = input.authMethod || (connector.requiredEnv.length ? "api_key_secret" : "oauth_pkce")
+  const authMethod =
+    input.authMethod ||
+    (connector.requiredEnv.length ? "api_key_secret" : "oauth_pkce");
 
   await db
     .prepare(
@@ -1385,31 +1835,35 @@ export async function upsertConnectorInstallation(
       input.oauthSubject || null,
       principal.memberId,
     )
-    .run()
+    .run();
 }
 
 export async function upsertModelRoute(
   db: any,
   principal: WorkspacePrincipal,
   input: {
-    lane: AgenticModelLane
-    providerId: string
-    model: string
-    mode?: AgenticModelMode
-    status?: string
-    priority?: number
-    endpointRef?: string | null
-    secretRef?: string | null
-    config?: Record<string, unknown>
+    lane: AgenticModelLane;
+    providerId: string;
+    model: string;
+    mode?: AgenticModelMode;
+    status?: string;
+    priority?: number;
+    endpointRef?: string | null;
+    secretRef?: string | null;
+    config?: Record<string, unknown>;
   },
 ) {
-  const lane = input.lane
-  const provider = PROVIDERS.find((item) => item.id === input.providerId)
-  if (!provider) throw new Error("Provider modello non supportato.")
+  const lane = input.lane;
+  const provider = PROVIDERS.find((item) => item.id === input.providerId);
+  if (!provider) throw new Error("Provider modello non supportato.");
 
-  const host = MODEL_HOSTS.find((item) => item.providerId === provider.id && item.lane === lane) ?? MODEL_HOSTS.find((item) => item.providerId === provider.id)
-  const mode = input.mode ?? host?.mode ?? "hosted"
-  const model = input.model.trim() || host?.defaultModel || provider.defaultModel
+  const host =
+    MODEL_HOSTS.find(
+      (item) => item.providerId === provider.id && item.lane === lane,
+    ) ?? MODEL_HOSTS.find((item) => item.providerId === provider.id);
+  const mode = input.mode ?? host?.mode ?? "hosted";
+  const model =
+    input.model.trim() || host?.defaultModel || provider.defaultModel;
 
   await db
     .prepare(
@@ -1437,7 +1891,12 @@ export async function upsertModelRoute(
       input.status || "configured",
       Number.isFinite(input.priority) ? Number(input.priority) : 100,
       input.endpointRef || host?.baseUrlEnv || host?.endpointEnv || null,
-      input.secretRef || host?.secretRefHint?.replace("{organizationId}", principal.organizationId) || null,
+      input.secretRef ||
+        host?.secretRefHint?.replace(
+          "{organizationId}",
+          principal.organizationId,
+        ) ||
+        null,
       stringifyJson({
         ...(input.config || {}),
         runtimeAdapter: host?.runtimeAdapter,
@@ -1446,10 +1905,13 @@ export async function upsertModelRoute(
       }),
       principal.memberId,
     )
-    .run()
+    .run();
 }
 
-export async function seedHostedModelRoutes(db: any, principal: WorkspacePrincipal) {
+export async function seedHostedModelRoutes(
+  db: any,
+  principal: WorkspacePrincipal,
+) {
   await upsertModelRoute(db, principal, {
     lane: "research",
     providerId: "qwen",
@@ -1457,7 +1919,7 @@ export async function seedHostedModelRoutes(db: any, principal: WorkspacePrincip
     mode: "hosted",
     priority: 30,
     status: "configured",
-  })
+  });
   await upsertModelRoute(db, principal, {
     lane: "operations",
     providerId: "gemma-hosted",
@@ -1465,7 +1927,7 @@ export async function seedHostedModelRoutes(db: any, principal: WorkspacePrincip
     mode: "hosted",
     priority: 40,
     status: "configured",
-  })
+  });
   await upsertModelRoute(db, principal, {
     lane: "chat",
     providerId: "openai",
@@ -1473,7 +1935,7 @@ export async function seedHostedModelRoutes(db: any, principal: WorkspacePrincip
     mode: "router",
     priority: 50,
     status: "configured",
-  })
+  });
   await upsertModelRoute(db, principal, {
     lane: "media",
     providerId: "minimax",
@@ -1490,27 +1952,32 @@ export async function seedHostedModelRoutes(db: any, principal: WorkspacePrincip
         reviewRequired: true,
       },
     },
-  })
+  });
 }
 
 export async function createSubagent(
   db: any,
   principal: WorkspacePrincipal,
   input: {
-    name: string
-    slug: string
-    lane: string
-    primaryProviderId: string
-    modelHint?: string | null
-    connectorIds?: string[]
-    systemPrompt?: string
-    permissions?: Record<string, unknown>
-    handoffPolicy?: Record<string, unknown>
+    name: string;
+    slug: string;
+    lane: string;
+    primaryProviderId: string;
+    modelHint?: string | null;
+    connectorIds?: string[];
+    systemPrompt?: string;
+    permissions?: Record<string, unknown>;
+    handoffPolicy?: Record<string, unknown>;
   },
 ) {
-  const name = input.name.trim()
-  const slug = input.slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "")
-  if (!name || !slug) throw new Error("Nome e slug subagente sono obbligatori.")
+  const name = input.name.trim();
+  const slug = input.slug
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!name || !slug)
+    throw new Error("Nome e slug subagente sono obbligatori.");
 
   await db
     .prepare(
@@ -1540,21 +2007,26 @@ export async function createSubagent(
       input.lane.trim() || "operations",
       input.primaryProviderId,
       input.modelHint || null,
-      JSON.stringify(Array.isArray(input.connectorIds) ? input.connectorIds : []),
+      JSON.stringify(
+        Array.isArray(input.connectorIds) ? input.connectorIds : [],
+      ),
       input.systemPrompt || "",
       stringifyJson(input.permissions),
       stringifyJson(input.handoffPolicy),
       principal.memberId,
     )
-    .run()
+    .run();
 }
 
-export async function bootstrapAgenticTenant(db: any, principal: WorkspacePrincipal) {
-  await seedHostedModelRoutes(db, principal)
+export async function bootstrapAgenticTenant(
+  db: any,
+  principal: WorkspacePrincipal,
+) {
+  await seedHostedModelRoutes(db, principal);
 
   for (const subagent of DEFAULT_SUBAGENTS) {
-    await createSubagent(db, principal, subagent)
+    await createSubagent(db, principal, subagent);
   }
 
-  return getAgenticCapabilitySnapshot(db, principal)
+  return getAgenticCapabilitySnapshot(db, principal);
 }

@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowRight,
   BarChart3,
@@ -20,22 +20,23 @@ import {
   Sparkles,
   Target,
   Zap,
-} from "lucide-react"
+} from "lucide-react";
 
 type Integration = {
-  name: string
-  provider: "Meta" | "Google"
-  description: string
-  status: "ready" | "planned"
-  scopes: string[]
-  icon: typeof Facebook
-}
+  name: string;
+  provider: "Meta" | "Google";
+  description: string;
+  status: "ready" | "planned";
+  scopes: string[];
+  icon: typeof Facebook;
+};
 
 const integrations: Integration[] = [
   {
     name: "Meta Ads",
     provider: "Meta",
-    description: "Campagne Facebook e Instagram, budget, creatività, performance e breakdown per cliente.",
+    description:
+      "Campagne Facebook e Instagram, budget, creatività, performance e breakdown per cliente.",
     status: "planned",
     scopes: ["ads_read", "business_management", "pages_read_engagement"],
     icon: Facebook,
@@ -43,7 +44,8 @@ const integrations: Integration[] = [
   {
     name: "Google Ads",
     provider: "Google",
-    description: "Search, Performance Max, campagne video, costo, conversioni e stato annunci.",
+    description:
+      "Search, Performance Max, campagne video, costo, conversioni e stato annunci.",
     status: "planned",
     scopes: ["Google Ads API", "OAuth account manager", "refresh token"],
     icon: Search,
@@ -51,7 +53,8 @@ const integrations: Integration[] = [
   {
     name: "GA4",
     provider: "Google",
-    description: "Eventi, conversioni, sorgenti traffico e qualità landing collegate ai progetti.",
+    description:
+      "Eventi, conversioni, sorgenti traffico e qualità landing collegate ai progetti.",
     status: "planned",
     scopes: ["Analytics Data API", "property read"],
     icon: LineChart,
@@ -59,12 +62,13 @@ const integrations: Integration[] = [
   {
     name: "Search Console",
     provider: "Google",
-    description: "Query, pagine, CTR organico e segnali SEO agganciati alle attività di contenuto.",
+    description:
+      "Query, pagine, CTR organico e segnali SEO agganciati alle attività di contenuto.",
     status: "planned",
     scopes: ["webmasters.readonly"],
     icon: Globe2,
   },
-]
+];
 
 const operatingFlow = [
   {
@@ -83,14 +87,14 @@ const operatingFlow = [
     title: "Azioni operative",
     text: "Óptima propone task: refresh creatività, stop campagne inefficienti, follow-up lead.",
   },
-]
+];
 
 const nextBuildSteps = [
   "Vault sicuro per token OAuth e refresh token provider.",
   "Tabelle D1 per account, campagne, ad set, ads, metriche giornaliere e mapping cliente/progetto.",
   "Worker cron per sync incrementale e normalizzazione KPI cross-provider.",
   "Dashboard per ROAS, CPL, spend pacing, anomalie e task automatiche.",
-]
+];
 
 function statusBadge(status: Integration["status"]) {
   if (status === "ready") {
@@ -99,7 +103,7 @@ function statusBadge(status: Integration["status"]) {
         <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
         Pronto
       </Badge>
-    )
+    );
   }
 
   return (
@@ -107,14 +111,14 @@ function statusBadge(status: Integration["status"]) {
       <CircleDashed className="mr-1.5 h-3.5 w-3.5" />
       Da collegare
     </Badge>
-  )
+  );
 }
 
 export default function CampagnePage() {
   return (
-    <div className="min-h-screen bg-[#050812] text-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-5 md:px-6 md:py-8">
-        <section className="overflow-hidden rounded-lg border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.2),transparent_34%),linear-gradient(135deg,#090d19,#050812)]">
+    <div className="optima-ops-page">
+      <div className="optima-ops-container optima-ops-stack">
+        <section className="overflow-hidden rounded-lg border border-white/10 bg-[#080d18]/90">
           <div className="grid gap-8 p-5 md:p-8 lg:grid-cols-[1.05fr_0.95fr] lg:p-10">
             <div className="flex flex-col justify-between gap-8">
               <div className="space-y-5">
@@ -126,8 +130,10 @@ export default function CampagnePage() {
                     Campagne ha senso quando legge Meta, Google e analytics.
                   </h1>
                   <p className="max-w-2xl text-base leading-7 text-slate-300 md:text-lg">
-                    Qui non vogliamo un CRM campagne finto. La pagina deve diventare il ponte tra advertising,
-                    performance e task operative: spesa, risultati, owner, ritardi, creatività e prossime azioni.
+                    Qui non vogliamo un CRM campagne finto. La pagina deve
+                    diventare il ponte tra advertising, performance e task
+                    operative: spesa, risultati, owner, ritardi, creatività e
+                    prossime azioni.
                   </p>
                 </div>
               </div>
@@ -146,7 +152,9 @@ export default function CampagnePage() {
                 <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
                   <Zap className="mb-3 h-5 w-5 text-emerald-300" />
                   <p className="text-2xl font-black">4</p>
-                  <p className="text-xs text-slate-400">integrazioni prioritarie</p>
+                  <p className="text-xs text-slate-400">
+                    integrazioni prioritarie
+                  </p>
                 </div>
               </div>
             </div>
@@ -154,37 +162,53 @@ export default function CampagnePage() {
             <div className="rounded-lg border border-white/10 bg-black/30 p-4 md:p-5">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-white">Readiness integrazioni</p>
-                  <p className="text-xs text-slate-400">Nessuna campagna live finche non colleghiamo i provider.</p>
+                  <p className="text-sm font-bold text-white">
+                    Readiness integrazioni
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Nessuna campagna live finche non colleghiamo i provider.
+                  </p>
                 </div>
                 <ShieldCheck className="h-5 w-5 text-cyan-300" />
               </div>
               <div className="space-y-3">
                 {integrations.map((integration) => {
-                  const Icon = integration.icon
+                  const Icon = integration.icon;
                   return (
-                    <div key={integration.name} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                    <div
+                      key={integration.name}
+                      className="rounded-lg border border-white/10 bg-white/[0.04] p-4"
+                    >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex gap-3">
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06]">
                             <Icon className="h-5 w-5 text-white" />
                           </span>
                           <div className="min-w-0">
-                            <p className="font-bold text-white">{integration.name}</p>
-                            <p className="mt-1 text-sm leading-5 text-slate-400">{integration.description}</p>
+                            <p className="font-bold text-white">
+                              {integration.name}
+                            </p>
+                            <p className="mt-1 text-sm leading-5 text-slate-400">
+                              {integration.description}
+                            </p>
                           </div>
                         </div>
-                        <div className="shrink-0">{statusBadge(integration.status)}</div>
+                        <div className="shrink-0">
+                          {statusBadge(integration.status)}
+                        </div>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {integration.scopes.map((scope) => (
-                          <span key={scope} className="rounded-md border border-white/10 bg-black/30 px-2.5 py-1 text-xs text-slate-300">
+                          <span
+                            key={scope}
+                            className="rounded-md border border-white/10 bg-black/30 px-2.5 py-1 text-xs text-slate-300"
+                          >
                             {scope}
                           </span>
                         ))}
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -201,13 +225,18 @@ export default function CampagnePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {operatingFlow.map((step, index) => (
-                <div key={step.title} className="grid grid-cols-[32px_1fr] gap-3">
+                <div
+                  key={step.title}
+                  className="grid grid-cols-[32px_1fr] gap-3"
+                >
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05] text-sm font-black text-cyan-100">
                     {index + 1}
                   </span>
                   <div>
                     <p className="font-bold text-white">{step.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">{step.text}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      {step.text}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -224,16 +253,39 @@ export default function CampagnePage() {
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
-                  ["Spend pacing", "Budget consumato vs piano e finestra temporale."],
-                  ["CPL / CPA", "Costo per lead o conversione per cliente e progetto."],
-                  ["Creatività stanche", "Frequenza alta, CTR in calo, task refresh automatiche."],
-                  ["Lead follow-up", "Campagna genera lead ma manca task commerciale."],
-                  ["ROAS / margine", "Risultato media collegato a preventivi e valore cliente."],
-                  ["Anomalie", "Picchi di spesa, campagne ferme, tracking assente."],
+                  [
+                    "Spend pacing",
+                    "Budget consumato vs piano e finestra temporale.",
+                  ],
+                  [
+                    "CPL / CPA",
+                    "Costo per lead o conversione per cliente e progetto.",
+                  ],
+                  [
+                    "Creatività stanche",
+                    "Frequenza alta, CTR in calo, task refresh automatiche.",
+                  ],
+                  [
+                    "Lead follow-up",
+                    "Campagna genera lead ma manca task commerciale.",
+                  ],
+                  [
+                    "ROAS / margine",
+                    "Risultato media collegato a preventivi e valore cliente.",
+                  ],
+                  [
+                    "Anomalie",
+                    "Picchi di spesa, campagne ferme, tracking assente.",
+                  ],
                 ].map(([title, text]) => (
-                  <div key={title} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                  <div
+                    key={title}
+                    className="rounded-lg border border-white/10 bg-white/[0.04] p-4"
+                  >
                     <p className="font-bold text-white">{title}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{text}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      {text}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -251,7 +303,10 @@ export default function CampagnePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {nextBuildSteps.map((step) => (
-                <div key={step} className="flex gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-sm leading-6 text-slate-300">
+                <div
+                  key={step}
+                  className="flex gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-sm leading-6 text-slate-300"
+                >
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
                   <span>{step}</span>
                 </div>
@@ -268,15 +323,19 @@ export default function CampagnePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm leading-6 text-slate-300">
-                Fino a quando Meta e Google non sono collegati, questa pagina deve essere una cabina di regia delle
-                integrazioni, non una lista manuale di campagne.
+                Fino a quando Meta e Google non sono collegati, questa pagina
+                deve essere una cabina di regia delle integrazioni, non una
+                lista manuale di campagne.
               </p>
               <div className="grid gap-2">
                 <Button className="h-10 rounded-md bg-pink-500 text-white hover:bg-pink-400">
                   Prossimo step: OAuth provider
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-                <Button variant="outline" className="h-10 rounded-md border-white/15 bg-white/[0.03] text-white hover:bg-white/10">
+                <Button
+                  variant="outline"
+                  className="h-10 rounded-md border-white/15 bg-white/[0.03] text-white hover:bg-white/10"
+                >
                   Apri documentazione integrazioni
                   <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
@@ -286,5 +345,5 @@ export default function CampagnePage() {
         </section>
       </div>
     </div>
-  )
+  );
 }

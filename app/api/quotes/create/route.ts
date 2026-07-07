@@ -1,11 +1,12 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import type { NextRequest } from "next/server"
-import { z } from "zod"
-import { createId, getCloudflareDb } from "@/lib/cloudflare-db"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
-import { sanitizeQuoteClient } from "@/lib/quote-data-quality"
+import type { NextRequest } from "next/server";
+import { z } from "zod";
+import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { sanitizeQuoteClient } from "@/lib/quote-data-quality";
+import { canViewInternalEconomicData } from "@/lib/workspace-permissions";
 
 const quoteItemSchema = z.object({
   name: z.string().min(1, "Nome richiesto"),
@@ -13,7 +14,7 @@ const quoteItemSchema = z.object({
   quantity: z.number().positive("Quantita deve essere positiva"),
   unitPrice: z.number().nonnegative("Prezzo non valido"),
   total: z.number().nonnegative("Totale non valido"),
-})
+});
 
 const quoteVoiceSchema = z.object({
   descrizione: z.string().min(1, "Descrizione richiesta"),
@@ -22,83 +23,123 @@ const quoteVoiceSchema = z.object({
   totale: z.number().nonnegative().optional(),
   categoria: z.enum(["base", "optional", "recurring"]).optional(),
   tipo: z.enum(["one_time", "monthly", "annual"]).optional(),
-})
+});
 
-const brandMaterialiSchema = z.object({
-  brandCoinvolti: z.array(z.string()).optional(),
-  brandPrincipale: z.string().optional(),
-  statoLogo: z.enum(["available", "to_request", "not_defined"]).optional(),
-  noteLogo: z.string().optional(),
-  materialiDisponibili: z.string().optional(),
-  riferimenti: z.string().optional(),
-  materialiDaRichiedere: z.array(z.string()).optional(),
-  domandeAperte: z.array(z.string()).optional(),
-}).optional()
+const brandMaterialiSchema = z
+  .object({
+    brandCoinvolti: z.array(z.string()).optional(),
+    brandPrincipale: z.string().optional(),
+    statoLogo: z.enum(["available", "to_request", "not_defined"]).optional(),
+    noteLogo: z.string().optional(),
+    materialiDisponibili: z.string().optional(),
+    riferimenti: z.string().optional(),
+    materialiDaRichiedere: z.array(z.string()).optional(),
+    domandeAperte: z.array(z.string()).optional(),
+  })
+  .optional();
 
-const createQuoteSchema = z.object({
-  title: z.string().min(1, "Titolo richiesto").max(240),
-  description: z.string().optional(),
-  clientId: z.string().optional(),
-  clientName: z.string().optional(),
-  clientEmail: z.string().optional(),
-  externalClientName: z.string().optional(),
-  externalClientEmail: z.string().email("Email non valida").optional().or(z.literal("")),
-  status: z.enum(["draft", "sent", "in_review", "pending_payment", "approved", "in_progress", "completed", "rejected", "expired"]).optional(),
-  currency: z.string().optional(),
-  items: z.array(quoteItemSchema).optional().default([]),
-  total: z.number().nonnegative().optional(),
-  subtotale: z.number().nonnegative().optional(),
-  iva: z.number().nonnegative().optional(),
-  percentualeIva: z.number().nonnegative().optional(),
-  brandMateriali: brandMaterialiSchema,
-  obiettivi: z.array(z.string()).optional().default([]),
-  attivita: z.array(z.string()).optional().default([]),
-  voci: z.array(quoteVoiceSchema).optional().default([]),
-  terminiCondizioni: z.string().optional(),
-  validUntil: z.string().optional(),
-  sourceSnapshot: z.record(z.unknown()).optional(),
-}).refine(
-  (data) => (data.status || "draft") === "draft" || Boolean(data.clientId || data.externalClientName || data.clientName),
-  { message: "Serve un cliente piattaforma o un nome cliente esterno" },
-)
+const createQuoteSchema = z
+  .object({
+    title: z.string().min(1, "Titolo richiesto").max(240),
+    description: z.string().optional(),
+    clientId: z.string().optional(),
+    clientName: z.string().optional(),
+    clientEmail: z.string().optional(),
+    externalClientName: z.string().optional(),
+    externalClientEmail: z
+      .string()
+      .email("Email non valida")
+      .optional()
+      .or(z.literal("")),
+    status: z
+      .enum([
+        "draft",
+        "sent",
+        "in_review",
+        "pending_payment",
+        "approved",
+        "in_progress",
+        "completed",
+        "rejected",
+        "expired",
+      ])
+      .optional(),
+    currency: z.string().optional(),
+    items: z.array(quoteItemSchema).optional().default([]),
+    total: z.number().nonnegative().optional(),
+    subtotale: z.number().nonnegative().optional(),
+    iva: z.number().nonnegative().optional(),
+    percentualeIva: z.number().nonnegative().optional(),
+    brandMateriali: brandMaterialiSchema,
+    obiettivi: z.array(z.string()).optional().default([]),
+    attivita: z.array(z.string()).optional().default([]),
+    voci: z.array(quoteVoiceSchema).optional().default([]),
+    terminiCondizioni: z.string().optional(),
+    validUntil: z.string().optional(),
+    sourceSnapshot: z.record(z.unknown()).optional(),
+  })
+  .refine(
+    (data) =>
+      (data.status || "draft") === "draft" ||
+      Boolean(data.clientId || data.externalClientName || data.clientName),
+    { message: "Serve un cliente piattaforma o un nome cliente esterno" },
+  );
 
-const toCents = (amount: number | undefined) => Math.round(Number(amount || 0) * 100)
+const toCents = (amount: number | undefined) =>
+  Math.round(Number(amount || 0) * 100);
 
-const stringify = (value: unknown) => JSON.stringify(value ?? null)
+const stringify = (value: unknown) => JSON.stringify(value ?? null);
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireClerkUser()
+    const user = await requireClerkUser();
     if (!user) {
-      return Response.json({ error: "Sessione non valida o scaduta" }, { status: 401 })
+      return Response.json(
+        { error: "Sessione non valida o scaduta" },
+        { status: 401 },
+      );
     }
 
-    const db = await getCloudflareDb()
+    const db = await getCloudflareDb();
     if (!db) {
-      return Response.json({ error: "Database Cloudflare non disponibile" }, { status: 500 })
+      return Response.json(
+        { error: "Database Cloudflare non disponibile" },
+        { status: 500 },
+      );
     }
 
-    const principal = await ensureWorkspacePrincipal(db, user)
-    const body = await request.json().catch(() => null)
-    const data = createQuoteSchema.parse(body)
+    const principal = await ensureWorkspacePrincipal(db, user);
+    if (!canViewInternalEconomicData(principal.role)) {
+      return Response.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      );
+    }
 
-    const now = new Date().toISOString()
-    const validUntil = data.validUntil ? new Date(data.validUntil).toISOString() : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
-    const quoteId = createId("quote")
-    const currency = data.currency || "EUR"
-    const status = data.status || "draft"
-    const subtotal = data.subtotale ?? data.items.reduce((sum, item) => sum + Number(item.total || 0), 0)
-    const vatRate = data.percentualeIva ?? 22
-    const vat = data.iva ?? Math.round(subtotal * (vatRate / 100) * 100) / 100
-    const total = data.total ?? Math.round((subtotal + vat) * 100) / 100
+    const body = await request.json().catch(() => null);
+    const data = createQuoteSchema.parse(body);
 
-    let clientId = data.clientId || null
+    const now = new Date().toISOString();
+    const validUntil = data.validUntil
+      ? new Date(data.validUntil).toISOString()
+      : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    const quoteId = createId("quote");
+    const currency = data.currency || "EUR";
+    const status = data.status || "draft";
+    const subtotal =
+      data.subtotale ??
+      data.items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const vatRate = data.percentualeIva ?? 22;
+    const vat = data.iva ?? Math.round(subtotal * (vatRate / 100) * 100) / 100;
+    const total = data.total ?? Math.round((subtotal + vat) * 100) / 100;
+
+    let clientId = data.clientId || null;
     const requestedClient = sanitizeQuoteClient({
       nome: data.clientName || data.externalClientName || "Cliente",
       email: data.clientEmail || data.externalClientEmail || "",
-    })
-    let clientName = requestedClient.nome || "Cliente"
-    let clientEmail = requestedClient.email || ""
+    });
+    let clientName = requestedClient.nome || "Cliente";
+    let clientEmail = requestedClient.email || "";
 
     if (clientId) {
       const client = await db
@@ -109,31 +150,40 @@ export async function POST(request: NextRequest) {
            LIMIT 1`,
         )
         .bind(principal.organizationId, clientId)
-        .first()
+        .first();
 
       if (!client?.id) {
-        return Response.json({ error: "Cliente piattaforma non trovato" }, { status: 404 })
+        return Response.json(
+          { error: "Cliente piattaforma non trovato" },
+          { status: 404 },
+        );
       }
 
-      clientName = String(client.name || client.company || clientName)
-      clientEmail = sanitizeQuoteClient({ email: String(client.email || clientEmail || "") }).email || ""
+      clientName = String(client.name || client.company || clientName);
+      clientEmail =
+        sanitizeQuoteClient({
+          email: String(client.email || clientEmail || ""),
+        }).email || "";
     }
 
-    const voices = data.voci.length > 0
-      ? data.voci.map((voice) => ({
-          ...voice,
-          totale: voice.totale ?? Math.round(voice.quantita * voice.prezzoUnitario * 100) / 100,
-          categoria: voice.categoria || "base",
-          tipo: voice.tipo || "one_time",
-        }))
-      : data.items.map((item) => ({
-          descrizione: item.description || item.name,
-          quantita: item.quantity,
-          prezzoUnitario: item.unitPrice,
-          totale: item.total,
-          categoria: "base",
-          tipo: "one_time",
-        }))
+    const voices =
+      data.voci.length > 0
+        ? data.voci.map((voice) => ({
+            ...voice,
+            totale:
+              voice.totale ??
+              Math.round(voice.quantita * voice.prezzoUnitario * 100) / 100,
+            categoria: voice.categoria || "base",
+            tipo: voice.tipo || "one_time",
+          }))
+        : data.items.map((item) => ({
+            descrizione: item.description || item.name,
+            quantita: item.quantity,
+            prezzoUnitario: item.unitPrice,
+            totale: item.total,
+            categoria: "base",
+            tipo: "one_time",
+          }));
 
     await db
       .prepare(
@@ -153,8 +203,10 @@ export async function POST(request: NextRequest) {
         data.description || "",
         clientName,
         clientEmail,
-        sanitizeQuoteClient({ nome: data.externalClientName || undefined }).nome || null,
-        sanitizeQuoteClient({ email: data.externalClientEmail || undefined }).email || null,
+        sanitizeQuoteClient({ nome: data.externalClientName || undefined })
+          .nome || null,
+        sanitizeQuoteClient({ email: data.externalClientEmail || undefined })
+          .email || null,
         status,
         currency,
         toCents(total),
@@ -174,9 +226,9 @@ export async function POST(request: NextRequest) {
         now,
         now,
       )
-      .run()
+      .run();
 
-    return Response.json({ success: true, id: quoteId })
+    return Response.json({ success: true, id: quoteId });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return Response.json(
@@ -188,16 +240,16 @@ export async function POST(request: NextRequest) {
           })),
         },
         { status: 400 },
-      )
+      );
     }
 
-    console.error("Quote creation API error:", error)
+    console.error("Quote creation API error:", error);
     return Response.json(
       {
         error: "Errore durante la creazione del preventivo",
         details: error instanceof Error ? error.message : "Errore interno",
       },
       { status: 500 },
-    )
+    );
   }
 }

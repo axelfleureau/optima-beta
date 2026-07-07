@@ -1,56 +1,63 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import { getCloudflareDb } from "@/lib/cloudflare-db"
-import { requireClerkUser } from "@/lib/server-clerk"
+import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { requireClerkUser } from "@/lib/server-clerk";
 import {
   DEFAULT_LUNCH_BREAK_MINUTES,
   DEFAULT_WORK_DAYS_PER_WEEK,
   hasAutomaticPresence,
+  netPresenceMinutes,
+  timeToMinutes,
   weeklyNetCapacityMinutes,
-} from "@/lib/time-tracking"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+  workScheduleForMember,
+} from "@/lib/time-tracking";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { canViewInternalEconomicData } from "@/lib/workspace-permissions";
 
-const DONE_STATUSES = new Set(["done", "completed", "validation"])
-const OPERATIVE_ROLES = new Set(["member", "junior", "dipendente", "employee"])
+const DONE_STATUSES = new Set(["done", "completed", "validation"]);
+const OPERATIVE_ROLES = new Set(["member", "junior", "dipendente", "employee"]);
 const CLOSED_STATUS_SQL =
-  "'done', 'completed', 'validation', 'suspended', 'sospeso', 'recurring', 'ricorrente', 'archived', 'archiviato'"
-const DEFAULT_RATE_ADMIN_CENTS = 4500
-const DEFAULT_RATE_LEAD_CENTS = 3200
-const DEFAULT_RATE_OPERATIVE_CENTS = 2200
-const REPORTING_TIME_ZONE = "Europe/Rome"
+  "'done', 'completed', 'validation', 'suspended', 'sospeso', 'recurring', 'ricorrente', 'archived', 'archiviato'";
+const DEFAULT_RATE_ADMIN_CENTS = 4500;
+const DEFAULT_RATE_LEAD_CENTS = 3200;
+const DEFAULT_RATE_OPERATIVE_CENTS = 2200;
+const REPORTING_TIME_ZONE = "Europe/Rome";
 
 function openStatusSql(alias = "") {
-  const prefix = alias ? `${alias}.` : ""
-  return `COALESCE(${prefix}column_id, ${prefix}status) NOT IN (${CLOSED_STATUS_SQL})`
+  const prefix = alias ? `${alias}.` : "";
+  return `COALESCE(${prefix}column_id, ${prefix}status) NOT IN (${CLOSED_STATUS_SQL})`;
 }
 
 function toNumber(value: unknown) {
-  return Number(value || 0)
+  return Number(value || 0);
 }
 
 function toText(value: unknown, fallback = "") {
-  return typeof value === "string" && value ? value : fallback
+  return typeof value === "string" && value ? value : fallback;
 }
 
 function memberName(row: any) {
-  return `${row.first_name || ""} ${row.last_name || ""}`.trim() || String(row.email || "Utente")
+  return (
+    `${row.first_name || ""} ${row.last_name || ""}`.trim() ||
+    String(row.email || "Utente")
+  );
 }
 
 function displayMemberEmail(value: unknown) {
-  const email = toText(value)
-  if (email.endsWith("@no-email.optima.local")) return ""
-  return email
+  const email = toText(value);
+  if (email.endsWith("@no-email.optima.local")) return "";
+  return email;
 }
 
 function daysUntil(value: unknown) {
-  if (typeof value !== "string" || !value) return null
-  const due = new Date(`${value.slice(0, 10)}T23:59:59.999Z`).getTime()
-  if (!Number.isFinite(due)) return null
-  return Math.ceil((due - Date.now()) / 86400000)
+  if (typeof value !== "string" || !value) return null;
+  const due = new Date(`${value.slice(0, 10)}T23:59:59.999Z`).getTime();
+  if (!Number.isFinite(due)) return null;
+  return Math.ceil((due - Date.now()) / 86400000);
 }
 
 function formatDateKey(date: Date) {
-  return date.toISOString().slice(0, 10)
+  return date.toISOString().slice(0, 10);
 }
 
 function romeDateParts(date = new Date()) {
@@ -59,30 +66,90 @@ function romeDateParts(date = new Date()) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(date)
-  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  }).formatToParts(date);
+  const byType = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
   return {
     year: Number(byType.year),
     month: Number(byType.month),
     day: Number(byType.day),
-  }
+  };
 }
 
-function currentRomeWeekRange() {
-  const parts = romeDateParts()
-  const todayUtc = new Date(Date.UTC(parts.year, parts.month - 1, parts.day))
-  const weekday = todayUtc.getUTCDay()
-  const daysSinceMonday = (weekday + 6) % 7
-  const weekStart = new Date(todayUtc)
-  weekStart.setUTCDate(todayUtc.getUTCDate() - daysSinceMonday)
-  const weekEnd = new Date(weekStart)
-  weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
+function currentRomeDateTimeParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: REPORTING_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const byType = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+  return {
+    year: Number(byType.year),
+    month: Number(byType.month),
+    day: Number(byType.day),
+    hour: Number(byType.hour),
+    minute: Number(byType.minute),
+  };
+}
+
+function currentRomeWeekContext(date = new Date()) {
+  const parts = romeDateParts(date);
+  const todayUtc = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  const weekday = todayUtc.getUTCDay();
+  const daysSinceMonday = (weekday + 6) % 7;
+  const weekStart = new Date(todayUtc);
+  weekStart.setUTCDate(todayUtc.getUTCDate() - daysSinceMonday);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
 
   return {
     weekStart: formatDateKey(weekStart),
     weekEnd: formatDateKey(weekEnd),
     today: formatDateKey(todayUtc),
-  }
+    weekday,
+  };
+}
+
+function elapsedWeekCapacityMinutes(
+  weeklyCapacityMinutes: unknown,
+  date = new Date(),
+) {
+  const context = currentRomeWeekContext(date);
+  const now = currentRomeDateTimeParts(date);
+  const weeklyCapacity = weeklyNetCapacityMinutes(weeklyCapacityMinutes);
+  const schedule = workScheduleForMember(weeklyCapacityMinutes);
+  const completedWorkDays = Math.max(
+    0,
+    Math.min(DEFAULT_WORK_DAYS_PER_WEEK, context.weekday - 1),
+  );
+  const isWorkingDayToday =
+    context.weekday >= 1 && context.weekday <= DEFAULT_WORK_DAYS_PER_WEEK;
+  const nowMinutes = now.hour * 60 + now.minute;
+  const startMinute = timeToMinutes(schedule.workStartTime);
+  const grossElapsedToday = isWorkingDayToday
+    ? Math.max(
+        0,
+        Math.min(schedule.dailyCapacityMinutes, nowMinutes - startMinute),
+      )
+    : 0;
+  const expectedTodayNet = netPresenceMinutes(
+    grossElapsedToday,
+    schedule.lunchBreakMinutes,
+  );
+  return Math.max(
+    0,
+    Math.min(
+      weeklyCapacity,
+      completedWorkDays * schedule.expectedOfficeMinutes + expectedTodayNet,
+    ),
+  );
 }
 
 function estimatedTaskMinutesSql(alias = "t") {
@@ -91,7 +158,7 @@ function estimatedTaskMinutesSql(alias = "t") {
     WHEN ${alias}.priority = 'high' THEN 180
     WHEN ${alias}.priority = 'low' THEN 45
     ELSE 90
-  END`
+  END`;
 }
 
 function internalCostRateSql(alias = "m") {
@@ -100,41 +167,57 @@ function internalCostRateSql(alias = "m") {
     WHEN ${alias}.role IN ('super-admin', 'admin', 'direzione') THEN ${DEFAULT_RATE_ADMIN_CENTS}
     WHEN ${alias}.role IN ('capo-reparto', 'lead', 'manager') THEN ${DEFAULT_RATE_LEAD_CENTS}
     ELSE ${DEFAULT_RATE_OPERATIVE_CENTS}
-  END`
+  END`;
 }
 
-function utilizationStatus(utilization: number, overdueTasks: number, role: string, hasOperationalData: boolean) {
-  if (overdueTasks > 0 && utilization >= 90) return "overload"
-  if (utilization > 110) return "overload"
-  if (!OPERATIVE_ROLES.has(role)) return "balanced"
-  if (!hasOperationalData) return "balanced"
-  if (utilization < 35) return "underload"
-  return "balanced"
+function utilizationStatus(
+  utilization: number,
+  overdueTasks: number,
+  role: string,
+  hasOperationalData: boolean,
+) {
+  if (overdueTasks > 0 && utilization >= 90) return "overload";
+  if (utilization > 110) return "overload";
+  if (!OPERATIVE_ROLES.has(role)) return "balanced";
+  if (!hasOperationalData) return "balanced";
+  if (utilization < 35) return "underload";
+  return "balanced";
 }
 
 function projectHealth(row: any) {
-  const overdueTasks = toNumber(row.overdue_tasks)
-  const urgentTasks = toNumber(row.urgent_tasks)
-  const due = daysUntil(row.due_at)
-  const status = String(row.status || "")
+  const overdueTasks = toNumber(row.overdue_tasks);
+  const urgentTasks = toNumber(row.urgent_tasks);
+  const due = daysUntil(row.due_at);
+  const status = String(row.status || "");
 
-  if (DONE_STATUSES.has(status)) return "green"
-  if (overdueTasks > 0 || (due !== null && due < 0)) return "red"
-  if (urgentTasks > 0 || (due !== null && due <= 7)) return "yellow"
-  return "green"
+  if (DONE_STATUSES.has(status)) return "green";
+  if (overdueTasks > 0 || (due !== null && due < 0)) return "red";
+  if (urgentTasks > 0 || (due !== null && due <= 7)) return "yellow";
+  return "green";
 }
 
 export async function GET() {
   try {
-    const user = await requireClerkUser()
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await requireClerkUser();
+    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = await getCloudflareDb()
-    if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 })
+    const db = await getCloudflareDb();
+    if (!db)
+      return Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      );
 
-    const principal = await ensureWorkspacePrincipal(db, user)
-    const organizationId = principal.organizationId
-    const { weekStart, weekEnd } = currentRomeWeekRange()
+    const principal = await ensureWorkspacePrincipal(db, user);
+    if (!canViewInternalEconomicData(principal.role)) {
+      return Response.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      );
+    }
+
+    const organizationId = principal.organizationId;
+    const { weekStart, weekEnd } = currentRomeWeekContext();
 
     const [
       summaryRow,
@@ -157,7 +240,16 @@ export async function GET() {
                WHERE organization_id = ?
                  AND date(entry_date) BETWEEN date(?) AND date(?)) AS tracked_week_minutes`,
         )
-        .bind(organizationId, organizationId, organizationId, organizationId, organizationId, organizationId, weekStart, weekEnd)
+        .bind(
+          organizationId,
+          organizationId,
+          organizationId,
+          organizationId,
+          organizationId,
+          organizationId,
+          weekStart,
+          weekEnd,
+        )
         .first(),
       db
         .prepare(
@@ -209,11 +301,11 @@ export async function GET() {
                  AND date(te.entry_date) BETWEEN date(?) AND date(?)) AS tracked_week_minutes,
              (SELECT COALESCE(ROUND(SUM(
                        CASE
-                         WHEN wd.check_in_at IS NOT NULL AND wd.status != 'absent'
+                         WHEN wd.check_in_at IS NOT NULL AND wd.check_out_at IS NOT NULL AND wd.status != 'absent'
                          THEN CASE
-                           WHEN ((julianday(COALESCE(wd.check_out_at, CURRENT_TIMESTAMP)) - julianday(wd.check_in_at)) * 1440) >= 360
-                           THEN ((julianday(COALESCE(wd.check_out_at, CURRENT_TIMESTAMP)) - julianday(wd.check_in_at)) * 1440) - ${DEFAULT_LUNCH_BREAK_MINUTES}
-                           ELSE (julianday(COALESCE(wd.check_out_at, CURRENT_TIMESTAMP)) - julianday(wd.check_in_at)) * 1440
+                           WHEN ((julianday(wd.check_out_at) - julianday(wd.check_in_at)) * 1440) >= 360
+                           THEN ((julianday(wd.check_out_at) - julianday(wd.check_in_at)) * 1440) - ${DEFAULT_LUNCH_BREAK_MINUTES}
+                           ELSE (julianday(wd.check_out_at) - julianday(wd.check_in_at)) * 1440
                          END
                          ELSE 0
                        END
@@ -273,7 +365,7 @@ export async function GET() {
                     AND active_member.id != m.id
                )
              )
-             AND m.role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior', 'member', 'dipendente', 'employee')
+             AND m.role IN ('super-admin', 'admin', 'direzione', 'capo-reparto', 'junior', 'freelance', 'member', 'dipendente', 'employee')
            ORDER BY
              CASE COALESCE(m.status, 'active')
                WHEN 'active' THEN 0
@@ -285,7 +377,17 @@ export async function GET() {
              m.first_name ASC
            LIMIT 24`,
         )
-        .bind(weekStart, weekEnd, weekStart, weekEnd, weekStart, weekEnd, weekStart, weekEnd, organizationId)
+        .bind(
+          weekStart,
+          weekEnd,
+          weekStart,
+          weekEnd,
+          weekStart,
+          weekEnd,
+          weekStart,
+          weekEnd,
+          organizationId,
+        )
         .all(),
       db
         .prepare(
@@ -327,14 +429,15 @@ export async function GET() {
         )
         .bind(organizationId)
         .all(),
-    ])
+    ]);
 
     const projects = (projectRows.results || []).map((row: any) => {
-      const tasksCount = toNumber(row.tasks_count)
-      const completedTasks = toNumber(row.completed_tasks)
-      const progress = tasksCount > 0 ? Math.round((completedTasks / tasksCount) * 100) : 0
-      const budgetCents = toNumber(row.budget_cents)
-      const laborCostCents = toNumber(row.labor_cost_cents)
+      const tasksCount = toNumber(row.tasks_count);
+      const completedTasks = toNumber(row.completed_tasks);
+      const progress =
+        tasksCount > 0 ? Math.round((completedTasks / tasksCount) * 100) : 0;
+      const budgetCents = toNumber(row.budget_cents);
+      const laborCostCents = toNumber(row.labor_cost_cents);
 
       return {
         id: String(row.id),
@@ -345,36 +448,57 @@ export async function GET() {
         budget: budgetCents / 100,
         laborCost: laborCostCents / 100,
         averageHourlyCost: toNumber(row.average_hourly_cost_cents) / 100,
-        budgetUsage: budgetCents > 0 ? Math.round((laborCostCents / budgetCents) * 100) : 0,
+        budgetUsage:
+          budgetCents > 0
+            ? Math.round((laborCostCents / budgetCents) * 100)
+            : 0,
         dueAt: row.due_at || null,
         daysUntilDue: daysUntil(row.due_at),
         tasksCount,
         completedTasks,
         overdueTasks: toNumber(row.overdue_tasks),
         urgentTasks: toNumber(row.urgent_tasks),
-        trackedHours: Math.round((toNumber(row.tracked_minutes) / 60) * 10) / 10,
+        trackedHours:
+          Math.round((toNumber(row.tracked_minutes) / 60) * 10) / 10,
         progress,
         lastActivityAt: row.last_task_update || row.updated_at || null,
-      }
-    })
+      };
+    });
 
     const people = (memberRows.results || []).map((row: any) => {
-      const capacity = toNumber(row.weekly_capacity_minutes) || 2400
-      const netCapacity = weeklyNetCapacityMinutes(capacity)
-      const role = toText(row.role, "member")
-      const dailyNetCapacity = netCapacity / DEFAULT_WORK_DAYS_PER_WEEK
-      const tracked = toNumber(row.tracked_week_minutes)
-      const rawPresence = toNumber(row.presence_week_minutes)
+      const capacity = toNumber(row.weekly_capacity_minutes) || 2400;
+      const netCapacity = weeklyNetCapacityMinutes(capacity);
+      const role = toText(row.role, "member");
+      const dailyNetCapacity = netCapacity / DEFAULT_WORK_DAYS_PER_WEEK;
+      const capacityToDate = elapsedWeekCapacityMinutes(capacity);
+      const tracked = toNumber(row.tracked_week_minutes);
+      const rawPresence = toNumber(row.presence_week_minutes);
       const assumedPresence = hasAutomaticPresence(role)
-        ? Math.max(0, Math.round(netCapacity - Math.min(DEFAULT_WORK_DAYS_PER_WEEK, toNumber(row.absence_week_days)) * dailyNetCapacity))
-        : 0
-      const presence = hasAutomaticPresence(role) ? Math.max(rawPresence, assumedPresence) : rawPresence
-      const planned = toNumber(row.planned_week_minutes)
-      const committed = Math.max(tracked, planned)
-      const utilization = netCapacity > 0 ? Math.round((committed / netCapacity) * 100) : 0
-      const presenceCoverage = netCapacity > 0 ? Math.round((presence / netCapacity) * 100) : 0
-      const overdue = toNumber(row.overdue_tasks)
-      const hasOperationalData = tracked > 0 || planned > 0 || presence > 0
+        ? Math.max(
+            0,
+            Math.round(
+              capacityToDate -
+                Math.min(
+                  DEFAULT_WORK_DAYS_PER_WEEK,
+                  toNumber(row.absence_week_days),
+                ) *
+                  dailyNetCapacity,
+            ),
+          )
+        : 0;
+      const presence = hasAutomaticPresence(role)
+        ? Math.max(rawPresence, assumedPresence)
+        : rawPresence;
+      const planned = toNumber(row.planned_week_minutes);
+      const committed = Math.max(tracked, planned);
+      const utilization =
+        netCapacity > 0 ? Math.round((committed / netCapacity) * 100) : 0;
+      const paceUtilization =
+        capacityToDate > 0 ? Math.round((tracked / capacityToDate) * 100) : 0;
+      const presenceCoverage =
+        netCapacity > 0 ? Math.round((presence / netCapacity) * 100) : 0;
+      const overdue = toNumber(row.overdue_tasks);
+      const hasOperationalData = tracked > 0 || planned > 0 || presence > 0;
       return {
         id: String(row.id),
         name: memberName(row),
@@ -382,29 +506,48 @@ export async function GET() {
         role,
         weeklyCapacityHours: Math.round((capacity / 60) * 10) / 10,
         netCapacityHours: Math.round((netCapacity / 60) * 10) / 10,
-        lunchBreakHours: Math.round(((DEFAULT_LUNCH_BREAK_MINUTES * DEFAULT_WORK_DAYS_PER_WEEK) / 60) * 10) / 10,
+        capacityToDateHours: Math.round((capacityToDate / 60) * 10) / 10,
+        lunchBreakHours:
+          Math.round(
+            ((DEFAULT_LUNCH_BREAK_MINUTES * DEFAULT_WORK_DAYS_PER_WEEK) / 60) *
+              10,
+          ) / 10,
         presenceWeekHours: Math.round((presence / 60) * 10) / 10,
         trackedWeekHours: Math.round((tracked / 60) * 10) / 10,
         plannedWeekHours: Math.round((planned / 60) * 10) / 10,
         committedWeekHours: Math.round((committed / 60) * 10) / 10,
         utilizationBasis: "net-capacity",
         presenceCoverage,
+        paceUtilization,
         utilization,
-        status: utilizationStatus(utilization, overdue, role, hasOperationalData),
+        status: utilizationStatus(
+          utilization,
+          overdue,
+          role,
+          hasOperationalData,
+        ),
         openTasks: toNumber(row.open_tasks),
         urgentTasks: toNumber(row.urgent_tasks),
         overdueTasks: overdue,
         lastEntryAt: row.last_entry_at || null,
-      }
-    })
+      };
+    });
 
     const signals = [
       ...people
-        .filter((person: any) => person.status !== "balanced" || person.overdueTasks > 0)
+        .filter(
+          (person: any) =>
+            person.status !== "balanced" || person.overdueTasks > 0,
+        )
         .slice(0, 6)
         .map((person: any) => ({
           id: `person-${person.id}`,
-          type: person.status === "overload" ? "overload" : person.status === "underload" ? "underload" : "delay",
+          type:
+            person.status === "overload"
+              ? "overload"
+              : person.status === "underload"
+                ? "underload"
+                : "delay",
           title:
             person.status === "overload"
               ? "Sovraccarico operativo"
@@ -413,7 +556,10 @@ export async function GET() {
                 : "Ritardi da presidiare",
           subject: person.name,
           detail: `${person.utilization}% carico sulla capacita netta settimanale (${person.committedWeekHours}h/${person.netCapacityHours}h), ${person.trackedWeekHours}h registrate, ${person.plannedWeekHours}h pianificate, ${person.presenceWeekHours}h presenza netta, ${person.openTasks} task aperti, ${person.overdueTasks} in ritardo`,
-          severity: person.status === "overload" || person.overdueTasks > 0 ? "high" : "medium",
+          severity:
+            person.status === "overload" || person.overdueTasks > 0
+              ? "high"
+              : "medium",
         })),
       ...projects
         .filter((project: any) => project.health !== "green")
@@ -421,57 +567,73 @@ export async function GET() {
         .map((project: any) => ({
           id: `project-${project.id}`,
           type: "project-risk",
-          title: project.health === "red" ? "Progetto a rischio" : "Finestra temporale stretta",
+          title:
+            project.health === "red"
+              ? "Progetto a rischio"
+              : "Finestra temporale stretta",
           subject: project.name,
           detail: `${project.overdueTasks} task in ritardo, ${project.urgentTasks} entro 7 giorni, avanzamento ${project.progress}%`,
           severity: project.health === "red" ? "high" : "medium",
         })),
-    ].slice(0, 10)
+    ].slice(0, 10);
 
-    return Response.json({
-      summary: {
-        totalProjects: toNumber(summaryRow?.total_projects),
-        activeProjects: toNumber(summaryRow?.active_projects),
-        openTasks: toNumber(summaryRow?.open_tasks),
-        overdueTasks: toNumber(summaryRow?.overdue_tasks),
-        unassignedTasks: toNumber(summaryRow?.unassigned_tasks),
-        trackedWeekHours: Math.round((toNumber(summaryRow?.tracked_week_minutes) / 60) * 10) / 10,
-        atRiskProjects: projects.filter((project: any) => project.health === "red").length,
+    return Response.json(
+      {
+        summary: {
+          totalProjects: toNumber(summaryRow?.total_projects),
+          activeProjects: toNumber(summaryRow?.active_projects),
+          openTasks: toNumber(summaryRow?.open_tasks),
+          overdueTasks: toNumber(summaryRow?.overdue_tasks),
+          unassignedTasks: toNumber(summaryRow?.unassigned_tasks),
+          trackedWeekHours:
+            Math.round((toNumber(summaryRow?.tracked_week_minutes) / 60) * 10) /
+            10,
+          atRiskProjects: projects.filter(
+            (project: any) => project.health === "red",
+          ).length,
+        },
+        projects,
+        people,
+        overdueTasks: (overdueTasks.results || []).map((task: any) => ({
+          id: String(task.id),
+          title: toText(task.title, "Task"),
+          clientName: task.client_name || null,
+          priority: toText(task.priority, "medium"),
+          dueAt: task.due_at || null,
+          assignee:
+            task.email || task.first_name || task.last_name
+              ? memberName(task)
+              : "Non assegnato",
+        })),
+        stalledTasks: (stalledTasks.results || []).map((task: any) => ({
+          id: String(task.id),
+          title: toText(task.title, "Task"),
+          clientName: task.client_name || null,
+          dueAt: task.due_at || null,
+          updatedAt: task.updated_at || null,
+        })),
+        recentActivity: (recentActivity.results || []).map((entry: any) => ({
+          id: String(entry.id),
+          date: entry.entry_date,
+          minutes: toNumber(entry.minutes),
+          note: toText(entry.note),
+          projectName: entry.project_name || null,
+          taskTitle: entry.task_title || null,
+          memberName: memberName(entry),
+        })),
+        signals,
       },
-      projects,
-      people,
-      overdueTasks: (overdueTasks.results || []).map((task: any) => ({
-        id: String(task.id),
-        title: toText(task.title, "Task"),
-        clientName: task.client_name || null,
-        priority: toText(task.priority, "medium"),
-        dueAt: task.due_at || null,
-        assignee: task.email || task.first_name || task.last_name ? memberName(task) : "Non assegnato",
-      })),
-      stalledTasks: (stalledTasks.results || []).map((task: any) => ({
-        id: String(task.id),
-        title: toText(task.title, "Task"),
-        clientName: task.client_name || null,
-        dueAt: task.due_at || null,
-        updatedAt: task.updated_at || null,
-      })),
-      recentActivity: (recentActivity.results || []).map((entry: any) => ({
-        id: String(entry.id),
-        date: entry.entry_date,
-        minutes: toNumber(entry.minutes),
-        note: toText(entry.note),
-        projectName: entry.project_name || null,
-        taskTitle: entry.task_title || null,
-        memberName: memberName(entry),
-      })),
-      signals,
-    }, {
-      headers: {
-        "Cache-Control": "no-store, max-age=0",
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
       },
-    })
+    );
   } catch (error) {
-    console.error("Management GET error:", error)
-    return Response.json({ error: "Errore nel caricamento del controllo aziendale" }, { status: 500 })
+    console.error("Management GET error:", error);
+    return Response.json(
+      { error: "Errore nel caricamento del controllo aziendale" },
+      { status: 500 },
+    );
   }
 }

@@ -134,10 +134,119 @@ body:not([data-scroll-locked]) {
 }
 
 .optima-app-surface {
+  height: 100svh;
   min-height: 100svh;
-  overflow-x: hidden;
+  overflow: hidden;
   overscroll-behavior-y: contain;
   touch-action: pan-x pan-y;
+}
+
+.optima-ops-page {
+  min-height: calc(100svh - 73px);
+  width: 100%;
+  overflow-x: clip;
+  overflow-y: visible;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  background:
+    linear-gradient(180deg, rgba(8, 13, 26, 0.98), rgba(5, 9, 20, 1)), #050914;
+  color: #f8fafc;
+}
+
+.optima-ops-container {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: 1.25rem 1rem;
+}
+
+.optima-ops-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.optima-ops-header {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.optima-ops-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--righello-pink);
+}
+
+.optima-ops-title {
+  max-width: 48rem;
+  font-size: clamp(2rem, 4vw, 3.125rem);
+  font-weight: 900;
+  line-height: 0.96;
+  color: #fff;
+}
+
+.optima-ops-subtitle {
+  max-width: 58rem;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #94a3b8;
+}
+
+.optima-ops-surface {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 18px 60px rgba(2, 6, 23, 0.24);
+}
+
+.optima-ops-toolbar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.58);
+  padding: 0.75rem;
+}
+
+.optima-ops-scroll-panel {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 640px) {
+  .optima-ops-container {
+    padding-inline: 1.5rem;
+  }
+
+  .optima-ops-toolbar {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+@media (min-width: 768px) {
+  .optima-ops-page {
+    min-height: 100vh;
+    overflow-y: visible;
+  }
+
+  .optima-ops-container {
+    padding-block: 2rem;
+  }
+
+  .optima-ops-header {
+    flex-direction: row;
+    align-items: end;
+    justify-content: space-between;
+  }
 }
 
 @media (max-width: 767px) {
@@ -154,9 +263,10 @@ body:not([data-scroll-locked]) {
 }
 
 [data-app-scroll-root] {
-  min-height: 100svh;
+  height: 100svh;
+  min-height: 0;
   overflow-x: hidden;
-  overflow-y: visible;
+  overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
@@ -188,6 +298,16 @@ body:not([data-scroll-locked]) {
   overscroll-behavior-x: contain;
   overscroll-behavior-y: contain;
   touch-action: pan-x pan-y;
+}
+
+.agent-graph-canvas-shell {
+  touch-action: pan-y;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .agent-graph-canvas-shell {
+    touch-action: none;
+  }
 }
 
 .optima-native-date-time {
@@ -231,7 +351,12 @@ html[data-financial-visible="false"] .financial-sensitive {
   caret-color: transparent;
   user-select: none;
   background:
-    linear-gradient(90deg, rgba(148, 163, 184, 0.24), rgba(214, 72, 126, 0.22), rgba(6, 182, 212, 0.2)),
+    linear-gradient(
+      90deg,
+      rgba(148, 163, 184, 0.24),
+      rgba(214, 72, 126, 0.22),
+      rgba(6, 182, 212, 0.2)
+    ),
     rgba(15, 23, 42, 0.62);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.08),
@@ -253,12 +378,18 @@ html[data-financial-visible="false"] .financial-sensitive::after {
 }
 
 html[data-financial-visible="true"] .financial-sensitive {
-  transition: filter 0.18s ease, background-color 0.18s ease;
+  transition:
+    filter 0.18s ease,
+    background-color 0.18s ease;
 }
 
 /* Righello Design System Classes */
 .righello-gradient {
-  background: linear-gradient(135deg, var(--righello-pink) 0%, var(--righello-cyan) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--righello-pink) 0%,
+    var(--righello-cyan) 100%
+  );
 }
 
 .righello-glass {
@@ -268,16 +399,25 @@ html[data-financial-visible="true"] .financial-sensitive {
 }
 
 .righello-shadow {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(217, 70, 166, 0.05);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(217, 70, 166, 0.05);
 }
 
 .righello-shadow-lg {
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px
-    rgba(217, 70, 166, 0.1);
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(217, 70, 166, 0.1);
 }
 
 .righello-text-gradient {
-  background: linear-gradient(135deg, var(--righello-pink) 0%, var(--righello-cyan) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--righello-pink) 0%,
+    var(--righello-cyan) 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -314,7 +454,10 @@ html[data-financial-visible="true"] .financial-sensitive {
   background: rgba(255, 255, 255, 0.84);
   border: 1px solid rgba(17, 24, 39, 0.08);
   box-shadow: 0 16px 48px rgba(15, 23, 42, 0.07);
-  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.24s ease, box-shadow 0.24s ease;
+  transition:
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.24s ease,
+    box-shadow 0.24s ease;
 }
 
 .optima-glass-card:hover {
@@ -342,7 +485,11 @@ html[data-financial-visible="true"] .financial-sensitive {
 }
 
 .optima-icon-tile {
-  background: linear-gradient(135deg, rgba(214, 72, 126, 0.18), rgba(6, 182, 212, 0.14));
+  background: linear-gradient(
+    135deg,
+    rgba(214, 72, 126, 0.18),
+    rgba(6, 182, 212, 0.14)
+  );
   color: var(--righello-pink);
   border: 1px solid rgba(214, 72, 126, 0.18);
 }
@@ -517,7 +664,12 @@ html[data-financial-visible="true"] .financial-sensitive {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(217, 70, 166, 0.2), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(217, 70, 166, 0.2),
+    transparent
+  );
   animation: righello-shimmer 1.5s infinite;
 }
 

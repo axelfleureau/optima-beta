@@ -1,224 +1,269 @@
-import { sendEmail } from "@/lib/sendgrid"
+import {
+  appUrl,
+  defaultEmailBrand,
+  escapeHtml,
+  type EmailBrand,
+  renderBrandedEmail,
+  renderEmailPanel,
+  renderInfoRows,
+} from "@/lib/email-branding";
+import { sendEmail } from "@/lib/sendgrid";
 
 interface InviteEmailData {
-  to: string
-  firstName: string
-  lastName: string
-  inviterName: string
-  inviterEmail: string
-  role: string
-  resetLink: string
-  loginLink?: string
-  organizationName?: string
-  customMessage?: string
+  to: string;
+  firstName: string;
+  lastName: string;
+  inviterName: string;
+  inviterEmail: string;
+  role: string;
+  resetLink: string;
+  loginLink?: string;
+  organizationName?: string;
+  customMessage?: string;
 }
 
 interface ClientWelcomeEmailData {
-  clientName: string
-  clientEmail: string
-  password?: string
-  agencyName: string
-  loginUrl?: string
+  clientName: string;
+  clientEmail: string;
+  password?: string;
+  agencyName: string;
+  loginUrl?: string;
+  brand?: EmailBrand;
 }
 
 interface OperationalReportSummaryEmailData {
-  to?: string
-  memberName: string
-  memberEmail: string
-  dateLabel: string
-  checkInLabel: string
-  checkOutLabel: string
-  presenceLabel: string
-  activityLabel: string
-  notes?: string
+  to?: string;
+  brand?: EmailBrand;
+  memberName: string;
+  memberEmail: string;
+  dateLabel: string;
+  checkInLabel: string;
+  checkOutLabel: string;
+  presenceLabel: string;
+  activityLabel: string;
+  notes?: string;
   entries: Array<{
-    projectName?: string
-    clientName?: string
-    taskTitle?: string
-    note: string
-    minutesLabel: string
-  }>
+    projectName?: string;
+    clientName?: string;
+    taskTitle?: string;
+    note: string;
+    minutesLabel: string;
+  }>;
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;")
+interface OperationalReportChangesRequestedEmailData {
+  to: string;
+  recipientName: string;
+  reviewerName: string;
+  brand?: EmailBrand;
+  dateLabel: string;
+  notes?: string;
+  reportUrl?: string;
 }
 
-function appUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://optima-beta-staging.axel-15d.workers.dev"
+function activityRows(entries: OperationalReportSummaryEmailData["entries"]) {
+  if (!entries.length) {
+    return `<tr><td colspan="5" style="padding:14px;color:#64748b">Nessuna attivita registrata.</td></tr>`;
+  }
+
+  return entries
+    .map(
+      (entry) => `
+        <tr>
+          <td style="padding:11px;border-bottom:1px solid #e2e8f0;font-weight:800;color:#0f172a;white-space:nowrap">${escapeHtml(entry.minutesLabel)}</td>
+          <td style="padding:11px;border-bottom:1px solid #e2e8f0;color:#334155">${escapeHtml(entry.projectName || "Attivita generale")}</td>
+          <td style="padding:11px;border-bottom:1px solid #e2e8f0;color:#334155">${escapeHtml(entry.clientName || "-")}</td>
+          <td style="padding:11px;border-bottom:1px solid #e2e8f0;color:#334155">${escapeHtml(entry.taskTitle || "-")}</td>
+          <td style="padding:11px;border-bottom:1px solid #e2e8f0;color:#334155">${escapeHtml(entry.note || "Attivita registrata")}</td>
+        </tr>
+      `,
+    )
+    .join("");
 }
 
 export async function sendInviteEmail(data: InviteEmailData): Promise<void> {
-  const activationUrl = data.resetLink || `${appUrl()}/register?email=${encodeURIComponent(data.to)}`
-  const loginUrl = data.loginLink || `${appUrl()}/login?email=${encodeURIComponent(data.to)}`
-  const fullName = `${data.firstName} ${data.lastName}`.trim()
-  const customMessage = data.customMessage?.trim()
-  const organizationName = data.organizationName || "Righello"
-
-  const html = `
-    <div style="font-family:Inter,Arial,sans-serif;max-width:680px;margin:0 auto;background:#050811;color:#f8fafc;padding:24px">
-      <div style="background:#0b1323;color:white;padding:32px;border:1px solid #263044;border-radius:12px 12px 0 0">
-        <div style="font-size:13px;color:#f472b6;font-weight:800;letter-spacing:.12em;text-transform:uppercase">Optima by Righello</div>
-        <h1 style="margin:14px 0 0;font-size:30px;line-height:1.15">Sei stato invitato in ${escapeHtml(organizationName)}</h1>
-      </div>
-      <div style="background:#ffffff;color:#0f172a;padding:32px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px">
-        <p style="font-size:16px;line-height:1.6;margin:0 0 16px">Ciao ${escapeHtml(fullName || data.to)},</p>
-        <p style="font-size:16px;line-height:1.6;margin:0 0 16px">${escapeHtml(data.inviterName)} ti ha invitato a entrare nel workspace Optima di <strong>${escapeHtml(organizationName)}</strong> con ruolo <strong>${escapeHtml(data.role)}</strong>.</p>
-        ${customMessage ? `<blockquote style="border-left:4px solid #ec4899;margin:24px 0;padding:12px 16px;background:#fdf2f8;color:#831843">${escapeHtml(customMessage)}</blockquote>` : ""}
-        <div style="margin:30px 0 18px">
-          <a href="${escapeHtml(activationUrl)}" style="display:inline-block;background:#ec4899;color:white;padding:15px 22px;border-radius:8px;text-decoration:none;font-weight:800;margin:0 12px 12px 0">Accetta invito</a>
-          <a href="${escapeHtml(loginUrl)}" style="display:inline-block;background:#0f172a;color:white;padding:15px 22px;border-radius:8px;text-decoration:none;font-weight:800;margin:0 0 12px">Ho già un account</a>
-        </div>
-        <p style="font-size:14px;line-height:1.6;color:#475569;margin:20px 0 0">
-          Se i pulsanti non si aprono, copia questo link nel browser:<br />
-          <a href="${escapeHtml(activationUrl)}" style="color:#db2777;word-break:break-all">${escapeHtml(activationUrl)}</a>
-        </p>
-        <p style="font-size:13px;color:#64748b;margin:24px 0 0">Invito inviato da ${escapeHtml(data.inviterEmail)}. Se non ti aspettavi questa email puoi ignorarla.</p>
-      </div>
-    </div>
-  `
+  const activationUrl =
+    data.resetLink ||
+    `${appUrl()}/register?email=${encodeURIComponent(data.to)}`;
+  const loginUrl =
+    data.loginLink || `${appUrl()}/login?email=${encodeURIComponent(data.to)}`;
+  const fullName = `${data.firstName} ${data.lastName}`.trim();
+  const customMessage = data.customMessage?.trim();
+  const organizationName = data.organizationName || "Righello";
+  const brand = defaultEmailBrand(organizationName);
 
   const sent = await sendEmail({
     to: { email: data.to, name: fullName },
     subject: `Invito a Optima da ${data.inviterName}`,
-    html,
-    text: `Ciao ${fullName || data.to}, sei stato invitato in ${organizationName} su Optima da ${data.inviterName}. Accetta invito: ${activationUrl} - Se hai già un account accedi da: ${loginUrl}`,
-    replyTo: data.inviterEmail ? { email: data.inviterEmail, name: data.inviterName } : undefined,
+    html: renderBrandedEmail({
+      brand,
+      preheader: `${data.inviterName} ti ha invitato nel workspace ${organizationName}.`,
+      eyebrow: "Invito team",
+      title: `Sei stato invitato in ${organizationName}`,
+      intro: `Ciao ${fullName || data.to}, ${data.inviterName} ti ha invitato a entrare nel workspace Optima con ruolo ${data.role}.`,
+      sections: [
+        customMessage
+          ? {
+              title: "Messaggio",
+              html: renderEmailPanel(
+                `<div style="color:#831843;white-space:pre-wrap">${escapeHtml(customMessage)}</div>`,
+              ),
+            }
+          : {
+              title: "Accesso",
+              html: renderInfoRows([
+                {
+                  label: "Organizzazione",
+                  value: organizationName,
+                  strong: true,
+                },
+                { label: "Ruolo", value: data.role, strong: true },
+                { label: "Invitato da", value: data.inviterEmail },
+              ]),
+            },
+      ],
+      cta: { label: "Accetta invito", url: activationUrl },
+      footerNote: `Invito inviato da ${data.inviterEmail}. Se hai gia un account puoi accedere da ${loginUrl}`,
+    }),
+    text: `Ciao ${fullName || data.to}, sei stato invitato in ${organizationName} su Optima da ${data.inviterName}. Accetta invito: ${activationUrl} - Se hai gia un account accedi da: ${loginUrl}`,
+    replyTo: data.inviterEmail
+      ? { email: data.inviterEmail, name: data.inviterName }
+      : undefined,
     categories: ["team-invite"],
-  })
+  });
 
   if (!sent) {
-    throw new Error("SendGrid non configurato")
+    throw new Error("SendGrid non configurato");
   }
 }
 
-export async function sendWelcomeEmail(email: string, firstName: string): Promise<void> {
+export async function sendWelcomeEmail(
+  email: string,
+  firstName: string,
+): Promise<void> {
+  const loginUrl = `${appUrl()}/login`;
   await sendEmail({
     to: { email, name: firstName },
     subject: "Benvenuto in Optima",
-    html: `
-      <div style="font-family:Inter,Arial,sans-serif;max-width:620px;margin:0 auto">
-        <h1>Benvenuto in Optima, ${escapeHtml(firstName)}.</h1>
-        <p>Il tuo account è pronto. Puoi accedere alla piattaforma dal link qui sotto.</p>
-        <p><a href="${appUrl()}/login" style="color:#ec4899;font-weight:700">Accedi a Optima</a></p>
-      </div>
-    `,
-    text: `Benvenuto in Optima, ${firstName}. Accedi: ${appUrl()}/login`,
+    html: renderBrandedEmail({
+      preheader: "Il tuo account Optima e pronto.",
+      eyebrow: "Benvenuto",
+      title: `Benvenuto in Optima, ${firstName}`,
+      intro:
+        "Il tuo account e pronto. Puoi accedere alla piattaforma e iniziare a lavorare su task, rapportini e workspace.",
+      cta: { label: "Accedi a Optima", url: loginUrl },
+    }),
+    text: `Benvenuto in Optima, ${firstName}. Accedi: ${loginUrl}`,
     categories: ["welcome"],
-  })
+  });
 }
 
-export async function sendClientWelcomeEmail(data: ClientWelcomeEmailData): Promise<void> {
-  const loginUrl = data.loginUrl || `${appUrl()}/login`
+export async function sendClientWelcomeEmail(
+  data: ClientWelcomeEmailData,
+): Promise<void> {
+  const loginUrl = data.loginUrl || `${appUrl()}/login`;
+  const brand = data.brand || defaultEmailBrand(data.agencyName);
   const credentialsBlock = data.password
-    ? `<div style="background:#f8fafc;border-left:4px solid #ec4899;padding:16px;margin:22px 0">
-        <p style="margin:0 0 8px"><strong>Email:</strong> ${escapeHtml(data.clientEmail)}</p>
-        <p style="margin:0"><strong>Password temporanea:</strong> ${escapeHtml(data.password)}</p>
-      </div>`
-    : ""
+    ? renderEmailPanel(
+        renderInfoRows([
+          { label: "Email", value: data.clientEmail, strong: true },
+          { label: "Password temporanea", value: data.password, strong: true },
+        ]),
+      )
+    : "";
 
   await sendEmail({
     to: { email: data.clientEmail, name: data.clientName },
     subject: `Benvenuto in ${data.agencyName}`,
-    html: `
-      <div style="font-family:Inter,Arial,sans-serif;max-width:640px;margin:0 auto;background:#f8fafc;color:#0f172a">
-        <div style="background:#0b1323;color:white;padding:32px;border-radius:16px 16px 0 0">
-          <div style="font-size:14px;color:#f472b6;font-weight:700;letter-spacing:.04em">${escapeHtml(data.agencyName)}</div>
-          <h1 style="margin:12px 0 0;font-size:28px;line-height:1.2">Il tuo account è pronto</h1>
-        </div>
-        <div style="background:white;padding:32px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 16px 16px">
-          <p>Ciao ${escapeHtml(data.clientName)},</p>
-          <p>abbiamo creato il tuo accesso alla piattaforma per seguire lavori, task e avanzamenti.</p>
-          ${credentialsBlock}
-          <p style="margin:28px 0">
-            <a href="${loginUrl}" style="display:inline-block;background:#ec4899;color:white;padding:14px 22px;border-radius:10px;text-decoration:none;font-weight:700">Accedi alla piattaforma</a>
-          </p>
-          <p style="font-size:13px;color:#64748b">Ti consigliamo di cambiare password al primo accesso.</p>
-        </div>
-      </div>
-    `,
-    text: `Ciao ${data.clientName}, il tuo account è pronto. Accedi: ${loginUrl}`,
+    html: renderBrandedEmail({
+      brand,
+      preheader: `Il tuo accesso a ${data.agencyName} e pronto.`,
+      eyebrow: "Account cliente",
+      title: "Il tuo account e pronto",
+      intro: `Ciao ${data.clientName}, abbiamo creato il tuo accesso alla piattaforma per seguire lavori, task e avanzamenti.`,
+      sections: credentialsBlock
+        ? [{ title: "Credenziali", html: credentialsBlock }]
+        : undefined,
+      cta: { label: "Accedi alla piattaforma", url: loginUrl },
+      footerNote: "Ti consigliamo di cambiare password al primo accesso.",
+    }),
+    text: `Ciao ${data.clientName}, il tuo account e pronto. Accedi: ${loginUrl}`,
     categories: ["client-welcome"],
-  })
+  });
 }
 
 export async function sendOperationalReportSummaryEmail(
   data: OperationalReportSummaryEmailData,
 ): Promise<boolean> {
-  const recipient = data.to || "amministrazione@wearerighello.com"
-  const rows = data.entries.length
-    ? data.entries
-        .map(
-          (entry) => `
-            <tr>
-              <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700">${escapeHtml(entry.minutesLabel)}</td>
-              <td style="padding:10px;border-bottom:1px solid #e2e8f0">${escapeHtml(entry.projectName || "Attivita generale")}</td>
-              <td style="padding:10px;border-bottom:1px solid #e2e8f0">${escapeHtml(entry.clientName || "-")}</td>
-              <td style="padding:10px;border-bottom:1px solid #e2e8f0">${escapeHtml(entry.taskTitle || "-")}</td>
-              <td style="padding:10px;border-bottom:1px solid #e2e8f0">${escapeHtml(entry.note || "Attivita registrata")}</td>
-            </tr>
-          `,
-        )
-        .join("")
-    : `<tr><td colspan="5" style="padding:14px;color:#64748b">Nessuna attivita registrata.</td></tr>`
+  const recipient = data.to || "amministrazione@wearerighello.com";
+  const brand = data.brand || defaultEmailBrand();
 
   return sendEmail({
     to: recipient,
     subject: `Rapportino ${data.memberName} - ${data.dateLabel}`,
-    html: `
-      <div style="font-family:Inter,Arial,sans-serif;max-width:780px;margin:0 auto;background:#f8fafc;color:#0f172a;padding:24px">
-        <div style="background:#0b1323;color:white;padding:28px;border-radius:12px 12px 0 0">
-          <div style="font-size:12px;color:#f472b6;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Optima rapportini</div>
-          <h1 style="margin:12px 0 0;font-size:26px;line-height:1.2">Rapportino inviato</h1>
-          <p style="margin:8px 0 0;color:#cbd5e1">${escapeHtml(data.memberName)} · ${escapeHtml(data.dateLabel)}</p>
-        </div>
-        <div style="background:white;border:1px solid #e2e8f0;border-top:0;padding:24px;border-radius:0 0 12px 12px">
-          <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-            <tr>
-              <td style="padding:8px;color:#64748b">Dipendente</td>
-              <td style="padding:8px;font-weight:800">${escapeHtml(data.memberName)} (${escapeHtml(data.memberEmail)})</td>
-            </tr>
-            <tr>
-              <td style="padding:8px;color:#64748b">Entrata / uscita</td>
-              <td style="padding:8px;font-weight:800">${escapeHtml(data.checkInLabel)} - ${escapeHtml(data.checkOutLabel)}</td>
-            </tr>
-            <tr>
-              <td style="padding:8px;color:#64748b">Presenza netta</td>
-              <td style="padding:8px;font-weight:800">${escapeHtml(data.presenceLabel)}</td>
-            </tr>
-            <tr>
-              <td style="padding:8px;color:#64748b">Attivita registrate</td>
-              <td style="padding:8px;font-weight:800">${escapeHtml(data.activityLabel)}</td>
-            </tr>
-          </table>
-
-          <h2 style="font-size:18px;margin:0 0 10px">Attivita</h2>
-          <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">
-            <thead>
-              <tr style="background:#f1f5f9;text-align:left">
-                <th style="padding:10px">Tempo</th>
-                <th style="padding:10px">Progetto</th>
-                <th style="padding:10px">Cliente</th>
-                <th style="padding:10px">Task</th>
-                <th style="padding:10px">Nota</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-
-          ${
-            data.notes?.trim()
-              ? `<div style="margin-top:20px;padding:14px;border-left:4px solid #ec4899;background:#fdf2f8"><strong>Note fine giornata</strong><br />${escapeHtml(data.notes)}</div>`
-              : ""
-          }
-        </div>
-      </div>
-    `,
+    html: renderBrandedEmail({
+      brand,
+      preheader: `${data.memberName} ha inviato il rapportino ${data.dateLabel}.`,
+      eyebrow: "Rapportini",
+      title: "Rapportino inviato",
+      intro: `${data.memberName} ha inviato il riepilogo operativo per ${data.dateLabel}.`,
+      sections: [
+        {
+          title: "Riepilogo giornata",
+          html: renderEmailPanel(
+            renderInfoRows([
+              {
+                label: "Dipendente",
+                value: `${data.memberName} (${data.memberEmail})`,
+                strong: true,
+              },
+              {
+                label: "Entrata / uscita",
+                value: `${data.checkInLabel} - ${data.checkOutLabel}`,
+                strong: true,
+              },
+              {
+                label: "Presenza netta",
+                value: data.presenceLabel,
+                strong: true,
+              },
+              {
+                label: "Attivita registrate",
+                value: data.activityLabel,
+                strong: true,
+              },
+            ]),
+          ),
+        },
+        {
+          title: "Attivita",
+          html: `
+            <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+              <thead>
+                <tr style="background:#f1f5f9;text-align:left">
+                  <th style="padding:11px;color:#475569;font-size:12px;text-transform:uppercase;letter-spacing:.06em">Tempo</th>
+                  <th style="padding:11px;color:#475569;font-size:12px;text-transform:uppercase;letter-spacing:.06em">Progetto</th>
+                  <th style="padding:11px;color:#475569;font-size:12px;text-transform:uppercase;letter-spacing:.06em">Cliente</th>
+                  <th style="padding:11px;color:#475569;font-size:12px;text-transform:uppercase;letter-spacing:.06em">Task</th>
+                  <th style="padding:11px;color:#475569;font-size:12px;text-transform:uppercase;letter-spacing:.06em">Nota</th>
+                </tr>
+              </thead>
+              <tbody>${activityRows(data.entries)}</tbody>
+            </table>
+          `,
+        },
+        ...(data.notes?.trim()
+          ? [
+              {
+                title: "Note fine giornata",
+                html: renderEmailPanel(
+                  `<div style="white-space:pre-wrap;color:#334155">${escapeHtml(data.notes)}</div>`,
+                ),
+              },
+            ]
+          : []),
+      ],
+    }),
     text: [
       `Rapportino ${data.memberName} - ${data.dateLabel}`,
       `Entrata/uscita: ${data.checkInLabel} - ${data.checkOutLabel}`,
@@ -233,21 +278,72 @@ export async function sendOperationalReportSummaryEmail(
       .filter(Boolean)
       .join("\n"),
     categories: ["operational-report"],
-  })
+  });
 }
 
-export async function sendPasswordResetEmail(email: string, resetLink: string): Promise<void> {
+export async function sendOperationalReportChangesRequestedEmail(
+  data: OperationalReportChangesRequestedEmailData,
+): Promise<boolean> {
+  const brand = data.brand || defaultEmailBrand();
+  const reportUrl = data.reportUrl || `${appUrl()}/rapportini`;
+  const notes = data.notes?.trim();
+
+  return sendEmail({
+    to: { email: data.to, name: data.recipientName },
+    subject: `Modifiche richieste al rapportino - ${data.dateLabel}`,
+    html: renderBrandedEmail({
+      brand,
+      preheader: `${data.reviewerName} ha richiesto modifiche al rapportino ${data.dateLabel}.`,
+      eyebrow: "Review rapportino",
+      title: "Sono richieste modifiche",
+      intro: `Ciao ${data.recipientName}, ${data.reviewerName} ha richiesto una revisione del rapportino del ${data.dateLabel}.`,
+      sections: [
+        {
+          title: "Dettaglio review",
+          html: renderEmailPanel(
+            renderInfoRows([
+              { label: "Giornata", value: data.dateLabel, strong: true },
+              { label: "Responsabile", value: data.reviewerName, strong: true },
+              { label: "Stato", value: "Modifiche richieste", strong: true },
+            ]),
+          ),
+        },
+        {
+          title: "Indicazioni",
+          html: renderEmailPanel(
+            `<div style="white-space:pre-wrap;color:#334155">${escapeHtml(notes || "Apri il rapportino, controlla orari, attivita e note, poi reinvialo per la review.")}</div>`,
+          ),
+        },
+      ],
+      cta: { label: "Apri rapportino", url: reportUrl },
+    }),
+    text: [
+      `Modifiche richieste al rapportino - ${data.dateLabel}`,
+      `${data.reviewerName} ha richiesto una revisione.`,
+      notes ? `Note: ${notes}` : "",
+      `Apri rapportino: ${reportUrl}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    categories: ["operational-report-review"],
+  });
+}
+
+export async function sendPasswordResetEmail(
+  email: string,
+  resetLink: string,
+): Promise<void> {
   await sendEmail({
     to: email,
     subject: "Reimposta la password di Optima",
-    html: `
-      <div style="font-family:Inter,Arial,sans-serif;max-width:620px;margin:0 auto">
-        <h1>Reimposta la password</h1>
-        <p>Usa il link qui sotto per scegliere una nuova password.</p>
-        <p><a href="${resetLink}" style="color:#ec4899;font-weight:700">Reimposta password</a></p>
-      </div>
-    `,
+    html: renderBrandedEmail({
+      preheader: "Richiesta di reset password Optima.",
+      eyebrow: "Sicurezza",
+      title: "Reimposta la password",
+      intro: "Usa il link qui sotto per scegliere una nuova password.",
+      cta: { label: "Reimposta password", url: resetLink },
+    }),
     text: `Reimposta la password: ${resetLink}`,
     categories: ["password-reset"],
-  })
+  });
 }

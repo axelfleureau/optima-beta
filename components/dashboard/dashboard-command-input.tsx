@@ -67,8 +67,8 @@ export function DashboardCommandInput() {
   const formRef = useRef<HTMLFormElement>(null)
 
   const { userData } = useAuth()
-  const { clients } = useClients()
-  const { users } = useUsers()
+  const { clients, loading: clientsLoading } = useClients()
+  const { users, loading: usersLoading } = useUsers()
 
   useEffect(() => {
     if (!isFocused && !input) {
@@ -105,10 +105,10 @@ export function DashboardCommandInput() {
       }
     }
     
-    if (clients?.length > 0 && users?.length > 0) {
+    if (!clientsLoading && !usersLoading) {
       store.setLoaded(true)
     }
-  }, [clients, users])
+  }, [clients, clientsLoading, users, usersLoading])
 
   const fuzzyMatchClients = useCallback((query: string) => {
     const cached = useCommandContextStore.getState().clients

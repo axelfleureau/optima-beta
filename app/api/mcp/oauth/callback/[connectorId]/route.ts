@@ -1,12 +1,12 @@
-import { NextRequest } from "next/server"
+import { NextRequest } from "next/server";
 
-import { upsertConnectorInstallation } from "@/lib/agentic-capabilities"
-import { getStrategicMcpConnectors } from "@/lib/mcp-connectors"
-import { getCloudflareDb } from "@/lib/cloudflare-db"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
+import { upsertConnectorInstallation } from "@/lib/agentic-capabilities";
+import { getStrategicMcpConnectors } from "@/lib/mcp-connectors";
+import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
 function html(title: string, body: string, status = 200) {
   return new Response(
@@ -33,40 +33,66 @@ function html(title: string, body: string, status = 200) {
   </body>
 </html>`,
     { status, headers: { "Content-Type": "text/html; charset=utf-8" } },
-  )
+  );
 }
 
-export async function GET(request: NextRequest, context: { params: Promise<{ connectorId: string }> }) {
-  const { connectorId } = await context.params
-  const connector = getStrategicMcpConnectors().find((item) => item.id === connectorId)
-  const url = new URL(request.url)
-  const error = url.searchParams.get("error")
-  const code = url.searchParams.get("code")
-  const state = url.searchParams.get("state")
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ connectorId: string }> },
+) {
+  const { connectorId } = await context.params;
+  const connector = getStrategicMcpConnectors().find(
+    (item) => item.id === connectorId,
+  );
+  const url = new URL(request.url);
+  const error = url.searchParams.get("error");
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
 
   if (!connector) {
-    return html("Connector non supportato", "<p>Optima non riconosce questo connector MCP.</p>", 404)
+    return html(
+      "Connector non supportato",
+      "<p>Optima non riconosce questo connector MCP.</p>",
+      404,
+    );
+  }
+  if (
+    connector.authMethod !== "oauth_pkce" &&
+    connector.authMethod !== "external_oauth"
+  ) {
+    if (connector.id === "codex") {
+      return html(
+        "Callback non necessaria",
+        `<p><strong>${connector.label}</strong> non usa una callback OAuth web.</p><p>Codex CLI si collega dal runner con <code>codex login --device-auth</code> e una <code>CODEX_HOME</code> separata. Torna nella pagina Agenti e apri <strong>Guida login Codex</strong>.</p><p><a href="/agenti">Torna ad Agenti</a></p>`,
+        400,
+      );
+    }
+    return html(
+      "Callback non necessaria",
+      `<p><strong>${connector.label}</strong> non usa una callback OAuth classica.</p><p>Questo connector si configura da Optima con metodo <code>${connector.authMethod}</code>: torna nella pagina Agenti e usa <strong>Istruzioni setup</strong> o <strong>Verifica runtime</strong>.</p><p><a href="/agenti">Torna ad Agenti</a></p>`,
+      400,
+    );
   }
   if (error) {
     return html(
       "OAuth non autorizzato",
       `<p>Il provider ha restituito errore per <strong>${connector.label}</strong>: <code>${error}</code>.</p><p>Puoi chiudere questa finestra e riprovare da Optima.</p>`,
       400,
-    )
+    );
   }
   if (!code || !state) {
     return html(
       "Callback incompleta",
       "<p>Il provider non ha restituito codice e state. Torna in Optima e riavvia il collegamento OAuth.</p>",
       400,
-    )
+    );
   }
 
   try {
-    const user = await requireClerkUser()
-    const db = await getCloudflareDb()
+    const user = await requireClerkUser();
+    const db = await getCloudflareDb();
     if (user && db) {
-      const principal = await ensureWorkspacePrincipal(db, user)
+      const principal = await ensureWorkspacePrincipal(db, user);
       const existing = await db
         .prepare(
           `SELECT config_json
@@ -75,17 +101,23 @@ export async function GET(request: NextRequest, context: { params: Promise<{ con
            LIMIT 1`,
         )
         .bind(principal.organizationId, connector.id)
-        .first()
-      const existingConfig = existing?.config_json ? JSON.parse(String(existing.config_json)) : {}
-      const existingOauth = typeof existingConfig?.oauth === "object" && existingConfig.oauth ? existingConfig.oauth : {}
-      const expectedState = typeof existingOauth.state === "string" ? existingOauth.state : ""
+        .first();
+      const existingConfig = existing?.config_json
+        ? JSON.parse(String(existing.config_json))
+        : {};
+      const existingOauth =
+        typeof existingConfig?.oauth === "object" && existingConfig.oauth
+          ? existingConfig.oauth
+          : {};
+      const expectedState =
+        typeof existingOauth.state === "string" ? existingOauth.state : "";
 
       if (expectedState && expectedState !== state) {
         return html(
           "OAuth state non valido",
           "<p>Il consenso non corrisponde alla sessione OAuth avviata da Optima. Torna in Optima e riavvia il collegamento dal connector.</p>",
           400,
-        )
+        );
       }
 
       await upsertConnectorInstallation(db, principal, {
@@ -107,14 +139,14 @@ export async function GET(request: NextRequest, context: { params: Promise<{ con
             codeVerifierAvailable: Boolean(existingOauth.codeVerifier),
           },
         },
-      })
+      });
     }
   } catch (err) {
-    console.error("Error recording MCP OAuth callback:", err)
+    console.error("Error recording MCP OAuth callback:", err);
   }
 
   return html(
     "OAuth ricevuto",
     `<p>Optima ha ricevuto il consenso per <strong>${connector.label}</strong>.</p><p>Se il runtime ha token exchange e secret vault configurati, ora puoi tornare in Optima ed eseguire l'health-check. Il codice OAuth non viene mostrato e non viene salvato in chiaro.</p><p><a href="/agenti">Torna alla pagina agenti</a></p>`,
-  )
+  );
 }

@@ -1,57 +1,74 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-import type { NextRequest } from "next/server"
-import { getCloudflareDb } from "@/lib/cloudflare-db"
-import { requireClerkUser } from "@/lib/server-clerk"
-import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
-import { sanitizeQuoteClient } from "@/lib/quote-data-quality"
-import { extractQuoteCommercialContext, resolveQuoteDisplayTitle } from "@/lib/quote-commercial-context"
+import type { NextRequest } from "next/server";
+import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { requireClerkUser } from "@/lib/server-clerk";
+import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { sanitizeQuoteClient } from "@/lib/quote-data-quality";
+import {
+  extractQuoteCommercialContext,
+  resolveQuoteDisplayTitle,
+} from "@/lib/quote-commercial-context";
+import { canViewInternalEconomicData } from "@/lib/workspace-permissions";
 
 function parseJson(value: unknown, fallback: unknown) {
-  if (typeof value !== "string" || !value.trim()) return fallback
+  if (typeof value !== "string" || !value.trim()) return fallback;
   try {
-    return JSON.parse(value)
+    return JSON.parse(value);
   } catch {
-    return fallback
+    return fallback;
   }
 }
 
 function euros(cents: unknown) {
-  return Number(cents || 0) / 100
+  return Number(cents || 0) / 100;
 }
 
 function mapQuote(row: any) {
-  const items = parseJson(row.items_json, []) as any[]
-  const voices = parseJson(row.voices_json, []) as any[]
-  const shareRecord = parseJson(row.share_record_json, {}) as { shareToken?: string; sentAt?: string }
+  const items = parseJson(row.items_json, []) as any[];
+  const voices = parseJson(row.voices_json, []) as any[];
+  const shareRecord = parseJson(row.share_record_json, {}) as {
+    shareToken?: string;
+    sentAt?: string;
+  };
   const approvalRecord = parseJson(row.approval_record_json, {}) as {
-    approvedAt?: string
-    approvedByName?: string
-    approvedByEmail?: string
-  }
-  const total = euros(row.total_cents)
-  const itemSubtotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0)
-  const voiceSubtotal = voices.reduce(
-    (sum, item) => sum + Number(item.totale ?? Number(item.quantita || 0) * Number(item.prezzoUnitario || 0)),
+    approvedAt?: string;
+    approvedByName?: string;
+    approvedByEmail?: string;
+  };
+  const total = euros(row.total_cents);
+  const itemSubtotal = items.reduce(
+    (sum, item) => sum + Number(item.total || 0),
     0,
-  )
-  const subtotal = euros(row.subtotal_cents) || itemSubtotal || voiceSubtotal || total
-  const vat = euros(row.vat_cents)
+  );
+  const voiceSubtotal = voices.reduce(
+    (sum, item) =>
+      sum +
+      Number(
+        item.totale ??
+          Number(item.quantita || 0) * Number(item.prezzoUnitario || 0),
+      ),
+    0,
+  );
+  const subtotal =
+    euros(row.subtotal_cents) || itemSubtotal || voiceSubtotal || total;
+  const vat = euros(row.vat_cents);
   const client = sanitizeQuoteClient({
     nome: row.client_name || row.external_client_name || "Cliente",
     email: row.client_email || row.external_client_email || "",
-  })
+  });
   const externalClient = sanitizeQuoteClient({
     nome: row.external_client_name || undefined,
     email: row.external_client_email || undefined,
-  })
-  const sourceSnapshot = parseJson(row.source_snapshot_json, undefined) as Record<string, unknown> | undefined
+  });
+  const sourceSnapshot = parseJson(row.source_snapshot_json, undefined) as
+    Record<string, unknown> | undefined;
   const title = resolveQuoteDisplayTitle({
     title: String(row.title || ""),
     clientName: externalClient.nome || client.nome || "Cliente",
     sourceSnapshot,
-  })
-  const quoteContext = extractQuoteCommercialContext(sourceSnapshot)
+  });
+  const quoteContext = extractQuoteCommercialContext(sourceSnapshot);
 
   return {
     id: String(row.id),
@@ -75,7 +92,8 @@ function mapQuote(row: any) {
     shareToken: shareRecord.shareToken || row.share_token || undefined,
     sentAt: shareRecord.sentAt || row.sent_at || undefined,
     approvedAt: approvalRecord.approvedAt || row.approved_at || undefined,
-    approvedBy: approvalRecord.approvedByName || row.approved_by_name || undefined,
+    approvedBy:
+      approvalRecord.approvedByName || row.approved_by_name || undefined,
     tenantId: row.organization_id,
     createdBy: row.created_by_member_id || "",
     brandMateriali: parseJson(row.brand_materials_json, undefined),
@@ -90,18 +108,34 @@ function mapQuote(row: any) {
     projectTypeLabel: quoteContext.projectTypeLabel,
     pricingTemplateId: quoteContext.pricingTemplateId,
     selectedPackageId: quoteContext.selectedPackageId,
-  }
+  };
 }
 
 async function requireQuoteContext() {
-  const user = await requireClerkUser()
-  if (!user) return { error: Response.json({ error: "Unauthorized" }, { status: 401 }) }
+  const user = await requireClerkUser();
+  if (!user)
+    return { error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
 
-  const db = await getCloudflareDb()
-  if (!db) return { error: Response.json({ error: "D1 database binding missing" }, { status: 500 }) }
+  const db = await getCloudflareDb();
+  if (!db)
+    return {
+      error: Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      ),
+    };
 
-  const principal = await ensureWorkspacePrincipal(db, user)
-  return { db, principal }
+  const principal = await ensureWorkspacePrincipal(db, user);
+  if (!canViewInternalEconomicData(principal.role)) {
+    return {
+      error: Response.json(
+        { error: "Permessi insufficienti" },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return { db, principal };
 }
 
 export async function GET(
@@ -109,10 +143,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const context = await requireQuoteContext()
-    if (context.error) return context.error
+    const context = await requireQuoteContext();
+    if (context.error) return context.error;
 
-    const { id } = await params
+    const { id } = await params;
     const row = await context.db
       .prepare(
         `SELECT q.*,
@@ -133,16 +167,22 @@ export async function GET(
          LIMIT 1`,
       )
       .bind(context.principal.organizationId, id)
-      .first()
+      .first();
 
     if (!row?.id) {
-      return Response.json({ error: "Preventivo non trovato" }, { status: 404 })
+      return Response.json(
+        { error: "Preventivo non trovato" },
+        { status: 404 },
+      );
     }
 
-    return Response.json(mapQuote(row))
+    return Response.json(mapQuote(row));
   } catch (error) {
-    console.error("Quote GET error:", error)
-    return Response.json({ error: "Errore nel caricamento del preventivo" }, { status: 500 })
+    console.error("Quote GET error:", error);
+    return Response.json(
+      { error: "Errore nel caricamento del preventivo" },
+      { status: 500 },
+    );
   }
 }
 
@@ -151,18 +191,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const context = await requireQuoteContext()
-    if (context.error) return context.error
+    const context = await requireQuoteContext();
+    if (context.error) return context.error;
 
-    const { id } = await params
+    const { id } = await params;
     await context.db
       .prepare(`DELETE FROM quotes WHERE organization_id = ? AND id = ?`)
       .bind(context.principal.organizationId, id)
-      .run()
+      .run();
 
-    return Response.json({ success: true })
+    return Response.json({ success: true });
   } catch (error) {
-    console.error("Quote DELETE error:", error)
-    return Response.json({ error: "Errore nell'eliminazione del preventivo" }, { status: 500 })
+    console.error("Quote DELETE error:", error);
+    return Response.json(
+      { error: "Errore nell'eliminazione del preventivo" },
+      { status: 500 },
+    );
   }
 }

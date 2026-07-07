@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic"
 import type { NextRequest } from "next/server"
 import { getCloudflareDb } from "@/lib/cloudflare-db"
 import { requireClerkUser } from "@/lib/server-clerk"
+import { syncTaskActualMinutesFromEntries } from "@/lib/time-entry-sync"
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db"
 import { canManageTime } from "@/lib/time-tracking"
 
@@ -17,7 +18,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     const principal = await ensureWorkspacePrincipal(db, user)
     const { id } = await params
     const entry = await db
-      .prepare(`SELECT id, member_id FROM time_entries WHERE organization_id = ? AND id = ? LIMIT 1`)
+      .prepare(`SELECT id, member_id, task_id FROM time_entries WHERE organization_id = ? AND id = ? LIMIT 1`)
       .bind(principal.organizationId, id)
       .first()
 
@@ -30,6 +31,10 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     }
 
     await db.prepare(`DELETE FROM time_entries WHERE organization_id = ? AND id = ?`).bind(principal.organizationId, id).run()
+    if (entry.task_id) {
+      await syncTaskActualMinutesFromEntries(db, principal.organizationId, String(entry.task_id))
+    }
+
     return Response.json({ success: true })
   } catch (error) {
     console.error("Time tracking entry DELETE error:", error)
