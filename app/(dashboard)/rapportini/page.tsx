@@ -516,6 +516,7 @@ export default function RapportiniPage() {
   const [isRemote, setIsRemote] = useState(false);
   const [notes, setNotes] = useState("");
   const [createTaskFromReport, setCreateTaskFromReport] = useState(false);
+  const [entrySubmitting, setEntrySubmitting] = useState(false);
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
   const [reviewingIds, setReviewingIds] = useState<string[]>([]);
   const [changeRequestOpenId, setChangeRequestOpenId] = useState<string | null>(
@@ -537,6 +538,8 @@ export default function RapportiniPage() {
   const timeDraftDirtyRef = useRef(false);
   const checkOutDraftDirtyRef = useRef(false);
   const detailSectionRef = useRef<HTMLElement | null>(null);
+  const entryRequestIdRef = useRef("");
+  const entrySubmittingRef = useRef(false);
 
   const updateDesiredView = useCallback(
     (memberId: string, nextDate: string) => {
@@ -1052,6 +1055,7 @@ export default function RapportiniPage() {
   };
 
   const handleAddEntry = async () => {
+    if (entrySubmittingRef.current) return false;
     if (!payload?.isManager && isPastSelectedDate) {
       throw new Error(
         "La giornata precedente è chiusa: chiedi a un responsabile di correggerla",
@@ -1063,7 +1067,7 @@ export default function RapportiniPage() {
     );
     const [kind, id] = selectedTarget.split(":");
     const clientId = selectedClientId || resolveClientId(selected) || null;
-    let taskId = kind === "task" ? id : null;
+    const taskId = kind === "task" ? id : null;
     const projectId = kind === "project" ? id : selected?.projectId || null;
 
     if (createTaskFromReport && !taskId) {
@@ -1073,64 +1077,54 @@ export default function RapportiniPage() {
           "Scrivi prima cosa è stato fatto: diventerà il titolo della task.",
         );
       }
+    }
 
-      const createTaskResponse = await fetch("/api/tasks", {
+    const requestId =
+      entryRequestIdRef.current ||
+      crypto.randomUUID?.() ||
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    entryRequestIdRef.current = requestId;
+    entrySubmittingRef.current = true;
+    setEntrySubmitting(true);
+
+    try {
+      const response = await fetch("/api/time-tracking/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
-          description: `Task creata dal rapportino del ${formatShortDate(date)} per ${payload?.selectedMember?.name || "dipendente"}.`,
-          columnId: "done",
-          status: "done",
-          priority: "medium",
-          workMode: isRemote ? "remote" : "office",
-          type: activityCategory,
+          requestId,
+          date,
+          memberId: selectedMemberId,
+          taskId,
           projectId,
           clientId,
-          assignedUserId: selectedMemberId,
-          assignee: payload?.selectedMember?.name || "",
-          tags: ["rapportino", date],
+          note: activity,
+          minutes: Number(minutes),
+          billable: isBillable,
+          activityCategory,
+          workMode: isRemote ? "remote" : "office",
         }),
       });
-      const createTaskData = await createTaskResponse.json().catch(() => ({}));
-      if (!createTaskResponse.ok) {
-        throw new Error(
-          createTaskData.error || "Errore creazione task dal rapportino",
-        );
-      }
-      taskId = createTaskData.task?.id || null;
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(data.error || "Errore salvataggio attività");
+
+      entryRequestIdRef.current = "";
+      setActivity("");
+      setMinutes("60");
+      setActivityCategory(activityCategories[0]);
+      setIsBillable(true);
+      setIsRemote(false);
+      setSelectedTarget("");
+      setSelectedClientId("");
+      setCreateTaskFromReport(false);
+      await load();
+      notifyOperationalDataChanged();
+      return true;
+    } finally {
+      entrySubmittingRef.current = false;
+      setEntrySubmitting(false);
     }
-
-    const response = await fetch("/api/time-tracking/entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date,
-        memberId: selectedMemberId,
-        taskId,
-        projectId,
-        clientId,
-        note: activity,
-        minutes: Number(minutes),
-        billable: isBillable,
-        activityCategory,
-        workMode: isRemote ? "remote" : "office",
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok)
-      throw new Error(data.error || "Errore salvataggio attività");
-
-    setActivity("");
-    setMinutes("60");
-    setActivityCategory(activityCategories[0]);
-    setIsBillable(true);
-    setIsRemote(false);
-    setSelectedTarget("");
-    setSelectedClientId("");
-    setCreateTaskFromReport(false);
-    await load();
-    notifyOperationalDataChanged();
   };
 
   const handleDeleteEntry = async (id: string) => {
@@ -2699,19 +2693,26 @@ export default function RapportiniPage() {
 
                 <Button
                   className="h-auto min-h-11 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
-                  disabled={!payload?.isManager && isPastSelectedDate}
+                  disabled={
+                    entrySubmitting ||
+                    (!payload?.isManager && isPastSelectedDate)
+                  }
                   onClick={() =>
                     handleAddEntry()
-                      .then(() => toast.success("Attività aggiunta"))
+                      .then((added) => {
+                        if (added) toast.success("Attività aggiunta");
+                      })
                       .catch((err) => toast.error(err.message))
                   }
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  {!payload?.isManager && isPastSelectedDate
-                    ? "Giornata chiusa"
-                    : createTaskFromReport && selectedOption?.kind !== "task"
-                      ? "Crea task e aggiungi attività"
-                      : "Aggiungi attività"}
+                  {entrySubmitting
+                    ? "Salvataggio..."
+                    : !payload?.isManager && isPastSelectedDate
+                      ? "Giornata chiusa"
+                      : createTaskFromReport && selectedOption?.kind !== "task"
+                        ? "Crea task e aggiungi attività"
+                        : "Aggiungi attività"}
                 </Button>
 
                 <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">

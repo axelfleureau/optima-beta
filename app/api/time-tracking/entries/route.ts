@@ -52,6 +52,14 @@ function normalizeActivityCategory(value: unknown) {
   return ACTIVITY_CATEGORIES.includes(category) ? category : "";
 }
 
+function normalizeRequestId(value: unknown) {
+  const normalized = String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 80);
+  return normalized.length >= 12 ? normalized : "";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await requireClerkUser();
@@ -66,6 +74,7 @@ export async function POST(request: NextRequest) {
 
     const principal = await ensureWorkspacePrincipal(db, user);
     const body = await request.json();
+    const requestId = normalizeRequestId(body.requestId);
     const isManager = canManageTime(principal);
     let memberId =
       isManager && body.memberId ? String(body.memberId) : principal.memberId;
@@ -236,7 +245,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const linkedTaskId = taskId || createId("task");
+    const linkedTaskId =
+      taskId || (requestId ? `task_req_${requestId}` : createId("task"));
     if (!taskId) {
       const now = new Date().toISOString();
       const taskWorkDateTime = `${date}T12:00:00+02:00`;
@@ -246,7 +256,7 @@ export async function POST(request: NextRequest) {
 
       await db
         .prepare(
-          `INSERT INTO tasks
+          `INSERT OR IGNORE INTO tasks
            (
              id, organization_id, project_id, assignee_member_id, title,
              description, status, priority, estimated_minutes, actual_minutes,
@@ -285,10 +295,10 @@ export async function POST(request: NextRequest) {
         .run();
     }
 
-    const entryId = createId("time");
-    await db
+    const entryId = requestId ? `time_req_${requestId}` : createId("time");
+    const entryInsert = await db
       .prepare(
-        `INSERT INTO time_entries
+        `INSERT OR IGNORE INTO time_entries
          (
            id, organization_id, member_id, task_id, project_id, client_id,
            entry_date, minutes, billable, note, work_mode, review_status,
@@ -356,7 +366,14 @@ export async function POST(request: NextRequest) {
       date,
     );
 
-    return Response.json({ success: true, id: entryId }, { status: 201 });
+    return Response.json(
+      {
+        success: true,
+        id: entryId,
+        duplicate: (entryInsert.meta?.changes ?? 0) === 0,
+      },
+      { status: (entryInsert.meta?.changes ?? 0) === 0 ? 200 : 201 },
+    );
   } catch (error) {
     console.error("Time tracking entry POST error:", error);
     return Response.json(
