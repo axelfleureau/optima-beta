@@ -42,6 +42,7 @@ import {
   LogOut,
   MonitorUp,
   Plus,
+  Send,
   Undo2,
   Search,
   Trash2,
@@ -453,6 +454,12 @@ export default function RapportiniPage() {
   const [createTaskFromReport, setCreateTaskFromReport] = useState(false);
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
   const [reviewingIds, setReviewingIds] = useState<string[]>([]);
+  const [changeRequestOpenId, setChangeRequestOpenId] = useState<string | null>(
+    null,
+  );
+  const [changeRequestMessages, setChangeRequestMessages] = useState<
+    Record<string, string>
+  >({});
   const hasLoadedRef = useRef(false);
   const loadedTimeKeyRef = useRef("");
   const desiredViewKeyRef = useRef("");
@@ -948,12 +955,22 @@ export default function RapportiniPage() {
   const handleReviewReport = async (
     workDayId: string,
     action: "approved" | "changes_requested",
+    reviewNotes = "",
   ) => {
+    const normalizedNotes = reviewNotes.trim();
+    if (action === "changes_requested" && normalizedNotes.length < 6) {
+      throw new Error("Scrivi un messaggio chiaro per il dipendente");
+    }
+
     setReviewingIds((current) => Array.from(new Set([...current, workDayId])));
     const response = await fetch("/api/time-tracking/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workDayId, action }),
+      body: JSON.stringify({
+        workDayId,
+        action,
+        notes: action === "changes_requested" ? normalizedNotes : undefined,
+      }),
     });
     const data = await response.json().catch(() => ({}));
     setReviewingIds((current) => current.filter((id) => id !== workDayId));
@@ -961,9 +978,13 @@ export default function RapportiniPage() {
       throw new Error(data.error || "Errore revisione rapportino");
     setSelectedReviewIds((current) => current.filter((id) => id !== workDayId));
     await load();
-    toast.success(
-      action === "approved" ? "Rapportino approvato" : "Revisione richiesta",
-    );
+    if (action === "approved") {
+      toast.success("Rapportino approvato");
+    } else if (data.emailSent) {
+      toast.success("Modifiche richieste ed email inviata");
+    } else {
+      toast.success("Modifiche richieste");
+    }
   };
 
   const handleBulkApproveReports = async () => {
@@ -1408,6 +1429,9 @@ export default function RapportiniPage() {
                 const busy = reviewingIds.includes(report.id);
                 const active =
                   report.memberId === selectedMemberId && report.date === date;
+                const changeRequestOpen = changeRequestOpenId === report.id;
+                const changeRequestMessage =
+                  changeRequestMessages[report.id] || "";
 
                 return (
                   <div
@@ -1487,20 +1511,108 @@ export default function RapportiniPage() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15"
+                          className={`rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 ${
+                            changeRequestOpen ? "border-amber-200/60" : ""
+                          }`}
                           disabled={busy}
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleReviewReport(
-                              report.id,
-                              "changes_requested",
-                            ).catch((err) => toast.error(err.message));
+                            setChangeRequestOpenId((current) =>
+                              current === report.id ? null : report.id,
+                            );
                           }}
                         >
-                          Richiedi modifiche
+                          {changeRequestOpen
+                            ? "Chiudi richiesta"
+                            : "Richiedi modifiche"}
                         </Button>
                       </div>
                     </div>
+
+                    {changeRequestOpen ? (
+                      <div
+                        className="mt-4 overflow-hidden rounded-[10px] border border-amber-300/20 bg-amber-300/[0.045] p-3 shadow-2xl shadow-black/20 animate-in fade-in slide-in-from-top-2 duration-200"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="flex items-end gap-2">
+                          <div className="hidden h-9 w-9 shrink-0 place-items-center rounded-full border border-amber-300/25 bg-amber-300/10 text-amber-100 sm:grid">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <Textarea
+                            value={changeRequestMessage}
+                            onChange={(event) =>
+                              setChangeRequestMessages((current) => ({
+                                ...current,
+                                [report.id]: event.target.value,
+                              }))
+                            }
+                            onKeyDown={(event) => {
+                              if (
+                                (event.metaKey || event.ctrlKey) &&
+                                event.key === "Enter"
+                              ) {
+                                event.preventDefault();
+                                handleReviewReport(
+                                  report.id,
+                                  "changes_requested",
+                                  changeRequestMessage,
+                                )
+                                  .then(() => {
+                                    setChangeRequestOpenId(null);
+                                    setChangeRequestMessages((current) => {
+                                      const next = { ...current };
+                                      delete next[report.id];
+                                      return next;
+                                    });
+                                  })
+                                  .catch((err) => toast.error(err.message));
+                              }
+                            }}
+                            rows={2}
+                            className="min-h-[46px] flex-1 resize-none rounded-[18px] border-white/10 bg-[#07101d] px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-amber-200/50 focus:ring-amber-200/20"
+                            placeholder={`Scrivi cosa deve correggere ${report.memberName}...`}
+                          />
+                          <Button
+                            type="button"
+                            size="icon"
+                            className="h-11 w-11 shrink-0 rounded-full bg-amber-300 text-slate-950 hover:bg-amber-200 disabled:opacity-50"
+                            disabled={
+                              busy || changeRequestMessage.trim().length < 6
+                            }
+                            aria-label="Invia richiesta modifiche"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleReviewReport(
+                                report.id,
+                                "changes_requested",
+                                changeRequestMessage,
+                              )
+                                .then(() => {
+                                  setChangeRequestOpenId(null);
+                                  setChangeRequestMessages((current) => {
+                                    const next = { ...current };
+                                    delete next[report.id];
+                                    return next;
+                                  });
+                                })
+                                .catch((err) => toast.error(err.message));
+                            }}
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="mt-2 flex flex-col gap-1 text-xs leading-5 text-amber-100/75 sm:flex-row sm:items-center sm:justify-between">
+                          <span>
+                            Il testo viene salvato nella review e inviato via
+                            email al dipendente quando l'indirizzo è
+                            disponibile.
+                          </span>
+                          <span className="font-semibold text-amber-100/90">
+                            Cmd/Ctrl + Invio
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
