@@ -155,6 +155,16 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+
+      if (action === "notes" && date !== currentBusinessDate()) {
+        return noStoreJson(
+          {
+            error:
+              "Le note dei giorni precedenti possono essere corrette solo da un responsabile",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     if (existing?.id) {

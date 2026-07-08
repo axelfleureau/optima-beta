@@ -390,7 +390,7 @@ export async function buildOperationalContextSnapshot(
         db,
         `SELECT COUNT(*) AS submitted
          FROM work_days
-         WHERE organization_id = ? AND review_status = 'submitted'`,
+         WHERE organization_id = ? AND review_status IN ('submitted', 'changes_requested')`,
         [principal.organizationId],
       )
     : [];

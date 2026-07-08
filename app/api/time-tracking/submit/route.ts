@@ -7,6 +7,7 @@ import { requireClerkUser } from "@/lib/server-clerk";
 import { refreshWorkDayReviewStatus } from "@/lib/time-entry-review";
 import {
   canManageTime,
+  isPastBusinessDate,
   normalizeDate,
   usesTaskOnlyWorkLog,
 } from "@/lib/time-tracking";
@@ -32,6 +33,16 @@ export async function POST(request: NextRequest) {
     const date = normalizeDate(body.date);
     const submittedNotes =
       typeof body.notes === "string" ? body.notes.trim() : null;
+
+    if (!isManager && isPastBusinessDate(date)) {
+      return Response.json(
+        {
+          error:
+            "La giornata precedente è chiusa: chiedi a un responsabile di correggerla",
+        },
+        { status: 403 },
+      );
+    }
 
     if (!isManager && memberId !== principal.memberId) {
       return Response.json(
