@@ -111,6 +111,10 @@ function rowToEntry(row: any) {
     projectName:
       row.project_name || row.client_name || "Attività non collegata",
     createdAt: row.created_at,
+    reviewStatus: row.review_status || "submitted",
+    submittedAt: row.submitted_at || null,
+    reviewedAt: row.reviewed_at || null,
+    reviewNotes: row.review_notes || "",
   };
 }
 
@@ -357,11 +361,21 @@ export async function GET(request: NextRequest) {
                     m.last_name,
                     m.role,
                     COALESCE(te.activity_minutes, 0) AS activity_minutes,
-                    COALESCE(te.entry_count, 0) AS entry_count
+                    COALESCE(te.entry_count, 0) AS entry_count,
+                    COALESCE(te.pending_count, 0) AS pending_count,
+                    COALESCE(te.approved_count, 0) AS approved_count,
+                    COALESCE(te.changes_requested_count, 0) AS changes_requested_count
              FROM work_days wd
              JOIN members m ON m.id = wd.member_id AND m.organization_id = wd.organization_id
              LEFT JOIN (
-               SELECT organization_id, member_id, entry_date, SUM(minutes) AS activity_minutes, COUNT(*) AS entry_count
+               SELECT organization_id,
+                      member_id,
+                      entry_date,
+                      SUM(minutes) AS activity_minutes,
+                      COUNT(*) AS entry_count,
+                      SUM(CASE WHEN review_status = 'submitted' THEN 1 ELSE 0 END) AS pending_count,
+                      SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+                      SUM(CASE WHEN review_status = 'changes_requested' THEN 1 ELSE 0 END) AS changes_requested_count
                FROM time_entries
                WHERE organization_id = ?
                GROUP BY organization_id, member_id, entry_date
@@ -370,7 +384,7 @@ export async function GET(request: NextRequest) {
               AND te.member_id = wd.member_id
               AND te.entry_date = wd.entry_date
              WHERE wd.organization_id = ?
-               AND wd.review_status = 'submitted'
+               AND wd.review_status IN ('submitted', 'changes_requested')
                AND COALESCE(m.status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled', 'inactive')
              ORDER BY date(wd.entry_date) DESC, wd.submitted_at ASC
              LIMIT 80`,
@@ -513,6 +527,30 @@ export async function GET(request: NextRequest) {
         sum + entry.minutes,
       0,
     );
+    const reviewTotals = mappedEntries.reduce(
+      (totals, entry) => {
+        const status = entry.reviewStatus;
+        if (status === "approved") {
+          totals.approvedCount += 1;
+          totals.approvedMinutes += entry.minutes;
+        } else if (status === "changes_requested") {
+          totals.changesRequestedCount += 1;
+          totals.changesRequestedMinutes += entry.minutes;
+        } else {
+          totals.pendingCount += 1;
+          totals.pendingMinutes += entry.minutes;
+        }
+        return totals;
+      },
+      {
+        pendingCount: 0,
+        pendingMinutes: 0,
+        approvedCount: 0,
+        approvedMinutes: 0,
+        changesRequestedCount: 0,
+        changesRequestedMinutes: 0,
+      },
+    );
     const grossPresenceMinutes = currentPresenceMinutes(
       day?.check_in_at,
       day?.check_out_at,
@@ -559,6 +597,9 @@ export async function GET(request: NextRequest) {
             role: report.role || "",
             activityMinutes: Number(report.activity_minutes || 0),
             entryCount: Number(report.entry_count || 0),
+            pendingCount: Number(report.pending_count || 0),
+            approvedCount: Number(report.approved_count || 0),
+            changesRequestedCount: Number(report.changes_requested_count || 0),
             reviewNotes: report.review_notes || "",
           }),
         ),
@@ -574,6 +615,7 @@ export async function GET(request: NextRequest) {
           grossPresenceMinutes,
           expectedOfficeMinutes: schedule.expectedOfficeMinutes,
           lunchBreakMinutes: schedule.lunchBreakMinutes,
+          review: reviewTotals,
           week: {
             start: week.start,
             end: week.end,

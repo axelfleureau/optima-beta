@@ -3,10 +3,12 @@ export const dynamic = "force-dynamic";
 import type { NextRequest } from "next/server";
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
+import { refreshWorkDayReviewStatus } from "@/lib/time-entry-review";
 import { syncTaskActualMinutesFromEntries } from "@/lib/time-entry-sync";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import {
   canManageTime,
+  isPastBusinessDate,
   normalizeDate,
   normalizeMinutes,
   usesTaskOnlyWorkLog,
@@ -77,6 +79,16 @@ export async function POST(request: NextRequest) {
     const activityCategory = normalizeActivityCategory(body.activityCategory);
     const billable = normalizeBillable(body.billable, activityCategory);
     const entryNote = activityCategory ? `[${activityCategory}] ${note}` : note;
+
+    if (!isManager && isPastBusinessDate(date)) {
+      return Response.json(
+        {
+          error:
+            "La giornata precedente è chiusa: chiedi a un responsabile di correggerla",
+        },
+        { status: 403 },
+      );
+    }
 
     if (!note) {
       return Response.json(
@@ -277,8 +289,12 @@ export async function POST(request: NextRequest) {
     await db
       .prepare(
         `INSERT INTO time_entries
-         (id, organization_id, member_id, task_id, project_id, client_id, entry_date, minutes, billable, note, work_mode)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (
+           id, organization_id, member_id, task_id, project_id, client_id,
+           entry_date, minutes, billable, note, work_mode, review_status,
+           submitted_at, submitted_by_member_id
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP, ?)`,
       )
       .bind(
         entryId,
@@ -292,6 +308,7 @@ export async function POST(request: NextRequest) {
         billable,
         entryNote,
         workMode,
+        principal.memberId,
       )
       .run();
 
@@ -308,12 +325,8 @@ export async function POST(request: NextRequest) {
              WHEN work_days.status = 'absent' THEN 'open'
              ELSE work_days.status
            END,
-           review_status = 'submitted',
            submitted_at = CURRENT_TIMESTAMP,
            submitted_by_member_id = ?,
-           reviewed_at = NULL,
-           reviewed_by_member_id = NULL,
-           review_notes = NULL,
            updated_at = CURRENT_TIMESTAMP`,
       )
       .bind(
@@ -335,6 +348,13 @@ export async function POST(request: NextRequest) {
         linkedTaskId,
       );
     }
+
+    await refreshWorkDayReviewStatus(
+      db,
+      principal.organizationId,
+      memberId,
+      date,
+    );
 
     return Response.json({ success: true, id: entryId }, { status: 201 });
   } catch (error) {

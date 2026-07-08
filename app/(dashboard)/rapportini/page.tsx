@@ -74,6 +74,10 @@ type Entry = {
   taskTitle: string;
   clientName: string;
   projectName: string;
+  reviewStatus?: "draft" | "submitted" | "approved" | "changes_requested";
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string;
 };
 
 type Option = {
@@ -133,6 +137,9 @@ type TimeTrackingPayload = {
     role: string;
     activityMinutes: number;
     entryCount: number;
+    pendingCount?: number;
+    approvedCount?: number;
+    changesRequestedCount?: number;
     reviewNotes: string;
   }>;
   schedule?: {
@@ -147,6 +154,14 @@ type TimeTrackingPayload = {
     grossPresenceMinutes?: number;
     expectedOfficeMinutes?: number;
     lunchBreakMinutes?: number;
+    review?: {
+      pendingCount: number;
+      pendingMinutes: number;
+      approvedCount: number;
+      approvedMinutes: number;
+      changesRequestedCount: number;
+      changesRequestedMinutes: number;
+    };
     week?: PeriodTotals;
     month?: PeriodTotals;
   };
@@ -334,6 +349,22 @@ function formatDueDate(value?: string | null) {
   }).format(new Date(value));
 }
 
+function entryReviewLabel(status?: Entry["reviewStatus"]) {
+  if (status === "approved") return "Approvata";
+  if (status === "changes_requested") return "Da correggere";
+  return "In attesa";
+}
+
+function entryReviewTone(status?: Entry["reviewStatus"]) {
+  if (status === "approved") {
+    return "border-emerald-300/25 bg-emerald-400/10 text-emerald-100";
+  }
+  if (status === "changes_requested") {
+    return "border-amber-300/30 bg-amber-400/10 text-amber-100";
+  }
+  return "border-cyan-300/25 bg-cyan-400/10 text-cyan-100";
+}
+
 function TimePickerField({
   label,
   value,
@@ -458,6 +489,12 @@ export default function RapportiniPage() {
     null,
   );
   const [changeRequestMessages, setChangeRequestMessages] = useState<
+    Record<string, string>
+  >({});
+  const [entryChangeRequestOpenId, setEntryChangeRequestOpenId] = useState<
+    string | null
+  >(null);
+  const [entryChangeRequestMessages, setEntryChangeRequestMessages] = useState<
     Record<string, string>
   >({});
   const hasLoadedRef = useRef(false);
@@ -752,6 +789,35 @@ export default function RapportiniPage() {
           ),
         )
       : 0;
+  const isPastSelectedDate = date < today();
+  const reviewStats = payload?.totals.review || {
+    pendingCount: 0,
+    pendingMinutes: 0,
+    approvedCount: 0,
+    approvedMinutes: 0,
+    changesRequestedCount: 0,
+    changesRequestedMinutes: 0,
+  };
+  const timelineGroups = useMemo(() => {
+    const entries = payload?.entries || [];
+    const order: Array<Entry["reviewStatus"]> = [
+      "changes_requested",
+      "submitted",
+      "approved",
+    ];
+    return order
+      .map((status) => ({
+        status,
+        entries: entries.filter((entry) =>
+          status === "submitted"
+            ? !entry.reviewStatus ||
+              entry.reviewStatus === "submitted" ||
+              entry.reviewStatus === "draft"
+            : entry.reviewStatus === status,
+        ),
+      }))
+      .filter((group) => group.entries.length > 0);
+  }, [payload?.entries]);
 
   const selectTarget = (option: TargetOption, nextActivity?: string) => {
     setSelectedTarget(option.value);
@@ -849,6 +915,12 @@ export default function RapportiniPage() {
   };
 
   const handleAddEntry = async () => {
+    if (!payload?.isManager && isPastSelectedDate) {
+      throw new Error(
+        "La giornata precedente è chiusa: chiedi a un responsabile di correggerla",
+      );
+    }
+
     const selected = targetOptions.find(
       (option) => option.value === selectedTarget,
     );
@@ -942,13 +1014,14 @@ export default function RapportiniPage() {
       body: JSON.stringify({ date, memberId: selectedMemberId, notes }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Errore invio rapportino");
+    if (!response.ok)
+      throw new Error(data.error || "Errore salvataggio rapportino");
     await load();
     notifyOperationalDataChanged();
     toast.success(
       data.emailSent
         ? "Rapportino inviato e riepilogo email spedito"
-        : "Rapportino inviato per revisione",
+        : "Rapportino salvato: puoi aggiungere integrazioni fino a fine giornata",
     );
   };
 
@@ -984,6 +1057,44 @@ export default function RapportiniPage() {
       toast.success("Modifiche richieste ed email inviata");
     } else {
       toast.success("Modifiche richieste");
+    }
+  };
+
+  const handleReviewEntries = async (
+    entryIds: string[],
+    action: "approved" | "changes_requested",
+    reviewNotes = "",
+  ) => {
+    const normalizedNotes = reviewNotes.trim();
+    if (action === "changes_requested" && normalizedNotes.length < 6) {
+      throw new Error("Scrivi un messaggio chiaro per il dipendente");
+    }
+
+    setReviewingIds((current) =>
+      Array.from(new Set([...current, ...entryIds])),
+    );
+    const response = await fetch("/api/time-tracking/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entryIds,
+        action,
+        notes: action === "changes_requested" ? normalizedNotes : undefined,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setReviewingIds((current) =>
+      current.filter((id) => !entryIds.includes(id)),
+    );
+    if (!response.ok)
+      throw new Error(data.error || "Errore revisione attività");
+    await load();
+    if (action === "approved") {
+      toast.success("Attività approvata");
+    } else if (data.emailSent) {
+      toast.success("Modifica richiesta ed email inviata");
+    } else {
+      toast.success("Modifica richiesta");
     }
   };
 
@@ -1081,70 +1192,44 @@ export default function RapportiniPage() {
 
         <section className="grid gap-3 md:grid-cols-4">
           <DailyMetricCard
-            label={isTaskOnlyWorkLog ? "Tipo rendiconto" : "Stato giornata"}
-            value={
-              isTaskOnlyWorkLog
-                ? "Task-only"
-                : payload?.day?.status === "closed"
-                  ? "Chiusa"
-                  : payload?.day?.status === "absent"
-                    ? "Assenza"
-                    : hasPresence
-                      ? "Aperta"
-                      : "Da aprire"
-            }
+            label="Attività totali"
+            value={formatMinutes(payload?.totals.activityMinutes || 0)}
             detail={
               isTaskOnlyWorkLog
-                ? "Entrata e uscita non richieste"
+                ? `${payload?.entries.length || 0} mini-invii, presenza non richiesta`
                 : hasPresence
-                  ? `${formatTime(payload?.day?.checkInAt)} - ${formatTime(payload?.day?.checkOutAt)}`
-                  : "Segna prima entrata/assenza"
-            }
-            tone={isTaskOnlyWorkLog || hasPresence ? "green" : "amber"}
-          />
-          <DailyMetricCard
-            label={isTaskOnlyWorkLog ? "Valore task" : "Presenza netta"}
-            value={formatMinutes(
-              isTaskOnlyWorkLog
-                ? payload?.totals.activityMinutes || 0
-                : payload?.totals.presenceMinutes || 0,
-            )}
-            detail={
-              isTaskOnlyWorkLog
-                ? `${payload?.entries.length || 0} attività consuntivate`
-                : `Pausa stimata ${formatMinutes(payload?.totals.lunchBreakMinutes || 60)}`
+                  ? `${payload?.entries.length || 0} mini-invii · presenza ${formatMinutes(payload?.totals.presenceMinutes || 0)}`
+                  : `${payload?.entries.length || 0} mini-invii · presenza da aprire`
             }
             tone="cyan"
           />
           <DailyMetricCard
-            label="Attività registrate"
-            value={formatMinutes(payload?.totals.activityMinutes || 0)}
-            detail={
-              isTaskOnlyWorkLog
-                ? "Questo è il dato di valutazione della giornata"
-                : `${completionRatio}% della presenza coperta`
-            }
-            tone={completionRatio >= 80 ? "green" : "amber"}
+            label="In attesa"
+            value={formatMinutes(reviewStats.pendingMinutes)}
+            detail={`${reviewStats.pendingCount} attività da approvare`}
+            tone={reviewStats.pendingCount > 0 ? "amber" : "green"}
           />
           <DailyMetricCard
-            label={isTaskOnlyWorkLog ? "Presenza" : "Da spiegare"}
+            label="Approvate"
+            value={formatMinutes(reviewStats.approvedMinutes)}
+            detail={`${reviewStats.approvedCount} attività bloccate`}
+            tone="green"
+          />
+          <DailyMetricCard
+            label="Da correggere"
             value={
-              isTaskOnlyWorkLog
-                ? "Non richiesta"
-                : reportDeltaMinutes > 0
-                  ? formatMinutes(reportDeltaMinutes)
-                  : "0m"
+              reviewStats.changesRequestedCount > 0
+                ? formatMinutes(reviewStats.changesRequestedMinutes)
+                : "0m"
             }
             detail={
-              isTaskOnlyWorkLog
-                ? "Conta solo il lavoro rendicontato"
-                : reportDeltaMinutes > 30
-                  ? "Aggiungi attività o nota blocco"
-                  : "Rapportino coerente"
+              reviewStats.changesRequestedCount > 0
+                ? `${reviewStats.changesRequestedCount} attività richiedono modifica`
+                : isTaskOnlyWorkLog
+                  ? "Nessuna correzione aperta"
+                  : `Gap presenza ${reportDeltaMinutes > 0 ? formatMinutes(reportDeltaMinutes) : "0m"}`
             }
-            tone={
-              !isTaskOnlyWorkLog && reportDeltaMinutes > 30 ? "pink" : "green"
-            }
+            tone={reviewStats.changesRequestedCount > 0 ? "pink" : "green"}
           />
         </section>
 
@@ -1152,7 +1237,7 @@ export default function RapportiniPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
               <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-cyan">
-                Flusso rapportino
+                Mini-invii rapportino
               </div>
               <h2 className="mt-1 text-2xl font-bold text-white">
                 {isTaskOnlyWorkLog
@@ -1162,7 +1247,7 @@ export default function RapportiniPage() {
               <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
                 {isTaskOnlyWorkLog
                   ? "Per i collaboratori esterni il rapportino misura task, minuti, cliente/progetto e note di consegna. Entrata e uscita non sono obbligatorie."
-                  : "Prima si registra la presenza, poi si collegano le attività a task/progetti, infine si invia il riepilogo."}
+                  : "Aggiungi attività durante la giornata: la direzione vedrà un solo rapportino aggregato per persona-giorno."}
               </p>
             </div>
             <Badge className="w-fit rounded-[8px] border border-white/10 bg-white/10 px-3 py-1 text-slate-100">
@@ -1218,11 +1303,11 @@ export default function RapportiniPage() {
             />
             <FlowStepCard
               number="3"
-              title="Invio"
+              title="Salvataggio"
               detail={
                 reportDeltaMinutes > 30
                   ? `${formatMinutes(reportDeltaMinutes)} da spiegare prima della review.`
-                  : "Pronto per invio o revisione."
+                  : "Puoi salvare e integrare fino a fine giornata."
               }
               icon={<FileText className="h-4 w-4" />}
               state={
@@ -1269,13 +1354,13 @@ export default function RapportiniPage() {
                 </div>
                 <h2 className="mt-1 text-2xl font-bold text-white">
                   {isTaskOnlyWorkLog
-                    ? "Task e minuti prima dell'invio"
-                    : "Controllo rapido prima dell'invio"}
+                    ? "Task e minuti"
+                    : "Controllo rapido della giornata"}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   {isTaskOnlyWorkLog
                     ? "Per i collaboratori esterni contano attività, minuti, cliente/progetto e note: la presenza non viene richiesta."
-                    : "Entrata, uscita e attività devono raccontare la giornata senza interpretazioni: se manca qualcosa, correggilo qui prima di inviare il rapportino."}
+                    : "Entrata, uscita e attività devono raccontare la giornata senza interpretazioni: se manca qualcosa, correggilo qui prima della review."}
                 </p>
               </div>
               {isDayClosed && (
@@ -1471,6 +1556,12 @@ export default function RapportiniPage() {
                             {formatShortDate(report.date)} · {report.role} ·{" "}
                             {report.entryCount} attività ·{" "}
                             {formatMinutes(report.activityMinutes)}
+                            {typeof report.pendingCount === "number"
+                              ? ` · ${report.pendingCount} in attesa`
+                              : ""}
+                            {report.changesRequestedCount
+                              ? ` · ${report.changesRequestedCount} da correggere`
+                              : ""}
                             {report.submittedAt
                               ? ` · inviato ${formatTime(report.submittedAt)}`
                               : ""}
@@ -1490,7 +1581,7 @@ export default function RapportiniPage() {
                           }}
                         >
                           <FileText className="mr-1.5 h-4 w-4" />
-                          Modifica
+                          Apri
                         </Button>
                         <Button
                           type="button"
@@ -2398,6 +2489,7 @@ export default function RapportiniPage() {
 
               <Button
                 className="h-auto min-h-11 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
+                disabled={!payload?.isManager && isPastSelectedDate}
                 onClick={() =>
                   handleAddEntry()
                     .then(() => toast.success("Attività aggiunta"))
@@ -2405,9 +2497,11 @@ export default function RapportiniPage() {
                 }
               >
                 <Plus className="mr-2 h-4 w-4" />
-                {createTaskFromReport && selectedOption?.kind !== "task"
-                  ? "Crea task e aggiungi attività"
-                  : "Aggiungi attività"}
+                {!payload?.isManager && isPastSelectedDate
+                  ? "Giornata chiusa"
+                  : createTaskFromReport && selectedOption?.kind !== "task"
+                    ? "Crea task e aggiungi attività"
+                    : "Aggiungi attività"}
               </Button>
 
               <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2446,7 +2540,7 @@ export default function RapportiniPage() {
                 Rapportino
               </div>
               <h2 className="mt-1 text-2xl font-bold text-white">
-                Cosa è stato fatto
+                Timeline mini-invii
               </h2>
             </div>
 
@@ -2509,72 +2603,195 @@ export default function RapportiniPage() {
               </div>
 
               {payload?.entries.length ? (
-                payload.entries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="min-w-0 rounded-[8px] border border-white/10 bg-[#222a31] p-4"
-                  >
-                    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="break-words font-bold leading-6 text-white">
-                          {entry.projectName ? `${entry.projectName}: ` : ""}
-                          {stripActivityCategory(
-                            entry.note,
-                            entry.activityCategory,
-                          ) || "Attività registrata"}
-                        </div>
-                        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-400">
-                          <Clock className="h-4 w-4 shrink-0" />
-                          {formatMinutes(entry.minutes)}
-                          {entry.activityCategory ? (
-                            <Badge className="rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
-                              {entry.activityCategory}
-                            </Badge>
-                          ) : null}
-                          <Badge
-                            className={`rounded-[8px] border ${
-                              entry.billable === false
-                                ? "border-amber-300/30 bg-amber-400/10 text-amber-100"
-                                : "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
-                            }`}
-                          >
-                            {entry.billable === false
-                              ? "Non fatturabile"
-                              : "Fatturabile"}
-                          </Badge>
-                          {entry.workMode === "remote" ? (
-                            <Badge className="gap-1 rounded-[8px] border border-cyan-300/25 bg-cyan-400/10 text-cyan-100">
-                              <MonitorUp className="h-3.5 w-3.5" />
-                              Remoto
-                            </Badge>
-                          ) : null}
-                          {entry.clientName ? (
-                            <Badge className="gap-1 rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
-                              <Building2 className="h-3.5 w-3.5" />
-                              {entry.clientName}
-                            </Badge>
-                          ) : null}
-                          {entry.taskTitle ? (
-                            <span className="min-w-0 break-words">
-                              · {entry.taskTitle}
-                            </span>
-                          ) : null}
-                        </div>
+                timelineGroups.map((group) => (
+                  <div key={group.status || "submitted"} className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                        {entryReviewLabel(group.status)}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full shrink-0 border-white/10 bg-white/5 text-slate-100 hover:bg-red-500/15 hover:text-red-100 sm:w-auto"
-                        onClick={() =>
-                          handleDeleteEntry(entry.id)
-                            .then(() => toast.success("Attività rimossa"))
-                            .catch((err) => toast.error(err.message))
-                        }
+                      <Badge
+                        className={`rounded-[8px] border ${entryReviewTone(group.status)}`}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Rimuovi
-                      </Button>
+                        {group.entries.length}
+                      </Badge>
                     </div>
+                    {group.entries.map((entry) => {
+                      const busy = reviewingIds.includes(entry.id);
+                      const canReviewEntry =
+                        payload?.isManager && entry.reviewStatus !== "approved";
+                      const canRemoveEntry =
+                        payload?.isManager ||
+                        (entry.reviewStatus !== "approved" &&
+                          !isPastSelectedDate);
+                      const entryChangeOpen =
+                        entryChangeRequestOpenId === entry.id;
+                      const entryChangeMessage =
+                        entryChangeRequestMessages[entry.id] || "";
+
+                      return (
+                        <div
+                          key={entry.id}
+                          className="min-w-0 rounded-[8px] border border-white/10 bg-[#222a31] p-4"
+                        >
+                          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="break-words font-bold leading-6 text-white">
+                                {entry.projectName
+                                  ? `${entry.projectName}: `
+                                  : ""}
+                                {stripActivityCategory(
+                                  entry.note,
+                                  entry.activityCategory,
+                                ) || "Attività registrata"}
+                              </div>
+                              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-400">
+                                <Clock className="h-4 w-4 shrink-0" />
+                                {formatMinutes(entry.minutes)}
+                                <Badge
+                                  className={`rounded-[8px] border ${entryReviewTone(entry.reviewStatus)}`}
+                                >
+                                  {entryReviewLabel(entry.reviewStatus)}
+                                </Badge>
+                                {entry.activityCategory ? (
+                                  <Badge className="rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
+                                    {entry.activityCategory}
+                                  </Badge>
+                                ) : null}
+                                <Badge
+                                  className={`rounded-[8px] border ${
+                                    entry.billable === false
+                                      ? "border-amber-300/30 bg-amber-400/10 text-amber-100"
+                                      : "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
+                                  }`}
+                                >
+                                  {entry.billable === false
+                                    ? "Non fatturabile"
+                                    : "Fatturabile"}
+                                </Badge>
+                                {entry.workMode === "remote" ? (
+                                  <Badge className="gap-1 rounded-[8px] border border-cyan-300/25 bg-cyan-400/10 text-cyan-100">
+                                    <MonitorUp className="h-3.5 w-3.5" />
+                                    Remoto
+                                  </Badge>
+                                ) : null}
+                                {entry.clientName ? (
+                                  <Badge className="gap-1 rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
+                                    <Building2 className="h-3.5 w-3.5" />
+                                    {entry.clientName}
+                                  </Badge>
+                                ) : null}
+                                {entry.taskTitle ? (
+                                  <span className="min-w-0 break-words">
+                                    · {entry.taskTitle}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {entry.reviewNotes ? (
+                                <div className="mt-3 rounded-[8px] border border-amber-300/20 bg-amber-300/[0.06] p-3 text-sm leading-6 text-amber-100">
+                                  {entry.reviewNotes}
+                                </div>
+                              ) : null}
+                            </div>
+                            <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
+                              {canReviewEntry ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="flex-1 rounded-[8px] bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50 sm:flex-none"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    handleReviewEntries(
+                                      [entry.id],
+                                      "approved",
+                                    ).catch((err) => toast.error(err.message))
+                                  }
+                                >
+                                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                  Approva
+                                </Button>
+                              ) : null}
+                              {canReviewEntry ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 disabled:opacity-50 sm:flex-none"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    setEntryChangeRequestOpenId((current) =>
+                                      current === entry.id ? null : entry.id,
+                                    )
+                                  }
+                                >
+                                  Richiedi
+                                </Button>
+                              ) : null}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 shrink-0 border-white/10 bg-white/5 text-slate-100 hover:bg-red-500/15 hover:text-red-100 disabled:opacity-50 sm:flex-none"
+                                disabled={!canRemoveEntry}
+                                onClick={() =>
+                                  handleDeleteEntry(entry.id)
+                                    .then(() =>
+                                      toast.success("Attività rimossa"),
+                                    )
+                                    .catch((err) => toast.error(err.message))
+                                }
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Rimuovi
+                              </Button>
+                            </div>
+                          </div>
+                          {entryChangeOpen ? (
+                            <div className="mt-3 flex items-end gap-2 rounded-[10px] border border-amber-300/20 bg-amber-300/[0.045] p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                              <Textarea
+                                value={entryChangeMessage}
+                                onChange={(event) =>
+                                  setEntryChangeRequestMessages((current) => ({
+                                    ...current,
+                                    [entry.id]: event.target.value,
+                                  }))
+                                }
+                                rows={2}
+                                className="min-h-[44px] flex-1 resize-none rounded-[18px] border-white/10 bg-[#07101d] px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-amber-200/50 focus:ring-amber-200/20"
+                                placeholder="Scrivi cosa va corretto in questa attività..."
+                              />
+                              <Button
+                                type="button"
+                                size="icon"
+                                className="h-11 w-11 shrink-0 rounded-full bg-amber-300 text-slate-950 hover:bg-amber-200 disabled:opacity-50"
+                                disabled={
+                                  busy || entryChangeMessage.trim().length < 6
+                                }
+                                aria-label="Invia richiesta modifiche attività"
+                                onClick={() =>
+                                  handleReviewEntries(
+                                    [entry.id],
+                                    "changes_requested",
+                                    entryChangeMessage,
+                                  )
+                                    .then(() => {
+                                      setEntryChangeRequestOpenId(null);
+                                      setEntryChangeRequestMessages(
+                                        (current) => {
+                                          const next = { ...current };
+                                          delete next[entry.id];
+                                          return next;
+                                        },
+                                      );
+                                    })
+                                    .catch((err) => toast.error(err.message))
+                                }
+                              >
+                                <Send className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 ))
               ) : (
@@ -2612,7 +2829,7 @@ export default function RapportiniPage() {
                       <p className="font-bold text-white">
                         Stato review:{" "}
                         {payload?.day?.reviewStatus === "submitted"
-                          ? "Inviato"
+                          ? "In attesa"
                           : payload?.day?.reviewStatus === "approved"
                             ? "Approvato"
                             : payload?.day?.reviewStatus === "changes_requested"
@@ -2620,8 +2837,9 @@ export default function RapportiniPage() {
                               : "Bozza"}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-slate-400">
-                        L'invio chiude il riepilogo giornaliero e lo mette nella
-                        coda dei responsabili.
+                        Salva note e riepilogo: puoi aggiungere integrazioni
+                        fino a fine giornata. Le singole attività restano
+                        revisionabili una per una.
                       </p>
                     </div>
                     <Button
@@ -2634,7 +2852,7 @@ export default function RapportiniPage() {
                       }
                     >
                       <FileText className="mr-2 h-4 w-4" />
-                      Invia rapportino
+                      Salva rapportino
                     </Button>
                   </div>
                 </div>

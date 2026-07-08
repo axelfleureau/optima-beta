@@ -237,6 +237,14 @@ function romeDateKey(value: number) {
   return `${byType.year}-${byType.month}-${byType.day}`;
 }
 
+export function todayInEuropeRome() {
+  return romeDateKey(Date.now());
+}
+
+export function isPastBusinessDate(value: unknown) {
+  return normalizeDate(value) < todayInEuropeRome();
+}
+
 export function currentPresenceMinutes(
   checkInAt?: string | null,
   checkOutAt?: string | null,
