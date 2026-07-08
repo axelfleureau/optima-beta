@@ -568,6 +568,7 @@ export default function RapportiniPage() {
 
     const params = new URLSearchParams({ date: requestDate });
     if (requestMemberId) params.set("memberId", requestMemberId);
+    params.set("_", String(Date.now()));
 
     try {
       const response = await fetch(`/api/time-tracking?${params.toString()}`, {
