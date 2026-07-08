@@ -115,6 +115,7 @@ type TimeTrackingPayload = {
   members: Member[];
   day: null | {
     id: string;
+    date?: string;
     checkInAt: string | null;
     checkOutAt: string | null;
     status: string;
@@ -179,6 +180,37 @@ type PeriodTotals = {
   presenceMinutes: number;
   entryCount: number;
 };
+
+type ReviewTotals = NonNullable<TimeTrackingPayload["totals"]["review"]>;
+
+const emptyReviewTotals: ReviewTotals = {
+  pendingCount: 0,
+  pendingMinutes: 0,
+  approvedCount: 0,
+  approvedMinutes: 0,
+  changesRequestedCount: 0,
+  changesRequestedMinutes: 0,
+};
+
+function summarizeEntryReview(entries: Entry[]): ReviewTotals {
+  return entries.reduce<ReviewTotals>(
+    (totals, entry) => {
+      const status = entry.reviewStatus || "submitted";
+      if (status === "approved") {
+        totals.approvedCount += 1;
+        totals.approvedMinutes += entry.minutes || 0;
+      } else if (status === "changes_requested") {
+        totals.changesRequestedCount += 1;
+        totals.changesRequestedMinutes += entry.minutes || 0;
+      } else {
+        totals.pendingCount += 1;
+        totals.pendingMinutes += entry.minutes || 0;
+      }
+      return totals;
+    },
+    { ...emptyReviewTotals },
+  );
+}
 
 const pageClass = "optima-ops-page min-h-0 max-w-full";
 const panelClass =
@@ -463,6 +495,7 @@ export default function RapportiniPage() {
   const [date, setDate] = useState(today());
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [payload, setPayload] = useState<TimeTrackingPayload | null>(null);
+  const [loadedViewKey, setLoadedViewKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [checkInTime, setCheckInTime] = useState(currentTime());
@@ -557,6 +590,7 @@ export default function RapportiniPage() {
       if (responseIsStale) return;
 
       setPayload(data);
+      setLoadedViewKey(responseKey);
       setNotes(data.day?.notes || "");
       if (!desiredViewKeyRef.current || resolvingInitialMember) {
         desiredViewKeyRef.current = responseKey;
@@ -613,6 +647,98 @@ export default function RapportiniPage() {
     enabled: Boolean(payload || !loading),
     intervalMs: 15000,
   });
+
+  const refreshAfterReview = useCallback(() => {
+    notifyOperationalDataChanged();
+    void load();
+  }, [load]);
+
+  const markWorkDaysApprovedLocally = useCallback((workDayIds: string[]) => {
+    const approvedWorkDayIds = new Set(workDayIds);
+    setPayload((current) => {
+      if (!current) return current;
+      const activeDayApproved = current.day
+        ? approvedWorkDayIds.has(current.day.id)
+        : false;
+      const reviewedAt = new Date().toISOString();
+      const nextEntries = activeDayApproved
+        ? current.entries.map((entry) => ({
+            ...entry,
+            reviewStatus: "approved" as const,
+            reviewedAt,
+            reviewNotes: "",
+          }))
+        : current.entries;
+
+      return {
+        ...current,
+        day:
+          activeDayApproved && current.day
+            ? {
+                ...current.day,
+                reviewStatus: "approved",
+                reviewedAt,
+                reviewNotes: "",
+              }
+            : current.day,
+        entries: nextEntries,
+        submittedReports: current.submittedReports.filter(
+          (report) => !approvedWorkDayIds.has(report.id),
+        ),
+        totals: {
+          ...current.totals,
+          review: summarizeEntryReview(nextEntries),
+        },
+      };
+    });
+  }, []);
+
+  const markEntriesApprovedLocally = useCallback((entryIds: string[]) => {
+    const approvedEntryIds = new Set(entryIds);
+    const reviewedAt = new Date().toISOString();
+    setPayload((current) => {
+      if (!current) return current;
+      const nextEntries = current.entries.map((entry) =>
+        approvedEntryIds.has(entry.id)
+          ? {
+              ...entry,
+              reviewStatus: "approved" as const,
+              reviewedAt,
+              reviewNotes: "",
+            }
+          : entry,
+      );
+      const nextReview = summarizeEntryReview(nextEntries);
+      const activeDayFullyReviewed =
+        current.day &&
+        nextEntries.length > 0 &&
+        nextReview.pendingCount === 0 &&
+        nextReview.changesRequestedCount === 0;
+
+      return {
+        ...current,
+        day:
+          activeDayFullyReviewed && current.day
+            ? {
+                ...current.day,
+                reviewStatus: "approved",
+                reviewedAt,
+                reviewNotes: "",
+              }
+            : current.day,
+        entries: nextEntries,
+        submittedReports: activeDayFullyReviewed
+          ? current.submittedReports.filter(
+              (report) => report.id !== current.day?.id,
+            )
+          : current.submittedReports,
+        totals: {
+          ...current.totals,
+          review: nextReview,
+        },
+      };
+    });
+  }, []);
 
   const clientOptions = useMemo(
     () => dedupeClientOptions(payload?.options.clients || []),
@@ -818,6 +944,17 @@ export default function RapportiniPage() {
       }))
       .filter((group) => group.entries.length > 0);
   }, [payload?.entries]);
+  const selectedViewKey = selectedMemberId ? `${selectedMemberId}:${date}` : "";
+  const detailIsStale = Boolean(
+    payload &&
+    selectedViewKey &&
+    loadedViewKey &&
+    loadedViewKey !== selectedViewKey,
+  );
+  const pendingReportLabel =
+    payload?.submittedReports?.find(
+      (report) => report.memberId === selectedMemberId && report.date === date,
+    )?.memberName || "rapportino";
 
   const selectTarget = (option: TargetOption, nextActivity?: string) => {
     setSelectedTarget(option.value);
@@ -1050,10 +1187,16 @@ export default function RapportiniPage() {
     if (!response.ok)
       throw new Error(data.error || "Errore revisione rapportino");
     setSelectedReviewIds((current) => current.filter((id) => id !== workDayId));
-    await load();
     if (action === "approved") {
+      markWorkDaysApprovedLocally([workDayId]);
+      refreshAfterReview();
       toast.success("Rapportino approvato");
-    } else if (data.emailSent) {
+      return;
+    }
+
+    await load();
+    notifyOperationalDataChanged();
+    if (data.emailSent) {
       toast.success("Modifiche richieste ed email inviata");
     } else {
       toast.success("Modifiche richieste");
@@ -1088,10 +1231,19 @@ export default function RapportiniPage() {
     );
     if (!response.ok)
       throw new Error(data.error || "Errore revisione attività");
-    await load();
     if (action === "approved") {
+      const approvedEntryIds = Array.isArray(data.entryIds)
+        ? data.entryIds.map((id: unknown) => String(id)).filter(Boolean)
+        : entryIds;
+      markEntriesApprovedLocally(approvedEntryIds);
+      refreshAfterReview();
       toast.success("Attività approvata");
-    } else if (data.emailSent) {
+      return;
+    }
+
+    await load();
+    notifyOperationalDataChanged();
+    if (data.emailSent) {
       toast.success("Modifica richiesta ed email inviata");
     } else {
       toast.success("Modifica richiesta");
@@ -1100,24 +1252,28 @@ export default function RapportiniPage() {
 
   const handleBulkApproveReports = async () => {
     if (!selectedReviewIds.length) return;
-    setReviewingIds(selectedReviewIds);
+    const workDayIds = [...selectedReviewIds];
+    setReviewingIds((current) =>
+      Array.from(new Set([...current, ...workDayIds])),
+    );
     const response = await fetch("/api/time-tracking/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        workDayIds: selectedReviewIds,
+        workDayIds,
         action: "approved",
       }),
     });
     const data = await response.json().catch(() => ({}));
-    setReviewingIds([]);
+    setReviewingIds((current) =>
+      current.filter((id) => !workDayIds.includes(id)),
+    );
     if (!response.ok)
       throw new Error(data.error || "Errore approvazione rapportini");
     setSelectedReviewIds([]);
-    await load();
-    toast.success(
-      `${data.updated || selectedReviewIds.length} rapportini approvati`,
-    );
+    markWorkDaysApprovedLocally(workDayIds);
+    refreshAfterReview();
+    toast.success(`${data.updated || workDayIds.length} rapportini approvati`);
   };
 
   const toggleReviewSelection = (workDayId: string) => {
@@ -1741,1155 +1897,1187 @@ export default function RapportiniPage() {
           </section>
         ) : null}
 
-        <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]">
-          <section ref={detailSectionRef} className={panelClass}>
-            <div className="mb-5">
-              <div className="break-words text-xs font-black uppercase tracking-[0.12em] text-righello-pink sm:tracking-[0.24em]">
-                {formatDateLabel(date)}
-              </div>
-              <h2 className="mt-1 break-words text-2xl font-bold text-white">
-                {payload?.selectedMember?.name || "Dipendente"}
+        {detailIsStale ? (
+          <section ref={detailSectionRef} className={`${panelClass} py-10`}>
+            <div className="flex min-h-[260px] flex-col items-center justify-center text-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-righello-pink" />
+              <h2 className="mt-5 text-2xl font-black text-white">
+                Caricamento rapportino...
               </h2>
+              <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">
+                Sto aprendo il dettaglio corretto per {pendingReportLabel}.
+                Attendo i dati aggiornati prima di mostrare orari e attività.
+              </p>
             </div>
-
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <label className="text-sm font-semibold text-slate-400">
-                  Giornata
-                </label>
-                <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-[8px] border border-white/10 bg-[#222a31]">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    aria-label="Giorno precedente"
-                    className="h-11 rounded-none border-r border-white/10 text-slate-100 hover:bg-white/10 hover:text-white"
-                    onClick={() => shiftDate(-1)}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <label className="relative flex min-w-0 items-center justify-center px-3 text-sm font-semibold text-slate-100">
-                    <span className="pointer-events-none truncate">
-                      {formatShortDate(date)}
-                    </span>
-                    <Input
-                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                      type="date"
-                      value={date}
-                      aria-label="Seleziona giornata"
-                      onChange={(event) => {
-                        updateDesiredView(selectedMemberId, event.target.value);
-                        setDate(event.target.value);
-                      }}
-                    />
-                  </label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    aria-label="Giorno successivo"
-                    className="h-11 rounded-none border-l border-white/10 text-slate-100 hover:bg-white/10 hover:text-white"
-                    onClick={() => shiftDate(1)}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+          </section>
+        ) : (
+          <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]">
+            <section ref={detailSectionRef} className={panelClass}>
+              <div className="mb-5">
+                <div className="break-words text-xs font-black uppercase tracking-[0.12em] text-righello-pink sm:tracking-[0.24em]">
+                  {formatDateLabel(date)}
                 </div>
+                <h2 className="mt-1 break-words text-2xl font-bold text-white">
+                  {payload?.selectedMember?.name || "Dipendente"}
+                </h2>
               </div>
 
-              {payload?.isManager && (
+              <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-400">
-                    <Users className="h-4 w-4" />
-                    Dipendente
+                  <label className="text-sm font-semibold text-slate-400">
+                    Giornata
                   </label>
-                  <select
-                    className={selectClass}
-                    value={selectedMemberId}
-                    onChange={(event) => {
-                      updateDesiredView(event.target.value, date);
-                      setSelectedMemberId(event.target.value);
-                    }}
-                  >
-                    {payload.members.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.name} - {member.role}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-[8px] border border-white/10 bg-[#222a31]">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-label="Giorno precedente"
+                      className="h-11 rounded-none border-r border-white/10 text-slate-100 hover:bg-white/10 hover:text-white"
+                      onClick={() => shiftDate(-1)}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <label className="relative flex min-w-0 items-center justify-center px-3 text-sm font-semibold text-slate-100">
+                      <span className="pointer-events-none truncate">
+                        {formatShortDate(date)}
+                      </span>
+                      <Input
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        type="date"
+                        value={date}
+                        aria-label="Seleziona giornata"
+                        onChange={(event) => {
+                          updateDesiredView(
+                            selectedMemberId,
+                            event.target.value,
+                          );
+                          setDate(event.target.value);
+                        }}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-label="Giorno successivo"
+                      className="h-11 rounded-none border-l border-white/10 text-slate-100 hover:bg-white/10 hover:text-white"
+                      onClick={() => shiftDate(1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              )}
 
-              {isTaskOnlyWorkLog ? (
-                <div className="rounded-[8px] border border-cyan-300/20 bg-cyan-300/[0.06] p-4">
-                  <div className="flex items-start gap-3">
-                    <ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
-                    <div className="min-w-0">
-                      <p className="font-black text-white">
-                        Collaboratore esterno: rendiconto task
-                      </p>
-                      <p className="mt-1 text-sm leading-6 text-slate-400">
-                        Entrata, uscita e assenze non sono richieste. Inserisci
-                        solo attività, minuti, cliente/progetto, remoto e note
-                        utili alla review.
-                      </p>
+                {payload?.isManager && (
+                  <div className="grid gap-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-slate-400">
+                      <Users className="h-4 w-4" />
+                      Dipendente
+                    </label>
+                    <select
+                      className={selectClass}
+                      value={selectedMemberId}
+                      onChange={(event) => {
+                        updateDesiredView(event.target.value, date);
+                        setSelectedMemberId(event.target.value);
+                      }}
+                    >
+                      {payload.members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name} - {member.role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {isTaskOnlyWorkLog ? (
+                  <div className="rounded-[8px] border border-cyan-300/20 bg-cyan-300/[0.06] p-4">
+                    <div className="flex items-start gap-3">
+                      <ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
+                      <div className="min-w-0">
+                        <p className="font-black text-white">
+                          Collaboratore esterno: rendiconto task
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-400">
+                          Entrata, uscita e assenze non sono richieste.
+                          Inserisci solo attività, minuti, cliente/progetto,
+                          remoto e note utili alla review.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <>
-                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
-                    <Button
-                      className="h-auto min-h-12 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
-                      onClick={() =>
-                        mutateDay(
-                          "check-in",
-                          payload?.isManager ? { time: checkInTime } : {},
-                        )
-                          .then(() => {
-                            timeDraftDirtyRef.current = false;
-                            checkOutDraftDirtyRef.current = false;
-                            toast.success("Check-in registrato");
-                          })
-                          .catch((err) => toast.error(err.message))
-                      }
-                    >
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Check-in
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-auto min-h-12 w-full min-w-0 whitespace-normal border-white/10 bg-[#0a0f1d] px-3 text-slate-100 hover:bg-white/10 hover:text-white"
-                      onClick={() =>
-                        mutateDay(
-                          "check-out",
-                          payload?.isManager ? { time: checkOutTime } : {},
-                        )
-                          .then(() => {
-                            timeDraftDirtyRef.current = false;
-                            checkOutDraftDirtyRef.current = false;
-                            toast.success("Check-out registrato");
-                          })
-                          .catch((err) => toast.error(err.message))
-                      }
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Check-out
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-auto min-h-12 w-full min-w-0 whitespace-normal border-red-400/30 bg-red-950/20 px-3 text-red-100 hover:bg-red-500/15 hover:text-red-50"
-                      onClick={() =>
-                        mutateDay("absence", { reason: absenceReason })
-                          .then(() => toast.success("Assenza registrata"))
-                          .catch((err) => toast.error(err.message))
-                      }
-                    >
-                      Segna assenza
-                    </Button>
-                  </div>
+                ) : (
+                  <>
+                    <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
+                      <Button
+                        className="h-auto min-h-12 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
+                        onClick={() =>
+                          mutateDay(
+                            "check-in",
+                            payload?.isManager ? { time: checkInTime } : {},
+                          )
+                            .then(() => {
+                              timeDraftDirtyRef.current = false;
+                              checkOutDraftDirtyRef.current = false;
+                              toast.success("Check-in registrato");
+                            })
+                            .catch((err) => toast.error(err.message))
+                        }
+                      >
+                        <LogIn className="mr-2 h-4 w-4" />
+                        Check-in
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto min-h-12 w-full min-w-0 whitespace-normal border-white/10 bg-[#0a0f1d] px-3 text-slate-100 hover:bg-white/10 hover:text-white"
+                        onClick={() =>
+                          mutateDay(
+                            "check-out",
+                            payload?.isManager ? { time: checkOutTime } : {},
+                          )
+                            .then(() => {
+                              timeDraftDirtyRef.current = false;
+                              checkOutDraftDirtyRef.current = false;
+                              toast.success("Check-out registrato");
+                            })
+                            .catch((err) => toast.error(err.message))
+                        }
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Check-out
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto min-h-12 w-full min-w-0 whitespace-normal border-red-400/30 bg-red-950/20 px-3 text-red-100 hover:bg-red-500/15 hover:text-red-50"
+                        onClick={() =>
+                          mutateDay("absence", { reason: absenceReason })
+                            .then(() => toast.success("Assenza registrata"))
+                            .catch((err) => toast.error(err.message))
+                        }
+                      >
+                        Segna assenza
+                      </Button>
+                    </div>
 
-                  {payload?.isManager ? (
-                    <>
-                      <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                        <TimePickerField
-                          label="Entrata"
-                          value={checkInTime}
-                          onChange={handleCheckInTimeChange}
-                          helper="Modifica il valore e premi Salva orari."
-                        />
-                        <TimePickerField
-                          label="Uscita"
-                          value={checkOutTime}
-                          onChange={handleCheckOutTimeChange}
-                          helper={
-                            payload?.day?.checkOutAt
-                              ? "Uscita registrata: puoi correggerla qui."
-                              : "Si salva solo se hai fatto checkout o la modifichi."
-                          }
-                        />
+                    {payload?.isManager ? (
+                      <>
+                        <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                          <TimePickerField
+                            label="Entrata"
+                            value={checkInTime}
+                            onChange={handleCheckInTimeChange}
+                            helper="Modifica il valore e premi Salva orari."
+                          />
+                          <TimePickerField
+                            label="Uscita"
+                            value={checkOutTime}
+                            onChange={handleCheckOutTimeChange}
+                            helper={
+                              payload?.day?.checkOutAt
+                                ? "Uscita registrata: puoi correggerla qui."
+                                : "Si salva solo se hai fatto checkout o la modifichi."
+                            }
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2 rounded-[8px] border border-cyan-300/15 bg-cyan-300/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-xs leading-5 text-slate-400">
+                            Per correggere una giornata già aperta o chiusa,
+                            aggiorna gli orari qui e salva. I pulsanti sopra
+                            restano scorciatoie per registrare entrata e uscita.
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="min-h-10 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15"
+                            onClick={() =>
+                              savePresenceTimes().catch((err) =>
+                                toast.error(err.message),
+                              )
+                            }
+                          >
+                            <Check className="mr-1.5 h-4 w-4" />
+                            Salva orari
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-[8px] border border-cyan-300/15 bg-cyan-300/[0.04] p-3 text-xs leading-5 text-slate-400">
+                        Entrata e uscita usano l'orario certificato dal server
+                        al momento del click. Le correzioni manuali passano da
+                        un responsabile.
                       </div>
+                    )}
+                  </>
+                )}
 
-                      <div className="flex flex-col gap-2 rounded-[8px] border border-cyan-300/15 bg-cyan-300/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs leading-5 text-slate-400">
-                          Per correggere una giornata già aperta o chiusa,
-                          aggiorna gli orari qui e salva. I pulsanti sopra
-                          restano scorciatoie per registrare entrata e uscita.
-                        </p>
+                <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-semibold text-slate-400">
+                      Attività svolta
+                    </label>
+                    <Input
+                      className={fieldClass}
+                      placeholder="Es. montaggio video, call cliente, sviluppo landing..."
+                      value={activity}
+                      onChange={(event) => setActivity(event.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-semibold text-slate-400">
+                      Minuti
+                    </label>
+                    <Input
+                      className={fieldClass}
+                      type="number"
+                      min={1}
+                      max={1440}
+                      value={minutes}
+                      onChange={(event) => setMinutes(event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        Compilazione rapida HR
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        Presenza, attività collegate e note di blocco devono
+                        restare separati: così il dato è leggibile anche a fine
+                        mese.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[15, 30, 45, 60, 90, 120].map((value) => (
                         <Button
+                          key={value}
                           type="button"
                           variant="outline"
-                          className="min-h-10 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15"
-                          onClick={() =>
-                            savePresenceTimes().catch((err) =>
-                              toast.error(err.message),
-                            )
-                          }
+                          size="sm"
+                          className="h-8 rounded-[8px] border-white/10 bg-white/[0.04] px-2.5 text-xs text-slate-100 hover:bg-white/10"
+                          onClick={() => setMinutes(String(value))}
                         >
-                          <Check className="mr-1.5 h-4 w-4" />
-                          Salva orari
+                          {formatMinutes(value)}
                         </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="rounded-[8px] border border-cyan-300/15 bg-cyan-300/[0.04] p-3 text-xs leading-5 text-slate-400">
-                      Entrata e uscita usano l'orario certificato dal server al
-                      momento del click. Le correzioni manuali passano da un
-                      responsabile.
+                      ))}
                     </div>
-                  )}
-                </>
-              )}
-
-              <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
-                <div className="grid gap-2">
-                  <label className="text-sm font-semibold text-slate-400">
-                    Attività svolta
-                  </label>
-                  <Input
-                    className={fieldClass}
-                    placeholder="Es. montaggio video, call cliente, sviluppo landing..."
-                    value={activity}
-                    onChange={(event) => setActivity(event.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label className="text-sm font-semibold text-slate-400">
-                    Minuti
-                  </label>
-                  <Input
-                    className={fieldClass}
-                    type="number"
-                    min={1}
-                    max={1440}
-                    value={minutes}
-                    onChange={(event) => setMinutes(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-white">
-                      Compilazione rapida HR
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Presenza, attività collegate e note di blocco devono
-                      restare separati: così il dato è leggibile anche a fine
-                      mese.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {[15, 30, 45, 60, 90, 120].map((value) => (
-                      <Button
-                        key={value}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-[8px] border-white/10 bg-white/[0.04] px-2.5 text-xs text-slate-100 hover:bg-white/10"
-                        onClick={() => setMinutes(String(value))}
-                      >
-                        {formatMinutes(value)}
-                      </Button>
-                    ))}
                   </div>
                 </div>
-              </div>
 
-              <div className="grid w-full min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                <div className="grid gap-2">
-                  <label className="text-sm font-semibold text-slate-400">
-                    Tipo attività
-                  </label>
-                  <select
-                    className={selectClass}
-                    value={activityCategory}
-                    onChange={(event) => {
-                      const nextCategory = event.target.value;
-                      setActivityCategory(nextCategory);
-                      if (nextCategory === "Attività interna non fatturabile") {
-                        setIsBillable(false);
-                      }
-                    }}
+                <div className="grid w-full min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-semibold text-slate-400">
+                      Tipo attività
+                    </label>
+                    <select
+                      className={selectClass}
+                      value={activityCategory}
+                      onChange={(event) => {
+                        const nextCategory = event.target.value;
+                        setActivityCategory(nextCategory);
+                        if (
+                          nextCategory === "Attività interna non fatturabile"
+                        ) {
+                          setIsBillable(false);
+                        }
+                      }}
+                    >
+                      {activityCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs leading-5 text-slate-500">
+                      Tassonomia agenzia: rende confrontabili clienti, progetti
+                      e preventivi.
+                    </p>
+                  </div>
+
+                  <div
+                    className={`flex min-w-0 items-start gap-3 rounded-[8px] border p-3 text-left transition ${
+                      isBillable
+                        ? "border-emerald-300/35 bg-emerald-400/10 text-emerald-50"
+                        : "border-amber-300/35 bg-amber-400/10 text-amber-50"
+                    }`}
                   >
-                    {activityCategories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs leading-5 text-slate-500">
-                    Tassonomia agenzia: rende confrontabili clienti, progetti e
-                    preventivi.
-                  </p>
+                    <Checkbox
+                      checked={isBillable}
+                      onCheckedChange={(checked) =>
+                        setIsBillable(checked === true)
+                      }
+                      className="mt-0.5 border-white/30 data-[state=checked]:border-emerald-300 data-[state=checked]:bg-emerald-400"
+                      aria-label="Attività fatturabile"
+                    />
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2 text-sm font-black text-white">
+                        <FileText className="h-4 w-4 text-emerald-200" />
+                        Attività fatturabile
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-300">
+                        Disattiva per formazione, riunioni interne,
+                        amministrazione o lavoro non imputabile al cliente.
+                      </span>
+                    </span>
+                  </div>
                 </div>
 
                 <div
                   className={`flex min-w-0 items-start gap-3 rounded-[8px] border p-3 text-left transition ${
-                    isBillable
-                      ? "border-emerald-300/35 bg-emerald-400/10 text-emerald-50"
-                      : "border-amber-300/35 bg-amber-400/10 text-amber-50"
+                    isRemote
+                      ? "border-cyan-300/45 bg-cyan-400/12 text-cyan-50"
+                      : "border-white/10 bg-[#101827] text-slate-200 hover:border-white/20 hover:bg-white/[0.05]"
                   }`}
                 >
                   <Checkbox
-                    checked={isBillable}
-                    onCheckedChange={(checked) =>
-                      setIsBillable(checked === true)
-                    }
-                    className="mt-0.5 border-white/30 data-[state=checked]:border-emerald-300 data-[state=checked]:bg-emerald-400"
-                    aria-label="Attività fatturabile"
+                    checked={isRemote}
+                    onCheckedChange={(checked) => setIsRemote(checked === true)}
+                    className="mt-0.5 border-white/30 data-[state=checked]:border-cyan-300 data-[state=checked]:bg-cyan-400"
+                    aria-label="Task svolta in remoto"
                   />
                   <span className="min-w-0">
                     <span className="flex items-center gap-2 text-sm font-black text-white">
-                      <FileText className="h-4 w-4 text-emerald-200" />
-                      Attività fatturabile
+                      <MonitorUp className="h-4 w-4 text-cyan-200" />
+                      Task svolta in remoto
                     </span>
-                    <span className="mt-1 block text-xs leading-5 text-slate-300">
-                      Disattiva per formazione, riunioni interne,
-                      amministrazione o lavoro non imputabile al cliente.
+                    <span className="mt-1 block text-xs leading-5 text-slate-400">
+                      Spunta quando l'attività è stata eseguita fuori sede: il
+                      dato resta allineato anche nella task del workspace.
                     </span>
                   </span>
                 </div>
-              </div>
 
-              <div
-                className={`flex min-w-0 items-start gap-3 rounded-[8px] border p-3 text-left transition ${
-                  isRemote
-                    ? "border-cyan-300/45 bg-cyan-400/12 text-cyan-50"
-                    : "border-white/10 bg-[#101827] text-slate-200 hover:border-white/20 hover:bg-white/[0.05]"
-                }`}
-              >
-                <Checkbox
-                  checked={isRemote}
-                  onCheckedChange={(checked) => setIsRemote(checked === true)}
-                  className="mt-0.5 border-white/30 data-[state=checked]:border-cyan-300 data-[state=checked]:bg-cyan-400"
-                  aria-label="Task svolta in remoto"
-                />
-                <span className="min-w-0">
-                  <span className="flex items-center gap-2 text-sm font-black text-white">
-                    <MonitorUp className="h-4 w-4 text-cyan-200" />
-                    Task svolta in remoto
-                  </span>
-                  <span className="mt-1 block text-xs leading-5 text-slate-400">
-                    Spunta quando l'attività è stata eseguita fuori sede: il
-                    dato resta allineato anche nella task del workspace.
-                  </span>
-                </span>
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm font-semibold text-slate-400">
-                  Progetto o task collegato
-                </label>
                 <div className="grid gap-2">
+                  <label className="text-sm font-semibold text-slate-400">
+                    Progetto o task collegato
+                  </label>
+                  <div className="grid gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-auto min-h-12 w-full justify-start gap-3 border-white/10 bg-[#222a31] px-3 py-3 text-left text-slate-100 hover:bg-white/10 hover:text-white"
+                      onClick={() => setTargetPickerOpen(true)}
+                    >
+                      {selectedOption?.kind === "task" ? (
+                        <ClipboardList className="h-4 w-4 shrink-0 text-righello-pink" />
+                      ) : selectedOption?.kind === "client" ? (
+                        <Building2 className="h-4 w-4 shrink-0 text-cyan-200" />
+                      ) : (
+                        <FolderKanban className="h-4 w-4 shrink-0 text-righello-cyan" />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold">
+                          {selectedOption?.label || "Attività generale"}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-slate-400">
+                          {selectedOption
+                            ? selectedOption.kind === "task"
+                              ? `${selectedOption.projectName || selectedOption.clientName || "Task"}${selectedOption.subItems?.length ? ` · ${selectedOption.subItems.filter((item) => item.completed).length}/${selectedOption.subItems.length} checklist` : ""}`
+                              : selectedOption.kind === "project"
+                                ? selectedOption.clientName
+                                  ? `Progetto · ${selectedOption.clientName}`
+                                  : "Progetto"
+                                : "Cliente"
+                            : "Nessun collegamento obbligatorio"}
+                        </span>
+                      </span>
+                    </Button>
+                    {selectedOption && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-9 w-fit px-2 text-xs text-slate-400 hover:bg-white/10 hover:text-white"
+                        onClick={() => {
+                          setSelectedTarget("");
+                          setSelectedClientId("");
+                          setIsRemote(false);
+                        }}
+                      >
+                        <X className="mr-1 h-3.5 w-3.5" />
+                        Rimuovi collegamento
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-400">
+                    <Building2 className="h-4 w-4" />
+                    Cliente collegato
+                  </label>
                   <Button
                     type="button"
                     variant="outline"
                     className="h-auto min-h-12 w-full justify-start gap-3 border-white/10 bg-[#222a31] px-3 py-3 text-left text-slate-100 hover:bg-white/10 hover:text-white"
-                    onClick={() => setTargetPickerOpen(true)}
+                    onClick={() => {
+                      setClientSearch("");
+                      setClientPickerOpen(true);
+                    }}
                   >
-                    {selectedOption?.kind === "task" ? (
-                      <ClipboardList className="h-4 w-4 shrink-0 text-righello-pink" />
-                    ) : selectedOption?.kind === "client" ? (
-                      <Building2 className="h-4 w-4 shrink-0 text-cyan-200" />
-                    ) : (
-                      <FolderKanban className="h-4 w-4 shrink-0 text-righello-cyan" />
-                    )}
+                    <Building2 className="h-4 w-4 shrink-0 text-cyan-200" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold">
-                        {selectedOption?.label || "Attività generale"}
+                        {selectedClientOption?.label ||
+                          selectedClientOption?.name ||
+                          "Nessun cliente specifico"}
                       </span>
                       <span className="mt-0.5 block truncate text-xs text-slate-400">
-                        {selectedOption
-                          ? selectedOption.kind === "task"
-                            ? `${selectedOption.projectName || selectedOption.clientName || "Task"}${selectedOption.subItems?.length ? ` · ${selectedOption.subItems.filter((item) => item.completed).length}/${selectedOption.subItems.length} checklist` : ""}`
-                            : selectedOption.kind === "project"
-                              ? selectedOption.clientName
-                                ? `Progetto · ${selectedOption.clientName}`
-                                : "Progetto"
-                              : "Cliente"
-                          : "Nessun collegamento obbligatorio"}
+                        {selectedClientOption
+                          ? "Cliente selezionato per questa attività"
+                          : "Cerca e collega un cliente"}
                       </span>
                     </span>
+                    <Search className="h-4 w-4 shrink-0 text-slate-500" />
                   </Button>
-                  {selectedOption && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-9 w-fit px-2 text-xs text-slate-400 hover:bg-white/10 hover:text-white"
-                      onClick={() => {
-                        setSelectedTarget("");
-                        setSelectedClientId("");
-                        setIsRemote(false);
-                      }}
-                    >
-                      <X className="mr-1 h-3.5 w-3.5" />
-                      Rimuovi collegamento
-                    </Button>
-                  )}
+                  <p className="text-xs leading-5 text-slate-500">
+                    Se scegli una task o un progetto, il cliente viene compilato
+                    automaticamente quando disponibile.
+                  </p>
                 </div>
-              </div>
 
-              <div className="grid gap-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-slate-400">
-                  <Building2 className="h-4 w-4" />
-                  Cliente collegato
-                </label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-auto min-h-12 w-full justify-start gap-3 border-white/10 bg-[#222a31] px-3 py-3 text-left text-slate-100 hover:bg-white/10 hover:text-white"
-                  onClick={() => {
-                    setClientSearch("");
-                    setClientPickerOpen(true);
-                  }}
+                <Dialog
+                  open={clientPickerOpen}
+                  onOpenChange={setClientPickerOpen}
                 >
-                  <Building2 className="h-4 w-4 shrink-0 text-cyan-200" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold">
-                      {selectedClientOption?.label ||
-                        selectedClientOption?.name ||
-                        "Nessun cliente specifico"}
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-slate-400">
-                      {selectedClientOption
-                        ? "Cliente selezionato per questa attività"
-                        : "Cerca e collega un cliente"}
-                    </span>
-                  </span>
-                  <Search className="h-4 w-4 shrink-0 text-slate-500" />
-                </Button>
-                <p className="text-xs leading-5 text-slate-500">
-                  Se scegli una task o un progetto, il cliente viene compilato
-                  automaticamente quando disponibile.
-                </p>
-              </div>
-
-              <Dialog
-                open={clientPickerOpen}
-                onOpenChange={setClientPickerOpen}
-              >
-                <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-xl overflow-hidden rounded-[8px] border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
-                  <DialogHeader className="border-b border-white/10 px-4 py-4 sm:px-5">
-                    <DialogTitle className="flex items-center gap-2 text-xl font-black text-white">
-                      <Building2 className="h-5 w-5 text-cyan-200" />
-                      Cerca cliente
-                    </DialogTitle>
-                    <p className="text-sm text-slate-400">
-                      Filtra per nome o azienda e collega il cliente al
-                      rapportino.
-                    </p>
-                  </DialogHeader>
-                  <div className="border-b border-white/10 p-4 sm:p-5">
-                    <label className="relative block">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                      <Input
-                        className="h-12 border-white/10 bg-[#111827] pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
-                        placeholder="Cerca cliente..."
-                        value={clientSearch}
-                        onChange={(event) =>
-                          setClientSearch(event.target.value)
-                        }
-                        autoFocus
-                      />
-                    </label>
-                  </div>
-                  <div className="max-h-[58dvh] space-y-2 overflow-y-auto overscroll-contain p-4 sm:p-5">
-                    <button
-                      type="button"
-                      className={`flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition ${
-                        !selectedClientId
-                          ? "border-cyan-300/70 bg-cyan-300/10"
-                          : "border-white/10 bg-[#111827] hover:border-white/25"
-                      }`}
-                      onClick={() => {
-                        setSelectedClientId("");
-                        setClientSearch("");
-                        setClientPickerOpen(false);
-                      }}
-                    >
-                      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-white">
-                          Nessun cliente specifico
-                        </span>
-                        <span className="mt-1 block text-xs leading-5 text-slate-400">
-                          Usa questa opzione solo per attività interne o non
-                          attribuibili a un cliente.
-                        </span>
-                      </span>
-                      {!selectedClientId ? (
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
-                      ) : null}
-                    </button>
-
-                    {filteredClientOptions.map((client) => {
-                      const selected = client.id === selectedClientId;
-                      return (
-                        <button
-                          key={client.id}
-                          type="button"
-                          className={`flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition ${
-                            selected
-                              ? "border-cyan-300/70 bg-cyan-300/10"
-                              : "border-white/10 bg-[#111827] hover:border-white/25"
-                          }`}
-                          onClick={() => {
-                            setSelectedClientId(client.id);
-                            setClientSearch("");
-                            setClientPickerOpen(false);
-                          }}
-                        >
-                          <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block break-words text-sm font-bold text-white">
-                              {client.name || client.label}
-                            </span>
-                            {client.company ? (
-                              <span className="mt-1 block text-xs text-slate-400">
-                                {client.company}
-                              </span>
-                            ) : null}
-                          </span>
-                          {selected ? (
-                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
-                          ) : null}
-                        </button>
-                      );
-                    })}
-
-                    {!filteredClientOptions.length ? (
-                      <div className="rounded-[8px] border border-dashed border-white/15 p-8 text-center text-slate-400">
-                        Nessun cliente trovato.
-                      </div>
-                    ) : null}
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              {selectedOption?.kind !== "task" && (
-                <label className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 p-3 transition hover:border-cyan-300/35 hover:bg-cyan-300/15">
-                  <Checkbox
-                    checked={createTaskFromReport}
-                    onCheckedChange={(checked) =>
-                      setCreateTaskFromReport(Boolean(checked))
-                    }
-                    className="mt-0.5 border-cyan-200/40 data-[state=checked]:border-cyan-300 data-[state=checked]:bg-cyan-500"
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-black text-cyan-50">
-                      Crea task completata dal rapportino
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-cyan-100/75">
-                      Utile quando hai svolto un lavoro per un cliente ma non
-                      esiste ancora la task. Optima crea la task, la segna
-                      completata e collega subito il tempo.
-                    </span>
-                  </span>
-                </label>
-              )}
-
-              <Dialog
-                open={targetPickerOpen}
-                onOpenChange={setTargetPickerOpen}
-              >
-                <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-3xl overflow-hidden rounded-[8px] border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
-                  <DialogHeader className="border-b border-white/10 px-4 py-4 sm:px-5">
-                    <DialogTitle className="flex items-center gap-2 text-xl font-black text-white">
-                      <ListChecks className="h-5 w-5 text-righello-pink" />
-                      Collega attività
-                    </DialogTitle>
-                    <p className="text-sm text-slate-400">
-                      Cerca task, progetto, cliente o checklist. Le task sono
-                      raggruppate per progetto/cliente.
-                    </p>
-                  </DialogHeader>
-
-                  <div className="border-b border-white/10 p-4 sm:p-5">
-                    <label className="relative block">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                      <Input
-                        className="h-12 border-white/10 bg-[#111827] pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
-                        placeholder="Cerca: cliente, progetto, task, sub-attività..."
-                        value={targetSearch}
-                        onChange={(event) =>
-                          setTargetSearch(event.target.value)
-                        }
-                        autoFocus
-                      />
-                    </label>
-                  </div>
-
-                  <div className="max-h-[58dvh] space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-5">
-                    <button
-                      type="button"
-                      className="w-full rounded-[8px] border border-dashed border-white/15 bg-white/[0.03] p-4 text-left transition hover:border-righello-pink/50 hover:bg-righello-pink/10"
-                      onClick={() => {
-                        setSelectedTarget("");
-                        setSelectedClientId("");
-                        setIsRemote(false);
-                        setTargetPickerOpen(false);
-                      }}
-                    >
-                      <div className="font-bold text-white">
-                        Attività generale
-                      </div>
-                      <div className="mt-1 text-sm text-slate-400">
-                        Usala per lavoro non associato a un progetto o task
-                        specifica.
-                      </div>
-                    </button>
-
-                    {groupedTargets.taskGroups.map(([groupName, tasks]) => (
-                      <div key={groupName} className="space-y-2">
-                        <div className="sticky top-[-1rem] z-10 -mx-4 border-y border-white/10 bg-[#070b14]/95 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 backdrop-blur sm:-mx-5 sm:px-5">
-                          {groupName}
-                        </div>
-                        <div className="grid gap-2">
-                          {tasks.map((option) => {
-                            const completed =
-                              option.subItems?.filter((item) => item.completed)
-                                .length || 0;
-                            const total = option.subItems?.length || 0;
-                            return (
-                              <div
-                                key={option.value}
-                                className={`rounded-[8px] border p-3 transition ${
-                                  selectedTarget === option.value
-                                    ? "border-righello-pink/70 bg-righello-pink/10"
-                                    : "border-white/10 bg-[#111827] hover:border-white/25"
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  className="w-full text-left"
-                                  onClick={() => selectTarget(option)}
-                                >
-                                  <div className="flex min-w-0 items-start gap-3">
-                                    <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-righello-pink" />
-                                    <div className="min-w-0 flex-1">
-                                      <div className="break-words text-sm font-bold leading-5 text-white">
-                                        {option.title || option.label}
-                                      </div>
-                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                                        <span>
-                                          {statusLabel[option.status || ""] ||
-                                            option.status ||
-                                            "Task"}
-                                        </span>
-                                        {option.dueAt ? (
-                                          <span>
-                                            Scade {formatDueDate(option.dueAt)}
-                                          </span>
-                                        ) : null}
-                                        {total ? (
-                                          <span>
-                                            {completed}/{total} checklist
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </button>
-
-                                {option.subItems?.length ? (
-                                  <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                                    {option.subItems.map((item) => (
-                                      <div
-                                        key={item.id}
-                                        className="flex items-start gap-2 rounded-md bg-black/20 p-2"
-                                      >
-                                        <Checkbox
-                                          checked={item.completed}
-                                          className="mt-0.5 border-white/30 data-[state=checked]:border-emerald-400 data-[state=checked]:bg-emerald-500"
-                                          onCheckedChange={() =>
-                                            handleToggleSubItem(option, item.id)
-                                              .then(() =>
-                                                toast.success(
-                                                  "Checklist aggiornata",
-                                                ),
-                                              )
-                                              .catch((err) =>
-                                                toast.error(err.message),
-                                              )
-                                          }
-                                        />
-                                        <button
-                                          type="button"
-                                          className={`min-w-0 flex-1 text-left text-sm leading-5 ${
-                                            item.completed
-                                              ? "text-slate-500 line-through"
-                                              : "text-slate-200 hover:text-white"
-                                          }`}
-                                          onClick={() =>
-                                            selectTarget(option, item.title)
-                                          }
-                                        >
-                                          {item.title}
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-
-                    {groupedTargets.projects.length ? (
-                      <div className="space-y-2">
-                        <div className="sticky top-[-1rem] z-10 -mx-4 border-y border-white/10 bg-[#070b14]/95 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 backdrop-blur sm:-mx-5 sm:px-5">
-                          Progetti
-                        </div>
-                        <div className="grid gap-2">
-                          {groupedTargets.projects.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              className={`rounded-[8px] border p-3 text-left transition ${
-                                selectedTarget === option.value
-                                  ? "border-righello-cyan/70 bg-righello-cyan/10"
-                                  : "border-white/10 bg-[#111827] hover:border-white/25"
-                              }`}
-                              onClick={() => selectTarget(option)}
-                            >
-                              <div className="flex items-start gap-3">
-                                <FolderKanban className="mt-0.5 h-4 w-4 shrink-0 text-righello-cyan" />
-                                <div className="min-w-0">
-                                  <div className="break-words text-sm font-bold text-white">
-                                    {option.name || option.label}
-                                  </div>
-                                  {option.clientName ? (
-                                    <div className="mt-1 text-xs text-slate-400">
-                                      {option.clientName}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {groupedTargets.clients.length ? (
-                      <div className="space-y-2">
-                        <div className="sticky top-[-1rem] z-10 -mx-4 border-y border-white/10 bg-[#070b14]/95 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 backdrop-blur sm:-mx-5 sm:px-5">
-                          Clienti
-                        </div>
-                        <div className="grid gap-2">
-                          {groupedTargets.clients.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              className={`rounded-[8px] border p-3 text-left transition ${
-                                selectedTarget === option.value
-                                  ? "border-cyan-300/70 bg-cyan-300/10"
-                                  : "border-white/10 bg-[#111827] hover:border-white/25"
-                              }`}
-                              onClick={() => selectTarget(option)}
-                            >
-                              <div className="flex items-start gap-3">
-                                <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
-                                <div className="min-w-0">
-                                  <div className="break-words text-sm font-bold text-white">
-                                    {option.name || option.label}
-                                  </div>
-                                  {option.company ? (
-                                    <div className="mt-1 text-xs text-slate-400">
-                                      {option.company}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {!filteredTargets.length && (
-                      <div className="rounded-[8px] border border-dashed border-white/15 p-8 text-center text-slate-400">
-                        Nessuna task, progetto o cliente trovato.
-                      </div>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              <Button
-                className="h-auto min-h-11 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
-                disabled={!payload?.isManager && isPastSelectedDate}
-                onClick={() =>
-                  handleAddEntry()
-                    .then(() => toast.success("Attività aggiunta"))
-                    .catch((err) => toast.error(err.message))
-                }
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {!payload?.isManager && isPastSelectedDate
-                  ? "Giornata chiusa"
-                  : createTaskFromReport && selectedOption?.kind !== "task"
-                    ? "Crea task e aggiungi attività"
-                    : "Aggiungi attività"}
-              </Button>
-
-              <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-white/10 bg-[#1b242b] p-4">
-                  <div className="text-sm text-slate-400">
-                    Ore presenza nette
-                  </div>
-                  <div className="mt-1 text-3xl font-black text-white">
-                    {formatMinutes(payload?.totals.presenceMinutes || 0)}
-                  </div>
-                  <div className="mt-2 text-xs text-slate-500">
-                    {formatTime(payload?.day?.checkInAt)} -{" "}
-                    {formatTime(payload?.day?.checkOutAt)}
-                    {payload?.totals.lunchBreakMinutes
-                      ? ` · pausa ${formatMinutes(payload.totals.lunchBreakMinutes)}`
-                      : ""}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#1b242b] p-4">
-                  <div className="text-sm text-slate-400">Ore attività</div>
-                  <div className="mt-1 text-3xl font-black text-white">
-                    {formatMinutes(payload?.totals.activityMinutes || 0)}
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 text-xs text-emerald-300">
-                    <CheckCircle2 className="h-3 w-3" />
-                    {payload?.day?.status || "da aprire"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className={panelClass}>
-            <div className="mb-4">
-              <div className="text-xs font-black uppercase tracking-[0.16em] text-righello-pink sm:tracking-[0.24em]">
-                Rapportino
-              </div>
-              <h2 className="mt-1 text-2xl font-bold text-white">
-                Timeline mini-invii
-              </h2>
-            </div>
-
-            <div className="w-full min-w-0 max-w-full space-y-3">
-              <div className="rounded-[8px] border border-white/10 bg-[#0d1524] p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-righello-pink" />
-                  <div>
-                    <p className="font-bold text-white">
-                      Suggerimenti da workspace
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      Parti dalle task assegnate: riduce scrittura manuale,
-                      errori di consuntivo e attività non collegata.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  {suggestedTargets.length ? (
-                    suggestedTargets.map((option) => (
+                  <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-xl overflow-hidden rounded-[8px] border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
+                    <DialogHeader className="border-b border-white/10 px-4 py-4 sm:px-5">
+                      <DialogTitle className="flex items-center gap-2 text-xl font-black text-white">
+                        <Building2 className="h-5 w-5 text-cyan-200" />
+                        Cerca cliente
+                      </DialogTitle>
+                      <p className="text-sm text-slate-400">
+                        Filtra per nome o azienda e collega il cliente al
+                        rapportino.
+                      </p>
+                    </DialogHeader>
+                    <div className="border-b border-white/10 p-4 sm:p-5">
+                      <label className="relative block">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                        <Input
+                          className="h-12 border-white/10 bg-[#111827] pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
+                          placeholder="Cerca cliente..."
+                          value={clientSearch}
+                          onChange={(event) =>
+                            setClientSearch(event.target.value)
+                          }
+                          autoFocus
+                        />
+                      </label>
+                    </div>
+                    <div className="max-h-[58dvh] space-y-2 overflow-y-auto overscroll-contain p-4 sm:p-5">
                       <button
-                        key={option.value}
                         type="button"
-                        className="w-full rounded-[8px] border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-righello-pink/40 hover:bg-righello-pink/10"
+                        className={`flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition ${
+                          !selectedClientId
+                            ? "border-cyan-300/70 bg-cyan-300/10"
+                            : "border-white/10 bg-[#111827] hover:border-white/25"
+                        }`}
                         onClick={() => {
-                          setSelectedTarget(option.value);
-                          const nextClientId = resolveClientId(option);
-                          if (nextClientId) setSelectedClientId(nextClientId);
-                          setIsRemote(option.workMode === "remote");
-                          setActivity(option.title || option.label);
-                          setMinutes("60");
+                          setSelectedClientId("");
+                          setClientSearch("");
+                          setClientPickerOpen(false);
                         }}
                       >
-                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <p className="break-words text-sm font-bold text-white">
-                              {option.title || option.label}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              {option.projectName ||
-                                option.clientName ||
-                                "Task"}
-                              {option.dueAt
-                                ? ` · scade ${formatDueDate(option.dueAt)}`
-                                : ""}
-                            </p>
-                          </div>
-                          <Badge className="w-fit rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
-                            Usa nel rapportino
-                          </Badge>
+                        <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-bold text-white">
+                            Nessun cliente specifico
+                          </span>
+                          <span className="mt-1 block text-xs leading-5 text-slate-400">
+                            Usa questa opzione solo per attività interne o non
+                            attribuibili a un cliente.
+                          </span>
+                        </span>
+                        {!selectedClientId ? (
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+                        ) : null}
+                      </button>
+
+                      {filteredClientOptions.map((client) => {
+                        const selected = client.id === selectedClientId;
+                        return (
+                          <button
+                            key={client.id}
+                            type="button"
+                            className={`flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition ${
+                              selected
+                                ? "border-cyan-300/70 bg-cyan-300/10"
+                                : "border-white/10 bg-[#111827] hover:border-white/25"
+                            }`}
+                            onClick={() => {
+                              setSelectedClientId(client.id);
+                              setClientSearch("");
+                              setClientPickerOpen(false);
+                            }}
+                          >
+                            <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block break-words text-sm font-bold text-white">
+                                {client.name || client.label}
+                              </span>
+                              {client.company ? (
+                                <span className="mt-1 block text-xs text-slate-400">
+                                  {client.company}
+                                </span>
+                              ) : null}
+                            </span>
+                            {selected ? (
+                              <Check className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+                            ) : null}
+                          </button>
+                        );
+                      })}
+
+                      {!filteredClientOptions.length ? (
+                        <div className="rounded-[8px] border border-dashed border-white/15 p-8 text-center text-slate-400">
+                          Nessun cliente trovato.
+                        </div>
+                      ) : null}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {selectedOption?.kind !== "task" && (
+                  <label className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 p-3 transition hover:border-cyan-300/35 hover:bg-cyan-300/15">
+                    <Checkbox
+                      checked={createTaskFromReport}
+                      onCheckedChange={(checked) =>
+                        setCreateTaskFromReport(Boolean(checked))
+                      }
+                      className="mt-0.5 border-cyan-200/40 data-[state=checked]:border-cyan-300 data-[state=checked]:bg-cyan-500"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black text-cyan-50">
+                        Crea task completata dal rapportino
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-cyan-100/75">
+                        Utile quando hai svolto un lavoro per un cliente ma non
+                        esiste ancora la task. Optima crea la task, la segna
+                        completata e collega subito il tempo.
+                      </span>
+                    </span>
+                  </label>
+                )}
+
+                <Dialog
+                  open={targetPickerOpen}
+                  onOpenChange={setTargetPickerOpen}
+                >
+                  <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-3xl overflow-hidden rounded-[8px] border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
+                    <DialogHeader className="border-b border-white/10 px-4 py-4 sm:px-5">
+                      <DialogTitle className="flex items-center gap-2 text-xl font-black text-white">
+                        <ListChecks className="h-5 w-5 text-righello-pink" />
+                        Collega attività
+                      </DialogTitle>
+                      <p className="text-sm text-slate-400">
+                        Cerca task, progetto, cliente o checklist. Le task sono
+                        raggruppate per progetto/cliente.
+                      </p>
+                    </DialogHeader>
+
+                    <div className="border-b border-white/10 p-4 sm:p-5">
+                      <label className="relative block">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                        <Input
+                          className="h-12 border-white/10 bg-[#111827] pl-10 text-slate-100 placeholder:text-slate-500 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
+                          placeholder="Cerca: cliente, progetto, task, sub-attività..."
+                          value={targetSearch}
+                          onChange={(event) =>
+                            setTargetSearch(event.target.value)
+                          }
+                          autoFocus
+                        />
+                      </label>
+                    </div>
+
+                    <div className="max-h-[58dvh] space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-5">
+                      <button
+                        type="button"
+                        className="w-full rounded-[8px] border border-dashed border-white/15 bg-white/[0.03] p-4 text-left transition hover:border-righello-pink/50 hover:bg-righello-pink/10"
+                        onClick={() => {
+                          setSelectedTarget("");
+                          setSelectedClientId("");
+                          setIsRemote(false);
+                          setTargetPickerOpen(false);
+                        }}
+                      >
+                        <div className="font-bold text-white">
+                          Attività generale
+                        </div>
+                        <div className="mt-1 text-sm text-slate-400">
+                          Usala per lavoro non associato a un progetto o task
+                          specifica.
                         </div>
                       </button>
-                    ))
-                  ) : (
-                    <div className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-500">
-                      Nessuna task aperta assegnata per questa giornata.
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {payload?.entries.length ? (
-                timelineGroups.map((group) => (
-                  <div key={group.status || "submitted"} className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                        {entryReviewLabel(group.status)}
-                      </div>
-                      <Badge
-                        className={`rounded-[8px] border ${entryReviewTone(group.status)}`}
-                      >
-                        {group.entries.length}
-                      </Badge>
-                    </div>
-                    {group.entries.map((entry) => {
-                      const busy = reviewingIds.includes(entry.id);
-                      const canReviewEntry =
-                        payload?.isManager && entry.reviewStatus !== "approved";
-                      const canRemoveEntry =
-                        payload?.isManager ||
-                        (entry.reviewStatus !== "approved" &&
-                          !isPastSelectedDate);
-                      const entryChangeOpen =
-                        entryChangeRequestOpenId === entry.id;
-                      const entryChangeMessage =
-                        entryChangeRequestMessages[entry.id] || "";
-
-                      return (
-                        <div
-                          key={entry.id}
-                          className="min-w-0 rounded-[8px] border border-white/10 bg-[#222a31] p-4"
-                        >
-                          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <div className="break-words font-bold leading-6 text-white">
-                                {entry.projectName
-                                  ? `${entry.projectName}: `
-                                  : ""}
-                                {stripActivityCategory(
-                                  entry.note,
-                                  entry.activityCategory,
-                                ) || "Attività registrata"}
-                              </div>
-                              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-400">
-                                <Clock className="h-4 w-4 shrink-0" />
-                                {formatMinutes(entry.minutes)}
-                                <Badge
-                                  className={`rounded-[8px] border ${entryReviewTone(entry.reviewStatus)}`}
-                                >
-                                  {entryReviewLabel(entry.reviewStatus)}
-                                </Badge>
-                                {entry.activityCategory ? (
-                                  <Badge className="rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
-                                    {entry.activityCategory}
-                                  </Badge>
-                                ) : null}
-                                <Badge
-                                  className={`rounded-[8px] border ${
-                                    entry.billable === false
-                                      ? "border-amber-300/30 bg-amber-400/10 text-amber-100"
-                                      : "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
+                      {groupedTargets.taskGroups.map(([groupName, tasks]) => (
+                        <div key={groupName} className="space-y-2">
+                          <div className="sticky top-[-1rem] z-10 -mx-4 border-y border-white/10 bg-[#070b14]/95 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 backdrop-blur sm:-mx-5 sm:px-5">
+                            {groupName}
+                          </div>
+                          <div className="grid gap-2">
+                            {tasks.map((option) => {
+                              const completed =
+                                option.subItems?.filter(
+                                  (item) => item.completed,
+                                ).length || 0;
+                              const total = option.subItems?.length || 0;
+                              return (
+                                <div
+                                  key={option.value}
+                                  className={`rounded-[8px] border p-3 transition ${
+                                    selectedTarget === option.value
+                                      ? "border-righello-pink/70 bg-righello-pink/10"
+                                      : "border-white/10 bg-[#111827] hover:border-white/25"
                                   }`}
                                 >
-                                  {entry.billable === false
-                                    ? "Non fatturabile"
-                                    : "Fatturabile"}
-                                </Badge>
-                                {entry.workMode === "remote" ? (
-                                  <Badge className="gap-1 rounded-[8px] border border-cyan-300/25 bg-cyan-400/10 text-cyan-100">
-                                    <MonitorUp className="h-3.5 w-3.5" />
-                                    Remoto
-                                  </Badge>
-                                ) : null}
-                                {entry.clientName ? (
-                                  <Badge className="gap-1 rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
-                                    <Building2 className="h-3.5 w-3.5" />
-                                    {entry.clientName}
-                                  </Badge>
-                                ) : null}
-                                {entry.taskTitle ? (
-                                  <span className="min-w-0 break-words">
-                                    · {entry.taskTitle}
-                                  </span>
-                                ) : null}
-                              </div>
-                              {entry.reviewNotes ? (
-                                <div className="mt-3 rounded-[8px] border border-amber-300/20 bg-amber-300/[0.06] p-3 text-sm leading-6 text-amber-100">
-                                  {entry.reviewNotes}
-                                </div>
-                              ) : null}
-                            </div>
-                            <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
-                              {canReviewEntry ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="flex-1 rounded-[8px] bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50 sm:flex-none"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    handleReviewEntries(
-                                      [entry.id],
-                                      "approved",
-                                    ).catch((err) => toast.error(err.message))
-                                  }
-                                >
-                                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                  Approva
-                                </Button>
-                              ) : null}
-                              {canReviewEntry ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="flex-1 rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 disabled:opacity-50 sm:flex-none"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    setEntryChangeRequestOpenId((current) =>
-                                      current === entry.id ? null : entry.id,
-                                    )
-                                  }
-                                >
-                                  Richiedi
-                                </Button>
-                              ) : null}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 shrink-0 border-white/10 bg-white/5 text-slate-100 hover:bg-red-500/15 hover:text-red-100 disabled:opacity-50 sm:flex-none"
-                                disabled={!canRemoveEntry}
-                                onClick={() =>
-                                  handleDeleteEntry(entry.id)
-                                    .then(() =>
-                                      toast.success("Attività rimossa"),
-                                    )
-                                    .catch((err) => toast.error(err.message))
-                                }
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Rimuovi
-                              </Button>
-                            </div>
-                          </div>
-                          {entryChangeOpen ? (
-                            <div className="mt-3 flex items-end gap-2 rounded-[10px] border border-amber-300/20 bg-amber-300/[0.045] p-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                              <Textarea
-                                value={entryChangeMessage}
-                                onChange={(event) =>
-                                  setEntryChangeRequestMessages((current) => ({
-                                    ...current,
-                                    [entry.id]: event.target.value,
-                                  }))
-                                }
-                                rows={2}
-                                className="min-h-[44px] flex-1 resize-none rounded-[18px] border-white/10 bg-[#07101d] px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-amber-200/50 focus:ring-amber-200/20"
-                                placeholder="Scrivi cosa va corretto in questa attività..."
-                              />
-                              <Button
-                                type="button"
-                                size="icon"
-                                className="h-11 w-11 shrink-0 rounded-full bg-amber-300 text-slate-950 hover:bg-amber-200 disabled:opacity-50"
-                                disabled={
-                                  busy || entryChangeMessage.trim().length < 6
-                                }
-                                aria-label="Invia richiesta modifiche attività"
-                                onClick={() =>
-                                  handleReviewEntries(
-                                    [entry.id],
-                                    "changes_requested",
-                                    entryChangeMessage,
-                                  )
-                                    .then(() => {
-                                      setEntryChangeRequestOpenId(null);
-                                      setEntryChangeRequestMessages(
-                                        (current) => {
-                                          const next = { ...current };
-                                          delete next[entry.id];
-                                          return next;
-                                        },
-                                      );
-                                    })
-                                    .catch((err) => toast.error(err.message))
-                                }
-                              >
-                                <Send className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-lg border border-dashed border-white/15 bg-[#111b2d] p-8 text-center text-slate-400">
-                  <FileText className="mx-auto mb-3 h-8 w-8" />
-                  Nessuna attività registrata per questa giornata.
-                </div>
-              )}
+                                  <button
+                                    type="button"
+                                    className="w-full text-left"
+                                    onClick={() => selectTarget(option)}
+                                  >
+                                    <div className="flex min-w-0 items-start gap-3">
+                                      <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-righello-pink" />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="break-words text-sm font-bold leading-5 text-white">
+                                          {option.title || option.label}
+                                        </div>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                                          <span>
+                                            {statusLabel[option.status || ""] ||
+                                              option.status ||
+                                              "Task"}
+                                          </span>
+                                          {option.dueAt ? (
+                                            <span>
+                                              Scade{" "}
+                                              {formatDueDate(option.dueAt)}
+                                            </span>
+                                          ) : null}
+                                          {total ? (
+                                            <span>
+                                              {completed}/{total} checklist
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
 
-              <div className="grid gap-2 pt-3">
-                <label className="text-sm font-semibold text-slate-400">
-                  Note fine giornata
-                </label>
-                <Textarea
-                  className="min-h-24 min-w-0 border-white/10 bg-[#222a31] text-slate-100 placeholder:text-slate-400 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
-                  placeholder="Blocchi, materiali mancanti, note utili"
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                />
+                                  {option.subItems?.length ? (
+                                    <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                                      {option.subItems.map((item) => (
+                                        <div
+                                          key={item.id}
+                                          className="flex items-start gap-2 rounded-md bg-black/20 p-2"
+                                        >
+                                          <Checkbox
+                                            checked={item.completed}
+                                            className="mt-0.5 border-white/30 data-[state=checked]:border-emerald-400 data-[state=checked]:bg-emerald-500"
+                                            onCheckedChange={() =>
+                                              handleToggleSubItem(
+                                                option,
+                                                item.id,
+                                              )
+                                                .then(() =>
+                                                  toast.success(
+                                                    "Checklist aggiornata",
+                                                  ),
+                                                )
+                                                .catch((err) =>
+                                                  toast.error(err.message),
+                                                )
+                                            }
+                                          />
+                                          <button
+                                            type="button"
+                                            className={`min-w-0 flex-1 text-left text-sm leading-5 ${
+                                              item.completed
+                                                ? "text-slate-500 line-through"
+                                                : "text-slate-200 hover:text-white"
+                                            }`}
+                                            onClick={() =>
+                                              selectTarget(option, item.title)
+                                            }
+                                          >
+                                            {item.title}
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+
+                      {groupedTargets.projects.length ? (
+                        <div className="space-y-2">
+                          <div className="sticky top-[-1rem] z-10 -mx-4 border-y border-white/10 bg-[#070b14]/95 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 backdrop-blur sm:-mx-5 sm:px-5">
+                            Progetti
+                          </div>
+                          <div className="grid gap-2">
+                            {groupedTargets.projects.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                className={`rounded-[8px] border p-3 text-left transition ${
+                                  selectedTarget === option.value
+                                    ? "border-righello-cyan/70 bg-righello-cyan/10"
+                                    : "border-white/10 bg-[#111827] hover:border-white/25"
+                                }`}
+                                onClick={() => selectTarget(option)}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <FolderKanban className="mt-0.5 h-4 w-4 shrink-0 text-righello-cyan" />
+                                  <div className="min-w-0">
+                                    <div className="break-words text-sm font-bold text-white">
+                                      {option.name || option.label}
+                                    </div>
+                                    {option.clientName ? (
+                                      <div className="mt-1 text-xs text-slate-400">
+                                        {option.clientName}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {groupedTargets.clients.length ? (
+                        <div className="space-y-2">
+                          <div className="sticky top-[-1rem] z-10 -mx-4 border-y border-white/10 bg-[#070b14]/95 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 backdrop-blur sm:-mx-5 sm:px-5">
+                            Clienti
+                          </div>
+                          <div className="grid gap-2">
+                            {groupedTargets.clients.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                className={`rounded-[8px] border p-3 text-left transition ${
+                                  selectedTarget === option.value
+                                    ? "border-cyan-300/70 bg-cyan-300/10"
+                                    : "border-white/10 bg-[#111827] hover:border-white/25"
+                                }`}
+                                onClick={() => selectTarget(option)}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+                                  <div className="min-w-0">
+                                    <div className="break-words text-sm font-bold text-white">
+                                      {option.name || option.label}
+                                    </div>
+                                    {option.company ? (
+                                      <div className="mt-1 text-xs text-slate-400">
+                                        {option.company}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {!filteredTargets.length && (
+                        <div className="rounded-[8px] border border-dashed border-white/15 p-8 text-center text-slate-400">
+                          Nessuna task, progetto o cliente trovato.
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
                 <Button
-                  variant="outline"
-                  className="w-full border-white/10 bg-[#0a0f1d] text-slate-100 hover:bg-white/10 hover:text-white sm:w-fit"
+                  className="h-auto min-h-11 w-full min-w-0 whitespace-normal bg-righello-pink px-3 text-white hover:bg-righello-pink-dark"
+                  disabled={!payload?.isManager && isPastSelectedDate}
                   onClick={() =>
-                    mutateDay("notes", { notes })
-                      .then(() => toast.success("Note salvate"))
+                    handleAddEntry()
+                      .then(() => toast.success("Attività aggiunta"))
                       .catch((err) => toast.error(err.message))
                   }
                 >
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Salva note
+                  <Plus className="mr-2 h-4 w-4" />
+                  {!payload?.isManager && isPastSelectedDate
+                    ? "Giornata chiusa"
+                    : createTaskFromReport && selectedOption?.kind !== "task"
+                      ? "Crea task e aggiungi attività"
+                      : "Aggiungi attività"}
                 </Button>
-                <div className="rounded-[8px] border border-white/10 bg-[#101827] p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-bold text-white">
-                        Stato review:{" "}
-                        {payload?.day?.reviewStatus === "submitted"
-                          ? "In attesa"
-                          : payload?.day?.reviewStatus === "approved"
-                            ? "Approvato"
-                            : payload?.day?.reviewStatus === "changes_requested"
-                              ? "Da correggere"
-                              : "Bozza"}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-slate-400">
-                        Salva note e riepilogo: puoi aggiungere integrazioni
-                        fino a fine giornata. Le singole attività restano
-                        revisionabili una per una.
-                      </p>
+
+                <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-white/10 bg-[#1b242b] p-4">
+                    <div className="text-sm text-slate-400">
+                      Ore presenza nette
                     </div>
-                    <Button
-                      type="button"
-                      className="h-10 rounded-[8px] bg-righello-pink px-4 text-white hover:bg-righello-pink-dark"
-                      onClick={() =>
-                        handleSubmitReport().catch((err) =>
-                          toast.error(err.message),
-                        )
-                      }
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      Salva rapportino
-                    </Button>
+                    <div className="mt-1 text-3xl font-black text-white">
+                      {formatMinutes(payload?.totals.presenceMinutes || 0)}
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">
+                      {formatTime(payload?.day?.checkInAt)} -{" "}
+                      {formatTime(payload?.day?.checkOutAt)}
+                      {payload?.totals.lunchBreakMinutes
+                        ? ` · pausa ${formatMinutes(payload.totals.lunchBreakMinutes)}`
+                        : ""}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-[#1b242b] p-4">
+                    <div className="text-sm text-slate-400">Ore attività</div>
+                    <div className="mt-1 text-3xl font-black text-white">
+                      {formatMinutes(payload?.totals.activityMinutes || 0)}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-xs text-emerald-300">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {payload?.day?.status || "da aprire"}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </section>
-        </div>
+            </section>
+
+            <section className={panelClass}>
+              <div className="mb-4">
+                <div className="text-xs font-black uppercase tracking-[0.16em] text-righello-pink sm:tracking-[0.24em]">
+                  Rapportino
+                </div>
+                <h2 className="mt-1 text-2xl font-bold text-white">
+                  Timeline mini-invii
+                </h2>
+              </div>
+
+              <div className="w-full min-w-0 max-w-full space-y-3">
+                <div className="rounded-[8px] border border-white/10 bg-[#0d1524] p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-righello-pink" />
+                    <div>
+                      <p className="font-bold text-white">
+                        Suggerimenti da workspace
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                        Parti dalle task assegnate: riduce scrittura manuale,
+                        errori di consuntivo e attività non collegata.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {suggestedTargets.length ? (
+                      suggestedTargets.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className="w-full rounded-[8px] border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-righello-pink/40 hover:bg-righello-pink/10"
+                          onClick={() => {
+                            setSelectedTarget(option.value);
+                            const nextClientId = resolveClientId(option);
+                            if (nextClientId) setSelectedClientId(nextClientId);
+                            setIsRemote(option.workMode === "remote");
+                            setActivity(option.title || option.label);
+                            setMinutes("60");
+                          }}
+                        >
+                          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-bold text-white">
+                                {option.title || option.label}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                {option.projectName ||
+                                  option.clientName ||
+                                  "Task"}
+                                {option.dueAt
+                                  ? ` · scade ${formatDueDate(option.dueAt)}`
+                                  : ""}
+                              </p>
+                            </div>
+                            <Badge className="w-fit rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
+                              Usa nel rapportino
+                            </Badge>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-500">
+                        Nessuna task aperta assegnata per questa giornata.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {payload?.entries.length ? (
+                  timelineGroups.map((group) => (
+                    <div
+                      key={group.status || "submitted"}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                          {entryReviewLabel(group.status)}
+                        </div>
+                        <Badge
+                          className={`rounded-[8px] border ${entryReviewTone(group.status)}`}
+                        >
+                          {group.entries.length}
+                        </Badge>
+                      </div>
+                      {group.entries.map((entry) => {
+                        const busy = reviewingIds.includes(entry.id);
+                        const canReviewEntry =
+                          payload?.isManager &&
+                          entry.reviewStatus !== "approved";
+                        const canRemoveEntry =
+                          payload?.isManager ||
+                          (entry.reviewStatus !== "approved" &&
+                            !isPastSelectedDate);
+                        const entryChangeOpen =
+                          entryChangeRequestOpenId === entry.id;
+                        const entryChangeMessage =
+                          entryChangeRequestMessages[entry.id] || "";
+
+                        return (
+                          <div
+                            key={entry.id}
+                            className="min-w-0 rounded-[8px] border border-white/10 bg-[#222a31] p-4"
+                          >
+                            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="break-words font-bold leading-6 text-white">
+                                  {entry.projectName
+                                    ? `${entry.projectName}: `
+                                    : ""}
+                                  {stripActivityCategory(
+                                    entry.note,
+                                    entry.activityCategory,
+                                  ) || "Attività registrata"}
+                                </div>
+                                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-400">
+                                  <Clock className="h-4 w-4 shrink-0" />
+                                  {formatMinutes(entry.minutes)}
+                                  <Badge
+                                    className={`rounded-[8px] border ${entryReviewTone(entry.reviewStatus)}`}
+                                  >
+                                    {entryReviewLabel(entry.reviewStatus)}
+                                  </Badge>
+                                  {entry.activityCategory ? (
+                                    <Badge className="rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
+                                      {entry.activityCategory}
+                                    </Badge>
+                                  ) : null}
+                                  <Badge
+                                    className={`rounded-[8px] border ${
+                                      entry.billable === false
+                                        ? "border-amber-300/30 bg-amber-400/10 text-amber-100"
+                                        : "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
+                                    }`}
+                                  >
+                                    {entry.billable === false
+                                      ? "Non fatturabile"
+                                      : "Fatturabile"}
+                                  </Badge>
+                                  {entry.workMode === "remote" ? (
+                                    <Badge className="gap-1 rounded-[8px] border border-cyan-300/25 bg-cyan-400/10 text-cyan-100">
+                                      <MonitorUp className="h-3.5 w-3.5" />
+                                      Remoto
+                                    </Badge>
+                                  ) : null}
+                                  {entry.clientName ? (
+                                    <Badge className="gap-1 rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
+                                      <Building2 className="h-3.5 w-3.5" />
+                                      {entry.clientName}
+                                    </Badge>
+                                  ) : null}
+                                  {entry.taskTitle ? (
+                                    <span className="min-w-0 break-words">
+                                      · {entry.taskTitle}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {entry.reviewNotes ? (
+                                  <div className="mt-3 rounded-[8px] border border-amber-300/20 bg-amber-300/[0.06] p-3 text-sm leading-6 text-amber-100">
+                                    {entry.reviewNotes}
+                                  </div>
+                                ) : null}
+                              </div>
+                              <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
+                                {canReviewEntry ? (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="flex-1 rounded-[8px] bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50 sm:flex-none"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      handleReviewEntries(
+                                        [entry.id],
+                                        "approved",
+                                      ).catch((err) => toast.error(err.message))
+                                    }
+                                  >
+                                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                    Approva
+                                  </Button>
+                                ) : null}
+                                {canReviewEntry ? (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 disabled:opacity-50 sm:flex-none"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      setEntryChangeRequestOpenId((current) =>
+                                        current === entry.id ? null : entry.id,
+                                      )
+                                    }
+                                  >
+                                    Richiedi
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 shrink-0 border-white/10 bg-white/5 text-slate-100 hover:bg-red-500/15 hover:text-red-100 disabled:opacity-50 sm:flex-none"
+                                  disabled={!canRemoveEntry}
+                                  onClick={() =>
+                                    handleDeleteEntry(entry.id)
+                                      .then(() =>
+                                        toast.success("Attività rimossa"),
+                                      )
+                                      .catch((err) => toast.error(err.message))
+                                  }
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Rimuovi
+                                </Button>
+                              </div>
+                            </div>
+                            {entryChangeOpen ? (
+                              <div className="mt-3 flex items-end gap-2 rounded-[10px] border border-amber-300/20 bg-amber-300/[0.045] p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <Textarea
+                                  value={entryChangeMessage}
+                                  onChange={(event) =>
+                                    setEntryChangeRequestMessages(
+                                      (current) => ({
+                                        ...current,
+                                        [entry.id]: event.target.value,
+                                      }),
+                                    )
+                                  }
+                                  rows={2}
+                                  className="min-h-[44px] flex-1 resize-none rounded-[18px] border-white/10 bg-[#07101d] px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-amber-200/50 focus:ring-amber-200/20"
+                                  placeholder="Scrivi cosa va corretto in questa attività..."
+                                />
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  className="h-11 w-11 shrink-0 rounded-full bg-amber-300 text-slate-950 hover:bg-amber-200 disabled:opacity-50"
+                                  disabled={
+                                    busy || entryChangeMessage.trim().length < 6
+                                  }
+                                  aria-label="Invia richiesta modifiche attività"
+                                  onClick={() =>
+                                    handleReviewEntries(
+                                      [entry.id],
+                                      "changes_requested",
+                                      entryChangeMessage,
+                                    )
+                                      .then(() => {
+                                        setEntryChangeRequestOpenId(null);
+                                        setEntryChangeRequestMessages(
+                                          (current) => {
+                                            const next = { ...current };
+                                            delete next[entry.id];
+                                            return next;
+                                          },
+                                        );
+                                      })
+                                      .catch((err) => toast.error(err.message))
+                                  }
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-dashed border-white/15 bg-[#111b2d] p-8 text-center text-slate-400">
+                    <FileText className="mx-auto mb-3 h-8 w-8" />
+                    Nessuna attività registrata per questa giornata.
+                  </div>
+                )}
+
+                <div className="grid gap-2 pt-3">
+                  <label className="text-sm font-semibold text-slate-400">
+                    Note fine giornata
+                  </label>
+                  <Textarea
+                    className="min-h-24 min-w-0 border-white/10 bg-[#222a31] text-slate-100 placeholder:text-slate-400 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
+                    placeholder="Blocchi, materiali mancanti, note utili"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                  />
+                  <Button
+                    variant="outline"
+                    className="w-full border-white/10 bg-[#0a0f1d] text-slate-100 hover:bg-white/10 hover:text-white sm:w-fit"
+                    onClick={() =>
+                      mutateDay("notes", { notes })
+                        .then(() => toast.success("Note salvate"))
+                        .catch((err) => toast.error(err.message))
+                    }
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Salva note
+                  </Button>
+                  <div className="rounded-[8px] border border-white/10 bg-[#101827] p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-bold text-white">
+                          Stato review:{" "}
+                          {payload?.day?.reviewStatus === "submitted"
+                            ? "In attesa"
+                            : payload?.day?.reviewStatus === "approved"
+                              ? "Approvato"
+                              : payload?.day?.reviewStatus ===
+                                  "changes_requested"
+                                ? "Da correggere"
+                                : "Bozza"}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">
+                          Salva note e riepilogo: puoi aggiungere integrazioni
+                          fino a fine giornata. Le singole attività restano
+                          revisionabili una per una.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        className="h-10 rounded-[8px] bg-righello-pink px-4 text-white hover:bg-righello-pink-dark"
+                        onClick={() =>
+                          handleSubmitReport().catch((err) =>
+                            toast.error(err.message),
+                          )
+                        }
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        Salva rapportino
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
       </div>
     </div>
   );
