@@ -1322,31 +1322,8 @@ export default function RapportiniPage() {
           </div>
         </section>
 
-        <section className="grid gap-3 md:grid-cols-2">
-          <DailyMetricCard
-            label="Settimana selezionata"
-            value={`${formatMinutes(payload?.totals.week?.activityMinutes || 0)} attività`}
-            detail={
-              isTaskOnlyWorkLog
-                ? `${formatDateRange(payload?.totals.week?.start, payload?.totals.week?.end)} · ${payload?.totals.week?.entryCount || 0} righe`
-                : `${formatDateRange(payload?.totals.week?.start, payload?.totals.week?.end)} · ${formatMinutes(payload?.totals.week?.presenceMinutes || 0)} presenza · ${payload?.totals.week?.entryCount || 0} righe`
-            }
-            tone="cyan"
-          />
-          <DailyMetricCard
-            label="Mese selezionato"
-            value={`${formatMinutes(payload?.totals.month?.activityMinutes || 0)} attività`}
-            detail={
-              isTaskOnlyWorkLog
-                ? `${formatDateRange(payload?.totals.month?.start, payload?.totals.month?.end)} · ${payload?.totals.month?.entryCount || 0} righe`
-                : `${formatDateRange(payload?.totals.month?.start, payload?.totals.month?.end)} · ${formatMinutes(payload?.totals.month?.presenceMinutes || 0)} presenza · ${payload?.totals.month?.entryCount || 0} righe`
-            }
-            tone="green"
-          />
-        </section>
-
-        <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-          <div className={panelClass}>
+        <section className="grid items-start gap-3 lg:grid-cols-12">
+          <div className={`${panelClass} lg:col-span-7 lg:row-span-2`}>
             <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">
@@ -1407,43 +1384,96 @@ export default function RapportiniPage() {
                 </p>
               </div>
             </div>
+            <div className="mt-4 grid gap-3 rounded-[8px] border border-white/10 bg-[#101827] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-white">
+                  {payload?.day?.reviewStatus === "changes_requested"
+                    ? "Ci sono correzioni aperte"
+                    : payload?.day?.reviewStatus === "approved"
+                      ? "Giornata approvata"
+                      : "Giornata modificabile"}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  {isTaskOnlyWorkLog
+                    ? "Per esterni e freelance conta il valore delle attività rendicontate, non la presenza."
+                    : "La presenza resta un controllo operativo; il valore della giornata si legge dai minuti delle attività."}
+                </p>
+              </div>
+              <Badge
+                className={`w-fit rounded-[8px] border ${
+                  payload?.day?.reviewStatus === "changes_requested"
+                    ? "border-amber-300/30 bg-amber-400/10 text-amber-100"
+                    : payload?.day?.reviewStatus === "approved"
+                      ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
+                      : "border-cyan-300/25 bg-cyan-400/10 text-cyan-100"
+                }`}
+              >
+                {payload?.day?.reviewStatus === "submitted"
+                  ? "In review"
+                  : payload?.day?.reviewStatus === "approved"
+                    ? "Approvata"
+                    : payload?.day?.reviewStatus === "changes_requested"
+                      ? "Da correggere"
+                      : "Bozza"}
+              </Badge>
+            </div>
           </div>
 
-          <div className={panelClass}>
+          <div className="grid gap-3 md:grid-cols-2 lg:col-span-5">
+            <DailyMetricCard
+              label="Settimana"
+              value={`${formatMinutes(payload?.totals.week?.activityMinutes || 0)} attività`}
+              detail={
+                isTaskOnlyWorkLog
+                  ? `${formatDateRange(payload?.totals.week?.start, payload?.totals.week?.end)} · ${payload?.totals.week?.entryCount || 0} righe`
+                  : `${formatDateRange(payload?.totals.week?.start, payload?.totals.week?.end)} · ${formatMinutes(payload?.totals.week?.presenceMinutes || 0)} presenza`
+              }
+              tone="cyan"
+            />
+            <DailyMetricCard
+              label="Mese"
+              value={`${formatMinutes(payload?.totals.month?.activityMinutes || 0)} attività`}
+              detail={
+                isTaskOnlyWorkLog
+                  ? `${formatDateRange(payload?.totals.month?.start, payload?.totals.month?.end)} · ${payload?.totals.month?.entryCount || 0} righe`
+                  : `${formatDateRange(payload?.totals.month?.start, payload?.totals.month?.end)} · ${formatMinutes(payload?.totals.month?.presenceMinutes || 0)} presenza`
+              }
+              tone="green"
+            />
+          </div>
+
+          <div className={`${panelClass} lg:col-span-5`}>
             <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-cyan">
               Metodo Righello
             </div>
             <h2 className="mt-1 text-2xl font-bold text-white">
               Come collegare bene il lavoro
             </h2>
-            <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-300">
-              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
-                <p className="font-black text-white">
-                  1. Se esiste una task, collega la task.
-                </p>
-                <p className="mt-1 text-slate-400">
-                  È il dato migliore: porta con sé progetto, cliente, priorità e
-                  checklist.
-                </p>
-              </div>
-              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
-                <p className="font-black text-white">
-                  2. Se non esiste la task, collega almeno il progetto.
-                </p>
-                <p className="mt-1 text-slate-400">
-                  Serve per mantenere puliti consuntivi, preventivi e lettura
-                  per cliente.
-                </p>
-              </div>
-              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
-                <p className="font-black text-white">
-                  3. Progetti e nuove task si creano dal workspace.
-                </p>
-                <p className="mt-1 text-slate-400">
-                  Poi tornano disponibili nel selettore del rapportino senza
-                  scrivere due volte la stessa cosa.
-                </p>
-              </div>
+            <div className="mt-4 grid gap-2 text-sm leading-6 text-slate-300">
+              {[
+                "Se esiste una task, collega la task.",
+                "Se non esiste, collega almeno il progetto.",
+                "Nuove task e progetti si creano dal workspace.",
+              ].map((step, index) => (
+                <div
+                  key={step}
+                  className="flex items-start gap-3 rounded-[8px] border border-white/10 bg-[#101827] p-3"
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-cyan-300/10 text-xs font-black text-righello-cyan">
+                    {index + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-black text-white">{step}</p>
+                    <p className="mt-0.5 text-xs leading-5 text-slate-400">
+                      {index === 0
+                        ? "Porta con sé cliente, priorità e checklist."
+                        : index === 1
+                          ? "Tiene puliti consuntivi e lettura cliente."
+                          : "Poi tornano nel selettore del rapportino."}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
             <Button
               asChild
