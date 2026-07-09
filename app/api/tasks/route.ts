@@ -14,6 +14,7 @@ import {
 } from "@/lib/task-assignment-policy";
 import { createNotification } from "@/lib/notifications-db";
 import {
+  canBrowseClientDirectory,
   canViewAllWorkspaceData,
   isExternalWorkspaceMember,
   isWorkspaceClient,
@@ -245,6 +246,7 @@ export async function POST(request: NextRequest) {
     }
 
     const canCreateUnscopedTask = canViewAllWorkspaceData(principal.role);
+    const canUseAnyTenantClient = canBrowseClientDirectory(principal.role);
     if (!canCreateUnscopedTask) {
       const projectAllowed = projectId
         ? await canAccessProject(
@@ -265,14 +267,17 @@ export async function POST(request: NextRequest) {
       const candidateClientId =
         project?.client_id || normalizeNullableId(body.clientId);
       const clientAllowed =
-        !projectId && candidateClientId
-          ? await canAccessClient(
-              db,
-              principal.organizationId,
-              principal.memberId,
-              String(candidateClientId),
-            )
-          : false;
+        canUseAnyTenantClient ||
+        Boolean(
+          !projectId &&
+          candidateClientId &&
+          (await canAccessClient(
+            db,
+            principal.organizationId,
+            principal.memberId,
+            String(candidateClientId),
+          )),
+        );
 
       if (!projectAllowed && candidateClientId && !clientAllowed) {
         return Response.json(
