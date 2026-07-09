@@ -41,6 +41,7 @@ import {
   LogIn,
   LogOut,
   MonitorUp,
+  Pencil,
   Plus,
   Send,
   Undo2,
@@ -105,6 +106,15 @@ type Option = {
 type TargetOption = Option & {
   value: string;
   kind: "task" | "project" | "client";
+};
+
+type EntryEditDraft = {
+  note: string;
+  minutes: string;
+  activityCategory: string;
+  billable: boolean;
+  workMode: "office" | "remote";
+  target: string;
 };
 
 type TimeTrackingPayload = {
@@ -531,6 +541,10 @@ export default function RapportiniPage() {
   const [entryChangeRequestMessages, setEntryChangeRequestMessages] = useState<
     Record<string, string>
   >({});
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [entryEditDrafts, setEntryEditDrafts] = useState<
+    Record<string, EntryEditDraft>
+  >({});
   const hasLoadedRef = useRef(false);
   const loadedTimeKeyRef = useRef("");
   const desiredViewKeyRef = useRef("");
@@ -890,6 +904,25 @@ export default function RapportiniPage() {
     [targetOptions],
   );
 
+  const targetValueForEntry = useCallback((entry: Entry) => {
+    if (entry.taskId) return `task:${entry.taskId}`;
+    if (entry.projectId) return `project:${entry.projectId}`;
+    if (entry.clientId) return `client:${entry.clientId}`;
+    return "";
+  }, []);
+
+  const buildEntryEditDraft = useCallback(
+    (entry: Entry): EntryEditDraft => ({
+      note: stripActivityCategory(entry.note, entry.activityCategory),
+      minutes: String(entry.minutes || 60),
+      activityCategory: entry.activityCategory || activityCategories[0],
+      billable: entry.billable !== false,
+      workMode: entry.workMode === "remote" ? "remote" : "office",
+      target: targetValueForEntry(entry),
+    }),
+    [targetValueForEntry],
+  );
+
   const isTaskOnlyWorkLog =
     payload?.workTrackingMode === "task-only" ||
     payload?.tracksPresence === false ||
@@ -1137,6 +1170,82 @@ export default function RapportiniPage() {
       throw new Error(data.error || "Errore rimozione attività");
     await load();
     notifyOperationalDataChanged();
+  };
+
+  const openEntryEditor = (entry: Entry) => {
+    setEntryChangeRequestOpenId(null);
+    setEditingEntryId((current) => (current === entry.id ? null : entry.id));
+    setEntryEditDrafts((current) => ({
+      ...current,
+      [entry.id]: current[entry.id] || buildEntryEditDraft(entry),
+    }));
+  };
+
+  const updateEntryDraft = (
+    entryId: string,
+    patch: Partial<EntryEditDraft>,
+  ) => {
+    setEntryEditDrafts((current) => ({
+      ...current,
+      [entryId]: {
+        ...(current[entryId] || {
+          note: "",
+          minutes: "60",
+          activityCategory: activityCategories[0],
+          billable: true,
+          workMode: "office" as const,
+          target: "",
+        }),
+        ...patch,
+      },
+    }));
+  };
+
+  const handleUpdateEntry = async (entry: Entry) => {
+    const draft = entryEditDrafts[entry.id] || buildEntryEditDraft(entry);
+    const [kind, id] = draft.target.split(":");
+    const target = targetOptions.find(
+      (option) => option.value === draft.target,
+    );
+    const taskId = kind === "task" ? id : null;
+    const projectId =
+      kind === "project" ? id : target?.projectId || entry.projectId || null;
+    const clientId =
+      (kind === "client" ? id : resolveClientId(target)) ||
+      entry.clientId ||
+      null;
+
+    setReviewingIds((current) => Array.from(new Set([...current, entry.id])));
+    try {
+      const response = await fetch(`/api/time-tracking/entries/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId,
+          projectId,
+          clientId,
+          note: draft.note,
+          minutes: Number(draft.minutes),
+          billable: draft.billable,
+          activityCategory: draft.activityCategory,
+          workMode: draft.workMode,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(data.error || "Errore modifica attività");
+
+      setEditingEntryId(null);
+      setEntryEditDrafts((current) => {
+        const next = { ...current };
+        delete next[entry.id];
+        return next;
+      });
+      await load();
+      notifyOperationalDataChanged();
+    } finally {
+      setReviewingIds((current) => current.filter((id) => id !== entry.id));
+    }
   };
 
   const handleSubmitReport = async () => {
@@ -2839,10 +2948,18 @@ export default function RapportiniPage() {
                           payload?.isManager ||
                           (entry.reviewStatus !== "approved" &&
                             !isPastSelectedDate);
+                        const canEditEntry =
+                          payload?.isManager ||
+                          (entry.reviewStatus !== "approved" &&
+                            !isPastSelectedDate);
                         const entryChangeOpen =
                           entryChangeRequestOpenId === entry.id;
                         const entryChangeMessage =
                           entryChangeRequestMessages[entry.id] || "";
+                        const entryEditOpen = editingEntryId === entry.id;
+                        const entryDraft =
+                          entryEditDrafts[entry.id] ||
+                          buildEntryEditDraft(entry);
 
                         return (
                           <div
@@ -2909,6 +3026,17 @@ export default function RapportiniPage() {
                                 ) : null}
                               </div>
                               <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15 disabled:opacity-50 sm:flex-none"
+                                  disabled={!canEditEntry || busy}
+                                  onClick={() => openEntryEditor(entry)}
+                                >
+                                  <Pencil className="mr-1.5 h-4 w-4" />
+                                  Modifica
+                                </Button>
                                 {canReviewEntry ? (
                                   <Button
                                     type="button"
@@ -2960,6 +3088,190 @@ export default function RapportiniPage() {
                                 </Button>
                               </div>
                             </div>
+                            {entryEditOpen ? (
+                              <div className="mt-3 rounded-[10px] border border-cyan-300/20 bg-cyan-300/[0.045] p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="grid gap-3">
+                                  <div className="grid gap-2">
+                                    <label className="text-xs font-black uppercase tracking-[0.14em] text-cyan-100">
+                                      Attività
+                                    </label>
+                                    <Textarea
+                                      value={entryDraft.note}
+                                      onChange={(event) =>
+                                        updateEntryDraft(entry.id, {
+                                          note: event.target.value,
+                                        })
+                                      }
+                                      rows={2}
+                                      className="min-h-[74px] resize-none rounded-[8px] border-white/10 bg-[#07101d] text-sm text-white placeholder:text-slate-500 focus:border-cyan-200/50 focus:ring-cyan-200/20"
+                                      placeholder="Correggi descrizione attività..."
+                                    />
+                                  </div>
+
+                                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem]">
+                                    <div className="grid gap-2">
+                                      <label className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                        Collegamento
+                                      </label>
+                                      <select
+                                        className={selectClass}
+                                        value={entryDraft.target}
+                                        onChange={(event) =>
+                                          updateEntryDraft(entry.id, {
+                                            target: event.target.value,
+                                          })
+                                        }
+                                      >
+                                        <option value="">
+                                          Attività generale
+                                        </option>
+                                        {targetOptions.map((option) => (
+                                          <option
+                                            key={option.value}
+                                            value={option.value}
+                                          >
+                                            {option.kind === "task"
+                                              ? "Task"
+                                              : option.kind === "project"
+                                                ? "Progetto"
+                                                : "Cliente"}{" "}
+                                            - {option.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="grid gap-2">
+                                      <label className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                        Minuti
+                                      </label>
+                                      <Input
+                                        className={fieldClass}
+                                        type="number"
+                                        min={1}
+                                        max={1440}
+                                        value={entryDraft.minutes}
+                                        onChange={(event) =>
+                                          updateEntryDraft(entry.id, {
+                                            minutes: event.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                                    <div className="grid gap-2">
+                                      <label className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                        Tipo attività
+                                      </label>
+                                      <select
+                                        className={selectClass}
+                                        value={entryDraft.activityCategory}
+                                        onChange={(event) => {
+                                          const nextCategory =
+                                            event.target.value;
+                                          updateEntryDraft(entry.id, {
+                                            activityCategory: nextCategory,
+                                            billable:
+                                              nextCategory ===
+                                              "Attività interna non fatturabile"
+                                                ? false
+                                                : entryDraft.billable,
+                                          });
+                                        }}
+                                      >
+                                        {activityCategories.map((category) => (
+                                          <option
+                                            key={category}
+                                            value={category}
+                                          >
+                                            {category}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                      <label className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                                        Modalità
+                                      </label>
+                                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <label className="flex min-w-0 items-start gap-2 rounded-[8px] border border-white/10 bg-[#07101d] p-3 text-sm text-slate-200">
+                                          <Checkbox
+                                            checked={entryDraft.billable}
+                                            onCheckedChange={(checked) =>
+                                              updateEntryDraft(entry.id, {
+                                                billable: checked === true,
+                                              })
+                                            }
+                                            className="mt-0.5"
+                                          />
+                                          Fatturabile
+                                        </label>
+                                        <label className="flex min-w-0 items-start gap-2 rounded-[8px] border border-white/10 bg-[#07101d] p-3 text-sm text-slate-200">
+                                          <Checkbox
+                                            checked={
+                                              entryDraft.workMode === "remote"
+                                            }
+                                            onCheckedChange={(checked) =>
+                                              updateEntryDraft(entry.id, {
+                                                workMode:
+                                                  checked === true
+                                                    ? "remote"
+                                                    : "office",
+                                              })
+                                            }
+                                            className="mt-0.5"
+                                          />
+                                          Remoto
+                                        </label>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      className="rounded-[8px] border-white/10 bg-white/5 text-slate-100 hover:bg-white/10"
+                                      onClick={() => {
+                                        setEditingEntryId(null);
+                                        setEntryEditDrafts((current) => {
+                                          const next = { ...current };
+                                          delete next[entry.id];
+                                          return next;
+                                        });
+                                      }}
+                                    >
+                                      Annulla
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      className="rounded-[8px] bg-cyan-400 text-slate-950 hover:bg-cyan-300 disabled:opacity-50"
+                                      disabled={
+                                        busy ||
+                                        !entryDraft.note.trim() ||
+                                        Number(entryDraft.minutes) <= 0
+                                      }
+                                      onClick={() =>
+                                        handleUpdateEntry(entry)
+                                          .then(() =>
+                                            toast.success(
+                                              "Attività aggiornata",
+                                            ),
+                                          )
+                                          .catch((err) =>
+                                            toast.error(err.message),
+                                          )
+                                      }
+                                    >
+                                      <Check className="mr-1.5 h-4 w-4" />
+                                      Salva modifiche
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
                             {entryChangeOpen ? (
                               <div className="mt-3 flex items-end gap-2 rounded-[10px] border border-amber-300/20 bg-amber-300/[0.045] p-3 animate-in fade-in slide-in-from-top-2 duration-200">
                                 <Textarea
