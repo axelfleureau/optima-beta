@@ -7,6 +7,12 @@ import {
   notifyOperationalDataChanged,
   useLiveRefresh,
 } from "@/hooks/use-live-refresh";
+import {
+  humanizeSessionErrorMessage,
+  isSessionExpiredError,
+  isSessionExpiredStatus,
+  SessionAwareRequestError,
+} from "@/lib/session-error";
 
 type CreateTaskInput = {
   title: string;
@@ -42,7 +48,12 @@ async function parseTaskResponse(response: Response) {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload.error || "Operazione workspace non riuscita");
+    throw new SessionAwareRequestError(
+      isSessionExpiredStatus(response.status)
+        ? humanizeSessionErrorMessage(payload.error)
+        : payload.error || "Operazione workspace non riuscita",
+      response.status,
+    );
   }
 
   return payload;
@@ -164,6 +175,9 @@ export function useWorkspaceData() {
       setTasks((payload.tasks || []).map(normalizeTask));
     } catch (err) {
       console.error("Error loading workspace tasks:", err);
+      if (isSessionExpiredError(err) && hasLoadedRef.current) {
+        return;
+      }
       setError(
         err instanceof Error
           ? err.message

@@ -1,28 +1,42 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import { useAuth } from "@/lib/auth-context"
-import type { Project } from "@/lib/types"
-import { notifyOperationalDataChanged, useLiveRefresh } from "@/hooks/use-live-refresh"
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
+import type { Project } from "@/lib/types";
+import {
+  notifyOperationalDataChanged,
+  useLiveRefresh,
+} from "@/hooks/use-live-refresh";
+import {
+  humanizeSessionErrorMessage,
+  isSessionExpiredError,
+  isSessionExpiredStatus,
+  SessionAwareRequestError,
+} from "@/lib/session-error";
 
 type ProjectInput = {
-  name: string
-  clientId?: string | null
-  status?: Project["status"]
-  memberIds?: string[]
-  startsAt?: string | Date | null
-  dueAt?: string | Date | null
-  budgetCents?: number
-}
+  name: string;
+  clientId?: string | null;
+  status?: Project["status"];
+  memberIds?: string[];
+  startsAt?: string | Date | null;
+  dueAt?: string | Date | null;
+  budgetCents?: number;
+};
 
 async function parseProjectResponse(response: Response) {
-  const payload = await response.json().catch(() => ({}))
+  const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload.error || "Operazione progetto non riuscita")
+    throw new SessionAwareRequestError(
+      isSessionExpiredStatus(response.status)
+        ? humanizeSessionErrorMessage(payload.error)
+        : payload.error || "Operazione progetto non riuscita",
+      response.status,
+    );
   }
 
-  return payload
+  return payload;
 }
 
 function normalizeProject(project: Project): Project {
@@ -30,57 +44,69 @@ function normalizeProject(project: Project): Project {
     ...project,
     startsAt: project.startsAt ? new Date(project.startsAt as any) : null,
     dueAt: project.dueAt ? new Date(project.dueAt as any) : null,
-    createdAt: project.createdAt ? new Date(project.createdAt as any) : new Date(),
-    updatedAt: project.updatedAt ? new Date(project.updatedAt as any) : new Date(),
+    createdAt: project.createdAt
+      ? new Date(project.createdAt as any)
+      : new Date(),
+    updatedAt: project.updatedAt
+      ? new Date(project.updatedAt as any)
+      : new Date(),
     members: project.members || [],
-    memberIds: project.memberIds || project.members?.map((member) => member.id) || [],
-  }
+    memberIds:
+      project.memberIds || project.members?.map((member) => member.id) || [],
+  };
 }
 
 export function useProjects() {
-  const { user, userData, loading: authLoading } = useAuth()
-  const [projects, setProjects] = useState<Project[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const hasLoadedRef = useRef(false)
+  const { user, userData, loading: authLoading } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const refreshProjects = useCallback(async () => {
-    if (authLoading) return
+    if (authLoading) return;
 
     if (!user || !userData?.tenantId) {
-      setProjects([])
-      setLoading(false)
-      return
+      setProjects([]);
+      setLoading(false);
+      return;
     }
 
-    setLoading(!hasLoadedRef.current)
-    setError(null)
+    setLoading(!hasLoadedRef.current);
+    setError(null);
 
     try {
       const response = await fetch("/api/projects", {
         headers: { Accept: "application/json" },
         cache: "no-store",
-      })
-      const payload = await parseProjectResponse(response)
-      setProjects((payload.projects || []).map(normalizeProject))
+      });
+      const payload = await parseProjectResponse(response);
+      setProjects((payload.projects || []).map(normalizeProject));
     } catch (err) {
-      console.error("Error loading projects:", err)
-      setError(err instanceof Error ? err.message : "Errore nel caricamento dei progetti")
-      setProjects([])
+      console.error("Error loading projects:", err);
+      if (isSessionExpiredError(err) && hasLoadedRef.current) {
+        return;
+      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Errore nel caricamento dei progetti",
+      );
+      setProjects([]);
     } finally {
-      hasLoadedRef.current = true
-      setLoading(false)
+      hasLoadedRef.current = true;
+      setLoading(false);
     }
-  }, [authLoading, user, userData?.tenantId])
+  }, [authLoading, user, userData?.tenantId]);
 
   useEffect(() => {
-    refreshProjects()
-  }, [refreshProjects])
+    refreshProjects();
+  }, [refreshProjects]);
 
   useLiveRefresh(refreshProjects, {
     enabled: Boolean(user && userData?.tenantId && !authLoading),
     intervalMs: 30000,
-  })
+  });
 
   const createProject = async (project: ProjectInput) => {
     try {
@@ -91,21 +117,28 @@ export function useProjects() {
           Accept: "application/json",
         },
         body: JSON.stringify(project),
-      })
+      });
 
-      const payload = await parseProjectResponse(response)
-      const createdProject = normalizeProject(payload.project)
-      setProjects((current) => [createdProject, ...current])
-      notifyOperationalDataChanged()
-      return createdProject
+      const payload = await parseProjectResponse(response);
+      const createdProject = normalizeProject(payload.project);
+      setProjects((current) => [createdProject, ...current]);
+      notifyOperationalDataChanged();
+      return createdProject;
     } catch (err) {
-      console.error("Error creating project:", err)
-      setError(err instanceof Error ? err.message : "Errore durante la creazione del progetto")
-      throw err
+      console.error("Error creating project:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Errore durante la creazione del progetto",
+      );
+      throw err;
     }
-  }
+  };
 
-  const updateProject = async (projectId: string, updates: Partial<ProjectInput>) => {
+  const updateProject = async (
+    projectId: string,
+    updates: Partial<ProjectInput>,
+  ) => {
     try {
       const response = await fetch(`/api/projects/${projectId}`, {
         method: "PATCH",
@@ -114,19 +147,34 @@ export function useProjects() {
           Accept: "application/json",
         },
         body: JSON.stringify(updates),
-      })
+      });
 
-      const payload = await parseProjectResponse(response)
-      const updatedProject = normalizeProject(payload.project)
-      setProjects((current) => current.map((project) => (project.id === projectId ? updatedProject : project)))
-      notifyOperationalDataChanged()
-      return updatedProject
+      const payload = await parseProjectResponse(response);
+      const updatedProject = normalizeProject(payload.project);
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === projectId ? updatedProject : project,
+        ),
+      );
+      notifyOperationalDataChanged();
+      return updatedProject;
     } catch (err) {
-      console.error("Error updating project:", err)
-      setError(err instanceof Error ? err.message : "Errore durante l'aggiornamento del progetto")
-      throw err
+      console.error("Error updating project:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Errore durante l'aggiornamento del progetto",
+      );
+      throw err;
     }
-  }
+  };
 
-  return { projects, loading, error, refreshProjects, createProject, updateProject }
+  return {
+    projects,
+    loading,
+    error,
+    refreshProjects,
+    createProject,
+    updateProject,
+  };
 }
