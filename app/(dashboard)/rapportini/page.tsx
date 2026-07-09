@@ -1497,17 +1497,17 @@ export default function RapportiniPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
               <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-cyan">
-                Mini-invii rapportino
+                Flusso rapportino
               </div>
               <h2 className="mt-1 text-2xl font-bold text-white">
                 {isTaskOnlyWorkLog
-                  ? `Rendiconto task ${completionRatio}%`
-                  : `Copertura giornata ${completionRatio}%`}
+                  ? `Attività rendicontate ${completionRatio}%`
+                  : `Giornata compilata ${completionRatio}%`}
               </h2>
               <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
                 {isTaskOnlyWorkLog
-                  ? "Per i collaboratori esterni il rapportino misura task, minuti, cliente/progetto e note di consegna. Entrata e uscita non sono obbligatorie."
-                  : "Aggiungi attività durante la giornata: la direzione vedrà un solo rapportino aggregato per persona-giorno."}
+                  ? "Registra una riga per ogni blocco di lavoro: cosa hai fatto, minuti, cliente o progetto e note utili. Entrata e uscita non sono richieste."
+                  : "Puoi aggiungere attività durante la giornata. A fine giornata la direzione vede un solo riepilogo aggregato, ordinato per stato."}
               </p>
             </div>
             <Badge className="w-fit rounded-[8px] border border-white/10 bg-white/10 px-3 py-1 text-slate-100">
@@ -1529,7 +1529,7 @@ export default function RapportiniPage() {
           <div className="mt-4 grid gap-3 lg:grid-cols-3">
             <FlowStepCard
               number="1"
-              title={isTaskOnlyWorkLog ? "Lavoro svolto" : "Presenza"}
+              title={isTaskOnlyWorkLog ? "Registra attività" : "Apri giornata"}
               detail={
                 isTaskOnlyWorkLog
                   ? `${payload?.entries.length || 0} attività registrate`
@@ -1550,8 +1550,8 @@ export default function RapportiniPage() {
             />
             <FlowStepCard
               number="2"
-              title="Attività"
-              detail={`${payload?.entries.length || 0} righe, ${formatMinutes(payload?.totals.activityMinutes || 0)} registrati.`}
+              title="Descrivi il lavoro"
+              detail={`${payload?.entries.length || 0} righe, ${formatMinutes(payload?.totals.activityMinutes || 0)} registrati`}
               icon={<ClipboardList className="h-4 w-4" />}
               state={
                 (payload?.entries.length || 0) > 0
@@ -1563,7 +1563,7 @@ export default function RapportiniPage() {
             />
             <FlowStepCard
               number="3"
-              title="Salvataggio"
+              title="Salva riepilogo"
               detail={
                 reportDeltaMinutes > 30
                   ? `${formatMinutes(reportDeltaMinutes)} da spiegare prima della review.`
@@ -1587,17 +1587,17 @@ export default function RapportiniPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-pink">
-                  {isTaskOnlyWorkLog ? "Rendiconto lavoro" : "Fine giornata"}
+                  {isTaskOnlyWorkLog ? "Nuova attività" : "Presenza e lavoro"}
                 </div>
                 <h2 className="mt-1 text-2xl font-bold text-white">
                   {isTaskOnlyWorkLog
-                    ? "Task e minuti"
-                    : "Controllo rapido della giornata"}
+                    ? "Aggiungi un blocco di lavoro"
+                    : "Compila la giornata"}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   {isTaskOnlyWorkLog
-                    ? "Per i collaboratori esterni contano attività, minuti, cliente/progetto e note: la presenza non viene richiesta."
-                    : "Entrata, uscita e attività devono raccontare la giornata senza interpretazioni: se manca qualcosa, correggilo qui prima della review."}
+                    ? "Scrivi cosa hai fatto in modo leggibile per chi approva: attività, durata, cliente o progetto. Puoi aggiungere più blocchi nella stessa giornata."
+                    : "Prima registra entrata e uscita, poi aggiungi le attività svolte. Il valore operativo della giornata si legge dai minuti collegati alle attività."}
                 </p>
               </div>
               {isDayClosed && (
@@ -1651,12 +1651,12 @@ export default function RapportiniPage() {
                     ? "Ci sono correzioni aperte"
                     : payload?.day?.reviewStatus === "approved"
                       ? "Giornata approvata"
-                      : "Giornata modificabile"}
+                      : "Puoi ancora aggiornare"}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-slate-400">
                   {isTaskOnlyWorkLog
-                    ? "Per esterni e freelance conta il valore delle attività rendicontate, non la presenza."
-                    : "La presenza resta un controllo operativo; il valore della giornata si legge dai minuti delle attività."}
+                    ? "Per esterni e freelance contano attività e minuti rendicontati, non la presenza."
+                    : "La presenza spiega quando eri operativo; le attività spiegano su cosa hai lavorato."}
                 </p>
               </div>
               <Badge
@@ -1704,16 +1704,16 @@ export default function RapportiniPage() {
 
           <div className={`${panelClass} lg:col-span-5`}>
             <div className="text-xs font-black uppercase tracking-[0.18em] text-righello-cyan">
-              Metodo Righello
+              Guida collegamento
             </div>
             <h2 className="mt-1 text-2xl font-bold text-white">
-              Come collegare bene il lavoro
+              Dove collegare l'attività
             </h2>
             <div className="mt-4 grid gap-2 text-sm leading-6 text-slate-300">
               {[
-                "Se esiste una task, collega la task.",
-                "Se non esiste, collega almeno il progetto.",
-                "Nuove task e progetti si creano dal workspace.",
+                "Se la task esiste, usa quella.",
+                "Se non trovi la task, scegli progetto o cliente.",
+                "Se manca tutto, crea la task dal workspace.",
               ].map((step, index) => (
                 <div
                   key={step}
@@ -1726,10 +1726,10 @@ export default function RapportiniPage() {
                     <p className="font-black text-white">{step}</p>
                     <p className="mt-0.5 text-xs leading-5 text-slate-400">
                       {index === 0
-                        ? "Porta con sé cliente, priorità e checklist."
+                        ? "Evita doppie descrizioni e tiene allineato il workspace."
                         : index === 1
-                          ? "Tiene puliti consuntivi e lettura cliente."
-                          : "Poi tornano nel selettore del rapportino."}
+                          ? "Basta per rendere leggibile il consuntivo."
+                          : "Poi torna disponibile anche nel rapportino."}
                     </p>
                   </div>
                 </div>
@@ -1753,15 +1753,15 @@ export default function RapportiniPage() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <div className="text-xs font-black uppercase tracking-[0.2em] text-righello-pink">
-                  Review responsabili
+                  Review direzione
                 </div>
                 <h2 className="mt-1 text-2xl font-bold text-white">
-                  Rapportini da revisionare
+                  Giornate da approvare
                 </h2>
                 <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-                  Seleziona più dipendenti per approvare in blocco oppure apri
-                  un rapportino per correggere orari, note e attività prima
-                  della review.
+                  Ogni riga è una persona-giorno aggregata. Aprila per leggere
+                  attività, orari e note; approva tutto solo quando il riepilogo
+                  è chiaro.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -2218,7 +2218,7 @@ export default function RapportiniPage() {
                 <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
                   <div className="grid gap-2">
                     <label className="text-sm font-semibold text-slate-400">
-                      Attività svolta
+                      Cosa hai fatto
                     </label>
                     <Input
                       className={fieldClass}
@@ -2246,12 +2246,12 @@ export default function RapportiniPage() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-bold text-white">
-                        Compilazione rapida HR
+                        Durata rapida
                       </p>
                       <p className="mt-1 text-xs leading-5 text-slate-400">
-                        Presenza, attività collegate e note di blocco devono
-                        restare separati: così il dato è leggibile anche a fine
-                        mese.
+                        Scegli una durata frequente oppure scrivi i minuti.
+                        Registra blocchi separati quando hai lavorato su cose
+                        diverse.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2356,7 +2356,7 @@ export default function RapportiniPage() {
 
                 <div className="grid gap-2">
                   <label className="text-sm font-semibold text-slate-400">
-                    Progetto o task collegato
+                    Collegamento attività
                   </label>
                   <div className="grid gap-2">
                     <Button
@@ -2385,7 +2385,7 @@ export default function RapportiniPage() {
                                   ? `Progetto · ${selectedOption.clientName}`
                                   : "Progetto"
                                 : "Cliente"
-                            : "Nessun collegamento obbligatorio"}
+                            : "Puoi collegare task, progetto o cliente"}
                         </span>
                       </span>
                     </Button>
@@ -2410,7 +2410,7 @@ export default function RapportiniPage() {
                 <div className="grid gap-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-slate-400">
                     <Building2 className="h-4 w-4" />
-                    Cliente collegato
+                    Cliente
                   </label>
                   <Button
                     type="button"
@@ -2431,13 +2431,13 @@ export default function RapportiniPage() {
                       <span className="mt-0.5 block truncate text-xs text-slate-400">
                         {selectedClientOption
                           ? "Cliente selezionato per questa attività"
-                          : "Cerca e collega un cliente"}
+                          : "Cerca un cliente, se serve"}
                       </span>
                     </span>
                     <Search className="h-4 w-4 shrink-0 text-slate-500" />
                   </Button>
                   <p className="text-xs leading-5 text-slate-500">
-                    Se scegli una task o un progetto, il cliente viene compilato
+                    Se scegli una task o un progetto, il cliente viene collegato
                     automaticamente quando disponibile.
                   </p>
                 </div>
@@ -2858,11 +2858,15 @@ export default function RapportiniPage() {
             <section className={panelClass}>
               <div className="mb-4">
                 <div className="text-xs font-black uppercase tracking-[0.16em] text-righello-pink sm:tracking-[0.24em]">
-                  Rapportino
+                  Attività inviate
                 </div>
                 <h2 className="mt-1 text-2xl font-bold text-white">
-                  Timeline mini-invii
+                  Riepilogo della giornata
                 </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  Qui vedi cosa è già stato registrato. Puoi correggere le
+                  attività modificabili senza eliminarle e reinserirle.
+                </p>
               </div>
 
               <div className="w-full min-w-0 max-w-full space-y-3">
@@ -2870,12 +2874,11 @@ export default function RapportiniPage() {
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-righello-pink" />
                     <div>
-                      <p className="font-bold text-white">
-                        Suggerimenti da workspace
-                      </p>
+                      <p className="font-bold text-white">Task suggerite</p>
                       <p className="mt-1 text-sm leading-6 text-slate-400">
-                        Parti dalle task assegnate: riduce scrittura manuale,
-                        errori di consuntivo e attività non collegata.
+                        Parti da una task già assegnata quando esiste: eviti
+                        descrizioni doppie e mantieni cliente e progetto
+                        allineati.
                       </p>
                     </div>
                   </div>
@@ -2910,14 +2913,15 @@ export default function RapportiniPage() {
                               </p>
                             </div>
                             <Badge className="w-fit rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
-                              Usa nel rapportino
+                              Usa come base
                             </Badge>
                           </div>
                         </button>
                       ))
                     ) : (
                       <div className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-500">
-                        Nessuna task aperta assegnata per questa giornata.
+                        Nessuna task aperta assegnata per questa giornata. Puoi
+                        comunque registrare un'attività manuale.
                       </div>
                     )}
                   </div>
@@ -3327,17 +3331,18 @@ export default function RapportiniPage() {
                 ) : (
                   <div className="rounded-lg border border-dashed border-white/15 bg-[#111b2d] p-8 text-center text-slate-400">
                     <FileText className="mx-auto mb-3 h-8 w-8" />
-                    Nessuna attività registrata per questa giornata.
+                    Nessuna attività registrata per questa giornata. Aggiungi il
+                    primo blocco di lavoro dal form.
                   </div>
                 )}
 
                 <div className="grid gap-2 pt-3">
                   <label className="text-sm font-semibold text-slate-400">
-                    Note fine giornata
+                    Note per chi approva
                   </label>
                   <Textarea
                     className="min-h-24 min-w-0 border-white/10 bg-[#222a31] text-slate-100 placeholder:text-slate-400 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20"
-                    placeholder="Blocchi, materiali mancanti, note utili"
+                    placeholder="Blocchi, materiali mancanti, contesto utile per leggere la giornata"
                     value={notes}
                     onChange={(event) => setNotes(event.target.value)}
                   />
@@ -3368,9 +3373,9 @@ export default function RapportiniPage() {
                                 : "Bozza"}
                         </p>
                         <p className="mt-1 text-xs leading-5 text-slate-400">
-                          Salva note e riepilogo: puoi aggiungere integrazioni
-                          fino a fine giornata. Le singole attività restano
-                          revisionabili una per una.
+                          Salva le note quando hai finito o quando vuoi lasciare
+                          contesto. Puoi aggiungere altre attività fino a fine
+                          giornata.
                         </p>
                       </div>
                       <Button
