@@ -46,6 +46,8 @@ Comportamento:
 - Quando il contesto include GRAPH MEMORY, usala come memoria aziendale a grafo: cita source/confidence quando serve e non trasformare nodi ambigui in verità operative.
 - Se l'utente chiede di salvare conoscenza nel grafo, spiegagli il formato operativo: "salva nel grafo: tipo=client; titolo=...; sommario=...; tag=..." oppure usa la pagina Agenti > Stack.`;
 
+const CHAT_GENERATION_TIMEOUT_MS = 45_000;
+
 function estimateTokens(input: string) {
   return Math.ceil(input.length / 4);
 }
@@ -231,6 +233,23 @@ function uniqueModels(values: string[]) {
   );
 }
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 async function generateOperationalAnswer(
   openai: Awaited<ReturnType<typeof createRuntimeOpenAI>>,
   messages: ChatGenerationMessage[],
@@ -253,11 +272,15 @@ async function generateOperationalAnswer(
 
   for (const model of candidates) {
     try {
-      const result = await generateText({
-        model: openai.responses(model),
-        messages: promptMessages,
-        maxTokens: 1100,
-      });
+      const result = await withTimeout(
+        generateText({
+          model: openai.responses(model),
+          messages: promptMessages,
+          maxTokens: 1100,
+        }),
+        CHAT_GENERATION_TIMEOUT_MS,
+        `${model}/responses`,
+      );
       const text = cleanGeneratedText(result.text);
       if (text) return { text, model: `${model} · responses` };
       errors.push(`${model}/responses: empty`);
@@ -272,11 +295,15 @@ async function generateOperationalAnswer(
     }
 
     try {
-      const result = await generateText({
-        model: openai.chat(model),
-        messages: promptMessages,
-        maxTokens: 1100,
-      });
+      const result = await withTimeout(
+        generateText({
+          model: openai.chat(model),
+          messages: promptMessages,
+          maxTokens: 1100,
+        }),
+        CHAT_GENERATION_TIMEOUT_MS,
+        `${model}/chat`,
+      );
       const text = cleanGeneratedText(result.text);
       if (text) return { text, model: `${model} · chat` };
       errors.push(`${model}/chat: empty`);
@@ -1681,10 +1708,44 @@ export async function POST(request: NextRequest) {
           controller.close();
         } catch (error) {
           const err = error as Error;
+          const fallbackText =
+            businessFacts.fallbackText ||
+            buildImmediateOperationalFallback(message, contextSources);
+
+          try {
+            await saveMessage(
+              db,
+              currentSessionId,
+              principal.organizationId,
+              principal.memberId,
+              "assistant",
+              fallbackText,
+            );
+            await updateSessionMemory(
+              db,
+              currentSessionId,
+              principal.organizationId,
+              principal.memberId,
+              sessionMemory,
+              message,
+              fallbackText,
+              contextSources,
+            );
+          } catch (saveError) {
+            console.error("Error saving fallback chat response:", saveError);
+          }
+
+          enqueueSse(controller, {
+            sessionId: currentSessionId,
+            model: usedModel,
+            contextSources,
+          });
+          enqueueTextInChunks(controller, fallbackText);
           enqueueSse(controller, {
             error:
               "Errore durante la generazione della risposta: " + err.message,
           });
+          enqueueSse(controller, { done: true });
           controller.close();
         }
       },

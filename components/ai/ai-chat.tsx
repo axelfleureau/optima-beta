@@ -37,6 +37,9 @@ interface AIChatProps {
 const EMPTY_ASSISTANT_RESPONSE =
   "Ho ricevuto la richiesta e l'ho salvata nella conversazione, ma il runtime AI non ha restituito testo utile. Optima deve completare automaticamente il passaggio: risposta immediata quando il dato e presente, oppure job agentico revisionabile quando serve ricerca."
 
+const STREAM_ERROR_RESPONSE =
+  "Ho ricevuto la richiesta, ma il runtime AI ha interrotto la risposta. La conversazione resta salvata: Optima usera il contesto disponibile o un job agentico revisionabile per completare il passaggio."
+
 function normalizeAssistantContent(content: unknown, role: "user" | "assistant") {
   const text = String(content || "").trim()
   if (text) return text
@@ -235,6 +238,7 @@ export function AIChat({
         let buffer = ""
         let receivedAssistantContent = false
         let doneReceived = false
+        let streamError: string | null = null
 
         const handleSsePayload = (jsonStr: string) => {
           if (!jsonStr) return
@@ -258,7 +262,18 @@ export function AIChat({
 
           if (data.error) {
             console.error("❌ Stream error:", data.error)
-            throw new Error(data.error)
+            streamError = String(data.error)
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== assistantMessageId) return msg
+                const currentContent = msg.content.trim()
+                return {
+                  ...msg,
+                  content: currentContent || STREAM_ERROR_RESPONSE,
+                  error: true,
+                }
+              }),
+            )
           }
 
           if (data.content) {
@@ -344,6 +359,14 @@ export function AIChat({
             ),
           )
         }
+
+        if (streamError) {
+          toast({
+            title: "Risposta completata con fallback",
+            description: streamError,
+            variant: "destructive",
+          })
+        }
       } finally {
         reader.releaseLock()
       }
@@ -355,8 +378,19 @@ export function AIChat({
         variant: "destructive",
       })
 
-      // Remove the assistant message if there was an error
-      setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId))
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? {
+                ...msg,
+                content: msg.content.trim() || STREAM_ERROR_RESPONSE,
+                isStreaming: false,
+                canRegenerate: true,
+                error: true,
+              }
+            : msg,
+        ),
+      )
     } finally {
       setIsLoading(false)
       console.log("🏁 Message sending completed")
