@@ -166,6 +166,12 @@ function changeSummary(
   return "Task aggiornata";
 }
 
+function taskDeepLink(task: any) {
+  const taskId = String(task?.id || "").trim();
+  if (!taskId) return `${appUrl()}/workspace`;
+  return `${appUrl()}/tasks/${encodeURIComponent(taskId)}`;
+}
+
 async function resolveTenantRecipient(
   db: any,
   organizationId: string,
@@ -310,7 +316,7 @@ export async function notifyTaskChange(input: TaskNotificationInput) {
   const taskTitle = String(
     input.updatedTask?.title || input.previousTask?.title || "Task",
   );
-  const taskUrl = `${appUrl()}/workspace`;
+  const taskUrl = taskDeepLink(input.updatedTask || input.previousTask);
   const name = actorName(input.actor);
   const summary = changeSummary(input.changes, latestComment);
   const commentText = latestComment?.text;

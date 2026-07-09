@@ -58,6 +58,7 @@ import {
 import { KanbanBoard } from "./kanban-board";
 import { useWorkspaceLayout } from "@/hooks/use-workspace-layout";
 import { useIsMounted } from "@/hooks/use-is-mounted";
+import { useWorkspaceNav } from "@/lib/stores/workspace-nav-store";
 import type { Client, Project, Task } from "@/lib/types";
 
 // Import Sheet dynamically with ssr: false to prevent hydration mismatch
@@ -282,6 +283,12 @@ export function WorkspaceShell() {
   const { users } = useUsers();
   const { projects, createProject } = useProjects();
   const isMounted = useIsMounted();
+  const {
+    selectedTaskId: deepLinkedTaskId,
+    pendingAction,
+    clearNavigation,
+    setHighlight,
+  } = useWorkspaceNav();
 
   const {
     selectedClientId,
@@ -453,6 +460,57 @@ export function WorkspaceShell() {
       }
     }
   }, [allTasks, selectedTask?.id]);
+
+  useEffect(() => {
+    if (!deepLinkedTaskId || pendingAction !== "view" || tasksLoading) return;
+
+    const task = allTasks.find((item) => item.id === deepLinkedTaskId);
+    if (!task) {
+      toast({
+        title: "Task non trovata",
+        description:
+          "Il link non corrisponde a una task visibile per questo account.",
+        variant: "destructive",
+      });
+      clearNavigation();
+      return;
+    }
+
+    if (
+      isInternalWorkspaceTask(task, internalClientIds, userData?.companyName)
+    ) {
+      handleTenantWorkspaceClick();
+    } else if (task.clientId) {
+      handleClientWorkspaceClick(task.clientId);
+    } else {
+      handleAllClientsClick();
+    }
+
+    setSelectedTask(task);
+    setShowTaskDetailDialog(true);
+    setHighlight(task.id);
+
+    window.setTimeout(() => {
+      document
+        .getElementById(`task-${task.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 300);
+
+    clearNavigation();
+  }, [
+    allTasks,
+    clearNavigation,
+    deepLinkedTaskId,
+    handleAllClientsClick,
+    handleClientWorkspaceClick,
+    handleTenantWorkspaceClick,
+    internalClientIds,
+    pendingAction,
+    setHighlight,
+    tasksLoading,
+    toast,
+    userData?.companyName,
+  ]);
 
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;

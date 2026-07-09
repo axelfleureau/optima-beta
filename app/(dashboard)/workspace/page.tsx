@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { useWorkspaceNav } from "@/lib/stores/workspace-nav-store";
+import {
+  type WorkspaceAction,
+  useWorkspaceNav,
+} from "@/lib/stores/workspace-nav-store";
 import { useArchitectStore } from "@/lib/stores/architect-store";
 import { useAutoGenStore } from "@/lib/stores/auto-gen-store";
 import { getTaskById } from "@/lib/utils/task-matcher";
@@ -31,6 +34,17 @@ const AutoGenPreview = dynamic(
   },
 );
 
+function normalizeAction(value: string | null): WorkspaceAction {
+  if (
+    value === "refine" ||
+    value === "generate-copy" ||
+    value === "generate-visual"
+  ) {
+    return value;
+  }
+  return "view";
+}
+
 export default function WorkspacePage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -38,6 +52,7 @@ export default function WorkspacePage() {
     selectedTaskId,
     pendingAction,
     highlightedTaskId,
+    navigateToTask,
     clearNavigation,
     setHighlight,
   } = useWorkspaceNav();
@@ -46,9 +61,10 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     const taskId = searchParams.get("taskId");
-    const action = searchParams.get("action");
+    const action = normalizeAction(searchParams.get("action"));
 
-    if (taskId && action) {
+    if (taskId) {
+      navigateToTask(taskId, action);
       scrollToTask(taskId);
       setHighlight(taskId);
 
@@ -76,12 +92,14 @@ export default function WorkspacePage() {
           }
         }
 
-        setTimeout(() => clearNavigation(), 2500);
+        if (action !== "view") {
+          setTimeout(() => clearNavigation(), 2500);
+        }
       };
 
       executeAction();
     }
-  }, [searchParams, user]);
+  }, [searchParams, user, navigateToTask, setHighlight, clearNavigation]);
 
   useEffect(() => {
     if (selectedTaskId && pendingAction) {
@@ -112,12 +130,14 @@ export default function WorkspacePage() {
           }
         }
 
-        setTimeout(() => clearNavigation(), 500);
+        if (pendingAction !== "view") {
+          setTimeout(() => clearNavigation(), 500);
+        }
       };
 
       executeAction();
     }
-  }, [selectedTaskId, pendingAction, user]);
+  }, [selectedTaskId, pendingAction, user, clearNavigation]);
 
   useEffect(() => {
     if (highlightedTaskId) {
