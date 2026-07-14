@@ -241,5 +241,32 @@ export async function POST(request: NextRequest) {
     return json({ ok: true, notificationId: notifId, notified: recipient ? recipient.email : principal.email });
   }
 
+  if (action === "create-project") {
+    const name = String(body.name || "").trim();
+    if (!name) return json({ error: "nome progetto mancante" }, 400);
+
+    // Cliente Optima (opzionale, validato contro l'org).
+    let clientId: string | null = null;
+    if (body.clientId) {
+      const c = await db
+        .prepare(`SELECT id FROM clients WHERE id = ? AND organization_id = ? LIMIT 1`)
+        .bind(String(body.clientId), org)
+        .first();
+      clientId = c ? String(c.id) : null;
+    }
+
+    const id = createId("project");
+    const now = new Date().toISOString();
+    await db
+      .prepare(
+        `INSERT INTO projects (id, organization_id, client_id, name, status, budget_cents, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'planned', 0, ?, ?)`,
+      )
+      .bind(id, org, clientId, name, now, now)
+      .run();
+
+    return json({ ok: true, project: { id, name, clientId, status: "planned" } });
+  }
+
   return json({ error: `Azione sconosciuta: ${action}` }, 400);
 }
