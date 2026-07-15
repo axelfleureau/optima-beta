@@ -15,12 +15,15 @@ export function AdaptivePlayer({
   height,
   className,
   maxVerticalHeight = "min(70vh, 560px)",
+  videoRef,
 }: {
   src: string | null;
   width?: number | null;
   height?: number | null;
   className?: string;
   maxVerticalHeight?: string;
+  /** Serve a posizionare il video sul timecode di un marker. */
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
 }) {
   const known = Boolean(width && height);
   const isVertical = known ? (height as number) > (width as number) : false;
@@ -40,6 +43,7 @@ export function AdaptivePlayer({
   return (
     <div className={cn("flex w-full justify-center overflow-hidden rounded-md bg-black", className)}>
       <video
+        ref={videoRef}
         controls
         preload="metadata"
         playsInline
