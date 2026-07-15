@@ -70,7 +70,7 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
   async function copyLink() {
     if (!tranche) return;
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/video/review/${tranche.token}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/review/${tranche.token}`);
     } catch {
       /* ignore */
     }

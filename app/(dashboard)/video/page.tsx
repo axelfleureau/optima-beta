@@ -94,7 +94,7 @@ export default function VideoReviewPage() {
   }
 
   async function copyLink(token: string) {
-    const url = `${window.location.origin}/video/review/${token}`;
+    const url = `${window.location.origin}/review/${token}`;
     try {
       await navigator.clipboard.writeText(url);
     } catch {
@@ -125,10 +125,15 @@ export default function VideoReviewPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setCreating((v) => !v)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {creating ? "Annulla" : "Nuova tranche"}
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/video/smm">📣 Da pubblicare</Link>
+          </Button>
+          <Button onClick={() => setCreating((v) => !v)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {creating ? "Annulla" : "Nuova tranche"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
