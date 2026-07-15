@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -243,10 +244,12 @@ export default function VideoReviewPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {tranches.map((t) => (
-            <Card key={t.id}>
+            <Card key={t.id} className="transition-colors hover:border-righello-pink/50">
               <CardHeader className="pb-3">
                 <CardDescription>{t.clientName || "Senza cliente"}</CardDescription>
-                <CardTitle className="text-lg">{t.title}</CardTitle>
+                <Link href={`/video/${t.id}`}>
+                  <CardTitle className="text-lg hover:text-righello-pink">{t.title}</CardTitle>
+                </Link>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap gap-2">
