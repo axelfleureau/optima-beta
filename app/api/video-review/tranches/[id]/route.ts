@@ -109,8 +109,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       token: t.token,
       clientId: t.client_id,
       clientName: t.client_name || null,
-      videomakerMemberId: t.videomaker_member_id,
-      smmMemberId: t.smm_member_id,
+      projectId: t.project_id || null,
     },
     videos,
   });
@@ -144,6 +143,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if ("smmMemberId" in body) {
     sets.push("smm_member_id = ?");
     vals.push(await memberOrNull(body.smmMemberId));
+  }
+  // Progetto di DEFAULT della consegna: i video lo ereditano ma possono averne
+  // uno proprio (nella stessa tranche possono convivere progetti diversi).
+  if ("projectId" in body) {
+    let pid: string | null = null;
+    if (body.projectId) {
+      const p = await db
+        .prepare(`SELECT id FROM projects WHERE id = ? AND organization_id = ? LIMIT 1`)
+        .bind(String(body.projectId), org)
+        .first();
+      pid = p ? String(p.id) : null;
+    }
+    sets.push("project_id = ?");
+    vals.push(pid);
   }
   if (!sets.length) return Response.json({ ok: true });
 

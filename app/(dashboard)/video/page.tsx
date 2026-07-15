@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -19,50 +21,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clapperboard, Plus, Copy, Check } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Clapperboard, Plus, Search, Clock, AlertTriangle, CheckCircle2, Send, Users } from "lucide-react";
+import { useVideoReviewMeta } from "@/hooks/use-video-review";
+import {
+  pageClass,
+  surfaceClass,
+  interactiveSurfaceClass,
+  inputClass,
+  plainInputClass,
+  primaryButtonClass,
+  h1Class,
+  subtitleClass,
+  statusMeta,
+  COLLAB_ROLE_META,
+  initials,
+} from "@/lib/video-review-ui";
 
-type Member = { id: string; name: string; email: string | null };
-type Client = { id: string; name: string; company: string | null };
+const NONE = "__none__";
+
+type Collab = { id: string; memberId: string; name: string; role: string };
 type Tranche = {
   id: string;
   title: string;
   token: string;
   clientId: string | null;
   clientName: string | null;
-  videomaker: { id: string; name: string | null } | null;
-  smm: { id: string; name: string | null } | null;
+  projectNames: string[];
+  collaborators: Collab[];
   counts: { total: number; pending: number; revision: number; approved: number };
 };
 
-const NONE = "__none__";
-
 export default function VideoReviewPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const { clients, members, loading: metaLoading } = useVideoReviewMeta();
   const [tranches, setTranches] = useState<Tranche[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [onlyMine, setOnlyMine] = useState(false);
 
+  // Nuova consegna
+  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
-  const [clientId, setClientId] = useState<string>(NONE);
-  const [videomakerId, setVideomakerId] = useState<string>(NONE);
-  const [smmId, setSmmId] = useState<string>(NONE);
+  const [clientId, setClientId] = useState(NONE);
+  const [saving, setSaving] = useState(false);
 
-  async function load() {
-    const [meta, list] = await Promise.all([
-      fetch("/api/video-review/meta").then((r) => r.json()).catch(() => ({})),
-      fetch("/api/video-review/tranches").then((r) => r.json()).catch(() => ({})),
-    ]);
-    if (meta?.ok) {
-      setClients(meta.clients || []);
-      setMembers(meta.members || []);
-    }
-    if (list?.ok) setTranches(list.tranches || []);
-    setLoading(false);
+  function load() {
+    return fetch("/api/video-review/tranches")
+      .then((r) => r.json())
+      .then((r) => r?.ok && setTranches(r.tranches || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }
-
   useEffect(() => {
     load();
   }, []);
@@ -70,226 +79,253 @@ export default function VideoReviewPage() {
   async function createTranche() {
     if (!title.trim()) return;
     setSaving(true);
-    const res = await fetch("/api/video-review/tranches", {
+    const r = await fetch("/api/video-review/tranches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: title.trim(),
-        clientId: clientId === NONE ? null : clientId,
-        videomakerMemberId: videomakerId === NONE ? null : videomakerId,
-        smmMemberId: smmId === NONE ? null : smmId,
-      }),
+      body: JSON.stringify({ title: title.trim(), clientId: clientId === NONE ? null : clientId }),
     })
       .then((r) => r.json())
       .catch(() => ({ ok: false }));
     setSaving(false);
-    if (res?.ok) {
+    if (r?.ok) {
       setTitle("");
       setClientId(NONE);
-      setVideomakerId(NONE);
-      setSmmId(NONE);
-      setCreating(false);
+      setOpen(false);
       load();
     }
   }
 
-  async function copyLink(token: string) {
-    const url = `${window.location.origin}/review/${token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      /* ignore */
-    }
-    setCopied(token);
-    setTimeout(() => setCopied(null), 1500);
-  }
-
-  const totals = tranches.reduce(
-    (acc, t) => ({
-      pending: acc.pending + t.counts.pending,
-      revision: acc.revision + t.counts.revision,
-      approved: acc.approved + t.counts.approved,
-    }),
-    { pending: 0, revision: 0, approved: 0 },
+  const totals = useMemo(
+    () =>
+      tranches.reduce(
+        (a, t) => ({
+          pending: a.pending + t.counts.pending,
+          revision: a.revision + t.counts.revision,
+          approved: a.approved + t.counts.approved,
+        }),
+        { pending: 0, revision: 0, approved: 0 },
+      ),
+    [tranches],
   );
 
+  // Raggruppa per CLIENTE (il progetto è un attributo del video, non un livello).
+  const grouped = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const list = tranches.filter(
+      (t) =>
+        !needle ||
+        t.title.toLowerCase().includes(needle) ||
+        (t.clientName || "").toLowerCase().includes(needle),
+    );
+    const map = new Map<string, Tranche[]>();
+    for (const t of list) {
+      const key = t.clientName || "Senza cliente";
+      map.set(key, [...(map.get(key) || []), t]);
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [tranches, q]);
+
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Clapperboard className="h-7 w-7 text-righello-pink" />
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Video Review</h1>
-            <p className="text-muted-foreground">
-              Consegne video ai clienti: approvazione, note di modifica e pubblicazione.
-            </p>
-          </div>
+    <div className={`${pageClass} space-y-6 p-4 md:p-6`}>
+      {/* Testata in stile Optima */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className={h1Class}>
+            <Clapperboard className="h-7 w-7 text-righello-pink md:h-9 md:w-9" />
+            Video Review
+          </h1>
+          <p className={`mt-1 ${subtitleClass}`}>
+            Consegne video ai clienti: approvazione, note di modifica e pubblicazione.
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link href="/video/smm">📣 Da pubblicare</Link>
+          <Button asChild variant="outline" className="border-white/10 bg-white/5">
+            <Link href="/video/smm">Da pubblicare</Link>
           </Button>
-          <Button onClick={() => setCreating((v) => !v)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {creating ? "Annulla" : "Nuova tranche"}
+          <Button className={primaryButtonClass} onClick={() => setOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Nuova consegna
           </Button>
         </div>
       </div>
 
+      {/* Riepilogo */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Tranche</CardDescription>
-            <CardTitle className="text-3xl">{tranches.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>In attesa di review</CardDescription>
-            <CardTitle className="text-3xl">{totals.pending}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Da revisionare</CardDescription>
-            <CardTitle className="text-3xl text-amber-500">{totals.revision}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Approvati</CardDescription>
-            <CardTitle className="text-3xl text-emerald-500">{totals.approved}</CardTitle>
-          </CardHeader>
-        </Card>
+        {[
+          { icon: Send, label: "Consegne", value: tranches.length, tone: "text-slate-100" },
+          { icon: Clock, label: "In attesa cliente", value: totals.pending, tone: "text-slate-100" },
+          { icon: AlertTriangle, label: "Da revisionare", value: totals.revision, tone: "text-amber-300" },
+          { icon: CheckCircle2, label: "Approvati", value: totals.approved, tone: "text-emerald-300" },
+        ].map((s) => (
+          <Card key={s.label} className={surfaceClass}>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-3 text-sm font-medium text-slate-200">
+                <s.icon className="h-4 w-4 text-righello-pink" />
+                {s.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-3xl font-bold ${s.tone}`}>{s.value}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {creating && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Nuova tranche</CardTitle>
-            <CardDescription>
-              Videomaker e SMM si scelgono per nominativo: chiunque del team, anche solo per questa
-              consegna.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Cliente</label>
-                <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Scegli cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>— Nessun cliente —</SelectItem>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nome tranche</label>
-                <Input
-                  placeholder="es. Tranche settembre"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Videomaker</label>
-                <Select value={videomakerId} onValueChange={setVideomakerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Scegli persona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>— Nessuno —</SelectItem>
-                    {members.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">SMM</label>
-                <Select value={smmId} onValueChange={setSmmId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Scegli persona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>— Nessuno —</SelectItem>
-                    {members.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <Button onClick={createTranche} disabled={saving || !title.trim()}>
-              {saving ? "Creo…" : "Crea tranche"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Ricerca */}
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Cerca consegna o cliente…"
+          className={inputClass}
+        />
+      </div>
 
+      {/* Consegne raggruppate per cliente */}
       {loading ? (
-        <p className="text-muted-foreground">Carico…</p>
-      ) : tranches.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Nessuna tranche. Creane una per iniziare a raccogliere i video di un cliente.
+        <p className="text-slate-400">Carico…</p>
+      ) : grouped.length === 0 ? (
+        <Card className={surfaceClass}>
+          <CardContent className="py-12 text-center text-slate-400">
+            {tranches.length === 0
+              ? "Nessuna consegna visibile. Creane una, oppure chiedi di essere aggiunto come collaboratore."
+              : "Nessun risultato per questa ricerca."}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {tranches.map((t) => (
-            <Card key={t.id} className="transition-colors hover:border-righello-pink/50">
-              <CardHeader className="pb-3">
-                <CardDescription>{t.clientName || "Senza cliente"}</CardDescription>
-                <Link href={`/video/${t.id}`}>
-                  <CardTitle className="text-lg hover:text-righello-pink">{t.title}</CardTitle>
-                </Link>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{t.counts.total} video</Badge>
-                  {t.counts.revision > 0 && (
-                    <Badge className="bg-amber-500/15 text-amber-500 hover:bg-amber-500/15">
-                      {t.counts.revision} da revisionare
-                    </Badge>
-                  )}
-                  {t.counts.approved > 0 && (
-                    <Badge className="bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/15">
-                      {t.counts.approved} approvati
-                    </Badge>
-                  )}
-                </div>
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  <p>🎬 Videomaker: {t.videomaker?.name || "—"}</p>
-                  <p>📣 SMM: {t.smm?.name || "—"}</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => copyLink(t.token)}>
-                  {copied === t.token ? (
-                    <>
-                      <Check className="mr-2 h-4 w-4" /> Copiato
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="mr-2 h-4 w-4" /> Link review
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+        <div className="space-y-8">
+          {grouped.map(([clientName, list]) => (
+            <section key={clientName} className="space-y-3">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                {clientName}
+                <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs normal-case tracking-normal">
+                  {list.length}
+                </span>
+              </h2>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {list.map((t) => (
+                  <Link key={t.id} href={`/video/${t.id}`}>
+                    <Card className={`${interactiveSurfaceClass} h-full`}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base text-slate-100">{t.title}</CardTitle>
+                        {t.projectNames.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {t.projectNames.slice(0, 2).map((p) => (
+                              <Badge key={p} variant="outline" className="border-white/10 bg-white/5 text-[10px] text-slate-300">
+                                {p}
+                              </Badge>
+                            ))}
+                            {t.projectNames.length > 2 && (
+                              <Badge variant="outline" className="border-white/10 bg-white/5 text-[10px] text-slate-400">
+                                +{t.projectNames.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* Stato PER VIDEO: nella stessa consegna convivono stati diversi */}
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="outline" className="border-white/10 bg-white/5 text-xs text-slate-300">
+                            {t.counts.total} video
+                          </Badge>
+                          {t.counts.revision > 0 && (
+                            <Badge variant="outline" className={`text-xs ${statusMeta("revision").badge}`}>
+                              {t.counts.revision} da revisionare
+                            </Badge>
+                          )}
+                          {t.counts.pending > 0 && (
+                            <Badge variant="outline" className={`text-xs ${statusMeta("pending").badge}`}>
+                              {t.counts.pending} in attesa
+                            </Badge>
+                          )}
+                          {t.counts.approved > 0 && (
+                            <Badge variant="outline" className={`text-xs ${statusMeta("approved").badge}`}>
+                              {t.counts.approved} approvati
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Chi ci lavora */}
+                        <div className="flex items-center gap-2">
+                          <Users className="h-3.5 w-3.5 text-slate-500" />
+                          {t.collaborators.length === 0 ? (
+                            <span className="text-xs text-slate-500">Nessun collaboratore</span>
+                          ) : (
+                            <div className="flex -space-x-1.5">
+                              {t.collaborators.slice(0, 4).map((c) => (
+                                <Avatar key={c.id} className="h-6 w-6 border border-[#172235]" title={`${c.name} · ${COLLAB_ROLE_META[c.role]?.label || c.role}`}>
+                                  <AvatarFallback className="bg-white/10 text-[9px] text-slate-200">
+                                    {initials(c.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              ))}
+                              {t.collaborators.length > 4 && (
+                                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#172235] bg-white/10 text-[9px] text-slate-300">
+                                  +{t.collaborators.length - 4}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
+
+      {/* Nuova consegna */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="border-white/10 bg-[#111b2d] text-slate-100">
+          <DialogHeader>
+            <DialogTitle>Nuova consegna</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Una consegna raccoglie più video per un cliente, con un unico link di review.
+              Collaboratori e progetto si impostano dopo, anche per singolo video.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Cliente</label>
+              <Select value={clientId} onValueChange={setClientId} disabled={metaLoading}>
+                <SelectTrigger className="h-11 border-white/10 bg-[#172235] text-slate-100">
+                  <SelectValue placeholder="Scegli cliente" />
+                </SelectTrigger>
+                <SelectContent className="border-white/10 bg-[#111b2d] text-slate-100">
+                  <SelectItem value={NONE}>— Nessun cliente —</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Nome consegna</label>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && createTranche()}
+                placeholder="es. Tranche settembre"
+                className={plainInputClass}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Annulla
+            </Button>
+            <Button className={primaryButtonClass} disabled={saving || !title.trim()} onClick={createTranche}>
+              {saving ? "Creo…" : "Crea consegna"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

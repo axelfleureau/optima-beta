@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/card";
 import { ArrowLeft, Copy, Check, Download, Play, Upload } from "lucide-react";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
+import { CollaboratorsField } from "@/components/video-review/collaborators-field";
+import { ProjectPicker } from "@/components/video-review/project-picker";
+import { pageClass, surfaceClass } from "@/lib/video-review-ui";
 
 type Marker = { id: string; tSeconds: number; note: string };
 type Video = {
@@ -34,7 +37,9 @@ type Tranche = {
   id: string;
   title: string;
   token: string;
+  clientId: string | null;
   clientName: string | null;
+  projectId: string | null;
 };
 
 function timecode(sec: number, fps = 25) {
@@ -57,6 +62,7 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     return fetch(`/api/video-review/tranches/${id}`)
@@ -64,6 +70,7 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
       .then((r) => {
         if (r?.ok) {
           setTranche(r.tranche);
+          setProjectId(r.tranche?.projectId ?? null);
           setVideos(r.videos || []);
         }
         setLoading(false);
@@ -90,7 +97,7 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
   if (!tranche) return <div className="p-6 text-muted-foreground">Tranche non trovata.</div>;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className={`${pageClass} space-y-6 p-4 sm:p-6`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <Link
@@ -102,11 +109,36 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
           <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">{tranche.title}</h1>
           <p className="text-muted-foreground">{tranche.clientName || "Senza cliente"}</p>
         </div>
-        <Button variant="outline" onClick={copyLink} className="shrink-0">
+        <Button variant="outline" onClick={copyLink} className="shrink-0 border-white/10 bg-white/5">
           {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
           {copied ? "Copiato" : "Link review cliente"}
         </Button>
       </div>
+
+      {/* Chi lavora a questa consegna + progetto di default dei suoi video */}
+      <Card className={surfaceClass}>
+        <CardContent className="grid gap-6 p-4 md:grid-cols-2">
+          <CollaboratorsField scope="tranche" scopeId={tranche.id} label="Collaboratori della consegna" />
+          <div className="space-y-2">
+            <span className="text-sm font-medium text-slate-300">Progetto di default</span>
+            <ProjectPicker
+              clientId={tranche.clientId}
+              value={projectId}
+              onChange={async (p) => {
+                setProjectId(p);
+                await fetch(`/api/video-review/tranches/${tranche.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ projectId: p }),
+                }).catch(() => {});
+              }}
+            />
+            <p className="text-xs text-slate-500">
+              I video lo ereditano, ma ognuno può stare su un progetto diverso.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {videos.length === 0 ? (
         <Card>

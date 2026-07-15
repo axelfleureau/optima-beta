@@ -60,6 +60,46 @@ export async function GET() {
   const name = (f: any, l: any, e: any) =>
     [f, l].filter(Boolean).join(" ").trim() || String(e || "").split("@")[0] || null;
 
+  const ids = ((res?.results || []) as any[]).map((t) => String(t.id));
+
+  // Collaboratori (N per consegna) e progetti EFFETTIVI dei video: il progetto
+  // sta sul video, quindi una consegna può toccarne più d'uno.
+  const collabByTranche: Record<string, any[]> = {};
+  const projectsByTranche: Record<string, string[]> = {};
+
+  if (ids.length) {
+    const ph = ids.map(() => "?").join(",");
+    const cRes = await db
+      .prepare(
+        `SELECT c.id, c.scope_id, c.role, c.member_id, m.first_name, m.last_name, m.email
+           FROM vr_collaborators c JOIN members m ON m.id = c.member_id
+          WHERE c.organization_id = ? AND c.scope = 'tranche' AND c.scope_id IN (${ph})`,
+      )
+      .bind(principal.organizationId, ...ids)
+      .all();
+    for (const r of (cRes?.results || []) as any[]) {
+      (collabByTranche[String(r.scope_id)] ||= []).push({
+        id: r.id,
+        memberId: r.member_id,
+        role: r.role,
+        name: name(r.first_name, r.last_name, r.email),
+      });
+    }
+
+    const pRes = await db
+      .prepare(
+        `SELECT DISTINCT v.tranche_id, p.name
+           FROM vr_videos v
+           JOIN projects p ON p.id = COALESCE(v.project_id, (SELECT t2.project_id FROM vr_tranches t2 WHERE t2.id = v.tranche_id))
+          WHERE v.organization_id = ? AND v.tranche_id IN (${ph})`,
+      )
+      .bind(principal.organizationId, ...ids)
+      .all();
+    for (const r of (pRes?.results || []) as any[]) {
+      (projectsByTranche[String(r.tranche_id)] ||= []).push(String(r.name));
+    }
+  }
+
   const tranches = (res?.results || []).map((t: any) => ({
     id: t.id,
     title: t.title,
@@ -68,10 +108,8 @@ export async function GET() {
     clientId: t.client_id,
     clientName: t.client_name || null,
     projectId: t.project_id,
-    videomaker: t.videomaker_member_id
-      ? { id: t.videomaker_member_id, name: name(t.vm_first, t.vm_last, t.vm_email) }
-      : null,
-    smm: t.smm_member_id ? { id: t.smm_member_id, name: name(t.sm_first, t.sm_last, t.sm_email) } : null,
+    collaborators: collabByTranche[String(t.id)] || [],
+    projectNames: projectsByTranche[String(t.id)] || [],
     counts: {
       total: Number(t.video_count || 0),
       pending: Number(t.pending_count || 0),
