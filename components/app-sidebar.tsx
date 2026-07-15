@@ -24,6 +24,7 @@ import {
   Upload,
   ArrowRight,
   BriefcaseBusiness,
+  Clapperboard,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -136,6 +137,11 @@ export function AppSidebar() {
       title: "Calendario Editoriale",
       url: "/calendario-editoriale",
       icon: CalendarDays,
+    },
+    {
+      title: "Video Review",
+      url: "/video",
+      icon: Clapperboard,
     },
     {
       title: "Calendario Team",
