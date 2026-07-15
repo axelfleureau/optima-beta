@@ -11,6 +11,7 @@ import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { signedByteUrl } from "@/lib/video-node";
+import { videoVisibilityClause } from "@/lib/video-review-acl";
 
 export async function GET(_request: NextRequest) {
   const db = await getCloudflareDb();
@@ -19,18 +20,21 @@ export async function GET(_request: NextRequest) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const principal = await ensureWorkspacePrincipal(db, user);
 
+  // Anche qui: vedi solo i video in cui sei coinvolto (manager: tutto).
+  const vvis = videoVisibilityClause(principal);
+
   const res = await db
     .prepare(
       `SELECT v.*, t.title AS tranche_title, t.smm_member_id, c.name AS client_name
          FROM vr_videos v
          JOIN vr_tranches t ON t.id = v.tranche_id
          LEFT JOIN clients c ON c.id = v.client_id
-        WHERE v.organization_id = ? AND v.status = 'approved'
+        WHERE v.organization_id = ? AND v.status = 'approved' AND ${vvis.sql}
         ORDER BY v.published ASC,
                  COALESCE(v.planned_publish_date, '9999-12-31') ASC,
                  v.decided_at ASC`,
     )
-    .bind(principal.organizationId)
+    .bind(principal.organizationId, ...vvis.binds)
     .all();
 
   const videos = await Promise.all(

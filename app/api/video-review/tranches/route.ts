@@ -10,6 +10,7 @@ import type { NextRequest } from "next/server";
 import { getCloudflareDb, createId } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { trancheVisibilityClause } from "@/lib/video-review-acl";
 
 function reviewToken() {
   const bytes = new Uint8Array(18);
@@ -32,6 +33,9 @@ export async function GET() {
   const principal = await principalFor(db);
   if (!principal) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Vedi solo le tranche in cui sei coinvolto (i manager vedono tutto).
+  const vis = trancheVisibilityClause(principal);
+
   const res = await db
     .prepare(
       `SELECT t.id, t.title, t.token, t.status, t.client_id, t.project_id,
@@ -47,10 +51,10 @@ export async function GET() {
          LEFT JOIN clients c  ON c.id  = t.client_id
          LEFT JOIN members vm ON vm.id = t.videomaker_member_id
          LEFT JOIN members sm ON sm.id = t.smm_member_id
-        WHERE t.organization_id = ?
+        WHERE t.organization_id = ? AND ${vis.sql}
         ORDER BY t.created_at DESC`,
     )
-    .bind(principal.organizationId)
+    .bind(principal.organizationId, ...vis.binds)
     .all();
 
   const name = (f: any, l: any, e: any) =>
@@ -135,6 +139,21 @@ export async function POST(request: NextRequest) {
       now,
     )
     .run();
+
+  // Le assegnazioni vivono nei collaboratori (N referenti, non ruoli fissi).
+  // Le colonne videomaker_member_id/smm_member_id restano solo per compatibilità.
+  const addCollab = (memberId: string, role: string) =>
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO vr_collaborators
+           (id, organization_id, scope, scope_id, member_id, role, added_by_member_id)
+         VALUES (?, ?, 'tranche', ?, ?, ?, ?)`,
+      )
+      .bind(createId("vrcol"), org, id, memberId, role, principal.memberId)
+      .run();
+
+  if (videomakerId) await addCollab(videomakerId, "videomaker");
+  if (smmId) await addCollab(smmId, "smm");
 
   return Response.json({ ok: true, id });
 }

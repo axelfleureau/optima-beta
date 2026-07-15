@@ -10,6 +10,7 @@ import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { signedByteUrl } from "@/lib/video-node";
+import { canAccessTranche, videoVisibilityClause } from "@/lib/video-review-acl";
 
 async function principalFor(db: any) {
   const user = await requireClerkUser();
@@ -24,6 +25,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const principal = await principalFor(db);
   if (!principal) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Non basta esistere: devi essere coinvolto (o essere un manager).
+  if (!(await canAccessTranche(db, principal, id))) {
+    return Response.json({ error: "Tranche non trovata" }, { status: 404 });
+  }
+
   const t: any = await db
     .prepare(
       `SELECT t.*, c.name AS client_name
@@ -35,12 +41,16 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     .first();
   if (!t) return Response.json({ error: "Tranche non trovata" }, { status: 404 });
 
+  // Se ti hanno delegato un solo video, vedi solo quello.
+  const vvis = videoVisibilityClause(principal);
+
   // Solo l'ULTIMA versione di ogni catena (v2 sostituisce v1), e mai le righe
   // ancora in caricamento.
   const vids = await db
     .prepare(
       `SELECT v.* FROM vr_videos v
         WHERE v.tranche_id = ? AND v.organization_id = ? AND v.status != 'uploading'
+          AND ${vvis.sql}
           AND NOT EXISTS (
             SELECT 1 FROM vr_videos nv
              WHERE nv.organization_id = v.organization_id
@@ -50,7 +60,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
           )
         ORDER BY v.created_at ASC`,
     )
-    .bind(id, principal.organizationId)
+    .bind(id, principal.organizationId, ...vvis.binds)
     .all();
 
   const marks = await db
