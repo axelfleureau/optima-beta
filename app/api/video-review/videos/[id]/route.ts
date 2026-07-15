@@ -32,6 +32,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     sets.push("published = ?", "published_at = ?");
     vals.push(body.published ? 1 : 0, body.published ? now : null);
   }
+
+  // Conferma di una nuova versione: i byte sono sul nodo, il video entra in
+  // attesa di review e salviamo i metadati letti da ffprobe dal nodo stesso.
+  if (body?.finalize) {
+    sets.push("status = ?", "fps = ?", "duration_seconds = ?", "width = ?", "height = ?");
+    vals.push(
+      "pending",
+      body.fps ? Number(body.fps) : null,
+      body.durationSeconds ? Number(body.durationSeconds) : null,
+      body.width ? Number(body.width) : null,
+      body.height ? Number(body.height) : null,
+    );
+  }
+
   if (!sets.length) return Response.json({ ok: true });
 
   sets.push("updated_at = ?");

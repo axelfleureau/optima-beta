@@ -37,17 +37,36 @@ export function videoNodeReady() {
   return Boolean(process.env.VIDEO_NODE_SIGNING_SECRET);
 }
 
+async function signQuery(storageKey: string, ttlSeconds: number) {
+  const secret = process.env.VIDEO_NODE_SIGNING_SECRET || "";
+  if (!secret) return null;
+  const k = b64url(enc.encode(storageKey));
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const sig = await hmacHex(secret, `${k}.${exp}`);
+  return new URLSearchParams({ k, exp: String(exp), sig });
+}
+
 /** URL firmato per streaming (o download con `download: true`). Null se non configurato. */
 export async function signedByteUrl(
   storageKey: string | null | undefined,
   opts: { download?: boolean; ttlSeconds?: number } = {},
 ): Promise<string | null> {
-  const secret = process.env.VIDEO_NODE_SIGNING_SECRET || "";
-  if (!secret || !storageKey) return null;
-  const k = b64url(enc.encode(storageKey));
-  const exp = Math.floor(Date.now() / 1000) + (opts.ttlSeconds ?? 21600); // 6h
-  const sig = await hmacHex(secret, `${k}.${exp}`);
-  const qs = new URLSearchParams({ k, exp: String(exp), sig });
+  if (!storageKey) return null;
+  const qs = await signQuery(storageKey, opts.ttlSeconds ?? 21600); // 6h
+  if (!qs) return null;
   if (opts.download) qs.set("dl", "1");
   return `${videoNodeUrl()}/v/stream?${qs.toString()}`;
+}
+
+/**
+ * URL firmato dove il BROWSER carica i byte (PUT diretto al nodo).
+ * I byte non passano dal Worker: Cloudflare ha limiti di dimensione sulle
+ * richieste, un video li sfonderebbe.
+ */
+export async function signedUploadUrl(
+  storageKey: string,
+  ttlSeconds = 3600,
+): Promise<string | null> {
+  const qs = await signQuery(storageKey, ttlSeconds);
+  return qs ? `${videoNodeUrl()}/v/upload?${qs.toString()}` : null;
 }

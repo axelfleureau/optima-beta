@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Copy, Check, Download, Play } from "lucide-react";
+import { ArrowLeft, Copy, Check, Download, Play, Upload } from "lucide-react";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 
 type Marker = { id: string; tSeconds: number; note: string };
@@ -58,8 +58,8 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/video-review/tranches/${id}`)
+  const load = useCallback(() => {
+    return fetch(`/api/video-review/tranches/${id}`)
       .then((r) => r.json())
       .then((r) => {
         if (r?.ok) {
@@ -70,6 +70,10 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
       })
       .catch(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function copyLink() {
     if (!tranche) return;
@@ -115,7 +119,7 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {videos.map((v) => (
-            <VideoCard key={v.id} video={v} />
+            <VideoCard key={v.id} video={v} onChange={load} />
           ))}
         </div>
       )}
@@ -123,11 +127,70 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
   );
 }
 
-/** Scheda video: player + note cliccabili che portano il cursore sul punto. */
-function VideoCard({ video: v }: { video: Video }) {
+/** Scheda video: player, note cliccabili, upload della versione corretta. */
+function VideoCard({ video: v, onChange }: { video: Video; onChange: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [active, setActive] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [upErr, setUpErr] = useState<string | null>(null);
   const st = STATUS[v.status] || STATUS.pending;
+
+  /**
+   * Carica il montato corretto come NUOVA VERSIONE.
+   * I byte vanno dal browser DIRETTAMENTE al nodo (il Worker di Cloudflare ha
+   * limiti di dimensione: un video non ci passerebbe).
+   */
+  async function uploadNewVersion(file: File) {
+    setUpErr(null);
+    setProgress(0);
+    try {
+      // 1. Optima prepara la versione e firma la destinazione.
+      const prep = await fetch(`/api/video-review/videos/${v.id}/new-version`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name }),
+      }).then((r) => r.json());
+      if (!prep?.ok) throw new Error(prep?.error || "preparazione fallita");
+
+      // 2. Byte diretti al nodo (con progresso).
+      const meta = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", prep.uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+        xhr.upload.onprogress = (e) =>
+          e.lengthComputable && setProgress(Math.round((e.loaded / e.total) * 100));
+        xhr.onload = () => {
+          try {
+            const j = JSON.parse(xhr.responseText);
+            j?.ok ? resolve(j) : reject(new Error(j?.error || "upload fallito"));
+          } catch {
+            reject(new Error(`upload fallito (${xhr.status})`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("errore di rete verso il nodo"));
+        xhr.send(file);
+      });
+
+      // 3. Conferma: la nuova versione entra in attesa di review.
+      await fetch(`/api/video-review/videos/${prep.videoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          finalize: true,
+          fps: meta.fps,
+          durationSeconds: meta.durationSeconds,
+          width: meta.width,
+          height: meta.height,
+        }),
+      });
+      setProgress(null);
+      onChange();
+    } catch (e: any) {
+      setProgress(null);
+      setUpErr(e?.message || "errore");
+    }
+  }
 
   /** Porta il video esattamente sul timecode della nota e lo mostra. */
   function seekTo(m: Marker) {
@@ -154,7 +217,10 @@ function VideoCard({ video: v }: { video: Video }) {
               {v.width && v.height ? ` · ${v.width}×${v.height}` : ""}
             </CardDescription>
           </div>
-          <Badge className={`${st.cls} hover:${st.cls} shrink-0`}>{st.label}</Badge>
+          <div className="flex shrink-0 items-center gap-2">
+            {(v.version || 1) > 1 && <Badge variant="outline">v{v.version}</Badge>}
+            <Badge className={`${st.cls} hover:${st.cls}`}>{st.label}</Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -187,7 +253,7 @@ function VideoCard({ video: v }: { video: Video }) {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {v.downloadUrl && (
             <Button asChild variant="outline" size="sm">
               <a href={v.downloadUrl}>
@@ -200,6 +266,34 @@ function VideoCard({ video: v }: { video: Video }) {
               <a href={`/api/video-review/videos/${v.id}/edl`}>⬇ EDL (DaVinci)</a>
             </Button>
           )}
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="video/*,.mov,.mp4,.mkv,.mxf,.m4v,.webm"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) uploadNewVersion(f);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            size="sm"
+            variant="default"
+            disabled={progress !== null}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            {progress !== null ? `Carico ${progress}%` : `Carica v${(v.version || 1) + 1}`}
+          </Button>
+
+          {progress !== null && (
+            <div className="h-1.5 min-w-[120px] flex-1 overflow-hidden rounded-full bg-muted">
+              <div className="h-full bg-righello-pink transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+          {upErr && <span className="text-sm text-red-400">{upErr}</span>}
         </div>
       </CardContent>
     </Card>

@@ -35,9 +35,20 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     .first();
   if (!t) return Response.json({ error: "Tranche non trovata" }, { status: 404 });
 
+  // Solo l'ULTIMA versione di ogni catena (v2 sostituisce v1), e mai le righe
+  // ancora in caricamento.
   const vids = await db
     .prepare(
-      `SELECT * FROM vr_videos WHERE tranche_id = ? AND organization_id = ? ORDER BY created_at ASC`,
+      `SELECT v.* FROM vr_videos v
+        WHERE v.tranche_id = ? AND v.organization_id = ? AND v.status != 'uploading'
+          AND NOT EXISTS (
+            SELECT 1 FROM vr_videos nv
+             WHERE nv.organization_id = v.organization_id
+               AND nv.parent_video_id = COALESCE(v.parent_video_id, v.id)
+               AND nv.version > v.version
+               AND nv.status != 'uploading'
+          )
+        ORDER BY v.created_at ASC`,
     )
     .bind(id, principal.organizationId)
     .all();
