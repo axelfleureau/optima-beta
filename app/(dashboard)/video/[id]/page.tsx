@@ -15,7 +15,7 @@ import { ArrowLeft, Copy, Check, Download, Play, Upload } from "lucide-react";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
 import { ProjectPicker } from "@/components/video-review/project-picker";
-import { pageClass, surfaceClass } from "@/lib/video-review-ui";
+import { pageClass, containerClass, stackClass, surfaceClass } from "@/lib/video-review-ui";
 
 type Marker = { id: string; tSeconds: number; note: string };
 type Video = {
@@ -93,11 +93,13 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
     setTimeout(() => setCopied(false), 1500);
   }
 
-  if (loading) return <div className="p-6 text-muted-foreground">Carico…</div>;
-  if (!tranche) return <div className="p-6 text-muted-foreground">Tranche non trovata.</div>;
+  if (loading) return <div className={`${pageClass} p-6 text-slate-400`}>Carico…</div>;
+  if (!tranche) return <div className={`${pageClass} p-6 text-slate-400`}>Consegna non trovata, o non sei tra i collaboratori.</div>;
 
   return (
-    <div className={`${pageClass} space-y-6 p-4 sm:p-6`}>
+    <div className={pageClass}>
+      <div className={containerClass}>
+        <div className={stackClass}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <Link
@@ -155,6 +157,8 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
           ))}
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

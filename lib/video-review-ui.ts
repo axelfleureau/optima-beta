@@ -4,7 +4,22 @@
  * ogni pagina e per non ricadere nello shadcn generico, che stona.
  */
 
+/**
+ * Struttura canonica delle pagine operative di Optima (clienti, campagne,
+ * workspace, presenze…):
+ *
+ *   <div className={pageClass}>            ← sfondo/altezza pagina
+ *     <div className={containerClass}>     ← max 80rem, centrato  ⟵ SENZA questo
+ *       <div className={stackClass}>          il contenuto si spalma su tutta
+ *         …header, toolbar, card…            la larghezza
+ *
+ * NB: in globals.css esistono anche .optima-ops-surface/-title/-eyebrow ma
+ * NESSUNA pagina le usa: per superfici e titoli la convenzione reale è Tailwind
+ * a mano (vedi surfaceClass/h1Class qui sotto, presi da Team e Clienti).
+ */
 export const pageClass = "optima-ops-page";
+export const containerClass = "optima-ops-container";
+export const stackClass = "optima-ops-stack md:gap-8";
 
 export const surfaceClass =
   "border border-white/10 bg-[#172235] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]";

@@ -26,6 +26,8 @@ import { Clapperboard, Plus, Search, Clock, AlertTriangle, CheckCircle2, Send, U
 import { useVideoReviewMeta } from "@/hooks/use-video-review";
 import {
   pageClass,
+  containerClass,
+  stackClass,
   surfaceClass,
   interactiveSurfaceClass,
   inputClass,
@@ -126,7 +128,9 @@ export default function VideoReviewPage() {
   }, [tranches, q]);
 
   return (
-    <div className={`${pageClass} space-y-6 p-4 md:p-6`}>
+    <div className={pageClass}>
+      <div className={containerClass}>
+        <div className={stackClass}>
       {/* Testata in stile Optima */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -326,6 +330,8 @@ export default function VideoReviewPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </div>
+      </div>
     </div>
   );
 }

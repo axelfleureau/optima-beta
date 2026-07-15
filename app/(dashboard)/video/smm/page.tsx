@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Download, Check } from "lucide-react";
+import { pageClass, containerClass, stackClass, surfaceClass, h1Class, subtitleClass, primaryButtonClass } from "@/lib/video-review-ui";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 
 type Video = {
@@ -59,21 +60,21 @@ function SmmCard({ video, onChange }: { video: Video; onChange: () => void }) {
 
   const d = daysUntil(video.plannedPublishDate);
   const hint =
-    d === null ? null : d < 0 ? { t: `scaduta da ${-d}g`, c: "text-red-400" } : d === 0 ? { t: "oggi", c: "text-amber-400" } : d <= 3 ? { t: `tra ${d}g`, c: "text-amber-400" } : { t: `tra ${d}g`, c: "text-muted-foreground" };
+    d === null ? null : d < 0 ? { t: `scaduta da ${-d}g`, c: "text-red-400" } : d === 0 ? { t: "oggi", c: "text-amber-400" } : d <= 3 ? { t: `tra ${d}g`, c: "text-amber-400" } : { t: `tra ${d}g`, c: "text-slate-400" };
 
   return (
-    <Card className={published ? "opacity-70" : ""}>
+    <Card className={`${surfaceClass} ${published ? "opacity-70" : ""}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-base">{video.title}</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-base text-slate-100">{video.title}</CardTitle>
+            <CardDescription className="text-slate-400">
               {video.clientName || "—"} · {video.trancheTitle}
               {video.durationSeconds ? ` · ${Math.round(video.durationSeconds)}s` : ""}
             </CardDescription>
           </div>
           <div className="flex shrink-0 gap-2">
-            {video.isMine && <Badge variant="outline">Tu</Badge>}
+            {video.isMine && <Badge variant="outline" className="border-righello-pink/30 bg-righello-pink/15 text-righello-pink">Tu</Badge>}
             <Badge className={published ? "bg-sky-500/15 text-sky-400" : "bg-emerald-500/15 text-emerald-400"}>
               {published ? "Pubblicato" : "Approvato"}
             </Badge>
@@ -88,12 +89,13 @@ function SmmCard({ video, onChange }: { video: Video; onChange: () => void }) {
               📅 {fmtDate(video.plannedPublishDate)} {hint && <span className={hint.c}>· {hint.t}</span>}
             </>
           ) : (
-            <span className="text-muted-foreground">Nessuna data prevista</span>
+            <span className="text-slate-500">Nessuna data prevista</span>
           )}
         </p>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Descrizione / caption</label>
+          <label className="text-sm font-medium text-slate-300">Descrizione / caption</label>
           <Textarea
+            className="border-white/10 bg-[#172235] text-slate-100 placeholder:text-slate-500"
             placeholder="Scrivi qui la descrizione del post…"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -102,7 +104,7 @@ function SmmCard({ video, onChange }: { video: Video; onChange: () => void }) {
         </div>
         <div className="flex flex-wrap gap-2">
           {video.downloadUrl && (
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="border-white/10 bg-white/5">
               <a href={video.downloadUrl}>
                 <Download className="mr-2 h-4 w-4" /> Scarica video
               </a>
@@ -111,6 +113,7 @@ function SmmCard({ video, onChange }: { video: Video; onChange: () => void }) {
           <Button
             size="sm"
             variant={published ? "outline" : "default"}
+            className={published ? "border-white/10 bg-white/5" : primaryButtonClass}
             disabled={saving}
             onClick={async () => {
               const next = !published;
@@ -147,23 +150,25 @@ export default function SmmPage() {
   const done = videos.filter((v) => v.published);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className={pageClass}>
+      <div className={containerClass}>
+        <div className={stackClass}>
       <div>
-        <Link href="/video" className="mb-2 inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/video" className="mb-2 inline-flex items-center text-sm text-slate-400 hover:text-slate-200">
           <ArrowLeft className="mr-1 h-4 w-4" /> Video Review
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight">Da pubblicare</h1>
-        <p className="text-muted-foreground">
+        <h1 className={h1Class}>Da pubblicare</h1>
+        <p className={subtitleClass}>
           Video approvati dai clienti: scrivi la descrizione, scarica e segna come pubblicato.
         </p>
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carico…</p>
+        <p className="text-slate-400">Carico…</p>
       ) : videos.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Nessun video approvato al momento.
+        <Card className={surfaceClass}>
+          <CardContent className="py-12 text-center text-slate-400">
+            Nessun video approvato: qui arrivano quelli che il cliente ha approvato.
           </CardContent>
         </Card>
       ) : (
@@ -175,7 +180,7 @@ export default function SmmPage() {
           </div>
           {done.length > 0 && (
             <>
-              <h2 className="pt-4 text-xl font-semibold">Pubblicati</h2>
+              <h2 className="pt-4 text-sm font-semibold uppercase tracking-wider text-slate-400">Pubblicati</h2>
               <div className="grid gap-6 lg:grid-cols-2">
                 {done.map((v) => (
                   <SmmCard key={v.id} video={v} onChange={load} />
@@ -185,6 +190,8 @@ export default function SmmPage() {
           )}
         </>
       )}
+        </div>
+      </div>
     </div>
   );
 }
