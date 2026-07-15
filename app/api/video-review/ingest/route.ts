@@ -43,6 +43,24 @@ export async function POST(request: NextRequest) {
     .bind(org, storageKey)
     .first();
   if (existing) {
+    // Già registrato: completa i metadati mancanti (es. width/height aggiunti
+    // dopo, servono al player per il formato corretto). Resta idempotente.
+    await db
+      .prepare(
+        `UPDATE vr_videos
+            SET fps = COALESCE(fps, ?), duration_seconds = COALESCE(duration_seconds, ?),
+                width = COALESCE(width, ?), height = COALESCE(height, ?), updated_at = ?
+          WHERE id = ?`,
+      )
+      .bind(
+        body?.fps ? Number(body.fps) : null,
+        body?.durationSeconds ? Number(body.durationSeconds) : null,
+        body?.width ? Number(body.width) : null,
+        body?.height ? Number(body.height) : null,
+        now,
+        String(existing.id),
+      )
+      .run();
     return Response.json({ ok: true, videoId: existing.id, trancheId: existing.tranche_id, existing: true });
   }
 
@@ -104,8 +122,8 @@ export async function POST(request: NextRequest) {
     .prepare(
       `INSERT INTO vr_videos
          (id, organization_id, tranche_id, client_id, title, filename, storage_key,
-          source, status, fps, duration_seconds, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+          source, status, fps, duration_seconds, width, height, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       videoId,
@@ -118,6 +136,8 @@ export async function POST(request: NextRequest) {
       String(body?.source || "watch"),
       body?.fps ? Number(body.fps) : null,
       body?.durationSeconds ? Number(body.durationSeconds) : null,
+      body?.width ? Number(body.width) : null,
+      body?.height ? Number(body.height) : null,
       now,
       now,
     )

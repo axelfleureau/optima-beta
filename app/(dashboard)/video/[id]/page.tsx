@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ArrowLeft, Copy, Check, Download } from "lucide-react";
+import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 
 type Marker = { id: string; tSeconds: number; note: string };
 type Video = {
@@ -21,6 +22,9 @@ type Video = {
   status: string;
   fps: number | null;
   durationSeconds: number | null;
+  width: number | null;
+  height: number | null;
+  version: number;
   plannedPublishDate: string | null;
   streamUrl: string | null;
   downloadUrl: string | null;
@@ -82,19 +86,19 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
   if (!tranche) return <div className="p-6 text-muted-foreground">Tranche non trovata.</div>;
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <div className="space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <Link
             href="/video"
             className="mb-2 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="mr-1 h-4 w-4" /> Video Review
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">{tranche.title}</h1>
+          <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">{tranche.title}</h1>
           <p className="text-muted-foreground">{tranche.clientName || "Senza cliente"}</p>
         </div>
-        <Button variant="outline" onClick={copyLink}>
+        <Button variant="outline" onClick={copyLink} className="shrink-0">
           {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
           {copied ? "Copiato" : "Link review cliente"}
         </Button>
@@ -128,19 +132,7 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {v.streamUrl ? (
-                    <video
-                      controls
-                      preload="metadata"
-                      playsInline
-                      src={v.streamUrl}
-                      className="aspect-video w-full rounded-md bg-black"
-                    />
-                  ) : (
-                    <div className="flex aspect-video w-full items-center justify-center rounded-md bg-muted text-sm text-muted-foreground">
-                      Nodo video non configurato
-                    </div>
-                  )}
+                  <AdaptivePlayer src={v.streamUrl} width={v.width} height={v.height} />
 
                   {v.markers.length > 0 && (
                     <div className="space-y-1 rounded-md border p-3">

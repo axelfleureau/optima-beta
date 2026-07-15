@@ -42,6 +42,8 @@ export async function GET(_request: NextRequest) {
       trancheTitle: v.tranche_title,
       plannedPublishDate: v.planned_publish_date,
       durationSeconds: v.duration_seconds,
+      width: v.width,
+      height: v.height,
       description: v.description || "",
       published: !!v.published,
       isMine: String(v.smm_member_id || "") === String(principal.memberId),

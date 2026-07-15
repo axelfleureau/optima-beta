@@ -56,6 +56,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       status: v.status,
       fps: v.fps || 25,
       durationSeconds: v.duration_seconds,
+      width: v.width,
+      height: v.height,
       plannedPublishDate: v.planned_publish_date,
       streamUrl: await signedByteUrl(v.storage_key),
       markers: byVideo[String(v.id)] || [],

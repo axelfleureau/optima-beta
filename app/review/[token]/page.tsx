@@ -8,6 +8,8 @@ type Video = {
   title: string;
   status: string;
   fps: number;
+  width: number | null;
+  height: number | null;
   plannedPublishDate: string | null;
   streamUrl: string | null;
   markers: Marker[];
@@ -120,8 +122,23 @@ function ReviewVideo({ token, video }: { token: string; video: Video }) {
         <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${labelCls}`}>{label}</span>
       </div>
 
+      {/* Player col formato reale: i reel 9:16 restano verticali, non schiacciati. */}
       {video.streamUrl ? (
-        <video ref={ref} controls preload="metadata" playsInline src={video.streamUrl} className="aspect-video w-full rounded-xl bg-black" />
+        <div className="flex w-full justify-center overflow-hidden rounded-xl bg-black">
+          <video
+            ref={ref}
+            controls
+            preload="metadata"
+            playsInline
+            src={video.streamUrl}
+            className="max-w-full bg-black"
+            style={
+              video.width && video.height && video.height > video.width
+                ? { aspectRatio: `${video.width} / ${video.height}`, height: "min(70vh, 560px)", width: "auto" }
+                : { aspectRatio: video.width && video.height ? `${video.width} / ${video.height}` : "16 / 9", width: "100%" }
+            }
+          />
+        </div>
       ) : (
         <div className="flex aspect-video w-full items-center justify-center rounded-xl bg-black/60 text-sm text-neutral-500">
           Video non disponibile

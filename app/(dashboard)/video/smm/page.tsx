@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Download, Check } from "lucide-react";
+import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 
 type Video = {
   id: string;
@@ -15,6 +16,8 @@ type Video = {
   trancheTitle: string;
   plannedPublishDate: string | null;
   durationSeconds: number | null;
+  width: number | null;
+  height: number | null;
   description: string;
   published: boolean;
   isMine: boolean;
@@ -78,9 +81,7 @@ function SmmCard({ video, onChange }: { video: Video; onChange: () => void }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {video.streamUrl && (
-          <video controls preload="metadata" playsInline src={video.streamUrl} className="aspect-video w-full rounded-md bg-black" />
-        )}
+        <AdaptivePlayer src={video.streamUrl} width={video.width} height={video.height} maxVerticalHeight="min(60vh, 460px)" />
         <p className="text-sm">
           {video.plannedPublishDate ? (
             <>
