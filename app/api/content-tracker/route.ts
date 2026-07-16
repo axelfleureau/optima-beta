@@ -46,6 +46,12 @@ function normalizeMonth(value: unknown) {
   return /^\d{4}-\d{2}$/.test(raw) ? raw : currentRomeMonth();
 }
 
+function previousMonth(month: string) {
+  const [year, m] = month.split("-").map(Number);
+  const date = new Date(year, m - 2, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function toInt(value: unknown) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -387,6 +393,99 @@ export async function POST(request: NextRequest) {
       .bind(id, principal.organizationId)
       .run();
     return Response.json({ ok: true });
+  }
+
+  // Duplica il piano del mese precedente: come "duplicare il foglio" nell'Excel.
+  // Porta avanti target, note e programmazione; azzera i contenuti creati.
+  if (action === "carry_forward") {
+    if (!canManageContentTracker(principal.role)) {
+      return Response.json(
+        { error: "Solo chi gestisce il tracker può duplicare il mese" },
+        { status: 403 },
+      );
+    }
+    const month = normalizeMonth(body?.month);
+    const source = normalizeMonth(body?.sourceMonth) || previousMonth(month);
+    if (source === month) {
+      return Response.json(
+        { error: "Il mese di origine coincide con quello di destinazione" },
+        { status: 400 },
+      );
+    }
+
+    const [prev, current] = await Promise.all([
+      db
+        .prepare(
+          `SELECT * FROM content_monthly_plans
+            WHERE organization_id = ? AND month = ?`,
+        )
+        .bind(principal.organizationId, source)
+        .all(),
+      db
+        .prepare(
+          `SELECT client_id, client_name_snapshot FROM content_monthly_plans
+            WHERE organization_id = ? AND month = ?`,
+        )
+        .bind(principal.organizationId, month)
+        .all(),
+    ]);
+
+    const existingClientIds = new Set(
+      (current.results || [])
+        .map((r: any) => (r.client_id ? String(r.client_id) : null))
+        .filter(Boolean),
+    );
+    const existingNames = new Set(
+      (current.results || [])
+        .filter((r: any) => !r.client_id)
+        .map((r: any) => String(r.client_name_snapshot || "").toLowerCase()),
+    );
+
+    const now = new Date().toISOString();
+    const inserts = (prev.results || [])
+      .filter((r: any) => {
+        if (r.client_id) return !existingClientIds.has(String(r.client_id));
+        return !existingNames.has(
+          String(r.client_name_snapshot || "").toLowerCase(),
+        );
+      })
+      .map((r: any) =>
+        db
+          .prepare(
+            `INSERT INTO content_monthly_plans
+              (id, organization_id, client_id, client_name_snapshot, month,
+               target_video_reel, target_photo_post, target_generic,
+               created_video_reel, created_photo_post, created_generic,
+               planned_missing_reel, planned_missing_post, notes,
+               created_by_member_id, updated_by_member_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            createId("cmp"),
+            principal.organizationId,
+            r.client_id ? String(r.client_id) : null,
+            String(r.client_name_snapshot || "Cliente"),
+            month,
+            Number(r.target_video_reel || 0),
+            Number(r.target_photo_post || 0),
+            Number(r.target_generic || 0),
+            Number(r.planned_missing_reel || 0),
+            Number(r.planned_missing_post || 0),
+            r.notes || null,
+            principal.memberId,
+            principal.memberId,
+            now,
+            now,
+          ),
+      );
+
+    if (inserts.length > 0) await db.batch(inserts);
+    return Response.json({
+      ok: true,
+      copied: inserts.length,
+      skipped: (prev.results || []).length - inserts.length,
+      sourceMonth: source,
+    });
   }
 
   const month = normalizeMonth(body?.month);

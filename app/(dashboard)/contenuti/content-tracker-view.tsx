@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
+  CopyPlus,
   Plus,
   Save,
   Search,
@@ -176,6 +177,7 @@ export function ContentTrackerView({
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [carrying, setCarrying] = useState(false);
   const [openNew, setOpenNew] = useState(false);
   const [newRow, setNewRow] = useState<TrackerRow>(() =>
     defaultNewRow(currentMonth()),
@@ -299,6 +301,32 @@ export function ContentTrackerView({
     }
   }
 
+  async function carryForward() {
+    setCarrying(true);
+    const data = await fetch("/api/content-tracker", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "carry_forward", month }),
+    })
+      .then((res) => res.json())
+      .catch(() => null);
+    setCarrying(false);
+    if (!data?.ok) {
+      toast.error(data?.error || "Impossibile portare avanti il mese");
+      return;
+    }
+    if (data.copied === 0) {
+      toast.info(
+        `Nessun cliente da portare avanti da ${formatMonthLabel(data.sourceMonth)}.`,
+      );
+      return;
+    }
+    toast.success(
+      `${data.copied} clienti portati avanti da ${formatMonthLabel(data.sourceMonth)} (creati azzerati).`,
+    );
+    await load();
+  }
+
   return (
     <div
       className={
@@ -344,6 +372,16 @@ export function ContentTrackerView({
                   className="h-11 border-white/10 bg-[#0b1424] pl-9 text-slate-100"
                 />
               </div>
+              <Button
+                variant="outline"
+                onClick={carryForward}
+                disabled={carrying}
+                title="Copia i target e le note dal mese precedente, azzerando i contenuti creati"
+                className="h-11 border-white/10 bg-[#0b1424] text-slate-200 hover:bg-white/5"
+              >
+                <CopyPlus className="mr-2 h-4 w-4" />
+                {carrying ? "Copio..." : "Porta avanti mese"}
+              </Button>
               <Button
                 onClick={() => setOpenNew(true)}
                 className="h-11 bg-righello-pink text-white hover:bg-righello-pink/90"
@@ -411,9 +449,39 @@ export function ContentTrackerView({
               Caricamento tracker...
             </div>
           ) : filteredRows.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-400">
-              Nessun cliente nel mese selezionato. Aggiungi i clienti da
-              monitorare o importa i target dal foglio.
+            <div className="flex flex-col items-center gap-4 p-10 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300">
+                <ClipboardList className="h-6 w-6" />
+              </span>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-slate-200">
+                  Nessun cliente in {formatMonthLabel(month)}
+                </p>
+                <p className="text-sm text-slate-400">
+                  Porta avanti i target del mese precedente (creati azzerati),
+                  oppure aggiungi i clienti a mano.
+                </p>
+              </div>
+              {rows.length === 0 && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    onClick={carryForward}
+                    disabled={carrying}
+                    className="bg-righello-pink text-white hover:bg-righello-pink/90"
+                  >
+                    <CopyPlus className="mr-2 h-4 w-4" />
+                    {carrying ? "Copio..." : "Porta avanti dal mese precedente"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setOpenNew(true)}
+                    className="border-white/10 bg-[#0b1424] text-slate-200 hover:bg-white/5"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Aggiungi cliente
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-white/10">
