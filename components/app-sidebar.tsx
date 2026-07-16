@@ -182,6 +182,11 @@ export function AppSidebar() {
       icon: Users,
     },
     {
+      title: "Video Review",
+      url: "/video",
+      icon: Clapperboard,
+    },
+    {
       title: "Rapportino",
       url: "/rapportini",
       icon: ClipboardList,
@@ -213,6 +218,11 @@ export function AppSidebar() {
       title: "Clienti assegnati",
       url: "/clienti",
       icon: BriefcaseBusiness,
+    },
+    {
+      title: "Video Review",
+      url: "/video",
+      icon: Clapperboard,
     },
     {
       title: "Rapportino",
