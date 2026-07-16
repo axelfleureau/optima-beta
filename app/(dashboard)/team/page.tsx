@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useUsers } from "@/hooks/use-users";
 import { UserInviteDialog } from "@/components/team/user-invite-dialog";
+import { CreateMailboxDialog } from "@/components/team/create-mailbox-dialog";
+import { useAuth } from "@/lib/auth-context";
 import { UserActionsMenu } from "@/components/team/user-actions-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -106,8 +108,14 @@ const inputClass =
 
 export default function TeamPage() {
   const { users, loading, error, refreshUsers } = useUsers();
+  const { userData } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [mailboxDialogOpen, setMailboxDialogOpen] = useState(false);
+
+  const canCreateMailbox = ["super-admin", "admin", "direzione"].includes(
+    userData?.role || "",
+  );
 
   const filteredUsers = users.filter(
     (user) =>
@@ -224,13 +232,25 @@ export default function TeamPage() {
                 Gestisci il tuo team e i permessi
               </p>
             </div>
-            <Button
-              className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium"
-              onClick={() => setInviteDialogOpen(true)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Aggiungi Membro
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {canCreateMailbox && (
+                <Button
+                  variant="outline"
+                  className="border-white/15 bg-transparent text-slate-100 hover:bg-white/5"
+                  onClick={() => setMailboxDialogOpen(true)}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  Crea email aziendale
+                </Button>
+              )}
+              <Button
+                className="bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium"
+                onClick={() => setInviteDialogOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Aggiungi Membro
+              </Button>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -446,6 +466,14 @@ export default function TeamPage() {
             onOpenChange={setInviteDialogOpen}
             onInvited={refreshUsers}
           />
+
+          {/* Create Mailbox Dialog */}
+          {canCreateMailbox && (
+            <CreateMailboxDialog
+              open={mailboxDialogOpen}
+              onOpenChange={setMailboxDialogOpen}
+            />
+          )}
         </div>
       </div>
     </div>
