@@ -28,6 +28,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     sets.push("planned_publish_date = ?");
     vals.push(body.plannedPublishDate || null);
   }
+  // Override del progetto sul singolo video (null = eredita dalla consegna).
+  if ("projectId" in body) {
+    let pid: string | null = null;
+    if (body.projectId) {
+      const p = await db
+        .prepare(`SELECT id FROM projects WHERE id = ? AND organization_id = ? LIMIT 1`)
+        .bind(String(body.projectId), principal.organizationId)
+        .first();
+      pid = p ? String(p.id) : null;
+    }
+    sets.push("project_id = ?");
+    vals.push(pid);
+  }
   if ("published" in body) {
     sets.push("published = ?", "published_at = ?");
     vals.push(body.published ? 1 : 0, body.published ? now : null);

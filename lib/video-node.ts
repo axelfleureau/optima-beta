@@ -58,6 +58,25 @@ export async function signedByteUrl(
   return `${videoNodeUrl()}/v/stream?${qs.toString()}`;
 }
 
+/** URL firmato della thumbnail (JPG) di un video. */
+export async function signedThumbUrl(
+  storageKey: string | null | undefined,
+  ttlSeconds = 21600,
+): Promise<string | null> {
+  if (!storageKey) return null;
+  const qs = await signQuery(storageKey, ttlSeconds);
+  return qs ? `${videoNodeUrl()}/v/thumb?${qs.toString()}` : null;
+}
+
+/** URL firmato per un'operazione di EDITING (trim/reframe) sul nodo. */
+export async function signedEditUrl(
+  job: { src: string; dst: string; op: string; params?: Record<string, unknown> },
+  ttlSeconds = 3600,
+): Promise<string | null> {
+  const qs = await signQuery(JSON.stringify(job), ttlSeconds);
+  return qs ? `${videoNodeUrl()}/v/edit?${qs.toString()}` : null;
+}
+
 /**
  * URL firmato dove il BROWSER carica i byte (PUT diretto al nodo).
  * I byte non passano dal Worker: Cloudflare ha limiti di dimensione sulle

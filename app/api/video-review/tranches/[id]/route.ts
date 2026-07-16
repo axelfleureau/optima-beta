@@ -9,7 +9,7 @@ import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
-import { signedByteUrl } from "@/lib/video-node";
+import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
 import { canAccessTranche, videoVisibilityClause } from "@/lib/video-review-acl";
 
 async function principalFor(db: any) {
@@ -78,27 +78,70 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       id: m.id,
       tSeconds: Number(m.t_seconds),
       note: m.note,
+      done: !!m.done,
     });
   }
 
+  const videoIds = ((vids?.results || []) as any[]).map((v) => String(v.id));
+
+  // Progetto EFFETTIVO (video override, altrimenti quello della consegna) e
+  // delegati per singolo video — servono a card compatte e drawer.
+  const projNameById: Record<string, string> = {};
+  const collabByVideo: Record<string, any[]> = {};
+  if (videoIds.length) {
+    const ph = videoIds.map(() => "?").join(",");
+    const pr = await db
+      .prepare(`SELECT id, name FROM projects WHERE organization_id = ?`)
+      .bind(principal.organizationId)
+      .all();
+    for (const p of (pr?.results || []) as any[]) projNameById[String(p.id)] = String(p.name);
+
+    const cr = await db
+      .prepare(
+        `SELECT c.id, c.scope_id, c.role, c.member_id, m.first_name, m.last_name, m.email
+           FROM vr_collaborators c JOIN members m ON m.id = c.member_id
+          WHERE c.organization_id = ? AND c.scope = 'video' AND c.scope_id IN (${ph})`,
+      )
+      .bind(principal.organizationId, ...videoIds)
+      .all();
+    const name = (f: any, l: any, e: any) =>
+      [f, l].filter(Boolean).join(" ").trim() || String(e || "").split("@")[0] || null;
+    for (const r of (cr?.results || []) as any[]) {
+      (collabByVideo[String(r.scope_id)] ||= []).push({
+        id: r.id,
+        memberId: r.member_id,
+        role: r.role,
+        name: name(r.first_name, r.last_name, r.email),
+      });
+    }
+  }
+
   const videos = await Promise.all(
-    ((vids?.results || []) as any[]).map(async (v) => ({
-      id: v.id,
-      title: v.title,
-      filename: v.filename,
-      status: v.status,
-      fps: v.fps,
-      durationSeconds: v.duration_seconds,
-      width: v.width,
-      height: v.height,
-      version: v.version || 1,
-      plannedPublishDate: v.planned_publish_date,
-      description: v.description,
-      published: !!v.published,
-      streamUrl: await signedByteUrl(v.approved_key || v.storage_key),
-      downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, { download: true }),
-      markers: markersByVideo[String(v.id)] || [],
-    })),
+    ((vids?.results || []) as any[]).map(async (v) => {
+      const effectiveProjectId = v.project_id || t.project_id || null;
+      return {
+        id: v.id,
+        title: v.title,
+        filename: v.filename,
+        status: v.status,
+        fps: v.fps,
+        durationSeconds: v.duration_seconds,
+        width: v.width,
+        height: v.height,
+        version: v.version || 1,
+        plannedPublishDate: v.planned_publish_date,
+        description: v.description,
+        published: !!v.published,
+        projectId: v.project_id || null,
+        projectName: effectiveProjectId ? projNameById[String(effectiveProjectId)] || null : null,
+        projectInherited: !v.project_id && !!t.project_id,
+        streamUrl: await signedByteUrl(v.approved_key || v.storage_key),
+        downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, { download: true }),
+        thumbUrl: await signedThumbUrl(v.approved_key || v.storage_key),
+        collaborators: collabByVideo[String(v.id)] || [],
+        markers: markersByVideo[String(v.id)] || [],
+      };
+    }),
   );
 
   return Response.json({
