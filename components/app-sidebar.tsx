@@ -188,6 +188,16 @@ export function AppSidebar() {
       icon: Users,
     },
     {
+      title: "Calendario Editoriale",
+      url: "/calendario-editoriale",
+      icon: CalendarDays,
+    },
+    {
+      title: "Tracker Contenuti",
+      url: "/contenuti",
+      icon: FileSpreadsheet,
+    },
+    {
       title: "Video Review",
       url: "/video",
       icon: Clapperboard,
@@ -224,6 +234,16 @@ export function AppSidebar() {
       title: "Clienti assegnati",
       url: "/clienti",
       icon: BriefcaseBusiness,
+    },
+    {
+      title: "Calendario Editoriale",
+      url: "/calendario-editoriale",
+      icon: CalendarDays,
+    },
+    {
+      title: "Tracker Contenuti",
+      url: "/contenuti",
+      icon: FileSpreadsheet,
     },
     {
       title: "Video Review",

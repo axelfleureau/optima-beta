@@ -3,6 +3,12 @@ export const dynamic = "force-dynamic";
 import type { NextRequest } from "next/server";
 import { createId, getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
+import {
+  canBrowseClientDirectory,
+  isExternalWorkspaceMember,
+  isOperativeWorkspaceMember,
+  isWorkspaceManager,
+} from "@/lib/workspace-permissions";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 
 const CONTENT_MANAGER_ROLES = new Set([
@@ -14,6 +20,14 @@ const CONTENT_MANAGER_ROLES = new Set([
 
 function canManageContentTracker(role: string) {
   return CONTENT_MANAGER_ROLES.has(String(role || "").toLowerCase());
+}
+
+function canUseContentTracker(role: string) {
+  return (
+    canManageContentTracker(role) ||
+    isOperativeWorkspaceMember(role) ||
+    isExternalWorkspaceMember(role)
+  );
 }
 
 function currentRomeMonth() {
@@ -118,6 +132,66 @@ async function ensureContentTrackerSchema(db: any) {
     .run();
 }
 
+async function canAccessContentClient(
+  db: any,
+  principal: { organizationId: string; memberId: string; role: string },
+  clientId: string,
+) {
+  if (
+    isWorkspaceManager(principal.role) ||
+    canBrowseClientDirectory(principal.role)
+  ) {
+    return true;
+  }
+
+  const row = await db
+    .prepare(
+      `SELECT 1
+         FROM clients
+        WHERE organization_id = ?
+          AND id = ?
+          AND (
+            EXISTS (
+              SELECT 1
+                FROM member_client_assignments mca
+               WHERE mca.organization_id = clients.organization_id
+                 AND mca.client_id = clients.id
+                 AND mca.member_id = ?
+            )
+            OR EXISTS (
+              SELECT 1
+                FROM tasks t
+                LEFT JOIN projects tp
+                  ON tp.id = t.project_id
+                 AND tp.organization_id = t.organization_id
+               WHERE t.organization_id = clients.organization_id
+                 AND t.assignee_member_id = ?
+                 AND (t.client_id = clients.id OR tp.client_id = clients.id)
+            )
+            OR EXISTS (
+              SELECT 1
+                FROM projects vp
+                JOIN project_members vpm
+                  ON vpm.project_id = vp.id
+                 AND vpm.organization_id = vp.organization_id
+               WHERE vp.organization_id = clients.organization_id
+                 AND vp.client_id = clients.id
+                 AND vpm.member_id = ?
+            )
+          )
+        LIMIT 1`,
+    )
+    .bind(
+      principal.organizationId,
+      clientId,
+      principal.memberId,
+      principal.memberId,
+      principal.memberId,
+    )
+    .first();
+  return Boolean(row);
+}
+
 async function requestContext() {
   const user = await requireClerkUser();
   if (!user) {
@@ -135,7 +209,7 @@ async function requestContext() {
   }
 
   const principal = await ensureWorkspacePrincipal(db, user);
-  if (!canManageContentTracker(principal.role)) {
+  if (!canUseContentTracker(principal.role)) {
     return {
       error: Response.json(
         { error: "Permessi insufficienti" },
@@ -154,6 +228,77 @@ export async function GET(request: NextRequest) {
 
   const { db, principal } = ctx;
   const month = normalizeMonth(new URL(request.url).searchParams.get("month"));
+  const canViewAllClients =
+    isWorkspaceManager(principal.role) ||
+    canBrowseClientDirectory(principal.role);
+  const clientVisibilitySql = canViewAllClients
+    ? "1 = 1"
+    : `(
+        EXISTS (
+          SELECT 1
+            FROM member_client_assignments mca
+           WHERE mca.organization_id = p.organization_id
+             AND mca.client_id = p.client_id
+             AND mca.member_id = ?
+        )
+        OR EXISTS (
+          SELECT 1
+            FROM tasks t
+            LEFT JOIN projects tp
+              ON tp.id = t.project_id
+             AND tp.organization_id = t.organization_id
+           WHERE t.organization_id = p.organization_id
+             AND t.assignee_member_id = ?
+             AND (t.client_id = p.client_id OR tp.client_id = p.client_id)
+        )
+        OR EXISTS (
+          SELECT 1
+            FROM projects vp
+            JOIN project_members vpm
+              ON vpm.project_id = vp.id
+             AND vpm.organization_id = vp.organization_id
+           WHERE vp.organization_id = p.organization_id
+             AND vp.client_id = p.client_id
+             AND vpm.member_id = ?
+        )
+      )`;
+  const clientVisibilityBinds = canViewAllClients
+    ? []
+    : [principal.memberId, principal.memberId, principal.memberId];
+  const clientDirectorySql = canViewAllClients
+    ? "1 = 1"
+    : `(
+        EXISTS (
+          SELECT 1
+            FROM member_client_assignments mca
+           WHERE mca.organization_id = clients.organization_id
+             AND mca.client_id = clients.id
+             AND mca.member_id = ?
+        )
+        OR EXISTS (
+          SELECT 1
+            FROM tasks t
+            LEFT JOIN projects tp
+              ON tp.id = t.project_id
+             AND tp.organization_id = t.organization_id
+           WHERE t.organization_id = clients.organization_id
+             AND t.assignee_member_id = ?
+             AND (t.client_id = clients.id OR tp.client_id = clients.id)
+        )
+        OR EXISTS (
+          SELECT 1
+            FROM projects vp
+            JOIN project_members vpm
+              ON vpm.project_id = vp.id
+             AND vpm.organization_id = vp.organization_id
+           WHERE vp.organization_id = clients.organization_id
+             AND vp.client_id = clients.id
+             AND vpm.member_id = ?
+        )
+      )`;
+  const clientDirectoryBinds = canViewAllClients
+    ? []
+    : [principal.memberId, principal.memberId, principal.memberId];
 
   const [plansResult, clientsResult] = await Promise.all([
     db
@@ -167,9 +312,10 @@ export async function GET(request: NextRequest) {
             AND c.organization_id = p.organization_id
           WHERE p.organization_id = ?
             AND p.month = ?
+            AND ${clientVisibilitySql}
           ORDER BY COALESCE(c.name, p.client_name_snapshot) COLLATE NOCASE`,
       )
-      .bind(principal.organizationId, month)
+      .bind(principal.organizationId, month, ...clientVisibilityBinds)
       .all(),
     db
       .prepare(
@@ -177,9 +323,10 @@ export async function GET(request: NextRequest) {
            FROM clients
           WHERE organization_id = ?
             AND COALESCE(status, 'active') NOT IN ('removed', 'deleted', 'archived', 'disabled')
+            AND ${clientDirectorySql}
           ORDER BY name COLLATE NOCASE`,
       )
-      .bind(principal.organizationId)
+      .bind(principal.organizationId, ...clientDirectoryBinds)
       .all(),
   ]);
 
@@ -248,6 +395,13 @@ export async function POST(request: NextRequest) {
   let clientName = String(body?.clientName || "").trim();
 
   if (clientId) {
+    if (!(await canAccessContentClient(db, principal, clientId))) {
+      return Response.json(
+        { error: "Cliente non accessibile" },
+        { status: 403 },
+      );
+    }
+
     const client = await db
       .prepare(
         `SELECT id, name
@@ -266,6 +420,17 @@ export async function POST(request: NextRequest) {
 
   if (!clientName) {
     return Response.json({ error: "Cliente mancante" }, { status: 400 });
+  }
+
+  if (
+    !clientId &&
+    !isWorkspaceManager(principal.role) &&
+    !canBrowseClientDirectory(principal.role)
+  ) {
+    return Response.json(
+      { error: "Collega un cliente assegnato per aggiornare il tracker" },
+      { status: 403 },
+    );
   }
 
   const values = {

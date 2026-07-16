@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useEditorialPosts } from "@/hooks/use-editorial-posts";
 import { useClients } from "@/hooks/use-clients";
 import { useAuth } from "@/lib/auth-context";
@@ -27,6 +30,47 @@ import { useCalendarExperience } from "@/lib/calendar-experience-context";
 import { ViewSwitcher } from "../../../components/calendar/view-switcher";
 import { CalendarWeekView } from "../../../components/calendar/calendar-week-view";
 import { CalendarDayView } from "../../../components/calendar/calendar-day-view";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FileSpreadsheet,
+  Target,
+} from "lucide-react";
+
+type ContentTrackerSummary = {
+  clients: number;
+  targetTotal: number;
+  createdTotal: number;
+  missingTotal: number;
+  missingVideoReel: number;
+  missingPhotoPost: number;
+  complete: number;
+  toSchedule: number;
+};
+
+type ContentTrackerRow = {
+  id: string;
+  clientName: string;
+  targetTotal: number;
+  createdTotal: number;
+  missingTotal: number;
+  missingVideoReel: number;
+  missingPhotoPost: number;
+  status: "complete" | "to_schedule";
+};
+
+function monthFromDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(month: string) {
+  const [year, rawMonth] = month.split("-");
+  const date = new Date(Number(year), Number(rawMonth || 1) - 1, 1);
+  return new Intl.DateTimeFormat("it-IT", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
 
 export default function EditorialCalendarClient() {
   const { userData } = useAuth();
@@ -39,6 +83,10 @@ export default function EditorialCalendarClient() {
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [trackerSummary, setTrackerSummary] =
+    useState<ContentTrackerSummary | null>(null);
+  const [trackerRows, setTrackerRows] = useState<ContentTrackerRow[]>([]);
+  const [trackerLoading, setTrackerLoading] = useState(false);
 
   const {
     viewMode,
@@ -58,6 +106,11 @@ export default function EditorialCalendarClient() {
     updatePostStatus,
   } = useEditorialPosts(selectedClientId);
 
+  const trackerMonth = useMemo(
+    () => monthFromDate(selectedDate),
+    [selectedDate],
+  );
+
   // Ensure component is mounted before rendering
   useEffect(() => {
     setMounted(true);
@@ -72,6 +125,33 @@ export default function EditorialCalendarClient() {
   useEffect(() => {
     setPosts(posts);
   }, [posts, setPosts]);
+
+  useEffect(() => {
+    let alive = true;
+    setTrackerLoading(true);
+    fetch(`/api/content-tracker?month=${trackerMonth}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (!alive || !payload?.ok) return;
+        setTrackerSummary(payload.summary || null);
+        setTrackerRows(payload.rows || []);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setTrackerSummary(null);
+        setTrackerRows([]);
+      })
+      .finally(() => {
+        if (alive) setTrackerLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [trackerMonth]);
 
   const filteredPosts = useMemo(() => {
     const search = searchTerm.toLowerCase();
@@ -318,6 +398,13 @@ export default function EditorialCalendarClient() {
       </div>
 
       <div className="optima-ops-container overflow-x-hidden">
+        <ContentCoveragePanel
+          month={trackerMonth}
+          loading={trackerLoading}
+          summary={trackerSummary}
+          rows={trackerRows}
+        />
+
         <Tabs
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as any)}
@@ -405,6 +492,128 @@ export default function EditorialCalendarClient() {
       />
 
       <AutoGenPreview />
+    </div>
+  );
+}
+
+function ContentCoveragePanel({
+  month,
+  loading,
+  summary,
+  rows,
+}: {
+  month: string;
+  loading: boolean;
+  summary: ContentTrackerSummary | null;
+  rows: ContentTrackerRow[];
+}) {
+  const missingRows = rows
+    .filter((row) => row.missingTotal > 0)
+    .sort((a, b) => b.missingTotal - a.missingTotal)
+    .slice(0, 5);
+
+  return (
+    <section className="mb-4 rounded-lg border border-white/10 bg-[#111b2d] p-4 shadow-2xl shadow-black/10 md:mb-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 text-cyan-200">
+              <FileSpreadsheet className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">
+                Copertura mese
+              </p>
+              <h2 className="text-lg font-bold text-white">
+                Target contenuti di {monthLabel(month)}
+              </h2>
+            </div>
+          </div>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+            I numeri arrivano dal tracker contenuti: target, creati e mancanti
+            sostituiscono il controllo manuale del foglio Excel.
+          </p>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[520px]">
+          <CoverageStat
+            icon={Target}
+            label="Target"
+            value={loading ? "..." : (summary?.targetTotal ?? 0)}
+          />
+          <CoverageStat
+            icon={CheckCircle2}
+            label="Creati"
+            value={loading ? "..." : (summary?.createdTotal ?? 0)}
+            tone="emerald"
+          />
+          <CoverageStat
+            icon={AlertTriangle}
+            label="Mancanti"
+            value={loading ? "..." : (summary?.missingTotal ?? 0)}
+            tone="amber"
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {missingRows.length === 0 ? (
+            <Badge
+              variant="outline"
+              className="border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+            >
+              Nessun contenuto mancante nel mese
+            </Badge>
+          ) : (
+            missingRows.map((row) => (
+              <Badge
+                key={row.id}
+                variant="outline"
+                className="border-amber-400/30 bg-amber-500/10 text-amber-100"
+              >
+                {row.clientName}: {row.missingTotal} mancanti
+              </Badge>
+            ))
+          )}
+        </div>
+        <Button
+          asChild
+          variant="outline"
+          className="h-10 border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/40"
+        >
+          <Link href="/contenuti">Apri tracker</Link>
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function CoverageStat({
+  icon: Icon,
+  label,
+  value,
+  tone = "slate",
+}: {
+  icon: typeof Target;
+  label: string;
+  value: number | string;
+  tone?: "slate" | "emerald" | "amber";
+}) {
+  const toneClass = {
+    slate: "border-white/10 bg-[#0b1424] text-white",
+    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-100",
+    amber: "border-amber-400/20 bg-amber-500/10 text-amber-100",
+  }[tone];
+  return (
+    <div className={`rounded-lg border p-3 ${toneClass}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+          {label}
+        </span>
+        <Icon className="h-4 w-4 text-slate-500" />
+      </div>
+      <p className="mt-2 text-2xl font-black">{value}</p>
     </div>
   );
 }
