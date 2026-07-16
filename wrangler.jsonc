@@ -59,6 +59,7 @@
         "NEXT_PUBLIC_APP_URL": "https://optima-beta-staging.axel-15d.workers.dev",
         "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_dmFsdWVkLWdsaWRlci0zMi5jbGVyay5hY2NvdW50cy5kZXYk",
         "CRON_SECRET": "dev-cron-secret-staging",
+        "EDITORIAL_FEED_SECRET": "ebc924475476f3921019c49de9897b8aaef57d882cdac10c",
         "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/login",
         "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "/register",
         "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/dashboard",
@@ -115,7 +116,8 @@
         "OPENAI_REASONING_MODEL": "gpt-5.2",
         "OPENAI_FAST_MODEL": "gpt-5-mini",
         "OPENAI_CHAT_MODEL": "gpt-5.2",
-        "CRON_SECRET": "dev-cron-secret-production"
+        "CRON_SECRET": "dev-cron-secret-production",
+        "EDITORIAL_FEED_SECRET": "119d5c9cee72188425f7eb82c492be70aa29c4a1cba47888"
       },
       "d1_databases": [
         {

@@ -31,6 +31,7 @@ import { useCalendarExperience } from "@/lib/calendar-experience-context";
 import { ViewSwitcher } from "../../../components/calendar/view-switcher";
 import { CalendarWeekView } from "../../../components/calendar/calendar-week-view";
 import { CalendarDayView } from "../../../components/calendar/calendar-day-view";
+import { CalendarSyncButton } from "../../../components/calendar/calendar-sync-button";
 import { ContentTrackerView } from "../contenuti/content-tracker-view";
 import { CalendarDays, FileSpreadsheet } from "lucide-react";
 
@@ -467,8 +468,9 @@ export default function EditorialCalendarClient() {
               value="calendar"
               className="min-w-0 space-y-4 md:space-y-6"
             >
-              <div className="mb-2 min-w-0 md:mb-4">
+              <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2 md:mb-4">
                 <ViewSwitcher />
+                <CalendarSyncButton />
               </div>
 
               {viewMode === "month" && (
