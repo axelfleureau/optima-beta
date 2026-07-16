@@ -141,7 +141,7 @@ export function AppSidebar() {
     },
     {
       title: "Tracker Contenuti",
-      url: "/contenuti",
+      url: "/calendario-editoriale?view=tracker",
       icon: FileSpreadsheet,
     },
     {
@@ -194,7 +194,7 @@ export function AppSidebar() {
     },
     {
       title: "Tracker Contenuti",
-      url: "/contenuti",
+      url: "/calendario-editoriale?view=tracker",
       icon: FileSpreadsheet,
     },
     {
@@ -242,7 +242,7 @@ export function AppSidebar() {
     },
     {
       title: "Tracker Contenuti",
-      url: "/contenuti",
+      url: "/calendario-editoriale?view=tracker",
       icon: FileSpreadsheet,
     },
     {

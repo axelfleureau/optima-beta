@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,10 @@ import { useCalendarExperience } from "@/lib/calendar-experience-context";
 import { ViewSwitcher } from "../../../components/calendar/view-switcher";
 import { CalendarWeekView } from "../../../components/calendar/calendar-week-view";
 import { CalendarDayView } from "../../../components/calendar/calendar-day-view";
+import { ContentTrackerView } from "../contenuti/content-tracker-view";
 import {
   AlertTriangle,
+  CalendarDays,
   CheckCircle2,
   FileSpreadsheet,
   Target,
@@ -75,6 +78,11 @@ function monthLabel(month: string) {
 export default function EditorialCalendarClient() {
   const { userData } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const requestedWorkspaceView = searchParams.get("view");
+  const [workspaceView, setWorkspaceView] = useState<"calendar" | "tracker">(
+    requestedWorkspaceView === "tracker" ? "tracker" : "calendar",
+  );
   const [activeTab, setActiveTab] = useState<"table" | "kanban" | "calendar">(
     "calendar",
   );
@@ -115,6 +123,12 @@ export default function EditorialCalendarClient() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    setWorkspaceView(
+      requestedWorkspaceView === "tracker" ? "tracker" : "calendar",
+    );
+  }, [requestedWorkspaceView]);
 
   useEffect(() => {
     if (userData?.role === "client" && userData.clientId && !selectedClientId) {
@@ -386,97 +400,113 @@ export default function EditorialCalendarClient() {
   return (
     <div className="optima-ops-page">
       <div className="sticky top-0 z-30 min-w-0 border-b border-white/10 bg-[#111827]/95 backdrop-blur-xl">
-        <CalendarHeader
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          onNewPost={openNewForm}
-          selectedClientId={selectedClientId}
-          onClientChange={setSelectedClientId}
-          clientOptions={clientOptions}
-          userRole={userData?.role}
+        <EditorialWorkspaceViews
+          value={workspaceView}
+          onChange={setWorkspaceView}
         />
+
+        {workspaceView === "calendar" && (
+          <CalendarHeader
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onNewPost={openNewForm}
+            selectedClientId={selectedClientId}
+            onClientChange={setSelectedClientId}
+            clientOptions={clientOptions}
+            userRole={userData?.role}
+          />
+        )}
       </div>
 
-      <div className="optima-ops-container overflow-x-hidden">
-        <ContentCoveragePanel
-          month={trackerMonth}
-          loading={trackerLoading}
-          summary={trackerSummary}
-          rows={trackerRows}
-        />
-
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as any)}
-          className="min-w-0 space-y-4 md:space-y-6"
-        >
-          <CalendarTabs
-            activeTab={activeTab}
-            onTabChange={(tab) =>
-              setActiveTab(tab as "table" | "kanban" | "calendar")
-            }
+      {workspaceView === "tracker" ? (
+        <div className="optima-ops-container overflow-x-hidden py-4 md:py-6">
+          <ContentTrackerView embedded />
+        </div>
+      ) : (
+        <div className="optima-ops-container overflow-x-hidden">
+          <ContentCoveragePanel
+            month={trackerMonth}
+            loading={trackerLoading}
+            summary={trackerSummary}
+            rows={trackerRows}
           />
 
-          <TabsContent value="table" className="min-w-0 space-y-4 md:space-y-6">
-            <TableView
-              posts={filteredPosts}
-              onEditPost={openEditForm}
-              onDeletePost={handleDeletePost}
-              onNewPost={openNewForm}
-              selectedClientId={selectedClientId}
-              userRole={userData?.role}
-            />
-          </TabsContent>
-
-          <TabsContent
-            value="kanban"
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as any)}
             className="min-w-0 space-y-4 md:space-y-6"
           >
-            <KanbanView
-              postsByStatus={postsByStatus}
-              onDragEnd={onDragEnd}
-              onEditPost={openEditForm}
-              onNewPost={openNewForm}
+            <CalendarTabs
+              activeTab={activeTab}
+              onTabChange={(tab) =>
+                setActiveTab(tab as "table" | "kanban" | "calendar")
+              }
             />
-          </TabsContent>
 
-          <TabsContent
-            value="calendar"
-            className="min-w-0 space-y-4 md:space-y-6"
-          >
-            <div className="mb-2 min-w-0 md:mb-4">
-              <ViewSwitcher />
-            </div>
-
-            {viewMode === "month" && (
-              <CalendarView
+            <TabsContent
+              value="table"
+              className="min-w-0 space-y-4 md:space-y-6"
+            >
+              <TableView
                 posts={filteredPosts}
-                currentMonth={selectedDate}
-                onMonthChange={setSelectedDate}
                 onEditPost={openEditForm}
+                onDeletePost={handleDeletePost}
+                onNewPost={openNewForm}
+                selectedClientId={selectedClientId}
+                userRole={userData?.role}
               />
-            )}
+            </TabsContent>
 
-            {viewMode === "week" && (
-              <CalendarWeekView
-                posts={filteredPosts}
-                selectedDate={selectedDate}
-                onDateChange={setSelectedDate}
+            <TabsContent
+              value="kanban"
+              className="min-w-0 space-y-4 md:space-y-6"
+            >
+              <KanbanView
+                postsByStatus={postsByStatus}
+                onDragEnd={onDragEnd}
                 onEditPost={openEditForm}
+                onNewPost={openNewForm}
               />
-            )}
+            </TabsContent>
 
-            {viewMode === "day" && (
-              <CalendarDayView
-                posts={filteredPosts}
-                selectedDate={selectedDate}
-                onDateChange={setSelectedDate}
-                onEditPost={openEditForm}
-              />
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+            <TabsContent
+              value="calendar"
+              className="min-w-0 space-y-4 md:space-y-6"
+            >
+              <div className="mb-2 min-w-0 md:mb-4">
+                <ViewSwitcher />
+              </div>
+
+              {viewMode === "month" && (
+                <CalendarView
+                  posts={filteredPosts}
+                  currentMonth={selectedDate}
+                  onMonthChange={setSelectedDate}
+                  onEditPost={openEditForm}
+                />
+              )}
+
+              {viewMode === "week" && (
+                <CalendarWeekView
+                  posts={filteredPosts}
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  onEditPost={openEditForm}
+                />
+              )}
+
+              {viewMode === "day" && (
+                <CalendarDayView
+                  posts={filteredPosts}
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  onEditPost={openEditForm}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
 
       <EditorialPostFormDialog
         open={isFormOpen}
@@ -491,7 +521,81 @@ export default function EditorialCalendarClient() {
         userRole={userData?.role}
       />
 
-      <AutoGenPreview />
+      {workspaceView === "calendar" && <AutoGenPreview />}
+    </div>
+  );
+}
+
+function EditorialWorkspaceViews({
+  value,
+  onChange,
+}: {
+  value: "calendar" | "tracker";
+  onChange: (value: "calendar" | "tracker") => void;
+}) {
+  const views = [
+    {
+      id: "calendar" as const,
+      label: "Calendario",
+      description: "Post, kanban e programmazione",
+      icon: CalendarDays,
+    },
+    {
+      id: "tracker" as const,
+      label: "Tracker contenuti",
+      description: "Target mensili e copertura clienti",
+      icon: FileSpreadsheet,
+    },
+  ];
+
+  return (
+    <div className="optima-ops-container py-3">
+      <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#0b1424]/80 p-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 px-2 py-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-300">
+            Editoriale
+          </p>
+          <h1 className="truncate text-lg font-black text-white">
+            Calendario e tracker contenuti
+          </h1>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {views.map((item) => {
+            const Icon = item.icon;
+            const selected = value === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onChange(item.id)}
+                className={`flex min-w-0 items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
+                  selected
+                    ? "border-righello-pink/60 bg-righello-pink/15 text-white shadow-lg shadow-righello-pink/10"
+                    : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-cyan-400/30 hover:bg-cyan-400/10"
+                }`}
+              >
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${
+                    selected
+                      ? "border-righello-pink/40 bg-righello-pink/20 text-pink-100"
+                      : "border-white/10 bg-[#111b2d] text-slate-400"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold">
+                    {item.label}
+                  </span>
+                  <span className="block truncate text-xs text-slate-400">
+                    {item.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
