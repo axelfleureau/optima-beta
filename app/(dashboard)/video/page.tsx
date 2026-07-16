@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { VrPageHeader, VrStatCard } from "@/components/video-review/page-chrome";
+import { TodoBoard } from "@/components/video-review/todo-board";
 import {
   Dialog,
   DialogContent,
@@ -145,6 +146,9 @@ export default function VideoReviewPage() {
           </>
         }
       />
+
+      {/* Cosa richiede la TUA attenzione */}
+      <TodoBoard />
 
       {/* Riepilogo */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
