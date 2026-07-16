@@ -166,7 +166,11 @@ export default function SmmPage() {
       />
 
       {loading ? (
-        <p className="text-slate-400">Carico…</p>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {[0, 1].map((i) => (
+            <div key={i} className={`${surfaceClass} h-72 animate-pulse`} />
+          ))}
+        </div>
       ) : videos.length === 0 ? (
         <div className={`${surfaceClass} p-12 text-center text-slate-400`}>
           Nessun video approvato: qui arrivano quelli che il cliente ha approvato.

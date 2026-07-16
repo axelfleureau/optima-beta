@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 import { Clapperboard, Plus, Search, Clock, AlertTriangle, CheckCircle2, Send, Users } from "lucide-react";
 import { useVideoReviewMeta } from "@/hooks/use-video-review";
 import {
@@ -54,11 +55,12 @@ type Tranche = {
 };
 
 export default function VideoReviewPage() {
-  const { clients, members, loading: metaLoading } = useVideoReviewMeta();
+  const { clients, members, me, loading: metaLoading } = useVideoReviewMeta();
   const [tranches, setTranches] = useState<Tranche[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<string>("__all__");
 
   // Nuova consegna
   const [open, setOpen] = useState(false);
@@ -109,22 +111,30 @@ export default function VideoReviewPage() {
     [tranches],
   );
 
-  // Raggruppa per CLIENTE (il progetto è un attributo del video, non un livello).
+  // Elenco progetti presenti (per il filtro).
+  const projectOptions = useMemo(() => {
+    const s = new Set<string>();
+    tranches.forEach((t) => t.projectNames.forEach((p) => s.add(p)));
+    return [...s].sort((a, b) => a.localeCompare(b));
+  }, [tranches]);
+
+  // Filtri: ricerca · progetto · solo i miei · raggruppo per CLIENTE.
   const grouped = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const list = tranches.filter(
-      (t) =>
-        !needle ||
-        t.title.toLowerCase().includes(needle) ||
-        (t.clientName || "").toLowerCase().includes(needle),
-    );
+    const list = tranches.filter((t) => {
+      if (needle && !t.title.toLowerCase().includes(needle) && !(t.clientName || "").toLowerCase().includes(needle))
+        return false;
+      if (projectFilter !== "__all__" && !t.projectNames.includes(projectFilter)) return false;
+      if (onlyMine && !(me && t.collaborators.some((c) => c.memberId === me))) return false;
+      return true;
+    });
     const map = new Map<string, Tranche[]>();
     for (const t of list) {
       const key = t.clientName || "Senza cliente";
       map.set(key, [...(map.get(key) || []), t]);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [tranches, q]);
+  }, [tranches, q, projectFilter, onlyMine, me]);
 
   return (
     <div className={pageClass}>
@@ -158,20 +168,52 @@ export default function VideoReviewPage() {
         <VrStatCard icon={CheckCircle2} label="Approvati" value={totals.approved} tone="text-emerald-300" iconTone="text-emerald-400" />
       </div>
 
-      {/* Ricerca */}
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Cerca consegna o cliente…"
-          className={inputClass}
-        />
+      {/* Toolbar: ricerca · progetto · solo i miei */}
+      <div className="optima-ops-toolbar rounded-lg">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cerca consegna o cliente…"
+            className={inputClass}
+          />
+        </div>
+        {projectOptions.length > 0 && (
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="h-11 w-full border-white/10 bg-[#172235] text-slate-100 sm:w-52">
+              <SelectValue placeholder="Progetto" />
+            </SelectTrigger>
+            <SelectContent className="border-white/10 bg-[#111b2d] text-slate-100">
+              <SelectItem value="__all__">Tutti i progetti</SelectItem>
+              {projectOptions.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-slate-300">
+          <Switch checked={onlyMine} onCheckedChange={setOnlyMine} />
+          Solo i miei
+        </label>
       </div>
 
       {/* Consegne raggruppate per cliente */}
       {loading ? (
-        <p className="text-slate-400">Carico…</p>
+        <div className="space-y-8">
+          {[0, 1].map((s) => (
+            <div key={s} className="space-y-3">
+              <div className="h-4 w-32 animate-pulse rounded bg-white/5" />
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className={`${surfaceClass} h-32 animate-pulse`} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : grouped.length === 0 ? (
         <div className={`${surfaceClass} p-12 text-center text-slate-400`}>
           {tranches.length === 0

@@ -94,7 +94,22 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
     setTimeout(() => setCopied(false), 1500);
   }
 
-  if (loading) return <div className={`${pageClass} p-6 text-slate-400`}>Carico…</div>;
+  if (loading)
+    return (
+      <div className={pageClass}>
+        <div className={containerClass}>
+          <div className={stackClass}>
+            <div className="h-10 w-64 animate-pulse rounded bg-white/5" />
+            <div className={`${surfaceClass} h-28 animate-pulse`} />
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className={`${surfaceClass} h-56 animate-pulse`} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   if (!tranche)
     return (
       <div className={`${pageClass} p-6 text-slate-400`}>
