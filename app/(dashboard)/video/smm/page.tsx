@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, Check } from "lucide-react";
-import { pageClass, containerClass, stackClass, surfaceClass, h1Class, subtitleClass, primaryButtonClass } from "@/lib/video-review-ui";
+import { ArrowLeft, Download, Check, Send } from "lucide-react";
+import { pageClass, containerClass, stackClass, surfaceClass, primaryButtonClass } from "@/lib/video-review-ui";
+import { VrPageHeader } from "@/components/video-review/page-chrome";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 
 type Video = {
@@ -153,24 +154,23 @@ export default function SmmPage() {
     <div className={pageClass}>
       <div className={containerClass}>
         <div className={stackClass}>
-      <div>
-        <Link href="/video" className="mb-2 inline-flex items-center text-sm text-slate-400 hover:text-slate-200">
-          <ArrowLeft className="mr-1 h-4 w-4" /> Video Review
-        </Link>
-        <h1 className={h1Class}>Da pubblicare</h1>
-        <p className={subtitleClass}>
-          Video approvati dai clienti: scrivi la descrizione, scarica e segna come pubblicato.
-        </p>
-      </div>
+      <VrPageHeader
+        icon={Send}
+        title="Da pubblicare"
+        subtitle="Video approvati dai clienti: scrivi la descrizione, scarica e segna come pubblicato."
+        back={
+          <Link href="/video" className="mb-3 inline-flex items-center text-sm text-slate-400 transition-colors hover:text-slate-200">
+            <ArrowLeft className="mr-1 h-4 w-4" /> Video Review
+          </Link>
+        }
+      />
 
       {loading ? (
         <p className="text-slate-400">Carico…</p>
       ) : videos.length === 0 ? (
-        <Card className={surfaceClass}>
-          <CardContent className="py-12 text-center text-slate-400">
-            Nessun video approvato: qui arrivano quelli che il cliente ha approvato.
-          </CardContent>
-        </Card>
+        <div className={`${surfaceClass} p-12 text-center text-slate-400`}>
+          Nessun video approvato: qui arrivano quelli che il cliente ha approvato.
+        </div>
       ) : (
         <>
           <div className="grid gap-6 lg:grid-cols-2">

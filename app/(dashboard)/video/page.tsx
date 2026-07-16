@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { VrPageHeader, VrStatCard } from "@/components/video-review/page-chrome";
 import {
   Dialog,
   DialogContent,
@@ -33,8 +33,6 @@ import {
   inputClass,
   plainInputClass,
   primaryButtonClass,
-  h1Class,
-  subtitleClass,
   statusMeta,
   COLLAB_ROLE_META,
   initials,
@@ -131,47 +129,29 @@ export default function VideoReviewPage() {
     <div className={pageClass}>
       <div className={containerClass}>
         <div className={stackClass}>
-      {/* Testata in stile Optima */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className={h1Class}>
-            <Clapperboard className="h-7 w-7 text-righello-pink md:h-9 md:w-9" />
-            Video Review
-          </h1>
-          <p className={`mt-1 ${subtitleClass}`}>
-            Consegne video ai clienti: approvazione, note di modifica e pubblicazione.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline" className="border-white/10 bg-white/5">
-            <Link href="/video/smm">Da pubblicare</Link>
-          </Button>
-          <Button className={primaryButtonClass} onClick={() => setOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Nuova consegna
-          </Button>
-        </div>
-      </div>
+      {/* Testata: stesso pattern di Controllo Aziendale/Dashboard */}
+      <VrPageHeader
+        icon={Clapperboard}
+        title="Video Review"
+        subtitle="Consegne video ai clienti: approvazione, note di modifica e pubblicazione."
+        actions={
+          <>
+            <Button asChild variant="outline" className="border-white/10 bg-white/5">
+              <Link href="/video/smm">Da pubblicare</Link>
+            </Button>
+            <Button className={primaryButtonClass} onClick={() => setOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Nuova consegna
+            </Button>
+          </>
+        }
+      />
 
       {/* Riepilogo */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { icon: Send, label: "Consegne", value: tranches.length, tone: "text-slate-100" },
-          { icon: Clock, label: "In attesa cliente", value: totals.pending, tone: "text-slate-100" },
-          { icon: AlertTriangle, label: "Da revisionare", value: totals.revision, tone: "text-amber-300" },
-          { icon: CheckCircle2, label: "Approvati", value: totals.approved, tone: "text-emerald-300" },
-        ].map((s) => (
-          <Card key={s.label} className={surfaceClass}>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-3 text-sm font-medium text-slate-200">
-                <s.icon className="h-4 w-4 text-righello-pink" />
-                {s.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-3xl font-bold ${s.tone}`}>{s.value}</div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <VrStatCard icon={Send} label="Consegne" value={tranches.length} iconTone="text-righello-pink" />
+        <VrStatCard icon={Clock} label="In attesa cliente" value={totals.pending} iconTone="text-slate-400" />
+        <VrStatCard icon={AlertTriangle} label="Da revisionare" value={totals.revision} tone="text-amber-300" iconTone="text-amber-400" />
+        <VrStatCard icon={CheckCircle2} label="Approvati" value={totals.approved} tone="text-emerald-300" iconTone="text-emerald-400" />
       </div>
 
       {/* Ricerca */}
@@ -189,13 +169,11 @@ export default function VideoReviewPage() {
       {loading ? (
         <p className="text-slate-400">Carico…</p>
       ) : grouped.length === 0 ? (
-        <Card className={surfaceClass}>
-          <CardContent className="py-12 text-center text-slate-400">
-            {tranches.length === 0
-              ? "Nessuna consegna visibile. Creane una, oppure chiedi di essere aggiunto come collaboratore."
-              : "Nessun risultato per questa ricerca."}
-          </CardContent>
-        </Card>
+        <div className={`${surfaceClass} p-12 text-center text-slate-400`}>
+          {tranches.length === 0
+            ? "Nessuna consegna visibile. Creane una, oppure chiedi di essere aggiunto come collaboratore."
+            : "Nessun risultato per questa ricerca."}
+        </div>
       ) : (
         <div className="space-y-8">
           {grouped.map(([clientName, list]) => (
@@ -209,11 +187,11 @@ export default function VideoReviewPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {list.map((t) => (
                   <Link key={t.id} href={`/video/${t.id}`}>
-                    <Card className={`${interactiveSurfaceClass} h-full`}>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base text-slate-100">{t.title}</CardTitle>
+                    <div className={`${interactiveSurfaceClass} flex h-full flex-col gap-3 p-5`}>
+                      <div>
+                        <h3 className="text-base font-semibold text-slate-100">{t.title}</h3>
                         {t.projectNames.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
+                          <div className="flex flex-wrap gap-1 pt-1.5">
                             {t.projectNames.slice(0, 2).map((p) => (
                               <Badge key={p} variant="outline" className="border-white/10 bg-white/5 text-[10px] text-slate-300">
                                 {p}
@@ -226,8 +204,8 @@ export default function VideoReviewPage() {
                             )}
                           </div>
                         )}
-                      </CardHeader>
-                      <CardContent className="space-y-3">
+                      </div>
+                      <div className="space-y-3">
                         {/* Stato PER VIDEO: nella stessa consegna convivono stati diversi */}
                         <div className="flex flex-wrap gap-1.5">
                           <Badge variant="outline" className="border-white/10 bg-white/5 text-xs text-slate-300">
@@ -272,8 +250,8 @@ export default function VideoReviewPage() {
                             </div>
                           )}
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   </Link>
                 ))}
               </div>

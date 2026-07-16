@@ -11,11 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Copy, Check, Download, Play, Upload } from "lucide-react";
+import { ArrowLeft, Copy, Check, Download, Play, Upload, Clapperboard } from "lucide-react";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
 import { ProjectPicker } from "@/components/video-review/project-picker";
 import { pageClass, containerClass, stackClass, surfaceClass } from "@/lib/video-review-ui";
+import { VrPageHeader } from "@/components/video-review/page-chrome";
 
 type Marker = { id: string; tSeconds: number; note: string };
 type Video = {
@@ -100,22 +101,25 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
     <div className={pageClass}>
       <div className={containerClass}>
         <div className={stackClass}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
+      <VrPageHeader
+        icon={Clapperboard}
+        title={tranche.title}
+        subtitle={tranche.clientName || "Senza cliente"}
+        back={
           <Link
             href="/video"
-            className="mb-2 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+            className="mb-3 inline-flex items-center text-sm text-slate-400 transition-colors hover:text-slate-200"
           >
             <ArrowLeft className="mr-1 h-4 w-4" /> Video Review
           </Link>
-          <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">{tranche.title}</h1>
-          <p className="text-muted-foreground">{tranche.clientName || "Senza cliente"}</p>
-        </div>
-        <Button variant="outline" onClick={copyLink} className="shrink-0 border-white/10 bg-white/5">
-          {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-          {copied ? "Copiato" : "Link review cliente"}
-        </Button>
-      </div>
+        }
+        actions={
+          <Button variant="outline" onClick={copyLink} className="border-white/10 bg-white/5">
+            {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+            {copied ? "Copiato" : "Link review cliente"}
+          </Button>
+        }
+      />
 
       {/* Chi lavora a questa consegna + progetto di default dei suoi video */}
       <Card className={surfaceClass}>
@@ -143,13 +147,11 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
       </Card>
 
       {videos.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Nessun video. Il videomaker esporta in{" "}
-            <code className="text-xs">da-revisionare/{tranche.clientName}/{tranche.title}/</code> sul
-            NAS e i video compaiono qui da soli.
-          </CardContent>
-        </Card>
+        <div className={`${surfaceClass} p-12 text-center text-slate-400`}>
+          Nessun video. Il videomaker esporta in{" "}
+          <code className="rounded bg-white/5 px-1.5 py-0.5 text-xs text-slate-300">da-revisionare/{tranche.clientName}/{tranche.title}/</code>{" "}
+          sul NAS e i video compaiono qui da soli.
+        </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {videos.map((v) => (

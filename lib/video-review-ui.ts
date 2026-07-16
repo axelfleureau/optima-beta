@@ -21,17 +21,24 @@ export const pageClass = "optima-ops-page";
 export const containerClass = "optima-ops-container";
 export const stackClass = "optima-ops-stack md:gap-8";
 
+/**
+ * Superficie = quella di Controllo Aziendale/Dashboard (le pagine "premium"
+ * mostrate come riferimento): rounded-lg, bg #121b2b, ombra profonda.
+ */
 export const surfaceClass =
-  "border border-white/10 bg-[#172235] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]";
+  "rounded-lg border border-white/10 bg-[#121b2b] text-slate-100 shadow-[0_18px_70px_rgba(2,6,23,0.24)]";
 
-export const mutedSurfaceClass = "border border-white/10 bg-[#111b2d] text-slate-100";
+/** Pannello "incassato" (dentro una card), più scuro. */
+export const insetPanelClass = "rounded-lg border border-white/10 bg-[#0e1625] text-slate-100";
+
+export const mutedSurfaceClass = "rounded-lg border border-white/10 bg-[#111b2d] text-slate-100";
 
 /** Card cliccabile: stessa superficie + accento del brand all'hover. */
 export const interactiveSurfaceClass = `${surfaceClass} transition-all duration-300 hover:border-righello-pink/35`;
 
-/** Input con icona a sinistra (pl-10), come la ricerca di Team/Clienti. */
+/** Input con icona a sinistra (pl-10). */
 export const inputClass =
-  "h-11 border-white/10 bg-[#172235] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
+  "h-11 rounded-lg border-white/10 bg-[#172235] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
 
 /** Input senza icona. */
 export const plainInputClass = inputClass.replace("pl-10 ", "");
@@ -39,9 +46,17 @@ export const plainInputClass = inputClass.replace("pl-10 ", "");
 export const primaryButtonClass =
   "bg-righello-pink hover:bg-righello-pink-dark text-white shadow-corporate-medium";
 
-export const h1Class = "text-2xl md:text-4xl font-bold text-white flex items-center gap-3 md:gap-4";
+/** Titolo pagina: come Controllo Aziendale (font-black, cresce su md). */
+export const h1Class = "text-3xl md:text-4xl font-black tracking-normal text-white";
 
-export const subtitleClass = "text-slate-400";
+/** Titolo di sezione dentro una pagina. */
+export const sectionTitleClass = "text-xl font-bold text-white";
+
+export const subtitleClass = "mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base";
+
+/** Quadrato con icona brand sopra il titolo (pattern header di Optima). */
+export const headerIconClass =
+  "mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-righello-pink/15 text-righello-pink";
 
 /** Colori di stato dei video: usati in badge e riepiloghi. */
 export const STATUS_META: Record<string, { label: string; badge: string; dot: string }> = {
