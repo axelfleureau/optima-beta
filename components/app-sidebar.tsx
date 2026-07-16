@@ -25,6 +25,7 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   Clapperboard,
+  FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -137,6 +138,11 @@ export function AppSidebar() {
       title: "Calendario Editoriale",
       url: "/calendario-editoriale",
       icon: CalendarDays,
+    },
+    {
+      title: "Tracker Contenuti",
+      url: "/contenuti",
+      icon: FileSpreadsheet,
     },
     {
       title: "Video Review",
