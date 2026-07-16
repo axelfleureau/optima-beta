@@ -25,7 +25,6 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   Clapperboard,
-  FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -140,11 +139,6 @@ export function AppSidebar() {
       icon: CalendarDays,
     },
     {
-      title: "Tracker Contenuti",
-      url: "/calendario-editoriale?view=tracker",
-      icon: FileSpreadsheet,
-    },
-    {
       title: "Video Review",
       url: "/video",
       icon: Clapperboard,
@@ -193,11 +187,6 @@ export function AppSidebar() {
       icon: CalendarDays,
     },
     {
-      title: "Tracker Contenuti",
-      url: "/calendario-editoriale?view=tracker",
-      icon: FileSpreadsheet,
-    },
-    {
       title: "Video Review",
       url: "/video",
       icon: Clapperboard,
@@ -239,11 +228,6 @@ export function AppSidebar() {
       title: "Calendario Editoriale",
       url: "/calendario-editoriale",
       icon: CalendarDays,
-    },
-    {
-      title: "Tracker Contenuti",
-      url: "/calendario-editoriale?view=tracker",
-      icon: FileSpreadsheet,
     },
     {
       title: "Video Review",

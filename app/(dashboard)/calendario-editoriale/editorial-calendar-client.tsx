@@ -394,54 +394,50 @@ export default function EditorialCalendarClient() {
 
   return (
     <div className="optima-ops-page">
-      <div className="sticky top-0 z-30 min-w-0 border-b border-white/10 bg-[#111827]/95 backdrop-blur-xl">
-        <EditorialWorkspaceViews
-          value={workspaceView}
-          onChange={setWorkspaceView}
-        />
-
-        {workspaceView === "calendar" && (
-          <CalendarHeader
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onNewPost={openNewForm}
-            selectedClientId={selectedClientId}
-            onClientChange={setSelectedClientId}
-            clientOptions={clientOptions}
-            userRole={userData?.role}
-          />
-        )}
-      </div>
-
-      {workspaceView === "tracker" ? (
-        <div className="optima-ops-container overflow-x-hidden py-4 md:py-6">
-          <ContentTrackerView embedded />
-        </div>
-      ) : (
-        <div className="optima-ops-container overflow-x-hidden">
-          <ContentCoveragePanel
-            month={trackerMonth}
-            loading={trackerLoading}
-            summary={trackerSummary}
-            rows={trackerRows}
+      <div className="optima-ops-container overflow-x-hidden">
+        <div className="optima-ops-stack md:gap-8">
+          <EditorialWorkspaceViews
+            value={workspaceView}
+            onChange={setWorkspaceView}
           />
 
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as any)}
-            className="min-w-0 space-y-4 md:space-y-6"
-          >
-            <CalendarTabs
-              activeTab={activeTab}
-              onTabChange={(tab) =>
-                setActiveTab(tab as "table" | "kanban" | "calendar")
-              }
-            />
+          {workspaceView === "tracker" ? (
+            <ContentTrackerView embedded />
+          ) : (
+            <>
+              <CalendarHeader
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                onNewPost={openNewForm}
+                selectedClientId={selectedClientId}
+                onClientChange={setSelectedClientId}
+                clientOptions={clientOptions}
+                userRole={userData?.role}
+              />
 
-            <TabsContent
-              value="table"
-              className="min-w-0 space-y-4 md:space-y-6"
-            >
+              <ContentCoveragePanel
+                month={trackerMonth}
+                loading={trackerLoading}
+                summary={trackerSummary}
+                rows={trackerRows}
+              />
+
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as any)}
+                className="min-w-0 space-y-4 md:space-y-6"
+              >
+                <CalendarTabs
+                  activeTab={activeTab}
+                  onTabChange={(tab) =>
+                    setActiveTab(tab as "table" | "kanban" | "calendar")
+                  }
+                />
+
+                <TabsContent
+                  value="table"
+                  className="min-w-0 space-y-4 md:space-y-6"
+                >
               <TableView
                 posts={filteredPosts}
                 onEditPost={openEditForm}
@@ -500,9 +496,11 @@ export default function EditorialCalendarClient() {
                 />
               )}
             </TabsContent>
-          </Tabs>
+              </Tabs>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       <EditorialPostFormDialog
         open={isFormOpen}
@@ -545,38 +543,40 @@ function EditorialWorkspaceViews({
   ];
 
   return (
-    <div className="optima-ops-container py-2.5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
-            Editoriale
-          </p>
-          <h1 className="truncate text-base font-black text-white">
-            Calendario e tracker contenuti
-          </h1>
+    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="min-w-0">
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-righello-pink/15 text-righello-pink">
+          <CalendarDays className="h-6 w-6" />
         </div>
-        <div className="inline-flex shrink-0 rounded-lg border border-white/10 bg-[#0b1424] p-1">
-          {views.map((item) => {
-            const Icon = item.icon;
-            const selected = value === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onChange(item.id)}
-                title={item.description}
-                className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-semibold transition ${
-                  selected
-                    ? "bg-righello-pink/20 text-white ring-1 ring-righello-pink/40"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="whitespace-nowrap">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <h1 className="text-3xl font-black tracking-normal text-white md:text-4xl">
+          Calendario e tracker contenuti
+        </h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">
+          Pianifica i post, gestisci il calendario editoriale e monitora i
+          target di contenuti per cliente.
+        </p>
+      </div>
+      <div className="inline-flex shrink-0 rounded-lg border border-white/10 bg-[#0b1424] p-1">
+        {views.map((item) => {
+          const Icon = item.icon;
+          const selected = value === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onChange(item.id)}
+              title={item.description}
+              className={`flex items-center gap-2 rounded-md px-3.5 py-2 text-sm font-semibold transition ${
+                selected
+                  ? "bg-righello-pink/20 text-white ring-1 ring-righello-pink/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="whitespace-nowrap">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -599,7 +599,7 @@ function ContentCoveragePanel({
     .slice(0, 5);
 
   return (
-    <section className="mb-4 flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111b2d] px-4 py-3 md:mb-6 lg:flex-row lg:items-center">
+    <section className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111b2d] px-4 py-3 lg:flex-row lg:items-center">
       <div className="flex shrink-0 items-center gap-2.5">
         <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-200">
           <FileSpreadsheet className="h-4 w-4" />
