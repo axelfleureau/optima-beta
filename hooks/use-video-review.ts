@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 
 export type VrMember = { id: string; name: string; email: string | null };
 export type VrClient = { id: string; name: string; company: string | null };
-export type VrProject = { id: string; name: string; clientId: string | null; status: string };
+export type VrProject = {
+  id: string;
+  name: string;
+  clientId: string | null;
+  status: string;
+};
 export type VrCollaborator = {
   id: string;
   memberId: string;
@@ -18,6 +23,7 @@ export function useVideoReviewMeta() {
   const [clients, setClients] = useState<VrClient[]>([]);
   const [members, setMembers] = useState<VrMember[]>([]);
   const [me, setMe] = useState<string | null>(null);
+  const [canSeeAll, setCanSeeAll] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,6 +35,7 @@ export function useVideoReviewMeta() {
         setClients(r.clients || []);
         setMembers(r.members || []);
         setMe(r.me || null);
+        setCanSeeAll(Boolean(r.canSeeAll));
       })
       .catch(() => {})
       .finally(() => alive && setLoading(false));
@@ -37,7 +44,7 @@ export function useVideoReviewMeta() {
     };
   }, []);
 
-  return { clients, members, me, loading };
+  return { clients, members, me, canSeeAll, loading };
 }
 
 /** Progetti del cliente (o tutti). Il progetto è per VIDEO, non un contenitore. */
@@ -81,7 +88,10 @@ export function useProjects(clientId?: string | null) {
 }
 
 /** Collaboratori di una tranche o di un singolo video (la delega). */
-export function useCollaborators(scope: "tranche" | "video", scopeId: string | null) {
+export function useCollaborators(
+  scope: "tranche" | "video",
+  scopeId: string | null,
+) {
   const [collaborators, setCollaborators] = useState<VrCollaborator[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -92,7 +102,9 @@ export function useCollaborators(scope: "tranche" | "video", scopeId: string | n
       return Promise.resolve();
     }
     setLoading(true);
-    return fetch(`/api/video-review/collaborators?scope=${scope}&scopeId=${encodeURIComponent(scopeId)}`)
+    return fetch(
+      `/api/video-review/collaborators?scope=${scope}&scopeId=${encodeURIComponent(scopeId)}`,
+    )
       .then((r) => r.json())
       .then((r) => r?.ok && setCollaborators(r.collaborators || []))
       .catch(() => {})
@@ -117,9 +129,12 @@ export function useCollaborators(scope: "tranche" | "video", scopeId: string | n
 
   const remove = useCallback(
     async (id: string) => {
-      await fetch(`/api/video-review/collaborators?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      }).catch(() => {});
+      await fetch(
+        `/api/video-review/collaborators?id=${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+        },
+      ).catch(() => {});
       return load();
     },
     [load],

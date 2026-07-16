@@ -9,10 +9,14 @@ export const dynamic = "force-dynamic";
 
 import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
+import { seesEverything } from "@/lib/video-review-acl";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 
 function memberName(row: any) {
-  const name = [row?.first_name, row?.last_name].filter(Boolean).join(" ").trim();
+  const name = [row?.first_name, row?.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
   return name || String(row?.email || "").split("@")[0] || "Membro";
 }
 
@@ -21,7 +25,11 @@ export async function GET() {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = await getCloudflareDb();
-  if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 });
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
 
   const principal = await ensureWorkspacePrincipal(db, user);
   const org = principal.organizationId;
@@ -39,12 +47,18 @@ export async function GET() {
   const seen = new Set<string>();
   const clients = (clientsRes?.results || [])
     .filter((c: any) => {
-      const key = String(c.name || "").trim().toLowerCase();
+      const key = String(c.name || "")
+        .trim()
+        .toLowerCase();
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     })
-    .map((c: any) => ({ id: String(c.id), name: c.name, company: c.company || null }));
+    .map((c: any) => ({
+      id: String(c.id),
+      name: c.name,
+      company: c.company || null,
+    }));
 
   const membersRes = await db
     .prepare(
@@ -62,5 +76,11 @@ export async function GET() {
     email: m.email || null,
   }));
 
-  return Response.json({ ok: true, clients, members, me: principal.memberId });
+  return Response.json({
+    ok: true,
+    clients,
+    members,
+    me: principal.memberId,
+    canSeeAll: seesEverything(principal),
+  });
 }
