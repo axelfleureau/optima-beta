@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  ChevronDown,
   ClipboardList,
   CopyPlus,
   Plus,
@@ -174,6 +175,7 @@ export function ContentTrackerView({
   const [statusFilter, setStatusFilter] = useState("all");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [carrying, setCarrying] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [openNew, setOpenNew] = useState(false);
   const [newRow, setNewRow] = useState<TrackerRow>(() =>
     defaultNewRow(currentMonth()),
@@ -393,21 +395,21 @@ export function ContentTrackerView({
             detail={`${summary.clients} clienti in ${formatMonthLabel(month)}`}
           />
           <MetricCard
-            label="Creati"
+            label="Fatti"
             value={summary.createdTotal}
             detail={`${summary.complete} clienti completi`}
             tone="emerald"
           />
           <MetricCard
-            label="Mancanti"
+            label="Mancano"
             value={summary.missingTotal}
-            detail={`${summary.toSchedule} clienti da programmare`}
+            detail="contenuti da produrre"
             tone="amber"
           />
           <MetricCard
-            label="Reel / Post mancanti"
-            value={`${summary.missingVideoReel}/${summary.missingPhotoPost}`}
-            detail="Video-reel e foto-post da coprire"
+            label="Da programmare"
+            value={summary.toSchedule}
+            detail={`su ${summary.clients} clienti`}
             tone="cyan"
           />
         </section>
@@ -478,78 +480,17 @@ export function ContentTrackerView({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1140px] border-collapse text-sm">
+              <table className="w-full min-w-[820px] border-collapse text-sm">
                 <thead>
-                  <tr className="bg-[#0e1830]">
-                    <th
-                      rowSpan={2}
-                      className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                    >
-                      Cliente
-                    </th>
-                    <th
-                      rowSpan={2}
-                      className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                    >
-                      Avanzamento
-                    </th>
-                    <th
-                      colSpan={3}
-                      className="border-l border-white/10 px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-sky-300"
-                    >
-                      Target
-                    </th>
-                    <th
-                      colSpan={3}
-                      className="border-l border-white/10 px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-emerald-300"
-                    >
-                      Creati
-                    </th>
-                    <th
-                      colSpan={2}
-                      className="border-l border-white/10 px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-amber-300"
-                    >
-                      Mancanti
-                    </th>
-                    <th
-                      rowSpan={2}
-                      className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                    >
-                      Stato
-                    </th>
-                    <th
-                      rowSpan={2}
-                      className="border-l border-white/10 px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                    >
-                      Note
-                    </th>
-                    <th rowSpan={2} className="px-2 py-2.5" />
-                  </tr>
-                  <tr className="bg-[#0e1830] text-slate-500">
-                    <th className="border-l border-white/10 px-1 pb-2 text-center text-[9px] font-semibold uppercase">
-                      Reel
-                    </th>
-                    <th className="px-1 pb-2 text-center text-[9px] font-semibold uppercase">
-                      Post
-                    </th>
-                    <th className="px-1 pb-2 text-center text-[9px] font-semibold uppercase">
-                      Gen
-                    </th>
-                    <th className="border-l border-white/10 px-1 pb-2 text-center text-[9px] font-semibold uppercase">
-                      Reel
-                    </th>
-                    <th className="px-1 pb-2 text-center text-[9px] font-semibold uppercase">
-                      Post
-                    </th>
-                    <th className="px-1 pb-2 text-center text-[9px] font-semibold uppercase">
-                      Gen
-                    </th>
-                    <th className="border-l border-white/10 px-1 pb-2 text-center text-[9px] font-semibold uppercase">
-                      Reel
-                    </th>
-                    <th className="px-1 pb-2 text-center text-[9px] font-semibold uppercase">
-                      Tot
-                    </th>
+                  <tr className="bg-[#0e1830] text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <th className="px-3 py-2.5 text-left">Cliente</th>
+                    <th className="px-3 py-2.5 text-left">Avanzamento</th>
+                    <th className="px-3 py-2.5 text-center">Target</th>
+                    <th className="px-3 py-2.5 text-center">Fatti</th>
+                    <th className="px-3 py-2.5 text-center">Mancano</th>
+                    <th className="px-3 py-2.5 text-center">Stato</th>
+                    <th className="px-3 py-2.5 text-left">Note</th>
+                    <th className="px-2 py-2.5" />
                   </tr>
                 </thead>
                 <tbody>
@@ -557,7 +498,13 @@ export function ContentTrackerView({
                     <TrackerTableRow
                       key={row.id}
                       row={row}
+                      expanded={expandedId === row.id}
                       saving={savingId === row.id}
+                      onToggle={() =>
+                        setExpandedId((current) =>
+                          current === row.id ? null : row.id,
+                        )
+                      }
                       onChange={(patch) => updateRow(row.id, patch)}
                       onSave={() => saveRow(row)}
                       onDelete={() => deleteRow(row)}
@@ -695,11 +642,9 @@ function NumberGrid({
     ["targetVideoReel", "Target video/reel"],
     ["targetPhotoPost", "Target foto/post"],
     ["targetGeneric", "Target generico"],
-    ["createdVideoReel", "Video/reel creati"],
-    ["createdPhotoPost", "Foto/post creati"],
-    ["createdGeneric", "Generico creati"],
-    ["plannedMissingReel", "Reel da creare"],
-    ["plannedMissingPost", "Post da creare"],
+    ["createdVideoReel", "Video/reel fatti"],
+    ["createdPhotoPost", "Foto/post fatti"],
+    ["createdGeneric", "Generico fatti"],
   ];
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -726,63 +671,60 @@ function NumberGrid({
   );
 }
 
-function NumCell({
+/** Riepilogo tipi solo quando serve (più di un tipo o tipo diverso da generico). */
+function typeSummary(row: TrackerRow): string {
+  const parts: string[] = [];
+  if (row.targetVideoReel) parts.push(`${row.targetVideoReel} reel`);
+  if (row.targetPhotoPost) parts.push(`${row.targetPhotoPost} foto`);
+  if (row.targetGeneric) parts.push(`${row.targetGeneric} generici`);
+  if (parts.length <= 1 && row.targetGeneric && !row.targetVideoReel && !row.targetPhotoPost) {
+    return "";
+  }
+  return parts.join(" · ");
+}
+
+function LabeledNum({
+  label,
   value,
   hot = false,
-  groupStart = false,
   onChange,
 }: {
+  label: string;
   value: number;
   hot?: boolean;
-  groupStart?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
-    <td
-      className={`px-1 py-1.5 text-center ${groupStart ? "border-l border-white/10" : ""}`}
-    >
-      <input
+    <label className="flex items-center justify-between gap-3">
+      <span className="text-sm text-slate-300">{label}</span>
+      <Input
         type="number"
         min={0}
         value={value}
         onChange={(event) => onChange(toNumber(event.target.value))}
-        className={`h-8 w-12 rounded-md border text-center text-sm tabular-nums text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-400/50 ${
+        className={`h-9 w-24 text-right text-slate-100 ${
           hot
             ? "border-emerald-400/40 bg-emerald-500/[0.08]"
-            : "border-white/10 bg-[#0b1424]"
+            : "border-white/10 bg-[#111b2d]"
         }`}
       />
-    </td>
-  );
-}
-
-function MissCell({
-  value,
-  groupStart = false,
-}: {
-  value: number;
-  groupStart?: boolean;
-}) {
-  return (
-    <td
-      className={`px-1 py-1.5 text-center tabular-nums ${groupStart ? "border-l border-white/10" : ""}`}
-    >
-      <span className={value > 0 ? "font-bold text-amber-300" : "text-slate-600"}>
-        {value}
-      </span>
-    </td>
+    </label>
   );
 }
 
 function TrackerTableRow({
   row,
+  expanded,
   saving,
+  onToggle,
   onChange,
   onSave,
   onDelete,
 }: {
   row: TrackerRow;
+  expanded: boolean;
   saving: boolean;
+  onToggle: () => void;
   onChange: (patch: Partial<TrackerRow>) => void;
   onSave: () => void;
   onDelete: () => void;
@@ -792,108 +734,158 @@ function TrackerTableRow({
       ? Math.min(100, Math.round((row.createdTotal / row.targetTotal) * 100))
       : 100;
   const complete = row.status === "complete";
+  const mix = typeSummary(row);
   return (
-    <tr className="border-t border-white/5 hover:bg-white/[0.02]">
-      <td className="px-3 py-2">
-        <div className="flex items-center gap-2.5">
-          <span
-            className={`h-2 w-2 shrink-0 rounded-full ${complete ? "bg-emerald-400" : "bg-amber-400"}`}
-          />
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-slate-100">
-              {row.clientName}
-            </p>
-            {row.clientCompany && (
-              <p className="truncate text-[11px] text-slate-500">
-                {row.clientCompany}
+    <>
+      <tr
+        className={`cursor-pointer border-t border-white/5 ${expanded ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
+        onClick={onToggle}
+      >
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${complete ? "bg-emerald-400" : "bg-amber-400"}`}
+            />
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-slate-100">
+                {row.clientName}
               </p>
-            )}
+              {(mix || row.clientCompany) && (
+                <p className="truncate text-[11px] text-slate-500">
+                  {mix || row.clientCompany}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-      </td>
-      <td className="px-3 py-2">
-        <p className="text-[11px] tabular-nums text-slate-400">
-          {row.createdTotal} / {row.targetTotal}
-        </p>
-        <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
-          <div
-            className={`h-full rounded-full ${complete ? "bg-emerald-400" : "bg-amber-400"}`}
-            style={{ width: `${progress}%` }}
+        </td>
+        <td className="px-3 py-2.5">
+          <p className="text-[11px] tabular-nums text-slate-400">
+            {row.createdTotal} / {row.targetTotal}
+          </p>
+          <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
+            <div
+              className={`h-full rounded-full ${complete ? "bg-emerald-400" : "bg-amber-400"}`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </td>
+        <td className="px-3 py-2.5 text-center text-base font-bold tabular-nums text-slate-200">
+          {row.targetTotal}
+        </td>
+        <td className="px-3 py-2.5 text-center text-base font-bold tabular-nums text-emerald-300">
+          {row.createdTotal}
+        </td>
+        <td className="px-3 py-2.5 text-center text-base font-bold tabular-nums">
+          <span className={row.missingTotal > 0 ? "text-amber-300" : "text-slate-600"}>
+            {row.missingTotal}
+          </span>
+        </td>
+        <td className="px-3 py-2.5 text-center">
+          <span
+            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+              complete
+                ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+                : "border-amber-400/30 bg-amber-500/10 text-amber-300"
+            }`}
+          >
+            {complete ? "OK" : "Da fare"}
+          </span>
+        </td>
+        <td className="px-3 py-2.5">
+          <span className="line-clamp-1 max-w-[220px] text-xs text-slate-500">
+            {row.notes || "—"}
+          </span>
+        </td>
+        <td className="px-2 py-2.5 text-right">
+          <ChevronDown
+            className={`inline h-4 w-4 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}
           />
-        </div>
-      </td>
-      <NumCell
-        groupStart
-        value={row.targetVideoReel}
-        onChange={(v) => onChange({ targetVideoReel: v })}
-      />
-      <NumCell
-        value={row.targetPhotoPost}
-        onChange={(v) => onChange({ targetPhotoPost: v })}
-      />
-      <NumCell
-        value={row.targetGeneric}
-        onChange={(v) => onChange({ targetGeneric: v })}
-      />
-      <NumCell
-        groupStart
-        hot
-        value={row.createdVideoReel}
-        onChange={(v) => onChange({ createdVideoReel: v })}
-      />
-      <NumCell
-        hot
-        value={row.createdPhotoPost}
-        onChange={(v) => onChange({ createdPhotoPost: v })}
-      />
-      <NumCell
-        hot
-        value={row.createdGeneric}
-        onChange={(v) => onChange({ createdGeneric: v })}
-      />
-      <MissCell groupStart value={row.missingVideoReel} />
-      <MissCell value={row.missingTotal} />
-      <td className="px-2 py-2 text-center">
-        <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
-            complete
-              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
-              : "border-amber-400/30 bg-amber-500/10 text-amber-300"
-          }`}
-        >
-          {complete ? "OK" : "Da fare"}
-        </span>
-      </td>
-      <td className="border-l border-white/10 px-2 py-2">
-        <input
-          value={row.notes}
-          onChange={(event) => onChange({ notes: event.target.value })}
-          placeholder="Nota..."
-          className="w-full min-w-[150px] bg-transparent text-xs text-slate-300 placeholder:text-slate-600 focus:outline-none"
-        />
-      </td>
-      <td className="px-2 py-2">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving}
-            title="Salva"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={saving}
-            title="Elimina"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-white/5 text-slate-400 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
+        </td>
+      </tr>
+
+      {expanded && (
+        <tr className="bg-[#0b1424]">
+          <td colSpan={8} className="px-4 py-4">
+            <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-sky-300">
+                  Target del mese
+                </p>
+                <LabeledNum
+                  label="Video / Reel"
+                  value={row.targetVideoReel}
+                  onChange={(v) => onChange({ targetVideoReel: v })}
+                />
+                <LabeledNum
+                  label="Foto / Post"
+                  value={row.targetPhotoPost}
+                  onChange={(v) => onChange({ targetPhotoPost: v })}
+                />
+                <LabeledNum
+                  label="Generico"
+                  value={row.targetGeneric}
+                  onChange={(v) => onChange({ targetGeneric: v })}
+                />
+              </div>
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                  Contenuti fatti
+                </p>
+                <LabeledNum
+                  label="Video / Reel"
+                  value={row.createdVideoReel}
+                  hot
+                  onChange={(v) => onChange({ createdVideoReel: v })}
+                />
+                <LabeledNum
+                  label="Foto / Post"
+                  value={row.createdPhotoPost}
+                  hot
+                  onChange={(v) => onChange({ createdPhotoPost: v })}
+                />
+                <LabeledNum
+                  label="Generico"
+                  value={row.createdGeneric}
+                  hot
+                  onChange={(v) => onChange({ createdGeneric: v })}
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex-1 space-y-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Note
+                </span>
+                <Textarea
+                  value={row.notes}
+                  onChange={(event) => onChange({ notes: event.target.value })}
+                  placeholder="Es. range dichiarato 8-10, note operative..."
+                  className="min-h-[64px] border-white/10 bg-[#111b2d] text-slate-100"
+                />
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  onClick={onSave}
+                  disabled={saving}
+                  className="bg-righello-pink text-white hover:bg-righello-pink/90"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving ? "Salvo..." : "Salva"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={onDelete}
+                  disabled={saving}
+                  className="border-white/10 bg-white/5 text-slate-300 hover:border-red-400/40 hover:text-red-200"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
