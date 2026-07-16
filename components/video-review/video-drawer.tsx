@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Upload, Play, FileDown } from "lucide-react";
+import { Download, Upload, Play, FileDown, Scissors, Crop, Loader2 } from "lucide-react";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
 import { ProjectPicker } from "@/components/video-review/project-picker";
@@ -58,6 +58,12 @@ export function VideoDrawer({
   const [progress, setProgress] = useState<number | null>(null);
   const [upErr, setUpErr] = useState<string | null>(null);
   const [plannedDate, setPlannedDate] = useState(v.plannedPublishDate || "");
+  // Editing
+  const [trimMode, setTrimMode] = useState(false);
+  const [trimIn, setTrimIn] = useState<number | null>(null);
+  const [trimOut, setTrimOut] = useState<number | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editErr, setEditErr] = useState<string | null>(null);
   const st = statusMeta(v.status);
   const fps = v.fps || 25;
 
@@ -134,6 +140,43 @@ export function VideoDrawer({
     }
   }
 
+  /** Editing sul nodo (taglia/9:16) → crea una nuova versione. */
+  async function runEdit(op: "trim" | "reframe", params: Record<string, unknown>, tag: string) {
+    setEditErr(null);
+    setEditing(tag);
+    try {
+      const prep = await fetch(`/api/video-review/videos/${v.id}/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op, params }),
+      }).then((r) => r.json());
+      if (!prep?.ok) throw new Error(prep?.error || "preparazione fallita");
+
+      const meta = await fetch(prep.editUrl, { method: "POST" }).then((r) => r.json());
+      if (!meta?.ok) throw new Error(meta?.error || "elaborazione fallita");
+
+      await fetch(`/api/video-review/videos/${prep.videoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          finalize: true,
+          fps: meta.fps,
+          durationSeconds: meta.durationSeconds,
+          width: meta.width,
+          height: meta.height,
+        }),
+      });
+      setEditing(null);
+      setTrimMode(false);
+      setTrimIn(null);
+      setTrimOut(null);
+      onChange();
+    } catch (e: any) {
+      setEditing(null);
+      setEditErr(e?.message || "errore");
+    }
+  }
+
   const doneCount = markers.filter((m) => m.done).length;
 
   return (
@@ -191,6 +234,59 @@ export function VideoDrawer({
         </div>
       )}
       {upErr && <p className="text-sm text-red-400">{upErr}</p>}
+
+      {/* Editing rapido sul nodo (senza DaVinci) → crea una nuova versione */}
+      <div className={`${insetPanelClass} space-y-3 p-3`}>
+        <p className="text-sm font-medium text-slate-300">Modifica rapida</p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/10 bg-white/5"
+            disabled={!!editing}
+            onClick={() => runEdit("reframe", { aspect: "9:16" }, "9x16")}
+          >
+            {editing === "9x16" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Crop className="mr-2 h-4 w-4" />}
+            Ritaglia 9:16
+          </Button>
+          <Button
+            size="sm"
+            variant={trimMode ? "default" : "outline"}
+            className={trimMode ? primaryButtonClass : "border-white/10 bg-white/5"}
+            disabled={!!editing}
+            onClick={() => setTrimMode((x) => !x)}
+          >
+            <Scissors className="mr-2 h-4 w-4" /> Taglia
+          </Button>
+        </div>
+
+        {trimMode && (
+          <div className="space-y-2 rounded-md border border-white/10 bg-black/20 p-2.5">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Button size="sm" variant="ghost" className="h-7 text-slate-300" onClick={() => setTrimIn(videoRef.current?.currentTime ?? 0)}>
+                Inizio = {trimIn === null ? "qui" : timecode(trimIn, fps)}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-slate-300" onClick={() => setTrimOut(videoRef.current?.currentTime ?? 0)}>
+                Fine = {trimOut === null ? "qui" : timecode(trimOut, fps)}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Metti in pausa sul punto, poi imposta inizio e fine.
+            </p>
+            <Button
+              size="sm"
+              className={primaryButtonClass}
+              disabled={!!editing || trimIn === null || trimOut === null || (trimOut ?? 0) <= (trimIn ?? 0)}
+              onClick={() => runEdit("trim", { start: trimIn, end: trimOut }, "trim")}
+            >
+              {editing === "trim" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Scissors className="mr-2 h-4 w-4" />}
+              Applica taglio
+            </Button>
+          </div>
+        )}
+        {editErr && <p className="text-sm text-red-400">{editErr}</p>}
+        <p className="text-xs text-slate-500">Ogni modifica diventa una nuova versione, che il cliente rivede.</p>
+      </div>
 
       {/* Note di modifica: clic = vai al punto · spunta = fatto */}
       {markers.length > 0 && (

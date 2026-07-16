@@ -30,10 +30,46 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const body = await request.json().catch(() => ({}) as any);
   const done = !!body?.done;
+  const now = new Date().toISOString();
+
   await db
     .prepare(`UPDATE vr_markers SET done = ?, done_at = ?, done_by_member_id = ? WHERE id = ?`)
-    .bind(done ? 1 : 0, done ? new Date().toISOString() : null, done ? principal.memberId : null, id)
+    .bind(done ? 1 : 0, done ? now : null, done ? principal.memberId : null, id)
     .run();
+
+  // Sincronizza il sub-item corrispondente nel TASK del Workspace (stesso id).
+  const v: any = await db
+    .prepare(`SELECT task_id FROM vr_videos WHERE id = ? LIMIT 1`)
+    .bind(String(m.video_id))
+    .first();
+  if (v?.task_id) {
+    const task: any = await db
+      .prepare(`SELECT id, sub_items_json FROM tasks WHERE id = ? LIMIT 1`)
+      .bind(String(v.task_id))
+      .first();
+    if (task) {
+      let items: any[] = [];
+      try {
+        items = JSON.parse(task.sub_items_json || "[]");
+      } catch {
+        items = [];
+      }
+      let changed = false;
+      items = items.map((it) => {
+        if (String(it.id) === id && it.completed !== done) {
+          changed = true;
+          return { ...it, completed: done };
+        }
+        return it;
+      });
+      if (changed) {
+        await db
+          .prepare(`UPDATE tasks SET sub_items_json = ?, updated_at = ? WHERE id = ?`)
+          .bind(JSON.stringify(items), now, String(task.id))
+          .run();
+      }
+    }
+  }
 
   return Response.json({ ok: true, done });
 }

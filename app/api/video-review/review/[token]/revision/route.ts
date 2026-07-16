@@ -57,22 +57,49 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const valid = markers
     .map((m) => ({ t: Number(m.tSeconds), note: String(m.note || "").trim() }))
     .filter((m) => Number.isFinite(m.t) && m.t >= 0 && m.note);
-  for (const m of valid) {
+
+  // Ogni marker è anche un sub-item della checklist del task: STESSO id, così
+  // spuntare la nota nel video ↔ spuntare il sub-item nel Workspace.
+  const subItems = valid.map((m) => {
+    const mid = createId("vrmk");
+    return { markerId: mid, item: { id: mid, title: `[${timecode(m.t, fps)}] ${m.note}`, completed: false, createdAt: now } };
+  });
+  for (let i = 0; i < valid.length; i++) {
     await db
       .prepare(
         `INSERT INTO vr_markers (id, video_id, t_seconds, note, color, author, created_at)
          VALUES (?, ?, ?, ?, 'Blue', 'client', ?)`,
       )
-      .bind(createId("vrmk"), videoId, m.t, m.note, now)
+      .bind(subItems[i].markerId, videoId, valid[i].t, valid[i].note, now)
       .run();
   }
 
-  // Task NATIVO per il videomaker assegnato alla tranche.
+  // Videomaker = collaboratore del VIDEO (delega), poi della TRANCHE, poi legacy.
+  const vmRow: any =
+    (await db
+      .prepare(
+        `SELECT member_id FROM vr_collaborators
+          WHERE organization_id = ? AND scope = 'video' AND scope_id = ? AND role = 'videomaker'
+          ORDER BY created_at ASC LIMIT 1`,
+      )
+      .bind(String(t.organization_id), videoId)
+      .first()) ||
+    (await db
+      .prepare(
+        `SELECT member_id FROM vr_collaborators
+          WHERE organization_id = ? AND scope = 'tranche' AND scope_id = ? AND role = 'videomaker'
+          ORDER BY created_at ASC LIMIT 1`,
+      )
+      .bind(String(t.organization_id), String(t.id))
+      .first());
+  const videomakerId = vmRow ? String(vmRow.member_id) : t.videomaker_member_id ? String(t.videomaker_member_id) : null;
+
+  // Task NATIVO per il videomaker.
   let taskId: string | null = null;
-  if (t.videomaker_member_id) {
+  if (videomakerId) {
     const vm: any = await db
       .prepare(`SELECT id, first_name, last_name, email FROM members WHERE id = ? LIMIT 1`)
-      .bind(String(t.videomaker_member_id))
+      .bind(videomakerId)
       .first();
     const assigneeName =
       [vm?.first_name, vm?.last_name].filter(Boolean).join(" ").trim() ||
@@ -95,23 +122,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         `INSERT INTO tasks
            (id, organization_id, project_id, assignee_member_id, title, description,
             status, priority, column_id, client_id, client_name, work_mode, type,
-            rich_description, assignee_name, created_by_member_id,
+            rich_description, assignee_name, created_by_member_id, sub_items_json,
             assignment_status, assignment_requested_at, assignment_responded_at, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, 'to-do', 'high', 'to-do', ?, ?, 'office', 'revision',
-                 ?, ?, ?, 'accepted', ?, ?, ?, ?)`,
+                 ?, ?, ?, ?, 'accepted', ?, ?, ?, ?)`,
       )
       .bind(
         taskId,
         String(t.organization_id),
         t.project_id ? String(t.project_id) : null,
-        String(t.videomaker_member_id),
+        videomakerId,
         `Revisione video: ${v.title}`,
         description,
         t.client_id ? String(t.client_id) : null,
         t.client_name || null,
         description,
         assigneeName,
-        String(t.videomaker_member_id),
+        videomakerId,
+        JSON.stringify(subItems.map((s) => s.item)),
         now,
         now,
         now,
@@ -121,7 +149,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     await createNotification(db, {
       organizationId: String(t.organization_id),
-      memberId: String(t.videomaker_member_id),
+      memberId: videomakerId,
       actorMemberId: null,
       type: "task_assigned",
       title: "Nuova revisione video",
