@@ -289,7 +289,12 @@ export default function ReviewRoomPage({ params }: { params: Promise<{ token: st
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-[#d6487e] to-[#06b6d4]" />
           <span className="font-bold">Review video</span>
-          <span className="ml-auto text-xs text-neutral-500">BY RIGHELLO</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/righello-logo-white.png"
+            alt="Righello"
+            className="ml-auto h-5 w-auto opacity-90"
+          />
         </div>
       </div>
 
