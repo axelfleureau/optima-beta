@@ -15,7 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Search, X } from "lucide-react";
 import { useCollaborators, useVideoReviewMeta } from "@/hooks/use-video-review";
-import { COLLAB_ROLE_META, initials, plainInputClass } from "@/lib/video-review-ui";
+import {
+  COLLAB_ROLE_META,
+  initials,
+  plainInputClass,
+} from "@/lib/video-review-ui";
 
 const ROLES = ["videomaker", "smm", "revisore", "osservatore"] as const;
 
@@ -37,14 +41,17 @@ export function CollaboratorsField({
   compact?: boolean;
 }) {
   const { collaborators, add, remove } = useCollaborators(scope, scopeId);
-  const { members } = useVideoReviewMeta();
+  const { members, me } = useVideoReviewMeta();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [role, setRole] = useState<string>("videomaker");
   const [busy, setBusy] = useState<string | null>(null);
 
   const alreadyIds = useMemo(
-    () => new Set(collaborators.filter((c) => c.role === role).map((c) => c.memberId)),
+    () =>
+      new Set(
+        collaborators.filter((c) => c.role === role).map((c) => c.memberId),
+      ),
     [collaborators, role],
   );
 
@@ -65,7 +72,11 @@ export function CollaboratorsField({
         <span className="text-sm font-medium text-slate-300">{label}</span>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" variant="outline" className="h-7 border-white/10 bg-white/5 text-xs hover:border-righello-pink/40">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 border-white/10 bg-white/5 text-xs hover:border-righello-pink/40"
+            >
               <Plus className="mr-1 h-3 w-3" /> Aggiungi
             </Button>
           </DialogTrigger>
@@ -110,7 +121,9 @@ export function CollaboratorsField({
 
               <div className="max-h-64 space-y-1 overflow-y-auto">
                 {filtered.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-slate-500">Nessuna persona trovata.</p>
+                  <p className="py-6 text-center text-sm text-slate-500">
+                    Nessuna persona trovata.
+                  </p>
                 ) : (
                   filtered.map((m) => (
                     <button
@@ -131,8 +144,14 @@ export function CollaboratorsField({
                         </AvatarFallback>
                       </Avatar>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm text-slate-200">{m.name}</span>
-                        {m.email && <span className="block truncate text-xs text-slate-500">{m.email}</span>}
+                        <span className="block truncate text-sm text-slate-200">
+                          {m.name}
+                        </span>
+                        {m.email && (
+                          <span className="block truncate text-xs text-slate-500">
+                            {m.email}
+                          </span>
+                        )}
                       </span>
                       <Plus className="h-4 w-4 text-slate-500" />
                     </button>
@@ -146,12 +165,15 @@ export function CollaboratorsField({
 
       {collaborators.length === 0 ? (
         <p className="text-xs text-slate-500">
-          Nessuno assegnato{scope === "tranche" ? " a questa consegna" : " a questo video"}.
+          Nessuno assegnato
+          {scope === "tranche" ? " a questa consegna" : " a questo video"}.
         </p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {collaborators.map((c) => {
-            const meta = COLLAB_ROLE_META[c.role] || COLLAB_ROLE_META.osservatore;
+            const meta =
+              COLLAB_ROLE_META[c.role] || COLLAB_ROLE_META.osservatore;
+            const isMe = c.memberId === me;
             return (
               <Badge
                 key={c.id}
@@ -160,18 +182,26 @@ export function CollaboratorsField({
                 title={`${c.name} — ${meta.label}`}
               >
                 <Avatar className="h-5 w-5">
-                  <AvatarFallback className="bg-black/30 text-[9px]">{initials(c.name)}</AvatarFallback>
+                  <AvatarFallback className="bg-black/30 text-[9px]">
+                    {initials(c.name)}
+                  </AvatarFallback>
                 </Avatar>
-                <span className="text-xs">{compact ? initials(c.name) : c.name}</span>
-                {!compact && <span className="text-[10px] opacity-70">· {meta.label}</span>}
-                <button
-                  type="button"
-                  onClick={() => remove(c.id)}
-                  className="ml-0.5 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
-                  aria-label={`Rimuovi ${c.name}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                <span className="text-xs">
+                  {compact ? initials(c.name) : c.name}
+                </span>
+                {!compact && (
+                  <span className="text-[10px] opacity-70">· {meta.label}</span>
+                )}
+                {!isMe && (
+                  <button
+                    type="button"
+                    onClick={() => remove(c.id)}
+                    className="ml-0.5 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
+                    aria-label={`Rimuovi ${c.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
               </Badge>
             );
           })}

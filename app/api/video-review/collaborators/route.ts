@@ -13,19 +13,36 @@ import type { NextRequest } from "next/server";
 import { getCloudflareDb, createId } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
-import { canAccessTranche, canAccessVideo, isCollabRole } from "@/lib/video-review-acl";
+import {
+  canAccessTranche,
+  canAccessVideo,
+  isCollabRole,
+  seesEverything,
+} from "@/lib/video-review-acl";
 
 async function ctx(request: NextRequest) {
   const db = await getCloudflareDb();
-  if (!db) return { err: Response.json({ error: "D1 database binding missing" }, { status: 500 }) };
+  if (!db)
+    return {
+      err: Response.json(
+        { error: "D1 database binding missing" },
+        { status: 500 },
+      ),
+    };
   const user = await requireClerkUser();
-  if (!user) return { err: Response.json({ error: "Unauthorized" }, { status: 401 }) };
+  if (!user)
+    return { err: Response.json({ error: "Unauthorized" }, { status: 401 }) };
   const principal = await ensureWorkspacePrincipal(db, user);
   return { db, principal };
 }
 
 /** Lo scope esiste ed è accessibile a chi chiede? */
-async function canTouch(db: any, principal: any, scope: string, scopeId: string) {
+async function canTouch(
+  db: any,
+  principal: any,
+  scope: string,
+  scopeId: string,
+) {
   if (scope === "tranche") return canAccessTranche(db, principal, scopeId);
   if (scope === "video") return canAccessVideo(db, principal, scopeId);
   return false;
@@ -86,13 +103,16 @@ export async function POST(request: NextRequest) {
   if (!["tranche", "video"].includes(scope) || !scopeId || !memberId) {
     return Response.json({ error: "Dati mancanti" }, { status: 400 });
   }
-  if (!isCollabRole(role)) return Response.json({ error: "Ruolo non valido" }, { status: 400 });
+  if (!isCollabRole(role))
+    return Response.json({ error: "Ruolo non valido" }, { status: 400 });
   if (!(await canTouch(db, principal, scope, scopeId))) {
     return Response.json({ error: "Non accessibile" }, { status: 404 });
   }
 
   const m = await db
-    .prepare(`SELECT id FROM members WHERE id = ? AND organization_id = ? LIMIT 1`)
+    .prepare(
+      `SELECT id FROM members WHERE id = ? AND organization_id = ? LIMIT 1`,
+    )
     .bind(String(memberId), principal.organizationId)
     .first();
   if (!m) return Response.json({ error: "Membro non valido" }, { status: 400 });
@@ -103,7 +123,15 @@ export async function POST(request: NextRequest) {
          (id, organization_id, scope, scope_id, member_id, role, added_by_member_id)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(createId("vrcol"), principal.organizationId, scope, String(scopeId), String(memberId), role, principal.memberId)
+    .bind(
+      createId("vrcol"),
+      principal.organizationId,
+      scope,
+      String(scopeId),
+      String(memberId),
+      role,
+      principal.memberId,
+    )
     .run();
 
   return Response.json({ ok: true });
@@ -118,13 +146,33 @@ export async function DELETE(request: NextRequest) {
   if (!id) return Response.json({ error: "id mancante" }, { status: 400 });
 
   const row: any = await db
-    .prepare(`SELECT scope, scope_id FROM vr_collaborators WHERE id = ? AND organization_id = ? LIMIT 1`)
+    .prepare(
+      `SELECT scope, scope_id, member_id
+         FROM vr_collaborators
+        WHERE id = ? AND organization_id = ?
+        LIMIT 1`,
+    )
     .bind(id, principal.organizationId)
     .first();
   if (!row) return Response.json({ ok: true });
 
-  if (!(await canTouch(db, principal, String(row.scope), String(row.scope_id)))) {
+  if (
+    !(await canTouch(db, principal, String(row.scope), String(row.scope_id)))
+  ) {
     return Response.json({ error: "Non accessibile" }, { status: 404 });
+  }
+
+  if (
+    String(row.member_id) === String(principal.memberId) &&
+    !seesEverything(principal)
+  ) {
+    return Response.json(
+      {
+        error:
+          "Non puoi rimuovere la tua assegnazione. Chiedi a un responsabile.",
+      },
+      { status: 403 },
+    );
   }
 
   await db.prepare(`DELETE FROM vr_collaborators WHERE id = ?`).bind(id).run();
