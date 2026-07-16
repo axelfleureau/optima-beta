@@ -3,9 +3,8 @@
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { addWeeks, eachDayOfInterval, endOfWeek, format, isSameDay, isToday, startOfWeek, subWeeks } from "date-fns"
+import { addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subWeeks } from "date-fns"
 import { it } from "date-fns/locale"
 import { ChevronLeft, ChevronRight, CalendarDays, List } from "lucide-react"
 import type { EditorialPost } from "@/lib/types"
@@ -34,6 +33,19 @@ function getPostDate(post: EditorialPost): Date {
 function getPlatformLabel(platform: EditorialPost["platform"] | string[] | undefined) {
   if (Array.isArray(platform)) return platform.join(", ")
   return platform || "-"
+}
+
+const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+
+function platformAccent(post: EditorialPost): string {
+  const raw = Array.isArray(post.platform) ? post.platform[0] : post.platform
+  const p = String(raw || "").toLowerCase()
+  if (p.includes("insta")) return "#e84a8a"
+  if (p.includes("face")) return "#3b82f6"
+  if (p.includes("you")) return "#ef4444"
+  if (p.includes("linkedin")) return "#0ea5e9"
+  if (p.includes("tik")) return "#a78bfa"
+  return "#64748b"
 }
 
 function PostSummaryCard({ post, onEditPost }: { post: EditorialPost; onEditPost: (post: EditorialPost) => void }) {
@@ -81,13 +93,18 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
     return posts.filter((post) => isSameDay(getPostDate(post), date))
   }
 
-  const daysWithPosts = useMemo(() => posts.map((post) => getPostDate(post)), [posts])
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
   const daysInSelectedWeek = eachDayOfInterval({
     start: weekStart,
     end: endOfWeek(selectedDate, { weekStartsOn: 1 }),
   })
   const postsOnSelectedDay = getPostsForDate(selectedDate)
+
+  const monthDays = useMemo(() => {
+    const gridStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 })
+    const gridEnd = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 })
+    return eachDayOfInterval({ start: gridStart, end: gridEnd })
+  }, [currentMonth])
 
   const handleSelectDate = (date: Date | undefined) => {
     if (!date) return
@@ -97,15 +114,6 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
   const handleMobileDateChange = (date: Date) => {
     setSelectedDate(date)
     onMonthChange(date)
-  }
-
-  const modifiers = {
-    hasPosts: daysWithPosts,
-  }
-
-  const modifiersClassNames = {
-    hasPosts:
-      "relative before:absolute before:bottom-1 before:left-1/2 before:h-1 before:w-1 before:-translate-x-1/2 before:rounded-full before:bg-pink-500 font-semibold text-pink-600 dark:text-pink-400",
   }
 
   return (
@@ -203,10 +211,10 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
       </div>
 
       <div className="hidden space-y-4 md:block">
-        <Card className="overflow-hidden rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
-          <CardHeader className="border-b border-slate-200/50 bg-gradient-to-r from-slate-50 to-slate-100 p-6 dark:border-slate-700/50 dark:from-slate-800 dark:to-slate-700">
+        <Card className="overflow-hidden rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#0d1626]">
+          <CardHeader className="border-b border-slate-200/50 bg-slate-50 p-4 dark:border-white/10 dark:bg-[#111b2d]">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">
+              <CardTitle className="text-xl font-bold capitalize text-slate-900 dark:text-slate-100">
                 {format(currentMonth, "MMMM yyyy", { locale: it })}
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -214,7 +222,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                   variant="outline"
                   size="sm"
                   onClick={() => onMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-                  className="rounded-[8px] border-slate-200 dark:border-slate-700"
+                  className="rounded-[8px] border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
                 >
                   Precedente
                 </Button>
@@ -226,7 +234,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                     setSelectedDate(today)
                     onMonthChange(today)
                   }}
-                  className="rounded-[8px] border-slate-200 dark:border-slate-700"
+                  className="rounded-[8px] border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
                 >
                   Oggi
                 </Button>
@@ -234,25 +242,72 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                   variant="outline"
                   size="sm"
                   onClick={() => onMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
-                  className="rounded-[8px] border-slate-200 dark:border-slate-700"
+                  className="rounded-[8px] border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
                 >
                   Successivo
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-6">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={handleSelectDate}
-              month={currentMonth}
-              onMonthChange={onMonthChange}
-              locale={it}
-              modifiers={modifiers}
-              modifiersClassNames={modifiersClassNames}
-              className="w-full"
-            />
+          <CardContent className="p-0">
+            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-[#111b2d]">
+              {WEEKDAY_LABELS.map((weekday) => (
+                <div
+                  key={weekday}
+                  className="py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+                >
+                  {weekday}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {monthDays.map((day) => {
+                const dayPosts = getPostsForDate(day)
+                const outside = !isSameMonth(day, currentMonth)
+                const today = isToday(day)
+                return (
+                  <div
+                    key={day.toISOString()}
+                    onClick={() => handleSelectDate(day)}
+                    className="min-h-[104px] cursor-pointer border-b border-r border-slate-200 p-1.5 align-top last:border-r-0 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/[0.02] [&:nth-child(7n)]:border-r-0"
+                  >
+                    <span
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                        today
+                          ? "bg-righello-pink text-white"
+                          : outside
+                            ? "text-slate-300 dark:text-slate-600"
+                            : "text-slate-700 dark:text-slate-300"
+                      }`}
+                    >
+                      {format(day, "d")}
+                    </span>
+                    <div className="mt-1 space-y-1">
+                      {dayPosts.slice(0, 3).map((post) => (
+                        <button
+                          key={post.id}
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            onEditPost(post)
+                          }}
+                          style={{ borderLeftColor: platformAccent(post) }}
+                          title={post.name || post.title}
+                          className="block w-full truncate rounded-[6px] border-l-2 bg-slate-100 px-1.5 py-1 text-left text-[11px] font-medium text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+                        >
+                          {post.name || post.title}
+                        </button>
+                      ))}
+                      {dayPosts.length > 3 && (
+                        <div className="px-1 text-[10px] text-slate-400">
+                          +{dayPosts.length - 3} altri
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </CardContent>
         </Card>
 

@@ -32,13 +32,7 @@ import { ViewSwitcher } from "../../../components/calendar/view-switcher";
 import { CalendarWeekView } from "../../../components/calendar/calendar-week-view";
 import { CalendarDayView } from "../../../components/calendar/calendar-day-view";
 import { ContentTrackerView } from "../contenuti/content-tracker-view";
-import {
-  AlertTriangle,
-  CalendarDays,
-  CheckCircle2,
-  FileSpreadsheet,
-  Target,
-} from "lucide-react";
+import { CalendarDays, FileSpreadsheet } from "lucide-react";
 
 type ContentTrackerSummary = {
   clients: number;
@@ -549,17 +543,17 @@ function EditorialWorkspaceViews({
   ];
 
   return (
-    <div className="optima-ops-container py-3">
-      <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#0b1424]/80 p-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 px-2 py-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-300">
+    <div className="optima-ops-container py-2.5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
             Editoriale
           </p>
-          <h1 className="truncate text-lg font-black text-white">
+          <h1 className="truncate text-base font-black text-white">
             Calendario e tracker contenuti
           </h1>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="inline-flex shrink-0 rounded-lg border border-white/10 bg-[#0b1424] p-1">
           {views.map((item) => {
             const Icon = item.icon;
             const selected = value === item.id;
@@ -568,29 +562,15 @@ function EditorialWorkspaceViews({
                 key={item.id}
                 type="button"
                 onClick={() => onChange(item.id)}
-                className={`flex min-w-0 items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
+                title={item.description}
+                className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-semibold transition ${
                   selected
-                    ? "border-righello-pink/60 bg-righello-pink/15 text-white shadow-lg shadow-righello-pink/10"
-                    : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-cyan-400/30 hover:bg-cyan-400/10"
+                    ? "bg-righello-pink/20 text-white ring-1 ring-righello-pink/40"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${
-                    selected
-                      ? "border-righello-pink/40 bg-righello-pink/20 text-pink-100"
-                      : "border-white/10 bg-[#111b2d] text-slate-400"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-bold">
-                    {item.label}
-                  </span>
-                  <span className="block truncate text-xs text-slate-400">
-                    {item.description}
-                  </span>
-                </span>
+                <Icon className="h-4 w-4" />
+                <span className="whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}
@@ -617,107 +597,90 @@ function ContentCoveragePanel({
     .slice(0, 5);
 
   return (
-    <section className="mb-4 rounded-lg border border-white/10 bg-[#111b2d] p-4 shadow-2xl shadow-black/10 md:mb-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 text-cyan-200">
-              <FileSpreadsheet className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">
-                Copertura mese
-              </p>
-              <h2 className="text-lg font-bold text-white">
-                Target contenuti di {monthLabel(month)}
-              </h2>
-            </div>
-          </div>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            I numeri arrivano dal tracker contenuti: target, creati e mancanti
-            sostituiscono il controllo manuale del foglio Excel.
+    <section className="mb-4 flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111b2d] px-4 py-3 md:mb-6 lg:flex-row lg:items-center">
+      <div className="flex shrink-0 items-center gap-2.5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-200">
+          <FileSpreadsheet className="h-4 w-4" />
+        </span>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
+            Copertura
+          </p>
+          <p className="text-sm font-bold capitalize text-white">
+            {monthLabel(month)}
           </p>
         </div>
-
-        <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[520px]">
-          <CoverageStat
-            icon={Target}
-            label="Target"
-            value={loading ? "..." : (summary?.targetTotal ?? 0)}
-          />
-          <CoverageStat
-            icon={CheckCircle2}
-            label="Creati"
-            value={loading ? "..." : (summary?.createdTotal ?? 0)}
-            tone="emerald"
-          />
-          <CoverageStat
-            icon={AlertTriangle}
-            label="Mancanti"
-            value={loading ? "..." : (summary?.missingTotal ?? 0)}
-            tone="amber"
-          />
-        </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {missingRows.length === 0 ? (
+      <div className="flex items-center gap-5 lg:ml-2">
+        <MiniCoverage
+          label="target"
+          value={loading ? "..." : (summary?.targetTotal ?? 0)}
+        />
+        <MiniCoverage
+          label="creati"
+          value={loading ? "..." : (summary?.createdTotal ?? 0)}
+          tone="emerald"
+        />
+        <MiniCoverage
+          label="mancanti"
+          value={loading ? "..." : (summary?.missingTotal ?? 0)}
+          tone="amber"
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 lg:flex-1 lg:justify-end">
+        {missingRows.length === 0 ? (
+          <Badge
+            variant="outline"
+            className="border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+          >
+            Tutto coperto
+          </Badge>
+        ) : (
+          missingRows.slice(0, 4).map((row) => (
             <Badge
+              key={row.id}
               variant="outline"
-              className="border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+              className="border-amber-400/30 bg-amber-500/10 text-amber-100"
             >
-              Nessun contenuto mancante nel mese
+              {row.clientName}: {row.missingTotal}
             </Badge>
-          ) : (
-            missingRows.map((row) => (
-              <Badge
-                key={row.id}
-                variant="outline"
-                className="border-amber-400/30 bg-amber-500/10 text-amber-100"
-              >
-                {row.clientName}: {row.missingTotal} mancanti
-              </Badge>
-            ))
-          )}
-        </div>
-        <Button
-          asChild
-          variant="outline"
-          className="h-10 border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/40"
-        >
-          <Link href="/contenuti">Apri tracker</Link>
-        </Button>
+          ))
+        )}
       </div>
+
+      <Button
+        asChild
+        variant="outline"
+        className="h-9 shrink-0 border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/40"
+      >
+        <Link href="/contenuti">Apri tracker</Link>
+      </Button>
     </section>
   );
 }
 
-function CoverageStat({
-  icon: Icon,
+function MiniCoverage({
   label,
   value,
   tone = "slate",
 }: {
-  icon: typeof Target;
   label: string;
   value: number | string;
   tone?: "slate" | "emerald" | "amber";
 }) {
   const toneClass = {
-    slate: "border-white/10 bg-[#0b1424] text-white",
-    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-100",
-    amber: "border-amber-400/20 bg-amber-500/10 text-amber-100",
+    slate: "text-white",
+    emerald: "text-emerald-300",
+    amber: "text-amber-300",
   }[tone];
   return (
-    <div className={`rounded-lg border p-3 ${toneClass}`}>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-          {label}
-        </span>
-        <Icon className="h-4 w-4 text-slate-500" />
-      </div>
-      <p className="mt-2 text-2xl font-black">{value}</p>
+    <div className="flex items-baseline gap-1.5">
+      <span className={`text-lg font-black tabular-nums ${toneClass}`}>
+        {value}
+      </span>
+      <span className="text-[11px] text-slate-500">{label}</span>
     </div>
   );
 }
