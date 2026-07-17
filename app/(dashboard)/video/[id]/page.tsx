@@ -11,6 +11,7 @@ import { ArrowLeft, Copy, Check, Clapperboard, Play, MessageSquare, Users } from
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
 import { ProjectPicker } from "@/components/video-review/project-picker";
 import { VrPageHeader } from "@/components/video-review/page-chrome";
+import { TrancheUploadButton } from "@/components/video-review/tranche-upload-button";
 import { VideoDrawer } from "@/components/video-review/video-drawer";
 import {
   pageClass,
@@ -136,10 +137,13 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
               </Link>
             }
             actions={
-              <Button variant="outline" onClick={copyLink} className="border-white/10 bg-white/5">
-                {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-                {copied ? "Copiato" : "Link review cliente"}
-              </Button>
+              <>
+                <TrancheUploadButton trancheId={tranche.id} onUploaded={load} />
+                <Button variant="outline" onClick={copyLink} className="border-white/10 bg-white/5">
+                  {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                  {copied ? "Copiato" : "Link review cliente"}
+                </Button>
+              </>
             }
           />
 
@@ -171,12 +175,27 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
 
           {/* Video: card COMPATTE; le azioni vivono nel drawer */}
           {videos.length === 0 ? (
-            <div className={`${surfaceClass} p-12 text-center text-slate-400`}>
-              Nessun video. Il videomaker esporta in{" "}
-              <code className="rounded bg-white/5 px-1.5 py-0.5 text-xs text-slate-300">
-                da-revisionare/{tranche.clientName}/{tranche.title}/
-              </code>{" "}
-              sul NAS e i video compaiono qui da soli.
+            <div className={`${surfaceClass} flex flex-col items-center gap-4 p-12 text-center`}>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300">
+                <Clapperboard className="h-6 w-6" />
+              </span>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-slate-200">
+                  Nessun video in questa consegna
+                </p>
+                <p className="text-sm text-slate-400">
+                  Caricalo da qui: va dritto sul disco del Mac Studio, senza
+                  passare dal cloud.
+                </p>
+              </div>
+              <TrancheUploadButton trancheId={tranche.id} onUploaded={load} primary />
+              <p className="max-w-xl text-xs text-slate-500">
+                In alternativa il videomaker esporta in{" "}
+                <code className="rounded bg-white/5 px-1.5 py-0.5 text-[11px] text-slate-400">
+                  da-revisionare/{tranche.clientName}/{tranche.title}/
+                </code>{" "}
+                sul NAS e il video compare qui da solo.
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
