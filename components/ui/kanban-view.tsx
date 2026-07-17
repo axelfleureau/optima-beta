@@ -1,9 +1,16 @@
 "use client"
 
-import { Clock, PlusCircle, Sparkles, ImageIcon } from "lucide-react"
+import { Clock, PlusCircle, Sparkles, ImageIcon, ArrowRightLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
@@ -62,7 +69,7 @@ export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: 
                       </Badge>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-3 space-y-3 min-h-[200px] max-h-[600px] overflow-y-auto">
+                  <CardContent className="p-3 space-y-3 min-h-[200px] md:max-h-[600px] md:overflow-y-auto">
                     {postsInStatus.map((post, index) => (
                       <Draggable key={post.id} draggableId={post.id} index={index}>
                         {(providedDraggable, snapshotDraggable) => (
@@ -76,9 +83,52 @@ export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: 
                             onClick={() => onEditPost(post)}
                           >
                             <div className="space-y-3">
-                              <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 line-clamp-2">
-                                {post.name || post.title}
-                              </h4>
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 line-clamp-2">
+                                  {post.name || post.title}
+                                </h4>
+                                {/* Alternativa touch al drag&drop: sposta il post in un altro stato */}
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0"
+                                        aria-label="Sposta in un altro stato"
+                                      >
+                                        <ArrowRightLeft className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuLabel>Sposta in…</DropdownMenuLabel>
+                                      {statusOrder
+                                        .filter((target) => target !== statusKey)
+                                        .map((target) => (
+                                          <DropdownMenuItem
+                                            key={target}
+                                            onClick={() =>
+                                              onDragEnd({
+                                                draggableId: post.id,
+                                                type: "DEFAULT",
+                                                source: { droppableId: statusKey, index },
+                                                destination: { droppableId: target, index: 0 },
+                                                reason: "DROP",
+                                                mode: "FLUID",
+                                                combine: null,
+                                              } as DropResult)
+                                            }
+                                          >
+                                            <span
+                                              className={`mr-2 h-2 w-2 rounded-full ${statusConfig[target].color}`}
+                                            />
+                                            {statusConfig[target].label}
+                                          </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </div>
                               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                                 <Clock className="w-3 h-3" />
                                 {format(getPostDate(post), "d MMM", { locale: it })}
@@ -105,7 +155,7 @@ export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: 
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="flex-1 h-7 text-xs"
+                                  className="flex-1 h-9 text-xs"
                                   onClick={async () => {
                                     if (!user) return
                                     const { generateCopy } = useAutoGenStore.getState()
@@ -120,7 +170,7 @@ export function KanbanView({ postsByStatus, onDragEnd, onEditPost, onNewPost }: 
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="flex-1 h-7 text-xs"
+                                  className="flex-1 h-9 text-xs"
                                   onClick={async () => {
                                     if (!user) return
                                     const { generateVisual } = useAutoGenStore.getState()

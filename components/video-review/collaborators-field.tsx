@@ -75,7 +75,7 @@ export function CollaboratorsField({
             <Button
               size="sm"
               variant="outline"
-              className="h-7 border-white/10 bg-white/5 text-xs hover:border-righello-pink/40"
+              className="h-9 border-white/10 bg-white/5 text-xs hover:border-righello-pink/40"
             >
               <Plus className="mr-1 h-3 w-3" /> Aggiungi
             </Button>

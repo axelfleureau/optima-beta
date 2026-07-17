@@ -328,7 +328,7 @@ export function DashboardClient() {
                               {activity.details}
                             </p>
                           )}
-                          <div className="flex items-center justify-between mt-3">
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/40">
                               <span>
                                 {activity.timestamp?.toLocaleDateString(

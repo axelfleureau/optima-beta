@@ -438,12 +438,14 @@ export function ContentTrackerView({
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-white/10 bg-[#111b2d]">
-          {loading ? (
+        {loading ? (
+          <section className="overflow-hidden rounded-lg border border-white/10 bg-[#111b2d]">
             <div className="p-8 text-center text-sm text-slate-400">
               Caricamento tracker...
             </div>
-          ) : filteredRows.length === 0 ? (
+          </section>
+        ) : filteredRows.length === 0 ? (
+          <section className="overflow-hidden rounded-lg border border-white/10 bg-[#111b2d]">
             <div className="flex flex-col items-center gap-4 p-10 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300">
                 <ClipboardList className="h-6 w-6" />
@@ -478,9 +480,33 @@ export function ContentTrackerView({
                 </div>
               )}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] border-collapse text-sm">
+          </section>
+        ) : (
+          <>
+            {/* Mobile: una card per cliente, niente scroll orizzontale */}
+            <div className="space-y-3 md:hidden">
+              {filteredRows.map((row) => (
+                <TrackerMobileCard
+                  key={row.id}
+                  row={row}
+                  expanded={expandedId === row.id}
+                  saving={savingId === row.id}
+                  onToggle={() =>
+                    setExpandedId((current) =>
+                      current === row.id ? null : row.id,
+                    )
+                  }
+                  onChange={(patch) => updateRow(row.id, patch)}
+                  onSave={() => saveRow(row)}
+                  onDelete={() => deleteRow(row)}
+                />
+              ))}
+            </div>
+
+            {/* Desktop: tabella densa */}
+            <section className="hidden overflow-hidden rounded-lg border border-white/10 bg-[#111b2d] md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#0e1830] text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="px-3 py-2.5 text-left">Cliente</th>
@@ -510,11 +536,12 @@ export function ContentTrackerView({
                       onDelete={() => deleteRow(row)}
                     />
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        )}
       </div>
 
       <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -702,7 +729,7 @@ function LabeledNum({
         min={0}
         value={value}
         onChange={(event) => onChange(toNumber(event.target.value))}
-        className={`h-9 w-24 text-right text-slate-100 ${
+        className={`h-10 w-24 text-right text-slate-100 ${
           hot
             ? "border-emerald-400/40 bg-emerald-500/[0.08]"
             : "border-white/10 bg-[#111b2d]"
@@ -806,86 +833,225 @@ function TrackerTableRow({
       {expanded && (
         <tr className="bg-[#0b1424]">
           <td colSpan={8} className="px-4 py-4">
-            <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
-              <div className="space-y-2.5">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-sky-300">
-                  Target del mese
-                </p>
-                <LabeledNum
-                  label="Video / Reel"
-                  value={row.targetVideoReel}
-                  onChange={(v) => onChange({ targetVideoReel: v })}
-                />
-                <LabeledNum
-                  label="Foto / Post"
-                  value={row.targetPhotoPost}
-                  onChange={(v) => onChange({ targetPhotoPost: v })}
-                />
-                <LabeledNum
-                  label="Generico"
-                  value={row.targetGeneric}
-                  onChange={(v) => onChange({ targetGeneric: v })}
-                />
-              </div>
-              <div className="space-y-2.5">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
-                  Contenuti fatti
-                </p>
-                <LabeledNum
-                  label="Video / Reel"
-                  value={row.createdVideoReel}
-                  hot
-                  onChange={(v) => onChange({ createdVideoReel: v })}
-                />
-                <LabeledNum
-                  label="Foto / Post"
-                  value={row.createdPhotoPost}
-                  hot
-                  onChange={(v) => onChange({ createdPhotoPost: v })}
-                />
-                <LabeledNum
-                  label="Generico"
-                  value={row.createdGeneric}
-                  hot
-                  onChange={(v) => onChange({ createdGeneric: v })}
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-              <label className="flex-1 space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Note
-                </span>
-                <Textarea
-                  value={row.notes}
-                  onChange={(event) => onChange({ notes: event.target.value })}
-                  placeholder="Es. range dichiarato 8-10, note operative..."
-                  className="min-h-[64px] border-white/10 bg-[#111b2d] text-slate-100"
-                />
-              </label>
-              <div className="flex gap-2">
-                <Button
-                  onClick={onSave}
-                  disabled={saving}
-                  className="bg-righello-pink text-white hover:bg-righello-pink/90"
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {saving ? "Salvo..." : "Salva"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={onDelete}
-                  disabled={saving}
-                  className="border-white/10 bg-white/5 text-slate-300 hover:border-red-400/40 hover:text-red-200"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <TrackerEditor
+              row={row}
+              saving={saving}
+              onChange={onChange}
+              onSave={onSave}
+              onDelete={onDelete}
+            />
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+/** Editor per tipo, condiviso fra riga espansa (desktop) e card (mobile). */
+function TrackerEditor({
+  row,
+  saving,
+  onChange,
+  onSave,
+  onDelete,
+}: {
+  row: TrackerRow;
+  saving: boolean;
+  onChange: (patch: Partial<TrackerRow>) => void;
+  onSave: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <>
+      <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
+        <div className="space-y-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-sky-300">
+            Target del mese
+          </p>
+          <LabeledNum
+            label="Video / Reel"
+            value={row.targetVideoReel}
+            onChange={(v) => onChange({ targetVideoReel: v })}
+          />
+          <LabeledNum
+            label="Foto / Post"
+            value={row.targetPhotoPost}
+            onChange={(v) => onChange({ targetPhotoPost: v })}
+          />
+          <LabeledNum
+            label="Generico"
+            value={row.targetGeneric}
+            onChange={(v) => onChange({ targetGeneric: v })}
+          />
+        </div>
+        <div className="space-y-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+            Contenuti fatti
+          </p>
+          <LabeledNum
+            label="Video / Reel"
+            value={row.createdVideoReel}
+            hot
+            onChange={(v) => onChange({ createdVideoReel: v })}
+          />
+          <LabeledNum
+            label="Foto / Post"
+            value={row.createdPhotoPost}
+            hot
+            onChange={(v) => onChange({ createdPhotoPost: v })}
+          />
+          <LabeledNum
+            label="Generico"
+            value={row.createdGeneric}
+            hot
+            onChange={(v) => onChange({ createdGeneric: v })}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="flex-1 space-y-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            Note
+          </span>
+          <Textarea
+            value={row.notes}
+            onChange={(event) => onChange({ notes: event.target.value })}
+            placeholder="Es. range dichiarato 8-10, note operative..."
+            className="min-h-[64px] border-white/10 bg-[#111b2d] text-slate-100"
+          />
+        </label>
+        <div className="flex gap-2">
+          <Button
+            onClick={onSave}
+            disabled={saving}
+            className="h-10 flex-1 bg-righello-pink text-white hover:bg-righello-pink/90 sm:flex-none"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Salvo..." : "Salva"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onDelete}
+            disabled={saving}
+            className="h-10 w-10 shrink-0 border-white/10 bg-white/5 p-0 text-slate-300 hover:border-red-400/40 hover:text-red-200"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Card mobile: stessi dati della riga tabella, ma incolonnati (niente scroll orizzontale). */
+function TrackerMobileCard({
+  row,
+  expanded,
+  saving,
+  onToggle,
+  onChange,
+  onSave,
+  onDelete,
+}: {
+  row: TrackerRow;
+  expanded: boolean;
+  saving: boolean;
+  onToggle: () => void;
+  onChange: (patch: Partial<TrackerRow>) => void;
+  onSave: () => void;
+  onDelete: () => void;
+}) {
+  const complete = row.status === "complete";
+  const progress =
+    row.targetTotal > 0
+      ? Math.min(100, Math.round((row.createdTotal / row.targetTotal) * 100))
+      : 100;
+  const mix = typeSummary(row);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-white/10 bg-[#111b2d]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-3 p-4 text-left"
+      >
+        <span
+          className={`h-2.5 w-2.5 shrink-0 rounded-full ${complete ? "bg-emerald-400" : "bg-amber-400"}`}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold text-slate-100">
+            {row.clientName}
+          </span>
+          {(mix || row.clientCompany) && (
+            <span className="block truncate text-[11px] text-slate-500">
+              {mix || row.clientCompany}
+            </span>
+          )}
+        </span>
+        <span
+          className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+            complete
+              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+              : "border-amber-400/30 bg-amber-500/10 text-amber-300"
+          }`}
+        >
+          {complete ? "OK" : "Da fare"}
+        </span>
+        <ChevronDown
+          className={`h-5 w-5 shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      <div className="grid grid-cols-3 gap-2 border-t border-white/5 px-4 py-3 text-center">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Target
+          </p>
+          <p className="mt-0.5 text-xl font-black tabular-nums text-slate-200">
+            {row.targetTotal}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Fatti
+          </p>
+          <p className="mt-0.5 text-xl font-black tabular-nums text-emerald-300">
+            {row.createdTotal}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Mancano
+          </p>
+          <p
+            className={`mt-0.5 text-xl font-black tabular-nums ${row.missingTotal > 0 ? "text-amber-300" : "text-slate-600"}`}
+          >
+            {row.missingTotal}
+          </p>
+        </div>
+      </div>
+
+      <div className="px-4 pb-3">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full rounded-full ${complete ? "bg-emerald-400" : "bg-amber-400"}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-white/5 bg-[#0b1424] p-4">
+          <TrackerEditor
+            row={row}
+            saving={saving}
+            onChange={onChange}
+            onSave={onSave}
+            onDelete={onDelete}
+          />
+        </div>
+      )}
+    </div>
   );
 }

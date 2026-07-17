@@ -263,10 +263,10 @@ export function VideoDrawer({
         {trimMode && (
           <div className="space-y-2 rounded-md border border-white/10 bg-black/20 p-2.5">
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Button size="sm" variant="ghost" className="h-7 text-slate-300" onClick={() => setTrimIn(videoRef.current?.currentTime ?? 0)}>
+              <Button size="sm" variant="ghost" className="h-9 text-slate-300" onClick={() => setTrimIn(videoRef.current?.currentTime ?? 0)}>
                 Inizio = {trimIn === null ? "qui" : timecode(trimIn, fps)}
               </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-slate-300" onClick={() => setTrimOut(videoRef.current?.currentTime ?? 0)}>
+              <Button size="sm" variant="ghost" className="h-9 text-slate-300" onClick={() => setTrimOut(videoRef.current?.currentTime ?? 0)}>
                 Fine = {trimOut === null ? "qui" : timecode(trimOut, fps)}
               </Button>
             </div>

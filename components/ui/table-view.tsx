@@ -71,7 +71,7 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-[8px]">
+                      <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-[8px]">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>

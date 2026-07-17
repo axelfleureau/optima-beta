@@ -232,7 +232,7 @@ export default function ClientCreditsPage() {
                   loadCredits(value);
                 }}
               >
-                <SelectTrigger className="h-11 min-w-[260px] border-white/10 bg-[#111827] text-white">
+                <SelectTrigger className="h-11 w-full border-white/10 bg-[#111827] text-white sm:min-w-[260px]">
                   <SelectValue placeholder="Seleziona cliente" />
                 </SelectTrigger>
                 <SelectContent className="border-white/10 bg-[#111827] text-white">

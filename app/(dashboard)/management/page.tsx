@@ -543,7 +543,7 @@ export default function ManagementPage() {
                         <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400" />
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                             Finestra

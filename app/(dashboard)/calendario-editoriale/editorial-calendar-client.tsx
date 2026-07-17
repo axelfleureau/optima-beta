@@ -566,7 +566,7 @@ function EditorialWorkspaceViews({
               type="button"
               onClick={() => onChange(item.id)}
               title={item.description}
-              className={`flex items-center gap-2 rounded-md px-3.5 py-2 text-sm font-semibold transition ${
+              className={`flex items-center gap-2 rounded-md px-3.5 py-2.5 text-sm font-semibold transition ${
                 selected
                   ? "bg-righello-pink/20 text-white ring-1 ring-righello-pink/40"
                   : "text-slate-400 hover:text-slate-200"

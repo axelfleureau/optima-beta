@@ -118,7 +118,7 @@ export default function BillingPage() {
   }
   
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <div className="container mx-auto p-4 md:p-6 space-y-8">
       <div>
         <h1 className="text-3xl font-bold mb-2">Fatturazione & Piano</h1>
         <p className="text-muted-foreground">

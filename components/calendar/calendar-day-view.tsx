@@ -116,8 +116,16 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                       return (
                         <div
                           key={post.id}
-                          className={`min-w-0 rounded-[8px] border bg-white p-3 transition-all hover:shadow-lg dark:bg-slate-800 ${statusInfo.borderColor}`}
+                          role="button"
+                          tabIndex={0}
+                          className={`min-w-0 cursor-pointer rounded-[8px] border bg-white p-3 transition-all hover:shadow-lg dark:bg-slate-800 ${statusInfo.borderColor}`}
                           onClick={() => onEditPost(post)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              onEditPost(post)
+                            }
+                          }}
                           onMouseEnter={(e) => handlePostMouseEnter(post, e)}
                           onMouseLeave={() => setHoveredPost(null)}
                         >
