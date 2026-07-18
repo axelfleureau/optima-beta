@@ -3,9 +3,9 @@ import type { Metadata } from "next"
 import OptimaLanding from "@/components/marketing/optima-landing"
 
 export const metadata: Metadata = {
-  title: "Óptima by Righello | AI company operating system",
+  title: "Óptima by Righello | Il gestionale AI per agenzie e studi",
   description:
-    "Óptima è la piattaforma gestionale AI di Righello per project management, gestione clienti, task, time tracking, preventivi, team operations e controllo aziendale.",
+    "Óptima riunisce clienti, progetti, task, contenuti, video review, preventivi, presenze e un assistente AI in un solo gestionale. Nato dentro un'agenzia, per chi gestisce clienti e consegne.",
   keywords: [
     "Óptima",
     "Optima Righello",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Óptima by Righello",
     description:
-      "Il cockpit operativo AI per collegare progetti, clienti, persone, preventivi e segnali aziendali.",
+      "Clienti, progetti, contenuti, video review, preventivi e team in un solo gestionale AI. Per agenzie e studi creativi.",
     url: "/",
     siteName: "Óptima by Righello",
     type: "website",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Óptima by Righello",
     description:
-      "Project management, AI assistant, clienti, preventivi, time tracking e controllo aziendale in un solo sistema.",
+      "Clienti, progetti, contenuti, preventivi, presenze e assistente AI in un solo gestionale, per agenzie e studi.",
   },
 }
 

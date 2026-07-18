@@ -8,15 +8,13 @@ import {
   Bot,
   BriefcaseBusiness,
   CheckCircle2,
+  Clapperboard,
   Command,
   FileText,
   Gauge,
   LineChart,
-  ShieldCheck,
   Sparkles,
-  Target,
   UsersRound,
-  Zap,
   type LucideIcon,
 } from "lucide-react"
 
@@ -40,30 +38,30 @@ type MethodStep = {
 const modules: Module[] = [
   {
     icon: BriefcaseBusiness,
-    label: "Delivery",
-    title: "Progetti, clienti e task",
-    body: "Una regia unica per clienti, progetti, fasi, task, allegati, commenti e responsabilità operative.",
+    label: "Progetti",
+    title: "Clienti, progetti e task",
+    body: "Ogni cliente ha il suo spazio: progetti, fasi, task, allegati, commenti e responsabili in un'unica regia.",
     accent: "#67e8f9",
   },
   {
+    icon: Clapperboard,
+    label: "Contenuti",
+    title: "Contenuti e video",
+    body: "Calendario editoriale, tracker dei contenuti per cliente e review video con approvazione del cliente al secondo esatto.",
+    accent: "#d6487e",
+  },
+  {
     icon: UsersRound,
-    label: "People",
-    title: "Persone, tempi e carico",
-    body: "Presenze, rapportini, capacità netta, assegnazioni e segnali diventano strumenti di management.",
+    label: "Team",
+    title: "Persone e tempi",
+    body: "Presenze, rapportini, ore e carico del team: sai chi sta lavorando a cosa e quanta capacità resta.",
     accent: "#22c55e",
   },
   {
-    icon: Bot,
-    label: "AI",
-    title: "Assistente operativo",
-    body: "AI con memoria, cronologia, contesto su clienti, workspace e preventivi per accelerare le decisioni.",
-    accent: "#a855f7",
-  },
-  {
     icon: FileText,
-    label: "Sales",
+    label: "Preventivi",
     title: "Preventivi e ricavi",
-    body: "Dalla raccolta informazioni alla proposta, poi budget, milestone, progetto e follow-up tracciati.",
+    body: "Dal preventivo al progetto: proposta, budget, milestone e follow-up collegati, senza reinserire i dati.",
     accent: "#f59e0b",
   },
 ]
@@ -71,23 +69,23 @@ const modules: Module[] = [
 const method: MethodStep[] = [
   {
     index: "01",
-    title: "Discovery",
-    body: "Trasforma brief, vincoli, asset, referente, cliente e budget in una base operativa misurabile.",
+    title: "Brief",
+    body: "Cliente, referente, budget e scadenze in un punto solo: il progetto parte con tutto il contesto.",
   },
   {
     index: "02",
-    title: "Planning",
-    body: "Organizza priorità, fasi, owner, task, media, scadenze e finestre al più presto/al più tardi.",
+    title: "Pianificazione",
+    body: "Fasi, task, responsabili e finestre temporali su una timeline chiara, dal più presto al più tardi.",
   },
   {
     index: "03",
-    title: "Execution",
-    body: "Segue commenti, revisioni, allegati, assegnazioni orizzontali, ore e rapportini giornalieri.",
+    title: "Esecuzione",
+    body: "Commenti, revisioni, allegati, ore e rapportini giornalieri: ogni passaggio resta tracciato.",
   },
   {
     index: "04",
-    title: "Reporting",
-    body: "Legge output, margini, ritardi, carico, capacità, approcci problematici e prossime mosse.",
+    title: "Report",
+    body: "Margini, ritardi, carico e capacità sempre leggibili, per decidere prima che sia tardi.",
   },
 ]
 
@@ -120,20 +118,20 @@ const pricing = [
   {
     name: "90",
     price: "14,99",
-    body: "Per partire con clienti, task, calendario e assistente AI.",
-    features: ["Clienti e workspace", "Task e allegati", "AI assistant base"],
+    body: "Clienti, task, calendario e assistente AI per iniziare a lavorare ordinati.",
+    features: ["Clienti e workspace", "Task e allegati", "Assistente AI"],
   },
   {
     name: "180",
     price: "39,99",
-    body: "Per gestire delivery, preventivi e team con controllo reale.",
-    features: ["Preventivi AI", "Commenti cliente", "Rapportini e presenze"],
+    body: "Delivery, preventivi, contenuti e team con ore e rapportini.",
+    features: ["Preventivi e commenti cliente", "Calendario e video review", "Rapportini e presenze"],
     highlighted: true,
   },
   {
     name: "360",
     price: "79,99",
-    body: "Per direzione, automazioni, segnali e ottimizzazione aziendale.",
+    body: "Controllo su margini, carico e segnali di rischio per chi dirige.",
     features: ["Controllo aziendale", "Segnali di rischio", "Automazioni avanzate"],
   },
 ]
@@ -175,7 +173,7 @@ function ChromeShell({ children, className = "" }: { children: ReactNode; classN
           <span className="h-2.5 w-2.5 rounded-full bg-[#67e8f9]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#22c55e]" />
         </div>
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-white/36">Optima live system</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-white/36">Óptima · anteprima</p>
       </div>
       {children}
     </div>
@@ -220,8 +218,8 @@ function ProductCockpit() {
         <div className="min-w-0 bg-[#0d1320]">
           <div className="flex flex-col gap-4 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#67e8f9]">Project operating system</p>
-              <h3 className="mt-1 truncate text-2xl font-bold text-white sm:text-3xl">G&M Ambiente srl</h3>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#67e8f9]">Workspace cliente</p>
+              <h3 className="mt-1 truncate text-2xl font-bold text-white sm:text-3xl">G&amp;M Ambiente srl</h3>
             </div>
             <div className="grid grid-cols-3 gap-2 sm:flex">
               {[
@@ -287,7 +285,7 @@ function ProductCockpit() {
               <div className="rounded-[8px] border border-white/10 bg-black/20 p-4">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-bold text-white/44">Pulse aziendale</p>
+                    <p className="text-sm font-bold text-white/44">Andamento</p>
                     <h4 className="text-xl font-black text-white">Questa settimana</h4>
                   </div>
                   <Gauge className="h-7 w-7 text-[#67e8f9]" />
@@ -446,7 +444,7 @@ export default function HomePage() {
     <main ref={rootRef} className="min-h-screen overflow-x-hidden bg-[#05070b] text-white">
       <div className="boot-screen fixed inset-0 z-[90] flex flex-col justify-between bg-[#05070b] px-5 py-5 text-white [clip-path:inset(0_0_0_0)] sm:px-8">
         <div className="grid gap-4 text-xs font-black uppercase tracking-[0.22em] text-white/46 sm:grid-cols-4">
-          {["Optima / Company OS", "Righello operating layer", "Delivery / People / AI", "Status / booting"].map(
+          {["Óptima", "by Righello", "Clienti · Progetti · Contenuti", "Caricamento…"].map(
             (item) => (
               <div key={item} className="overflow-hidden">
                 <p className="boot-line">{item}</p>
@@ -463,13 +461,13 @@ export default function HomePage() {
           </div>
           <div className="mt-4 grid gap-3 text-xs font-black uppercase tracking-[0.2em] text-white/46 sm:grid-cols-3">
             <div className="overflow-hidden">
-              <p className="boot-line">Sync task graph</p>
+              <p className="boot-line">Carico clienti e progetti</p>
             </div>
             <div className="overflow-hidden">
-              <p className="boot-line">Read team capacity</p>
+              <p className="boot-line">Carico team e presenze</p>
             </div>
             <div className="overflow-hidden sm:text-right">
-              <p className="boot-line">Open cockpit</p>
+              <p className="boot-line">Apro il gestionale</p>
             </div>
           </div>
         </div>
@@ -526,15 +524,15 @@ export default function HomePage() {
           <div className="mx-auto max-w-5xl text-center">
             <div className="mb-5 inline-flex items-center gap-2 rounded-[8px] border border-[#d6487e]/34 bg-[#d6487e]/12 px-3 py-2 text-sm font-bold text-[#ff8fbd]">
               <Sparkles className="h-4 w-4" />
-              Il sistema operativo per guidare Righello
+              Il gestionale AI per agenzie e studi creativi
             </div>
             <h1 className="text-5xl font-bold leading-[0.95] tracking-normal text-white sm:text-7xl lg:text-8xl">
-              {splitWords("Il controllo operativo per diventare leader.")}
+              {splitWords("Tutto il lavoro dell'agenzia in un solo posto.")}
             </h1>
             <p className="mx-auto mt-7 max-w-3xl text-lg font-medium leading-8 text-white/72">
-              Óptima è la piattaforma gestionale AI di Righello: project management, gestione clienti, time tracking,
-              preventivi, team operations e controllo aziendale in un solo cockpit per una tech company che vuole
-              crescere con metodo.
+              Clienti, progetti, contenuti, preventivi e team in un unico gestionale, con un assistente AI che conosce
+              il tuo lavoro. Nato dentro un'agenzia che costruisce software, contenuti e campagne — per chi gestisce
+              clienti e consegne ogni giorno.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href="/register">
@@ -578,9 +576,9 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl">
           <div className="reveal-section">
             <SectionTitle
-              eyebrow="Sistema"
-              title="La piattaforma che tiene insieme delivery, persone e crescita."
-              body="Righello non fa solo marketing: costruisce software, contenuti, campagne, automazioni e processi per aziende che vogliono scalare. Óptima nasce per governare questo lavoro con visibilità, responsabilità e dati."
+              eyebrow="Il sistema"
+              title="Un solo posto per clienti, contenuti, team e numeri."
+              body="Óptima nasce dentro un'agenzia che costruisce software, contenuti e campagne: per questo gestisce il lavoro reale — non slide di funzioni, ma clienti, consegne, ore e margini — senza saltare tra dieci strumenti diversi."
             />
           </div>
 
@@ -596,9 +594,9 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div className="reveal-section">
             <SectionTitle
-              eyebrow="Metodo Righello"
+              eyebrow="Come si lavora"
               title="Dal brief alla consegna, ogni passaggio lascia traccia."
-              body="Il cuore resta la gestione dei progetti, ma il vantaggio nasce dal collegare planning, persone, budget, scadenze, finestre temporali e segnali di rischio in una lettura unica."
+              body="Progetti al centro, con planning, persone, budget, scadenze e segnali di rischio in un'unica lettura. Niente file sparsi: cosa è stato fatto, da chi e con quanto tempo è sempre sotto mano."
             />
             <div className="mt-8 flex flex-wrap gap-2">
               {["al più presto", "al più tardi", "owner", "margine", "carico", "output"].map((item) => (
@@ -630,7 +628,7 @@ export default function HomePage() {
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
                 <p className="text-sm font-bold text-white/46">Controllo aziendale</p>
-                <h3 className="text-2xl font-black text-white">Pulse operativo</h3>
+                <h3 className="text-2xl font-black text-white">I numeri della settimana</h3>
               </div>
               <Gauge className="h-8 w-8 text-[#67e8f9]" />
             </div>
@@ -670,13 +668,13 @@ export default function HomePage() {
           </div>
 
           <div className="reveal-section">
-            <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#67e8f9]">People operations</p>
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#67e8f9]">Team e tempi</p>
             <h2 className="mt-4 text-4xl font-bold leading-[0.98] text-white sm:text-6xl">
-              Il lavoro non è solo task: è capacità, attenzione e tempo.
+              Sai chi sta lavorando a cosa, e quanta capacità resta.
             </h2>
             <p className="mt-6 text-base font-medium leading-8 text-white/66">
-              Óptima rende leggibile il modo in cui il team lavora: capacità disponibile, sovraccarichi, ritardi,
-              presenze, rapportini e segnali di rischio diventano indicatori per decidere prima, non spiegazioni dopo.
+              Presenze, rapportini, ore e carico del team diventano numeri leggibili: capacità disponibile,
+              sovraccarichi e ritardi si vedono prima che diventino un problema, non dopo.
             </p>
             <div className="mt-8 space-y-3">
               {[
@@ -702,8 +700,8 @@ export default function HomePage() {
           <div className="reveal-section">
             <SectionTitle
               eyebrow="Piani"
-              title="Entra leggero. Scala quando il processo diventa serio."
-              body="La struttura 90, 180, 360 accompagna l'evoluzione: dalla gestione dei clienti al controllo aziendale, con AI, workspace, preventivi e time tracking integrati."
+              title="Un piano per ogni fase dello studio."
+              body="Da chi gestisce i primi clienti a chi guida un team con occhio su ore e margini. Stessa piattaforma, funzioni che crescono con te: 90 per partire, 180 per gestire delivery e team, 360 per la direzione."
               center
             />
           </div>
@@ -761,16 +759,16 @@ export default function HomePage() {
           <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <div className="flex items-center gap-3 text-[#ff8fbd]">
-                <Zap className="h-7 w-7" />
-                <ShieldCheck className="h-7 w-7" />
-                <Target className="h-7 w-7" />
+                <BriefcaseBusiness className="h-7 w-7" />
+                <Clapperboard className="h-7 w-7" />
+                <Gauge className="h-7 w-7" />
               </div>
               <h2 className="mt-6 max-w-4xl text-4xl font-bold leading-[0.98] text-white sm:text-6xl">
-                Costruito per una società che vuole diventare riferimento, non per sembrare organizzata.
+                Meno strumenti sparsi, più lavoro sotto controllo.
               </h2>
               <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-white/70">
-                Progetti, clienti, persone e AI nello stesso cockpit per aumentare velocità, qualità, margine e
-                capacità decisionale.
+                Clienti, progetti, contenuti, persone e AI nello stesso posto: il team esegue senza rincorrere i file,
+                la direzione vede ore, margini e ritardi in tempo reale.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -811,7 +809,7 @@ export default function HomePage() {
             <Link href="/login" className="hover:text-white">
               Login
             </Link>
-            <span>AI company operating system</span>
+            <span>Gestionale AI per agenzie e studi</span>
           </div>
         </div>
       </footer>
