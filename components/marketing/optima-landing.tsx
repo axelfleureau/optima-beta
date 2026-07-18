@@ -176,6 +176,19 @@ function SectionTitle({
   )
 }
 
+/** Cornici d'angolo: richiama il "righello" / l'inquadratura del brand Righello. */
+function FrameCorners() {
+  const base = "frame-corner pointer-events-none absolute h-7 w-7 border-[#67e8f9]/55"
+  return (
+    <>
+      <span className={`${base} -left-2.5 -top-2.5 border-l-2 border-t-2`} />
+      <span className={`${base} -right-2.5 -top-2.5 border-r-2 border-t-2`} />
+      <span className={`${base} -bottom-2.5 -left-2.5 border-b-2 border-l-2`} />
+      <span className={`${base} -bottom-2.5 -right-2.5 border-b-2 border-r-2`} />
+    </>
+  )
+}
+
 function ChromeShell({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div className={`rounded-[8px] border border-white/12 bg-[#080b12] shadow-2xl shadow-black/40 ${className}`}>
@@ -427,6 +440,11 @@ export default function HomePage() {
             { y: 24, opacity: 0, duration: 0.7, stagger: 0.12 },
             "-=0.5",
           )
+          .from(
+            ".frame-corner",
+            { opacity: 0, scale: 0.5, transformOrigin: "center", duration: 0.5, stagger: 0.05 },
+            "-=0.45",
+          )
 
         // --- Reveal delle sezioni ---
         gsap.utils.toArray<HTMLElement>(".reveal-section").forEach((section) => {
@@ -647,13 +665,13 @@ export default function HomePage() {
             <Link href="/login">
               <Button
                 variant="outline"
-                className="hidden h-10 rounded-[8px] border-white/14 bg-white/[0.04] px-5 font-bold text-white hover:bg-white hover:text-[#05070b] sm:inline-flex"
+                className="hidden h-10 rounded-full border-white/14 bg-white/[0.04] px-5 font-bold text-white hover:bg-white hover:text-[#05070b] sm:inline-flex"
               >
                 Accedi
               </Button>
             </Link>
             <Link href="/register">
-              <Button className="h-10 rounded-[8px] bg-[#d6487e] px-5 font-bold text-white hover:bg-white hover:text-[#05070b]">
+              <Button className="magnetic h-10 rounded-full bg-[#d6487e] px-5 font-bold text-white hover:bg-white hover:text-[#05070b]">
                 Entra
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -670,12 +688,15 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:88px_88px] opacity-20" />
         <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-5xl text-center">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-[8px] border border-[#d6487e]/34 bg-[#d6487e]/12 px-3 py-2 text-sm font-bold text-[#ff8fbd]">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#d6487e]/34 bg-[#d6487e]/12 px-4 py-2 text-sm font-bold text-[#ff8fbd]">
               <Sparkles className="h-4 w-4" />
               Il gestionale AI per agenzie e studi creativi
             </div>
-            <h1 className="text-5xl font-bold leading-[0.95] tracking-normal text-white sm:text-7xl lg:text-8xl">
-              {splitWords("Tutto il lavoro dell'agenzia in un solo posto.")}
+            <h1 className="text-5xl font-bold leading-[0.95] tracking-tight text-white sm:text-7xl lg:text-8xl">
+              {splitWords("Tutto il lavoro dell'agenzia")}
+              <span className="bg-[linear-gradient(135deg,#d6487e_0%,#06b6d4_100%)] bg-clip-text text-transparent">
+                {splitWords("in un solo posto.")}
+              </span>
             </h1>
             <p className="mx-auto mt-7 max-w-3xl text-lg font-medium leading-8 text-white/72">
               Clienti, progetti, contenuti, preventivi e team in un unico gestionale, con un assistente AI che conosce
@@ -686,7 +707,7 @@ export default function HomePage() {
               <Link href="/register">
                 <Button
                   size="lg"
-                  className="magnetic h-12 w-full rounded-[8px] bg-[#d6487e] px-7 font-bold text-white hover:bg-white hover:text-[#05070b] sm:w-auto"
+                  className="magnetic h-12 w-full rounded-full bg-[#d6487e] px-7 font-bold text-white hover:bg-white hover:text-[#05070b] sm:w-auto"
                 >
                   Entra in piattaforma
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -696,7 +717,7 @@ export default function HomePage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="magnetic h-12 w-full rounded-[8px] border-white/18 bg-white/[0.06] px-7 font-bold text-white hover:bg-white hover:text-[#05070b] sm:w-auto"
+                  className="magnetic h-12 w-full rounded-full border-white/18 bg-white/[0.06] px-7 font-bold text-white hover:bg-white hover:text-[#05070b] sm:w-auto"
                 >
                   Accedi
                 </Button>
@@ -719,10 +740,11 @@ export default function HomePage() {
               </p>
               <p className="mt-1 text-sm font-semibold text-white/50">da presidiare</p>
             </div>
-            <div className="hero-cockpit" style={{ perspective: "1600px" }}>
+            <div className="hero-cockpit relative" style={{ perspective: "1600px" }}>
               <div className="cockpit-3d [transform-style:preserve-3d]">
                 <ProductCockpit />
               </div>
+              <FrameCorners />
             </div>
           </div>
         </div>
@@ -761,7 +783,7 @@ export default function HomePage() {
               {["al più presto", "al più tardi", "owner", "margine", "carico", "output"].map((item) => (
                 <span
                   key={item}
-                  className="rounded-[8px] border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-bold text-white/62"
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white/62"
                 >
                   {item}
                 </span>
@@ -897,7 +919,7 @@ export default function HomePage() {
                 </ul>
                 <Link href="/register" className="mt-7 block">
                   <Button
-                    className={`h-11 w-full rounded-[8px] font-bold ${
+                    className={`magnetic h-11 w-full rounded-full font-bold ${
                       plan.highlighted
                         ? "bg-[#d6487e] text-white hover:bg-white hover:text-[#05070b]"
                         : "bg-white text-[#05070b] hover:bg-[#67e8f9]"
@@ -934,7 +956,7 @@ export default function HomePage() {
               <Link href="/register">
                 <Button
                   size="lg"
-                  className="magnetic h-12 w-full rounded-[8px] bg-white px-7 font-bold text-[#05070b] hover:bg-[#67e8f9]"
+                  className="magnetic h-12 w-full rounded-full bg-white px-7 font-bold text-[#05070b] hover:bg-[#67e8f9]"
                 >
                   Entra in piattaforma
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -944,7 +966,7 @@ export default function HomePage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-12 w-full rounded-[8px] border-white/20 bg-transparent px-7 font-bold text-white hover:bg-white hover:text-[#05070b]"
+                  className="magnetic h-12 w-full rounded-full border-white/20 bg-transparent px-7 font-bold text-white hover:bg-white hover:text-[#05070b]"
                 >
                   Accedi
                 </Button>
