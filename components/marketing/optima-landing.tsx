@@ -144,6 +144,18 @@ function splitWords(text: string) {
   ))
 }
 
+/** Numero che conta da 0 quando entra nel viewport (fallback: valore finale). */
+function CountNumber({ value, className = "" }: { value: string; className?: string }) {
+  const match = value.match(/^([\d.,]+)(.*)$/)
+  const to = match ? match[1].replace(",", ".") : "0"
+  const suffix = match ? match[2] : value
+  return (
+    <span className={`js-count ${className}`} data-to={to} data-suffix={suffix}>
+      {value}
+    </span>
+  )
+}
+
 function SectionTitle({
   eyebrow,
   title,
@@ -228,7 +240,9 @@ function ProductCockpit() {
                 ["1", "rischio"],
               ].map(([value, label]) => (
                 <div key={label} className="rounded-[8px] border border-white/10 bg-black/24 px-3 py-2 text-center">
-                  <p className="text-lg font-black text-white">{value}</p>
+                  <p className="text-lg font-black text-white">
+                    <CountNumber value={value} />
+                  </p>
                   <p className="text-xs font-bold uppercase text-white/38">{label}</p>
                 </div>
               ))}
@@ -303,7 +317,7 @@ function ProductCockpit() {
                         </span>
                       </div>
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                        <div className="h-full rounded-full" style={{ width: value, backgroundColor: color }} />
+                        <div className="bar-fill h-full rounded-full" style={{ width: value, backgroundColor: color }} />
                       </div>
                     </div>
                   ))}
@@ -355,62 +369,192 @@ export default function HomePage() {
 
       gsap.registerPlugin(ScrollTrigger)
 
+      const root = rootRef.current
+      const pointerCleanups: Array<() => void> = []
+
+      // Conta i numeri da 0 quando entrano (usato anche in reduced-motion, ma lì istantaneo).
+      const runCounters = (instant = false) => {
+        gsap.utils.toArray<HTMLElement>(".js-count").forEach((el) => {
+          const to = parseFloat(el.dataset.to || "0")
+          const suffix = el.dataset.suffix || ""
+          if (instant) {
+            el.textContent = `${Math.round(to)}${suffix}`
+            return
+          }
+          ScrollTrigger.create({
+            trigger: el,
+            start: "top 92%",
+            once: true,
+            onEnter: () => {
+              const obj = { v: 0 }
+              gsap.to(obj, {
+                v: to,
+                duration: 1.25,
+                ease: "power2.out",
+                onUpdate: () => {
+                  el.textContent = `${Math.round(obj.v)}${suffix}`
+                },
+              })
+            },
+          })
+        })
+      }
+
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
       if (reduceMotion) {
         gsap.set(".boot-screen", { display: "none" })
         gsap.set(".hero-word, .module-card, .reveal-section, .product-shell", { clearProps: "all" })
+        runCounters(true)
         return
       }
 
       const ctx = gsap.context(() => {
         gsap.set(".boot-line", { yPercent: 110 })
-        gsap.set(".hero-word", { yPercent: 112, skewY: 4 })
-        gsap.set(".product-shell", { y: 34, scale: 0.96, opacity: 0 })
-        gsap.set(".module-card", { y: 28, opacity: 0 })
+        gsap.set(".hero-word", { yPercent: 118, skewY: 5, opacity: 0 })
+        gsap.set(".product-shell", { y: 40, scale: 0.94, opacity: 0 })
+        gsap.set(".module-card", { y: 44, opacity: 0, rotateX: 16, transformOrigin: "center top" })
 
-        const intro = gsap.timeline({ defaults: { ease: "power3.out" } })
+        // --- Intro cinematografico ---
+        const intro = gsap.timeline({ defaults: { ease: "expo.out" } })
         intro
-          .to(".boot-line", { yPercent: 0, duration: 0.68, stagger: 0.08 })
-          .to(".boot-progress", { scaleX: 1, duration: 0.95, ease: "power4.inOut" }, "<0.1")
-          .to(".boot-screen", { clipPath: "inset(0 0 100% 0)", duration: 0.85, ease: "power4.inOut" }, "+=0.12")
-          .to(".hero-word", { yPercent: 0, skewY: 0, duration: 0.82, stagger: 0.025 }, "-=0.18")
-          .to(".product-shell", { y: 0, scale: 1, opacity: 1, duration: 0.85, ease: "power4.out" }, "<0.1")
-          .to(".module-card", { y: 0, opacity: 1, duration: 0.58, stagger: 0.055 }, "-=0.35")
+          .to(".boot-line", { yPercent: 0, duration: 0.72, stagger: 0.06 })
+          .to(".boot-progress", { scaleX: 1, duration: 1.0, ease: "power4.inOut" }, "<0.1")
+          .to(".boot-screen", { clipPath: "inset(0 0 100% 0)", duration: 0.9, ease: "power4.inOut" }, "+=0.15")
+          .to(".hero-word", { yPercent: 0, skewY: 0, opacity: 1, duration: 0.95, stagger: 0.028 }, "-=0.28")
+          .to(".product-shell", { y: 0, scale: 1, opacity: 1, duration: 1.0, ease: "power4.out" }, "<0.15")
+          .from(
+            ".floating-metric-a, .floating-metric-b",
+            { y: 24, opacity: 0, duration: 0.7, stagger: 0.12 },
+            "-=0.5",
+          )
 
+        // --- Reveal delle sezioni ---
         gsap.utils.toArray<HTMLElement>(".reveal-section").forEach((section) => {
           gsap.from(section, {
-            y: 42,
+            y: 46,
             opacity: 0,
-            duration: 0.82,
+            duration: 0.85,
             ease: "power3.out",
-            scrollTrigger: {
-              trigger: section,
-              start: "top 82%",
-              once: true,
-            },
+            scrollTrigger: { trigger: section, start: "top 84%", once: true },
           })
         })
 
+        // --- Module card: entrata 3D in stagger ---
+        ScrollTrigger.batch(".module-card", {
+          start: "top 88%",
+          once: true,
+          onEnter: (batch) =>
+            gsap.to(batch, {
+              y: 0,
+              opacity: 1,
+              rotateX: 0,
+              duration: 0.85,
+              stagger: 0.09,
+              ease: "power3.out",
+              overwrite: true,
+            }),
+        })
+
+        // --- Numeri che contano + barre che crescono ---
+        runCounters(false)
+        gsap.utils.toArray<HTMLElement>(".bar-fill").forEach((el) => {
+          gsap.from(el, {
+            scaleX: 0,
+            transformOrigin: "left center",
+            duration: 1.1,
+            ease: "power3.out",
+            scrollTrigger: { trigger: el, start: "top 94%", once: true },
+          })
+        })
+
+        // --- Barra di avanzamento scroll in cima ---
+        gsap.to(".scroll-progress", {
+          scaleX: 1,
+          ease: "none",
+          scrollTrigger: { trigger: document.body, start: "top top", end: "bottom bottom", scrub: 0.3 },
+        })
+
+        // --- Zoom cinematografico pinnato (desktop) ---
         ScrollTrigger.matchMedia({
           "(min-width: 900px)": () => {
             const zoom = gsap.timeline({
-              scrollTrigger: {
-                trigger: ".system-stage",
-                start: "top top",
-                end: "+=1100",
-                scrub: 0.8,
-                pin: true,
-              },
+              scrollTrigger: { trigger: ".system-stage", start: "top top", end: "+=1100", scrub: 0.8, pin: true },
             })
-
             zoom
-              .to(".system-bg", { yPercent: -18, scale: 1.1, ease: "none" }, 0)
-              .to(".product-shell", { scale: 1.05, y: -12, ease: "none" }, 0)
-              .to(".floating-metric-a", { y: -110, x: 30, ease: "none" }, 0)
-              .to(".floating-metric-b", { y: 120, x: -35, ease: "none" }, 0)
+              .to(".system-bg", { yPercent: -18, scale: 1.12, ease: "none" }, 0)
+              .to(".product-shell", { scale: 1.06, y: -14, ease: "none" }, 0)
+              .to(".hero-glow", { scale: 1.4, opacity: 0.3, ease: "none" }, 0)
+              .to(".floating-metric-a", { y: -120, x: 34, ease: "none" }, 0)
+              .to(".floating-metric-b", { y: 130, x: -38, ease: "none" }, 0)
           },
         })
       }, rootRef)
+
+      // --- Interazioni al puntatore (solo desktop con mouse) ---
+      const finePointer = window.matchMedia("(min-width: 900px) and (pointer: fine)").matches
+      if (finePointer) {
+        const cockpit = root.querySelector<HTMLElement>(".cockpit-3d")
+        const glow = root.querySelector<HTMLElement>(".hero-glow")
+        const rotX = cockpit ? gsap.quickTo(cockpit, "rotationX", { duration: 0.7, ease: "power3" }) : null
+        const rotY = cockpit ? gsap.quickTo(cockpit, "rotationY", { duration: 0.7, ease: "power3" }) : null
+        const glowX = glow ? gsap.quickTo(glow, "xPercent", { duration: 1.1, ease: "power3" }) : null
+        const glowY = glow ? gsap.quickTo(glow, "yPercent", { duration: 1.1, ease: "power3" }) : null
+
+        const onMove = (event: PointerEvent) => {
+          const nx = event.clientX / window.innerWidth - 0.5
+          const ny = event.clientY / window.innerHeight - 0.5
+          rotY?.(nx * 6)
+          rotX?.(-ny * 6)
+          glowX?.(nx * 40)
+          glowY?.(ny * 30)
+        }
+        window.addEventListener("pointermove", onMove)
+        pointerCleanups.push(() => window.removeEventListener("pointermove", onMove))
+
+        // Pulsanti magnetici
+        root.querySelectorAll<HTMLElement>(".magnetic").forEach((btn) => {
+          const qx = gsap.quickTo(btn, "x", { duration: 0.4, ease: "power3" })
+          const qy = gsap.quickTo(btn, "y", { duration: 0.4, ease: "power3" })
+          const move = (event: PointerEvent) => {
+            const rect = btn.getBoundingClientRect()
+            qx((event.clientX - (rect.left + rect.width / 2)) * 0.3)
+            qy((event.clientY - (rect.top + rect.height / 2)) * 0.4)
+          }
+          const leave = () => {
+            qx(0)
+            qy(0)
+          }
+          btn.addEventListener("pointermove", move)
+          btn.addEventListener("pointerleave", leave)
+          pointerCleanups.push(() => {
+            btn.removeEventListener("pointermove", move)
+            btn.removeEventListener("pointerleave", leave)
+          })
+        })
+
+        // Tilt 3D sulle module card
+        root.querySelectorAll<HTMLElement>(".module-card").forEach((card) => {
+          const qrx = gsap.quickTo(card, "rotationX", { duration: 0.5, ease: "power3" })
+          const qry = gsap.quickTo(card, "rotationY", { duration: 0.5, ease: "power3" })
+          const move = (event: PointerEvent) => {
+            const rect = card.getBoundingClientRect()
+            const px = (event.clientX - rect.left) / rect.width - 0.5
+            const py = (event.clientY - rect.top) / rect.height - 0.5
+            qry(px * 9)
+            qrx(-py * 9)
+          }
+          const leave = () => {
+            qrx(0)
+            qry(0)
+          }
+          card.addEventListener("pointermove", move)
+          card.addEventListener("pointerleave", leave)
+          pointerCleanups.push(() => {
+            card.removeEventListener("pointermove", move)
+            card.removeEventListener("pointerleave", leave)
+          })
+        })
+      }
 
       let lenis: { raf: (time: number) => void; destroy: () => void } | null = null
       let ticker: ((time: number) => void) | null = null
@@ -427,6 +571,7 @@ export default function HomePage() {
       }
 
       cleanup = () => {
+        pointerCleanups.forEach((fn) => fn())
         ctx.revert()
         ScrollTrigger.getAll().forEach((trigger) => trigger.kill())
         if (ticker) gsap.ticker.remove(ticker)
@@ -517,8 +662,11 @@ export default function HomePage() {
         </div>
       </header>
 
+      <div className="scroll-progress fixed inset-x-0 top-0 z-[100] h-[3px] origin-left scale-x-0 bg-gradient-to-r from-[#d6487e] via-[#ff6aa6] to-[#67e8f9]" />
+
       <section className="system-stage relative min-h-screen overflow-hidden pt-20">
         <div className="system-bg absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(214,72,126,0.24),transparent_32%),radial-gradient(circle_at_18%_28%,rgba(103,232,249,0.13),transparent_28%),linear-gradient(180deg,#140712_0%,#05070b_62%)]" />
+        <div className="hero-glow pointer-events-none absolute left-1/2 top-[28%] -z-0 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(214,72,126,0.28),transparent_68%)] opacity-70 blur-[40px]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:88px_88px] opacity-20" />
         <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-5xl text-center">
@@ -538,7 +686,7 @@ export default function HomePage() {
               <Link href="/register">
                 <Button
                   size="lg"
-                  className="h-12 w-full rounded-[8px] bg-[#d6487e] px-7 font-bold text-white hover:bg-white hover:text-[#05070b] sm:w-auto"
+                  className="magnetic h-12 w-full rounded-[8px] bg-[#d6487e] px-7 font-bold text-white hover:bg-white hover:text-[#05070b] sm:w-auto"
                 >
                   Entra in piattaforma
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -548,7 +696,7 @@ export default function HomePage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-12 w-full rounded-[8px] border-white/18 bg-white/[0.06] px-7 font-bold text-white hover:bg-white hover:text-[#05070b] sm:w-auto"
+                  className="magnetic h-12 w-full rounded-[8px] border-white/18 bg-white/[0.06] px-7 font-bold text-white hover:bg-white hover:text-[#05070b] sm:w-auto"
                 >
                   Accedi
                 </Button>
@@ -559,15 +707,23 @@ export default function HomePage() {
           <div className="relative mt-12">
             <div className="floating-metric-a pointer-events-none absolute left-0 top-10 z-10 hidden rounded-[8px] border border-[#22c55e]/25 bg-[#06150f]/90 p-4 shadow-2xl shadow-black/30 lg:block">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#86efac]">Capacity</p>
-              <p className="mt-2 text-4xl font-black text-white">71%</p>
+              <p className="mt-2 text-4xl font-black text-white">
+                <CountNumber value="71%" />
+              </p>
               <p className="mt-1 text-sm font-semibold text-white/50">netto dopo pausa</p>
             </div>
             <div className="floating-metric-b pointer-events-none absolute bottom-12 right-0 z-10 hidden rounded-[8px] border border-[#d6487e]/28 bg-[#1c0711]/90 p-4 shadow-2xl shadow-black/30 lg:block">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ff8fbd]">Signals</p>
-              <p className="mt-2 text-4xl font-black text-white">1</p>
+              <p className="mt-2 text-4xl font-black text-white">
+                <CountNumber value="1" />
+              </p>
               <p className="mt-1 text-sm font-semibold text-white/50">da presidiare</p>
             </div>
-            <ProductCockpit />
+            <div className="hero-cockpit" style={{ perspective: "1600px" }}>
+              <div className="cockpit-3d [transform-style:preserve-3d]">
+                <ProductCockpit />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -582,7 +738,10 @@ export default function HomePage() {
             />
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div
+            className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+            style={{ perspective: "1200px" }}
+          >
             {modules.map((module, index) => (
               <ModuleCard key={module.title} module={module} index={index} />
             ))}
@@ -641,7 +800,7 @@ export default function HomePage() {
               ].map(([label, value, color]) => (
                 <div key={label} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
                   <div className="text-4xl font-black" style={{ color }}>
-                    {value}
+                    <CountNumber value={value} />
                   </div>
                   <p className="mt-1 text-sm font-semibold text-white/52">{label}</p>
                 </div>
@@ -660,7 +819,7 @@ export default function HomePage() {
                     </span>
                   </div>
                   <div className="mt-3 h-2 overflow-hidden rounded-[8px] bg-white/10">
-                    <div className="h-full rounded-[8px]" style={{ width: value, backgroundColor: color }} />
+                    <div className="bar-fill h-full rounded-[8px]" style={{ width: value, backgroundColor: color }} />
                   </div>
                 </div>
               ))}
@@ -775,7 +934,7 @@ export default function HomePage() {
               <Link href="/register">
                 <Button
                   size="lg"
-                  className="h-12 w-full rounded-[8px] bg-white px-7 font-bold text-[#05070b] hover:bg-[#67e8f9]"
+                  className="magnetic h-12 w-full rounded-[8px] bg-white px-7 font-bold text-[#05070b] hover:bg-[#67e8f9]"
                 >
                   Entra in piattaforma
                   <ArrowRight className="ml-2 h-5 w-5" />
