@@ -694,8 +694,10 @@ export default function HomePage() {
             </div>
             <h1 className="text-5xl font-bold leading-[0.95] tracking-tight text-white sm:text-7xl lg:text-8xl">
               {splitWords("Tutto il lavoro dell'agenzia")}
-              <span className="bg-[linear-gradient(135deg,#d6487e_0%,#06b6d4_100%)] bg-clip-text text-transparent">
-                {splitWords("in un solo posto.")}
+              <span className="inline-block overflow-hidden align-top">
+                <span className="hero-word inline-block bg-[linear-gradient(135deg,#d6487e_0%,#06b6d4_100%)] bg-clip-text align-top text-transparent will-change-transform">
+                  in un solo posto.
+                </span>
               </span>
             </h1>
             <p className="mx-auto mt-7 max-w-3xl text-lg font-medium leading-8 text-white/72">
