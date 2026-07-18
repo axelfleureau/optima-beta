@@ -604,7 +604,7 @@ export default function HomePage() {
   }, [])
 
   return (
-    <main ref={rootRef} className="min-h-screen overflow-x-hidden bg-[#05070b] text-white">
+    <main ref={rootRef} className="font-degular min-h-screen overflow-x-hidden bg-[#05070b] text-white">
       <div className="boot-screen fixed inset-0 z-[90] flex flex-col justify-between bg-[#05070b] px-5 py-5 text-white [clip-path:inset(0_0_0_0)] sm:px-8">
         <div className="grid gap-4 text-xs font-black uppercase tracking-[0.22em] text-white/46 sm:grid-cols-4">
           {["Óptima", "by Righello", "Clienti · Progetti · Contenuti", "Caricamento…"].map(

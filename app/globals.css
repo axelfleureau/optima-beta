@@ -42,6 +42,12 @@
   font-display: swap;
 }
 
+/* Tipografia del sito marketing: stesso font del brand Righello (wearerighello.com). */
+.font-degular {
+  font-family: "Degular Display", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+}
+
 :root {
   /* Righello Brand Colors */
   --righello-pink: #d6487e;
