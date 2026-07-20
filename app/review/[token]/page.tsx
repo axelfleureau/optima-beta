@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { signedThumbUrl } from "@/lib/video-node";
+import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
 import ReviewRoomClient from "./review-room-client";
 
 type PageParams = { params: Promise<{ token: string }> };
@@ -19,7 +19,7 @@ async function getReviewPreview(token: string) {
 
   const tranche: any = await db
     .prepare(
-      `SELECT t.id, t.title, c.name AS client_name
+      `SELECT t.id, t.title, t.post_type, c.name AS client_name
          FROM vr_tranches t
          LEFT JOIN clients c ON c.id = t.client_id
         WHERE t.token = ? LIMIT 1`,
@@ -28,9 +28,9 @@ async function getReviewPreview(token: string) {
     .first();
   if (!tranche) return null;
 
-  const firstVideo: any = await db
+  const firstMedia: any = await db
     .prepare(
-      `SELECT v.title, v.storage_key, v.approved_key
+      `SELECT v.title, v.storage_key, v.approved_key, v.media_type
          FROM vr_videos v
         WHERE v.tranche_id = ? AND v.status != 'uploading'
           AND NOT EXISTS (
@@ -40,22 +40,28 @@ async function getReviewPreview(token: string) {
                AND nv.version > v.version
                AND nv.status != 'uploading'
           )
-        ORDER BY v.created_at ASC
+        ORDER BY COALESCE(v.slide_index, 9999), v.created_at ASC
         LIMIT 1`,
     )
     .bind(String(tranche.id))
     .first();
 
   const image =
-    (await signedThumbUrl(
-      firstVideo?.approved_key || firstVideo?.storage_key,
-      604800,
-    )) || FALLBACK_IMAGE;
+    String(firstMedia?.media_type || "video") === "image"
+      ? (await signedByteUrl(
+          firstMedia?.approved_key || firstMedia?.storage_key,
+          { ttlSeconds: 604800 },
+        )) || FALLBACK_IMAGE
+      : (await signedThumbUrl(
+          firstMedia?.approved_key || firstMedia?.storage_key,
+          604800,
+        )) || FALLBACK_IMAGE;
 
   return {
-    title: String(tranche.title || "Review video"),
+    title: String(tranche.title || "Post Review"),
     clientName: tranche.client_name ? String(tranche.client_name) : null,
-    firstVideoTitle: firstVideo?.title ? String(firstVideo.title) : null,
+    firstMediaTitle: firstMedia?.title ? String(firstMedia.title) : null,
+    postType: String(tranche.post_type || "video"),
     image,
   };
 }
@@ -66,18 +72,18 @@ export async function generateMetadata({
   const { token } = await params;
   const preview = await getReviewPreview(token);
   const title = preview
-    ? `${preview.title} | Review video Righello`
-    : "Review video Righello";
+    ? `${preview.title} | Post Review Righello`
+    : "Post Review Righello";
   const description = preview
     ? [
         preview.clientName,
-        preview.firstVideoTitle
-          ? `Anteprima: ${preview.firstVideoTitle}`
-          : "Video pronti per approvazione e note di revisione",
+        preview.firstMediaTitle
+          ? `Anteprima: ${preview.firstMediaTitle}`
+          : "Contenuti social pronti per approvazione e note di revisione",
       ]
         .filter(Boolean)
         .join(" · ")
-    : "Video pronti per approvazione e note di revisione.";
+    : "Contenuti social pronti per approvazione e note di revisione.";
   const url = `${SITE_URL}/review/${token}`;
   const image = preview?.image || FALLBACK_IMAGE;
 
@@ -95,7 +101,7 @@ export async function generateMetadata({
           url: image,
           width: 1200,
           height: 630,
-          alt: preview?.title || "Review video Righello",
+          alt: preview?.title || "Post Review Righello",
         },
       ],
     },

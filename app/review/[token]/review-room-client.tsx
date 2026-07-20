@@ -1,18 +1,35 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 
-type Marker = { id: string; tSeconds: number; note: string };
-type Video = {
+type Marker = {
+  id: string;
+  mediaId?: string;
+  tSeconds: number;
+  note: string;
+};
+type ReviewMedia = {
   id: string;
   title: string;
   status: string;
+  mediaType: "video" | "image";
   fps: number;
   width: number | null;
   height: number | null;
   plannedPublishDate: string | null;
   streamUrl: string | null;
+  imageUrl: string | null;
+  thumbUrl: string | null;
+  slideIndex: number | null;
   markers: Marker[];
+};
+type ReviewData = {
+  tranche: {
+    title: string;
+    clientName: string | null;
+    postType: "video" | "image" | "carousel";
+  };
+  videos: ReviewMedia[];
 };
 
 function timecode(sec: number, fps = 25) {
@@ -34,54 +51,120 @@ function fmtDate(iso: string | null) {
       });
 }
 
-function ReviewVideo({ token, video }: { token: string; video: Video }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [status, setStatus] = useState(video.status);
+function initials(name: string | null) {
+  return String(name || "R")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function postLabel(data: ReviewData) {
+  if (data.tranche.postType === "carousel") {
+    return `Carosello ${data.videos.length} slide`;
+  }
+  if (data.tranche.postType === "image") return "Post immagine";
+  return "Video/Reel";
+}
+
+function SocialPostReview({
+  token,
+  data,
+}: {
+  token: string;
+  data: ReviewData;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<"idle" | "revising">("idle");
-  const [markers, setMarkers] = useState<Marker[]>(video.markers || []);
-  const [pendingT, setPendingT] = useState<number | null>(null);
+  const [markers, setMarkers] = useState<Marker[]>(
+    data.videos.flatMap((media) =>
+      (media.markers || []).map((marker) => ({
+        ...marker,
+        mediaId: media.id,
+      })),
+    ),
+  );
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [statuses, setStatuses] = useState<Record<string, string>>(
+    Object.fromEntries(data.videos.map((media) => [media.id, media.status])),
+  );
 
-  function captureHere() {
-    const t = ref.current?.currentTime ?? 0;
-    ref.current?.pause();
-    setPendingT(t);
-  }
+  const sorted = useMemo(
+    () =>
+      [...data.videos].sort(
+        (a, b) =>
+          (a.slideIndex || 9999) - (b.slideIndex || 9999) ||
+          a.title.localeCompare(b.title),
+      ),
+    [data.videos],
+  );
+  const current = sorted[Math.min(index, Math.max(0, sorted.length - 1))];
+  const isVideo = current?.mediaType === "video";
+  const aggregateStatus = sorted.every(
+    (media) => statuses[media.id] === "approved",
+  )
+    ? "approved"
+    : sorted.some((media) => statuses[media.id] === "revision")
+      ? "revision"
+      : "pending";
+  const statusLabel =
+    aggregateStatus === "approved"
+      ? "Approvato"
+      : aggregateStatus === "revision"
+        ? "Revisione inviata"
+        : "Da revisionare";
+  const statusClass =
+    aggregateStatus === "approved"
+      ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
+      : aggregateStatus === "revision"
+        ? "border-amber-400/30 bg-amber-500/15 text-amber-200"
+        : "border-white/10 bg-white/10 text-neutral-200";
 
-  function addMarker() {
-    if (pendingT === null || !note.trim()) return;
-    setMarkers((ms) =>
-      [
-        ...ms,
-        { id: `tmp-${Date.now()}`, tSeconds: pendingT, note: note.trim() },
-      ].sort((a, b) => a.tSeconds - b.tSeconds),
-    );
+  function addNote() {
+    if (!current || !note.trim()) return;
+    const tSeconds = isVideo ? (videoRef.current?.currentTime ?? 0) : 0;
+    videoRef.current?.pause();
+    setMarkers((items) => [
+      ...items,
+      {
+        id: `tmp-${Date.now()}`,
+        mediaId: current.id,
+        tSeconds,
+        note: note.trim(),
+      },
+    ]);
     setNote("");
-    setPendingT(null);
   }
 
-  async function approve() {
+  async function approvePost() {
     setBusy(true);
     setMsg(null);
     const r = await fetch(`/api/video-review/review/${token}/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ videoId: video.id }),
+      body: JSON.stringify({}),
     })
-      .then((r) => r.json())
+      .then((response) => response.json())
       .catch(() => ({ ok: false }));
     setBusy(false);
     if (r?.ok) {
-      setStatus("approved");
-      setMsg({ ok: true, text: "Approvato ✓" });
-    } else setMsg({ ok: false, text: "Errore, riprova" });
+      setStatuses(
+        Object.fromEntries(sorted.map((media) => [media.id, "approved"])),
+      );
+      setMode("idle");
+      setMsg({ ok: true, text: "Post approvato." });
+    } else {
+      setMsg({ ok: false, text: r?.error || "Errore, riprova." });
+    }
   }
 
   async function sendRevision() {
     if (!markers.length) {
-      setMsg({ ok: false, text: "Aggiungi almeno una nota." });
+      setMsg({ ok: false, text: "Aggiungi almeno una nota di modifica." });
       return;
     }
     setBusy(true);
@@ -90,205 +173,164 @@ function ReviewVideo({ token, video }: { token: string; video: Video }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        videoId: video.id,
-        markers: markers.map((m) => ({ tSeconds: m.tSeconds, note: m.note })),
+        markers: markers.map((marker) => {
+          const media = sorted.find((item) => item.id === marker.mediaId);
+          return {
+            mediaId: marker.mediaId,
+            slideIndex: media?.slideIndex || null,
+            tSeconds: marker.tSeconds,
+            note: marker.note,
+          };
+        }),
       }),
     })
-      .then((r) => r.json())
+      .then((response) => response.json())
       .catch(() => ({ ok: false }));
     setBusy(false);
     if (r?.ok) {
-      setStatus("revision");
+      setStatuses(
+        Object.fromEntries(sorted.map((media) => [media.id, "revision"])),
+      );
       setMode("idle");
       setMsg({
         ok: true,
-        text: `Revisione inviata (${markers.length} note) ✓`,
+        text: `Revisione inviata (${markers.length} note).`,
       });
-    } else setMsg({ ok: false, text: "Errore, riprova" });
+    } else {
+      setMsg({ ok: false, text: r?.error || "Errore, riprova." });
+    }
   }
 
-  const label =
-    status === "approved"
-      ? "Approvato"
-      : status === "revision"
-        ? "Revisione inviata"
-        : "Da revisionare";
-  const labelCls =
-    status === "approved"
-      ? "bg-emerald-500/15 text-emerald-400"
-      : status === "revision"
-        ? "bg-amber-500/15 text-amber-400"
-        : "bg-white/10 text-neutral-300";
+  if (!current) {
+    return (
+      <div className="rounded-3xl border border-white/10 bg-neutral-900/60 p-8 text-neutral-400">
+        Nessun contenuto disponibile.
+      </div>
+    );
+  }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-neutral-900/60 p-4 shadow-xl">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold">{video.title}</h3>
-          {video.plannedPublishDate && (
-            <p className="text-sm text-neutral-400">
-              📅 Pubblicazione prevista: {fmtDate(video.plannedPublishDate)}
-            </p>
-          )}
+    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-neutral-900/70 shadow-2xl">
+      <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d6487e] to-[#06b6d4] text-sm font-bold text-white">
+          {initials(data.tranche.clientName)}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-neutral-100">
+            {data.tranche.clientName || "Righello"}
+          </p>
+          <p className="truncate text-xs text-neutral-500">
+            {data.tranche.title}
+          </p>
         </div>
         <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${labelCls}`}
+          className={`ml-auto rounded-full border px-3 py-1 text-xs font-semibold ${statusClass}`}
         >
-          {label}
+          {statusLabel}
         </span>
       </div>
 
-      {/* Player col formato reale: i reel 9:16 restano verticali, non schiacciati. */}
-      {video.streamUrl ? (
-        <div className="flex w-full justify-center overflow-hidden rounded-xl bg-black">
+      <div className="bg-black">
+        {isVideo ? (
           <video
-            ref={ref}
+            ref={videoRef}
             controls
             preload="metadata"
             playsInline
-            src={video.streamUrl}
-            className="max-w-full bg-black"
+            src={current.streamUrl || ""}
+            className="mx-auto max-h-[72vh] max-w-full bg-black"
             style={
-              video.width && video.height && video.height > video.width
-                ? {
-                    aspectRatio: `${video.width} / ${video.height}`,
-                    height: "min(70vh, 560px)",
-                    width: "auto",
-                  }
-                : {
-                    aspectRatio:
-                      video.width && video.height
-                        ? `${video.width} / ${video.height}`
-                        : "16 / 9",
-                    width: "100%",
-                  }
+              current.width && current.height
+                ? { aspectRatio: `${current.width} / ${current.height}` }
+                : { aspectRatio: "16 / 9", width: "100%" }
             }
           />
-        </div>
-      ) : (
-        <div className="flex aspect-video w-full items-center justify-center rounded-xl bg-black/60 text-sm text-neutral-500">
-          Video non disponibile
+        ) : current.imageUrl || current.thumbUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={current.imageUrl || current.thumbUrl || ""}
+            alt={current.title}
+            className="mx-auto max-h-[72vh] max-w-full object-contain"
+          />
+        ) : (
+          <div className="flex aspect-square items-center justify-center text-sm text-neutral-500">
+            Immagine non disponibile
+          </div>
+        )}
+      </div>
+
+      {sorted.length > 1 && (
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setIndex((value) => Math.max(0, value - 1))}
+            disabled={index === 0}
+            className="rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-200 disabled:opacity-40"
+          >
+            Precedente
+          </button>
+          <div className="flex items-center gap-2">
+            {sorted.map((media, i) => (
+              <button
+                key={media.id}
+                type="button"
+                aria-label={`Vai alla slide ${i + 1}`}
+                onClick={() => setIndex(i)}
+                className={`h-2.5 rounded-full transition-all ${
+                  i === index ? "w-8 bg-[#d6487e]" : "w-2.5 bg-white/25"
+                }`}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setIndex((value) => Math.min(sorted.length - 1, value + 1))
+            }
+            disabled={index >= sorted.length - 1}
+            className="rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-200 disabled:opacity-40"
+          >
+            Successiva
+          </button>
         </div>
       )}
 
-      {mode === "idle" ? (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            onClick={approve}
-            disabled={busy}
-            className="rounded-lg bg-emerald-500 px-5 py-2.5 font-semibold text-emerald-950 hover:brightness-110 disabled:opacity-50"
-          >
-            ✓ Approva
-          </button>
-          <button
-            onClick={() => {
-              setMode("revising");
-              setMsg(null);
-            }}
-            disabled={busy}
-            className="rounded-lg bg-amber-500 px-5 py-2.5 font-semibold text-amber-950 hover:brightness-110 disabled:opacity-50"
-          >
-            ✎ Richiedi revisione
-          </button>
-          {msg && (
-            <span
-              className={`text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}
-            >
-              {msg.text}
+      <div className="space-y-4 px-4 py-5">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-[#d6487e]/30 bg-[#d6487e]/15 px-3 py-1 text-xs font-semibold text-[#ff8ab6]">
+              {postLabel(data)}
             </span>
-          )}
-        </div>
-      ) : (
-        <div className="mt-4 border-t border-white/10 pt-4">
-          {pendingT === null ? (
-            <button
-              onClick={captureHere}
-              className="rounded-lg bg-[#d6487e] px-4 py-2 font-semibold text-white hover:brightness-110"
-            >
-              + Aggiungi nota al punto attuale
-            </button>
-          ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded bg-amber-500/15 px-2 py-1 font-mono text-xs text-amber-400">
-                {timecode(pendingT, video.fps)}
+            {current.plannedPublishDate && (
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-300">
+                Pubblicazione {fmtDate(current.plannedPublishDate)}
               </span>
-              <input
-                autoFocus
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addMarker()}
-                placeholder="Cosa modificare in questo punto…"
-                className="min-w-[200px] flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm outline-none focus:border-[#d6487e]"
-              />
-              <button
-                onClick={addMarker}
-                disabled={!note.trim()}
-                className="rounded-lg bg-[#d6487e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                Aggiungi
-              </button>
-              <button
-                onClick={() => {
-                  setPendingT(null);
-                  setNote("");
-                }}
-                className="rounded-lg px-3 py-2 text-sm text-neutral-400 hover:text-white"
-              >
-                Annulla
-              </button>
-            </div>
-          )}
-          <p className="mt-2 text-xs text-neutral-500">
-            Metti in pausa sul punto da modificare e aggiungi una nota. Puoi
-            aggiungerne quante vuoi.
+            )}
+          </div>
+          <p className="mt-3 text-sm leading-6 text-neutral-200">
+            <strong>{data.tranche.clientName || "Righello"}</strong>{" "}
+            {current.title}
           </p>
+        </div>
 
-          {markers.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {markers.map((m) => (
-                <div
-                  key={m.id}
-                  className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2"
-                >
-                  <button
-                    onClick={() => {
-                      if (ref.current) {
-                        ref.current.currentTime = m.tSeconds;
-                        ref.current.play().catch(() => {});
-                      }
-                    }}
-                    className="shrink-0 font-mono text-xs text-amber-400 hover:underline"
-                  >
-                    {timecode(m.tSeconds, video.fps)}
-                  </button>
-                  <span className="flex-1 text-sm">{m.note}</span>
-                  <button
-                    onClick={() =>
-                      setMarkers((ms) => ms.filter((x) => x.id !== m.id))
-                    }
-                    className="text-neutral-500 hover:text-red-400"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+        {mode === "idle" ? (
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={sendRevision}
-              disabled={busy || !markers.length}
-              className="rounded-lg bg-amber-500 px-5 py-2.5 font-semibold text-amber-950 hover:brightness-110 disabled:opacity-50"
+              onClick={approvePost}
+              disabled={busy}
+              className="rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-emerald-950 hover:brightness-110 disabled:opacity-50"
             >
-              Invia {markers.length} {markers.length === 1 ? "nota" : "note"} al
-              videomaker
+              Approva post
             </button>
             <button
-              onClick={() => setMode("idle")}
-              className="text-sm text-neutral-400 hover:text-white"
+              onClick={() => {
+                setMode("revising");
+                setMsg(null);
+              }}
+              disabled={busy}
+              className="rounded-xl bg-amber-500 px-5 py-3 font-semibold text-amber-950 hover:brightness-110 disabled:opacity-50"
             >
-              Indietro
+              Richiedi modifiche
             </button>
             {msg && (
               <span
@@ -298,8 +340,99 @@ function ReviewVideo({ token, video }: { token: string; video: Video }) {
               </span>
             )}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+            <p className="text-sm font-semibold text-neutral-100">
+              Nota per{" "}
+              {isVideo
+                ? `timecode ${timecode(videoRef.current?.currentTime || 0, current.fps)}`
+                : `slide ${index + 1}`}
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                autoFocus
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && addNote()}
+                placeholder={
+                  isVideo
+                    ? "Cosa modificare in questo punto?"
+                    : "Cosa modificare in questa slide?"
+                }
+                className="min-h-11 flex-1 rounded-xl border border-white/15 bg-black/40 px-3 py-2 text-sm outline-none focus:border-[#d6487e]"
+              />
+              <button
+                onClick={addNote}
+                disabled={!note.trim()}
+                className="rounded-xl bg-[#d6487e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Aggiungi nota
+              </button>
+            </div>
+
+            {markers.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {markers.map((marker) => {
+                  const mediaIndex = sorted.findIndex(
+                    (media) => media.id === marker.mediaId,
+                  );
+                  const media = sorted[mediaIndex];
+                  return (
+                    <div
+                      key={marker.id}
+                      className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setIndex(Math.max(0, mediaIndex))}
+                        className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-xs text-amber-300"
+                      >
+                        {media?.mediaType === "image"
+                          ? `Slide ${mediaIndex + 1}`
+                          : timecode(marker.tSeconds, media?.fps || 25)}
+                      </button>
+                      <span className="flex-1 text-sm">{marker.note}</span>
+                      <button
+                        onClick={() =>
+                          setMarkers((items) =>
+                            items.filter((item) => item.id !== marker.id),
+                          )
+                        }
+                        className="text-neutral-500 hover:text-red-400"
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                onClick={sendRevision}
+                disabled={busy || !markers.length}
+                className="rounded-xl bg-amber-500 px-5 py-3 font-semibold text-amber-950 hover:brightness-110 disabled:opacity-50"
+              >
+                Invia revisione
+              </button>
+              <button
+                onClick={() => setMode("idle")}
+                className="text-sm text-neutral-400 hover:text-white"
+              >
+                Indietro
+              </button>
+              {msg && (
+                <span
+                  className={`text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}
+                >
+                  {msg.text}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -310,9 +443,7 @@ export default function ReviewRoomClient({
   params: Promise<{ token: string }>;
 }) {
   const { token } = use(params);
-  const [data, setData] = useState<{ tranche: any; videos: Video[] } | null>(
-    null,
-  );
+  const [data, setData] = useState<ReviewData | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -332,7 +463,7 @@ export default function ReviewRoomClient({
   if (!data) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-950 text-neutral-400">
-        Carico…
+        Carico...
       </div>
     );
   }
@@ -348,7 +479,7 @@ export default function ReviewRoomClient({
       <div className="border-b border-white/10 px-6 py-4">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-[#d6487e] to-[#06b6d4]" />
-          <span className="font-bold">Review video</span>
+          <span className="font-bold">Post Review</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/righello-logo-white.png"
@@ -358,26 +489,22 @@ export default function ReviewRoomClient({
         </div>
       </div>
 
-      <div className="mx-auto max-w-3xl px-6 py-10">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
         <p className="text-sm font-semibold uppercase tracking-wider text-[#d6487e]">
           {data.tranche.clientName || ""}
         </p>
         <h1 className="mt-1 text-3xl font-bold">{data.tranche.title}</h1>
         <p className="mt-3 text-neutral-400">
-          {data.videos.length} video da revisionare. Per ognuno puoi{" "}
-          <strong>approvare</strong> oppure{" "}
-          <strong>richiedere modifiche</strong> mettendo note nei punti precisi
-          del video.
+          Controlla il contenuto social, poi approva il post oppure lascia note
+          di modifica sulla slide o sul punto del video.
         </p>
 
-        <div className="mt-8 space-y-6">
-          {data.videos.map((v) => (
-            <ReviewVideo key={v.id} token={token} video={v} />
-          ))}
+        <div className="mt-8">
+          <SocialPostReview token={token} data={data} />
         </div>
 
         <p className="mt-12 text-center text-xs text-neutral-600">
-          Righello · Video Review
+          Righello - Post Review
         </p>
       </div>
     </div>

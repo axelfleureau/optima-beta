@@ -18,6 +18,8 @@ type PreparedUpload = {
   uploadUrl?: string | null;
   uploadId?: string | null;
   videoId: string;
+  mediaId?: string;
+  mediaType?: "video" | "image";
   partSize?: number;
 };
 
@@ -153,6 +155,33 @@ async function readLocalVideoMetadata(file: File): Promise<UploadResult> {
   });
 }
 
+async function readLocalImageMetadata(file: File): Promise<UploadResult> {
+  if (typeof document === "undefined") return {};
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    const cleanup = () => URL.revokeObjectURL(url);
+    img.onload = () => {
+      const result = {
+        width: img.naturalWidth || undefined,
+        height: img.naturalHeight || undefined,
+      };
+      cleanup();
+      resolve(result);
+    };
+    img.onerror = () => {
+      cleanup();
+      resolve({});
+    };
+    img.src = url;
+  });
+}
+
+async function readLocalMediaMetadata(file: File): Promise<UploadResult> {
+  if (file.type.startsWith("image/")) return readLocalImageMetadata(file);
+  return readLocalVideoMetadata(file);
+}
+
 async function readApiPayload(response: Response) {
   const text = await response.text().catch(() => "");
   if (!text) return { payload: null, text: "" };
@@ -260,7 +289,7 @@ async function uploadVideoFileToR2Multipart({
     );
   }
 
-  return readLocalVideoMetadata(file);
+  return readLocalMediaMetadata(file);
 }
 
 export async function uploadPreparedVideo({
@@ -276,7 +305,13 @@ export async function uploadPreparedVideo({
     return uploadVideoFileToR2Multipart({ prepared, file, onProgress });
   }
   if (!prepared.uploadUrl) throw new Error("URL di upload mancante.");
-  return uploadVideoFileToNode({ url: prepared.uploadUrl, file, onProgress });
+  const result = await uploadVideoFileToNode({
+    url: prepared.uploadUrl,
+    file,
+    onProgress,
+  });
+  if (file.type.startsWith("image/")) return readLocalImageMetadata(file);
+  return result;
 }
 
 export async function cleanupPreparedVideoUpload(prepared: PreparedUpload) {

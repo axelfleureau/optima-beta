@@ -43,6 +43,10 @@ type Video = {
   title: string;
   filename: string;
   status: string;
+  mediaType?: "video" | "image";
+  mimeType: string | null;
+  fileSize: number | null;
+  slideIndex: number | null;
   fps: number | null;
   durationSeconds: number | null;
   width: number | null;
@@ -52,6 +56,7 @@ type Video = {
   projectId: string | null;
   projectInherited: boolean;
   streamUrl: string | null;
+  imageUrl: string | null;
   downloadUrl: string | null;
   markers: Marker[];
 };
@@ -64,7 +69,7 @@ function timecode(sec: number, fps = 25) {
 }
 
 /**
- * Pannello di dettaglio del singolo video: qui vivono TUTTE le azioni, così le
+ * Pannello di dettaglio del singolo media: qui vivono TUTTE le azioni, così le
  * card restano un colpo d'occhio (niente più pulsantiere ripetute).
  */
 export function VideoDrawer({
@@ -98,6 +103,7 @@ export function VideoDrawer({
   const [deleteErr, setDeleteErr] = useState<string | null>(null);
   const st = statusMeta(v.status);
   const fps = v.fps || 25;
+  const isImage = v.mediaType === "image";
 
   function seekTo(m: Marker) {
     const el = videoRef.current;
@@ -237,22 +243,50 @@ export function VideoDrawer({
   }
 
   const doneCount = markers.filter((m) => m.done).length;
+  const mediaLabel = isImage
+    ? v.slideIndex
+      ? `Slide ${v.slideIndex}`
+      : "Immagine"
+    : "Video";
 
   return (
     <div className="space-y-5">
-      {/* Player */}
-      <AdaptivePlayer
-        src={v.streamUrl}
-        width={v.width}
-        height={v.height}
-        videoRef={videoRef}
-        maxVerticalHeight="min(56vh, 460px)"
-      />
+      {/* Preview */}
+      {isImage ? (
+        <div className="flex max-h-[56vh] justify-center overflow-hidden rounded-xl bg-black">
+          {v.imageUrl || v.streamUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={v.imageUrl || v.streamUrl || ""}
+              alt={v.title}
+              className="max-h-[56vh] max-w-full object-contain"
+            />
+          ) : (
+            <div className="flex aspect-square w-full items-center justify-center text-sm text-slate-500">
+              Immagine non disponibile
+            </div>
+          )}
+        </div>
+      ) : (
+        <AdaptivePlayer
+          src={v.streamUrl}
+          width={v.width}
+          height={v.height}
+          videoRef={videoRef}
+          maxVerticalHeight="min(56vh, 460px)"
+        />
+      )}
 
       {/* Meta + stato */}
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
         <Badge variant="outline" className={st.badge}>
           {st.label}
+        </Badge>
+        <Badge
+          variant="outline"
+          className="border-cyan-400/20 bg-cyan-400/10 text-cyan-200"
+        >
+          {mediaLabel}
         </Badge>
         {v.version > 1 && (
           <Badge
@@ -264,6 +298,7 @@ export function VideoDrawer({
         )}
         <span className="font-mono">
           {v.filename}
+          {v.fileSize ? ` · ${Math.round(v.fileSize / 1024 / 1024)}MB` : ""}
           {v.durationSeconds ? ` · ${Math.round(v.durationSeconds)}s` : ""}
           {v.fps ? ` · ${Math.round(v.fps)}fps` : ""}
           {v.width && v.height ? ` · ${v.width}×${v.height}` : ""}
@@ -272,28 +307,32 @@ export function VideoDrawer({
 
       {/* Azioni principali */}
       <div className="flex flex-wrap gap-2">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="video/*,.mov,.mp4,.mkv,.mxf,.m4v,.webm"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) uploadNewVersion(f);
-            e.target.value = "";
-          }}
-        />
-        <Button
-          size="sm"
-          className={primaryButtonClass}
-          disabled={progress !== null}
-          onClick={() => fileRef.current?.click()}
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          {progress !== null
-            ? `Carico ${progress}%`
-            : `Carica v${v.version + 1}`}
-        </Button>
+        {!isImage && (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="video/*,.mov,.mp4,.mkv,.mxf,.m4v,.webm"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadNewVersion(f);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              size="sm"
+              className={primaryButtonClass}
+              disabled={progress !== null}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              {progress !== null
+                ? `Carico ${progress}%`
+                : `Carica v${v.version + 1}`}
+            </Button>
+          </>
+        )}
         {v.downloadUrl && (
           <Button
             asChild
@@ -306,7 +345,7 @@ export function VideoDrawer({
             </a>
           </Button>
         )}
-        {markers.length > 0 && (
+        {!isImage && markers.length > 0 && (
           <Button
             asChild
             size="sm"
@@ -340,86 +379,88 @@ export function VideoDrawer({
       {upErr && <p className="text-sm text-red-400">{upErr}</p>}
 
       {/* Editing rapido sul nodo (senza DaVinci) → crea una nuova versione */}
-      <div className={`${insetPanelClass} space-y-3 p-3`}>
-        <p className="text-sm font-medium text-slate-300">Modifica rapida</p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-white/10 bg-white/5"
-            disabled={!!editing}
-            onClick={() => runEdit("reframe", { aspect: "9:16" }, "9x16")}
-          >
-            {editing === "9x16" ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Crop className="mr-2 h-4 w-4" />
-            )}
-            Ritaglia 9:16
-          </Button>
-          <Button
-            size="sm"
-            variant={trimMode ? "default" : "outline"}
-            className={
-              trimMode ? primaryButtonClass : "border-white/10 bg-white/5"
-            }
-            disabled={!!editing}
-            onClick={() => setTrimMode((x) => !x)}
-          >
-            <Scissors className="mr-2 h-4 w-4" /> Taglia
-          </Button>
-        </div>
-
-        {trimMode && (
-          <div className="space-y-2 rounded-md border border-white/10 bg-black/20 p-2.5">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-9 text-slate-300"
-                onClick={() => setTrimIn(videoRef.current?.currentTime ?? 0)}
-              >
-                Inizio = {trimIn === null ? "qui" : timecode(trimIn, fps)}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-9 text-slate-300"
-                onClick={() => setTrimOut(videoRef.current?.currentTime ?? 0)}
-              >
-                Fine = {trimOut === null ? "qui" : timecode(trimOut, fps)}
-              </Button>
-            </div>
-            <p className="text-xs text-slate-500">
-              Metti in pausa sul punto, poi imposta inizio e fine.
-            </p>
+      {!isImage && (
+        <div className={`${insetPanelClass} space-y-3 p-3`}>
+          <p className="text-sm font-medium text-slate-300">Modifica rapida</p>
+          <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
-              className={primaryButtonClass}
-              disabled={
-                !!editing ||
-                trimIn === null ||
-                trimOut === null ||
-                (trimOut ?? 0) <= (trimIn ?? 0)
-              }
-              onClick={() =>
-                runEdit("trim", { start: trimIn, end: trimOut }, "trim")
-              }
+              variant="outline"
+              className="border-white/10 bg-white/5"
+              disabled={!!editing}
+              onClick={() => runEdit("reframe", { aspect: "9:16" }, "9x16")}
             >
-              {editing === "trim" ? (
+              {editing === "9x16" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Scissors className="mr-2 h-4 w-4" />
+                <Crop className="mr-2 h-4 w-4" />
               )}
-              Applica taglio
+              Ritaglia 9:16
+            </Button>
+            <Button
+              size="sm"
+              variant={trimMode ? "default" : "outline"}
+              className={
+                trimMode ? primaryButtonClass : "border-white/10 bg-white/5"
+              }
+              disabled={!!editing}
+              onClick={() => setTrimMode((x) => !x)}
+            >
+              <Scissors className="mr-2 h-4 w-4" /> Taglia
             </Button>
           </div>
-        )}
-        {editErr && <p className="text-sm text-red-400">{editErr}</p>}
-        <p className="text-xs text-slate-500">
-          Ogni modifica diventa una nuova versione, che il cliente rivede.
-        </p>
-      </div>
+
+          {trimMode && (
+            <div className="space-y-2 rounded-md border border-white/10 bg-black/20 p-2.5">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-9 text-slate-300"
+                  onClick={() => setTrimIn(videoRef.current?.currentTime ?? 0)}
+                >
+                  Inizio = {trimIn === null ? "qui" : timecode(trimIn, fps)}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-9 text-slate-300"
+                  onClick={() => setTrimOut(videoRef.current?.currentTime ?? 0)}
+                >
+                  Fine = {trimOut === null ? "qui" : timecode(trimOut, fps)}
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500">
+                Metti in pausa sul punto, poi imposta inizio e fine.
+              </p>
+              <Button
+                size="sm"
+                className={primaryButtonClass}
+                disabled={
+                  !!editing ||
+                  trimIn === null ||
+                  trimOut === null ||
+                  (trimOut ?? 0) <= (trimIn ?? 0)
+                }
+                onClick={() =>
+                  runEdit("trim", { start: trimIn, end: trimOut }, "trim")
+                }
+              >
+                {editing === "trim" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Scissors className="mr-2 h-4 w-4" />
+                )}
+                Applica taglio
+              </Button>
+            </div>
+          )}
+          {editErr && <p className="text-sm text-red-400">{editErr}</p>}
+          <p className="text-xs text-slate-500">
+            Ogni modifica diventa una nuova versione, che il cliente rivede.
+          </p>
+        </div>
+      )}
 
       {/* Note di modifica: clic = vai al punto · spunta = fatto */}
       {markers.length > 0 && (
@@ -427,7 +468,8 @@ export function VideoDrawer({
           <p className="mb-2 text-sm font-medium text-amber-300">
             Note di modifica
             <span className="ml-2 font-normal text-slate-500">
-              {doneCount}/{markers.length} fatte · clic per andare al punto
+              {doneCount}/{markers.length} fatte
+              {!isImage ? " · clic per andare al punto" : ""}
             </span>
           </p>
           <div className="space-y-1">
@@ -443,18 +485,20 @@ export function VideoDrawer({
                 />
                 <button
                   type="button"
-                  onClick={() => seekTo(m)}
+                  onClick={() => !isImage && seekTo(m)}
                   className="flex flex-1 items-start gap-2 text-left"
                 >
                   <span className="shrink-0 font-mono text-xs text-amber-400">
-                    {timecode(m.tSeconds, fps)}
+                    {isImage ? mediaLabel : timecode(m.tSeconds, fps)}
                   </span>
                   <span
                     className={`flex-1 text-sm ${m.done ? "text-slate-500 line-through" : "text-slate-200"}`}
                   >
                     {m.note}
                   </span>
-                  <Play className="mt-0.5 h-3 w-3 shrink-0 text-slate-600" />
+                  {!isImage && (
+                    <Play className="mt-0.5 h-3 w-3 shrink-0 text-slate-600" />
+                  )}
                 </button>
               </div>
             ))}
@@ -462,11 +506,11 @@ export function VideoDrawer({
         </div>
       )}
 
-      {/* Impostazioni del singolo video */}
+      {/* Impostazioni del singolo media */}
       <div className={`${insetPanelClass} space-y-4 p-4`}>
         <div className="space-y-2">
           <span className="text-sm font-medium text-slate-300">
-            Progetto del video
+            Progetto del media
           </span>
           <ProjectPicker
             clientId={clientId}
@@ -505,16 +549,16 @@ export function VideoDrawer({
         <CollaboratorsField
           scope="video"
           scopeId={v.id}
-          label="Delegati di questo video"
+          label="Delegati di questo media"
         />
       </div>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent className="border-white/10 bg-[#0b1220] text-slate-100">
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare questo video?</AlertDialogTitle>
+            <AlertDialogTitle>Eliminare questo media?</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              Il video sparira dalla tranche e non sara piu visibile nella
+              Il media sparira dalla tranche e non sara piu visibile nella
               review. Marker e deleghe collegate verranno rimossi.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -539,7 +583,7 @@ export function VideoDrawer({
               ) : (
                 <Trash2 className="mr-2 h-4 w-4" />
               )}
-              Elimina video
+              Elimina media
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -8,16 +8,23 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { signedByteUrl } from "@/lib/video-node";
+import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ token: string }> },
+) {
   const { token } = await params;
   const db = await getCloudflareDb();
-  if (!db) return Response.json({ error: "Database non disponibile" }, { status: 500 });
+  if (!db)
+    return Response.json(
+      { error: "Database non disponibile" },
+      { status: 500 },
+    );
 
   const t: any = await db
     .prepare(
-      `SELECT t.id, t.title, t.organization_id, c.name AS client_name
+      `SELECT t.id, t.title, t.post_type, t.organization_id, c.name AS client_name
          FROM vr_tranches t
          LEFT JOIN clients c ON c.id = t.client_id
         WHERE t.token = ? LIMIT 1`,
@@ -63,23 +70,40 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 
   const videos = await Promise.all(
-    ((vids?.results || []) as any[]).map(async (v) => ({
-      id: v.id,
-      title: v.title,
-      status: v.status,
-      fps: v.fps || 25,
-      durationSeconds: v.duration_seconds,
-      width: v.width,
-      height: v.height,
-      plannedPublishDate: v.planned_publish_date,
-      streamUrl: await signedByteUrl(v.storage_key),
-      markers: byVideo[String(v.id)] || [],
-    })),
+    ((vids?.results || []) as any[]).map(async (v) => {
+      const mediaType = String(v.media_type || "video");
+      const mediaUrl = await signedByteUrl(v.approved_key || v.storage_key);
+      return {
+        id: v.id,
+        title: v.title,
+        status: v.status,
+        mediaType,
+        mimeType: v.mime_type || null,
+        fileSize: v.file_size ? Number(v.file_size) : null,
+        slideIndex: v.slide_index ? Number(v.slide_index) : null,
+        fps: v.fps || 25,
+        durationSeconds: v.duration_seconds,
+        width: v.width,
+        height: v.height,
+        plannedPublishDate: v.planned_publish_date,
+        streamUrl: mediaType === "video" ? mediaUrl : null,
+        imageUrl: mediaType === "image" ? mediaUrl : null,
+        thumbUrl:
+          mediaType === "image"
+            ? mediaUrl
+            : await signedThumbUrl(v.approved_key || v.storage_key),
+        markers: byVideo[String(v.id)] || [],
+      };
+    }),
   );
 
   return Response.json({
     ok: true,
-    tranche: { title: t.title, clientName: t.client_name || null },
+    tranche: {
+      title: t.title,
+      clientName: t.client_name || null,
+      postType: t.post_type || "video",
+    },
     videos,
   });
 }

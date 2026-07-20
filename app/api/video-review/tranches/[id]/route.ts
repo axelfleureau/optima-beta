@@ -137,10 +137,16 @@ export async function GET(
   const videos = await Promise.all(
     ((vids?.results || []) as any[]).map(async (v) => {
       const effectiveProjectId = v.project_id || t.project_id || null;
+      const mediaType = String(v.media_type || "video");
+      const mediaUrl = await signedByteUrl(v.approved_key || v.storage_key);
       return {
         id: v.id,
         title: v.title,
         filename: v.filename,
+        mediaType,
+        mimeType: v.mime_type || null,
+        fileSize: v.file_size ? Number(v.file_size) : null,
+        slideIndex: v.slide_index ? Number(v.slide_index) : null,
         status: v.status,
         fps: v.fps,
         durationSeconds: v.duration_seconds,
@@ -155,11 +161,15 @@ export async function GET(
           ? projNameById[String(effectiveProjectId)] || null
           : null,
         projectInherited: !v.project_id && !!t.project_id,
-        streamUrl: await signedByteUrl(v.approved_key || v.storage_key),
+        streamUrl: mediaType === "video" ? mediaUrl : null,
+        imageUrl: mediaType === "image" ? mediaUrl : null,
         downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, {
           download: true,
         }),
-        thumbUrl: await signedThumbUrl(v.approved_key || v.storage_key),
+        thumbUrl:
+          mediaType === "image"
+            ? mediaUrl
+            : await signedThumbUrl(v.approved_key || v.storage_key),
         collaborators: collabByVideo[String(v.id)] || [],
         markers: markersByVideo[String(v.id)] || [],
       };
@@ -175,6 +185,7 @@ export async function GET(
       clientId: t.client_id,
       clientName: t.client_name || null,
       projectId: t.project_id || null,
+      postType: t.post_type || "video",
     },
     videos,
   });

@@ -43,12 +43,13 @@ export async function GET() {
 
   const res = await db
     .prepare(
-      `SELECT t.id, t.title, t.token, t.status, t.client_id, t.project_id,
+      `SELECT t.id, t.title, t.token, t.status, t.client_id, t.project_id, t.post_type,
               t.videomaker_member_id, t.smm_member_id, t.created_at,
               c.name AS client_name,
               vm.first_name AS vm_first, vm.last_name AS vm_last, vm.email AS vm_email,
               sm.first_name AS sm_first, sm.last_name AS sm_last, sm.email AS sm_email,
               (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status != 'uploading') AS video_count,
+              (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status != 'uploading' AND COALESCE(v.media_type, 'video')='image') AS image_count,
               (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status='pending')  AS pending_count,
               (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status='revision') AS revision_count,
               (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status='approved') AS approved_count
@@ -112,6 +113,7 @@ export async function GET() {
     title: t.title,
     token: t.token,
     status: t.status,
+    postType: t.post_type || "video",
     clientId: t.client_id,
     clientName: t.client_name || null,
     projectId: t.project_id,
@@ -119,6 +121,7 @@ export async function GET() {
     projectNames: projectsByTranche[String(t.id)] || [],
     counts: {
       total: Number(t.video_count || 0),
+      images: Number(t.image_count || 0),
       pending: Number(t.pending_count || 0),
       revision: Number(t.revision_count || 0),
       approved: Number(t.approved_count || 0),

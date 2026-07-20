@@ -139,7 +139,7 @@ export function AppSidebar() {
       icon: CalendarDays,
     },
     {
-      title: "Video Review",
+      title: "Post Review",
       url: "/video",
       icon: Clapperboard,
     },
@@ -187,7 +187,7 @@ export function AppSidebar() {
       icon: CalendarDays,
     },
     {
-      title: "Video Review",
+      title: "Post Review",
       url: "/video",
       icon: Clapperboard,
     },
@@ -230,7 +230,7 @@ export function AppSidebar() {
       icon: CalendarDays,
     },
     {
-      title: "Video Review",
+      title: "Post Review",
       url: "/video",
       icon: Clapperboard,
     },

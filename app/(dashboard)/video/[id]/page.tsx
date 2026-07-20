@@ -31,6 +31,7 @@ import {
   Copy,
   Check,
   Clapperboard,
+  Image as ImageIcon,
   Play,
   MessageSquare,
   Users,
@@ -62,6 +63,10 @@ type Video = {
   title: string;
   filename: string;
   status: string;
+  mediaType: "video" | "image";
+  mimeType: string | null;
+  fileSize: number | null;
+  slideIndex: number | null;
   fps: number | null;
   durationSeconds: number | null;
   width: number | null;
@@ -74,6 +79,7 @@ type Video = {
   projectName: string | null;
   projectInherited: boolean;
   streamUrl: string | null;
+  imageUrl: string | null;
   downloadUrl: string | null;
   thumbUrl: string | null;
   collaborators: Collab[];
@@ -86,6 +92,7 @@ type Tranche = {
   clientId: string | null;
   clientName: string | null;
   projectId: string | null;
+  postType?: "video" | "image" | "carousel";
 };
 
 export default function TranchePage({
@@ -221,7 +228,7 @@ export default function TranchePage({
                 href="/video"
                 className="mb-3 inline-flex items-center text-sm text-slate-400 transition-colors hover:text-slate-200"
               >
-                <ArrowLeft className="mr-1 h-4 w-4" /> Video Review
+                <ArrowLeft className="mr-1 h-4 w-4" /> Post Review
               </Link>
             }
             actions={
@@ -391,14 +398,14 @@ export default function TranchePage({
                   }}
                 />
                 <p className="text-xs text-slate-500">
-                  I video lo ereditano, ma ognuno può stare su un progetto
+                  I media lo ereditano, ma ognuno può stare su un progetto
                   diverso.
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Video: card COMPATTE; le azioni vivono nel drawer */}
+          {/* Media: card compatte; le azioni vivono nel drawer */}
           {videos.length === 0 ? (
             <div
               className={`${surfaceClass} flex flex-col items-center gap-4 p-12 text-center`}
@@ -408,11 +415,12 @@ export default function TranchePage({
               </span>
               <div className="space-y-1">
                 <p className="text-sm font-medium text-slate-200">
-                  Nessun video in questa consegna
+                  Nessun contenuto in questa consegna
                 </p>
                 <p className="text-sm text-slate-400">
-                  Caricalo da qui: va dritto sul disco del Mac Studio, senza
-                  passare dal cloud.
+                  Carica un video, una immagine o un carosello. Le immagini e i
+                  video grandi passano da R2, i video piccoli dal nodo quando
+                  disponibile.
                 </p>
               </div>
               <TrancheUploadButton
@@ -442,7 +450,7 @@ export default function TranchePage({
         </div>
       </div>
 
-      {/* Drawer: player, note, azioni, progetto e delegati del singolo video */}
+      {/* Drawer: preview, note, azioni, progetto e delegati del singolo media */}
       <Sheet open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
         <SheetContent
           side="right"
@@ -484,6 +492,7 @@ function VideoCardCompact({
   const st = statusMeta(v.status);
   const openNotes = v.markers.filter((m) => !m.done).length;
   const isVertical = !!(v.width && v.height && v.height > v.width);
+  const isImage = v.mediaType === "image";
 
   return (
     <button
@@ -492,15 +501,17 @@ function VideoCardCompact({
       className={`${interactiveSurfaceClass} group flex w-full flex-col overflow-hidden text-left`}
     >
       <div className="relative aspect-video w-full overflow-hidden bg-black">
-        {v.thumbUrl ? (
+        {v.thumbUrl || v.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={v.thumbUrl}
+            src={v.thumbUrl || v.imageUrl || ""}
             alt=""
             className={
-              isVertical
-                ? "mx-auto h-full w-auto"
-                : "h-full w-full object-cover"
+              isImage
+                ? "h-full w-full object-contain"
+                : isVertical
+                  ? "mx-auto h-full w-auto"
+                  : "h-full w-full object-cover"
             }
           />
         ) : (
@@ -509,7 +520,11 @@ function VideoCardCompact({
           </div>
         )}
         <span className="absolute inset-0 flex items-center justify-center transition-colors group-hover:bg-black/30">
-          <Play className="h-9 w-9 text-white opacity-0 transition-opacity group-hover:opacity-90" />
+          {isImage ? (
+            <ImageIcon className="h-9 w-9 text-white opacity-0 transition-opacity group-hover:opacity-90" />
+          ) : (
+            <Play className="h-9 w-9 text-white opacity-0 transition-opacity group-hover:opacity-90" />
+          )}
         </span>
         <span
           className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-[11px] ${st.badge}`}
@@ -521,6 +536,13 @@ function VideoCardCompact({
             v{v.version}
           </span>
         )}
+        <span className="absolute bottom-2 left-2 rounded-full border border-white/15 bg-black/50 px-2 py-0.5 text-[11px] text-slate-200">
+          {isImage
+            ? v.slideIndex
+              ? `Slide ${v.slideIndex}`
+              : "Immagine"
+            : "Video"}
+        </span>
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-3">

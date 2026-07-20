@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 /**
- * Prepara l'upload di un video NUOVO dentro una consegna, dal browser.
+ * Prepara l'upload di uno o più media NUOVI dentro una consegna, dal browser.
  *
  * Stessa logica del /new-version: creiamo PRIMA la riga (status 'uploading')
  * con la destinazione, poi il browser manda i byte al nodo (Mac Studio) con
@@ -23,14 +23,14 @@ import { canAccessTranche } from "@/lib/video-review-acl";
 import { signedUploadUrl } from "@/lib/video-node";
 
 /** Nome file sicuro: niente separatori, niente `..`. */
-function safeName(name: string) {
-  const clean = String(name || "video.mp4")
+function safeName(name: string, fallback = "media.bin") {
+  const clean = String(name || fallback)
     .split(/[\\/]/)
     .pop()!
     .replace(/[^\w .()\-\[\]]/g, "_")
     .replace(/^\.+/, "")
     .slice(0, 120);
-  return clean || "video.mp4";
+  return clean || fallback;
 }
 
 /** Segmento di cartella sicuro (cliente/consegna). */
@@ -43,6 +43,44 @@ function safeSegment(name: string) {
       .trim()
       .slice(0, 80) || "Senza nome"
   );
+}
+
+const VIDEO_EXT = /\.(mp4|mov|m4v|mkv|avi|mxf|webm)$/i;
+const IMAGE_EXT = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
+
+type UploadFile = {
+  filename: string;
+  fileSize: number;
+  contentType: string;
+};
+type TypedUploadFile = UploadFile & { mediaType: "image" | "video" | null };
+
+function inferMediaType(file: { filename: string; contentType: string }) {
+  const contentType = String(file.contentType || "").toLowerCase();
+  if (contentType.startsWith("image/") || IMAGE_EXT.test(file.filename)) {
+    return "image";
+  }
+  if (contentType.startsWith("video/") || VIDEO_EXT.test(file.filename)) {
+    return "video";
+  }
+  return null;
+}
+
+function normalizeFiles(body: any): UploadFile[] {
+  const files = Array.isArray(body?.files)
+    ? body.files
+    : [
+        {
+          filename: body?.filename,
+          fileSize: body?.fileSize,
+          contentType: body?.contentType,
+        },
+      ];
+  return files.map((file: any) => ({
+    filename: safeName(file?.filename),
+    fileSize: Math.max(0, Number(file?.fileSize || 0)),
+    contentType: String(file?.contentType || "application/octet-stream"),
+  }));
 }
 
 export async function POST(
@@ -67,11 +105,36 @@ export async function POST(
   }
 
   const body = await request.json().catch(() => ({}) as any);
-  const filename = safeName(body?.filename);
-  const fileSize = Number(body?.fileSize || 0);
-  const contentType = String(body?.contentType || "video/mp4");
-  if (!/\.(mp4|mov|m4v|mkv|avi|mxf|webm)$/i.test(filename)) {
+  const files = normalizeFiles(body);
+  if (!files.length || files.length > 20) {
+    return Response.json(
+      { error: "Selezione file non valida" },
+      { status: 400 },
+    );
+  }
+  const typedFiles: TypedUploadFile[] = files.map((file) => ({
+    ...file,
+    mediaType: inferMediaType(file),
+  }));
+  if (typedFiles.some((file) => !file.mediaType)) {
     return Response.json({ error: "Formato non supportato" }, { status: 400 });
+  }
+  const mediaTypes = new Set(typedFiles.map((file) => file.mediaType));
+  if (mediaTypes.size > 1) {
+    return Response.json(
+      {
+        error:
+          "Caricamento misto non supportato: usa solo immagini oppure un solo video.",
+      },
+      { status: 400 },
+    );
+  }
+  const mediaType = typedFiles[0].mediaType as "image" | "video";
+  if (mediaType === "video" && typedFiles.length !== 1) {
+    return Response.json(
+      { error: "Carica un solo video alla volta." },
+      { status: 400 },
+    );
   }
 
   const tranche: any = await db
@@ -87,77 +150,137 @@ export async function POST(
     return Response.json({ error: "Consegna non trovata" }, { status: 404 });
   }
 
-  const videoId = createId("vrvd");
   const now = new Date().toISOString();
-  const title = filename.replace(/\.[^.]+$/, "");
-  const useMultipart = fileSize >= 90 * 1024 * 1024;
+  const postType =
+    mediaType === "video"
+      ? "video"
+      : typedFiles.length > 1
+        ? "carousel"
+        : "image";
   const clientDir = safeSegment(tranche.client_name || "Senza cliente");
   const trancheDir = safeSegment(tranche.title);
-  const storageKey = useMultipart
-    ? `r2://video-review/${org}/da-revisionare/${videoId}/${filename}`
-    : `da-revisionare/${clientDir}/${trancheDir}/${filename}`;
 
-  let uploadUrl: string | null = null;
-  let uploadId: string | null = null;
-  if (useMultipart) {
-    const bucket = await getTaskMediaBucket();
-    if (!bucket)
-      return Response.json(
-        { error: "Storage video non configurato" },
-        { status: 503 },
-      );
-    const multipart = await bucket.createMultipartUpload(
-      storageKey.replace(/^r2:\/\//, ""),
-      {
-        httpMetadata: { contentType },
-        customMetadata: {
-          organizationId: org,
-          trancheId: id,
-          videoId,
-          uploadedBy: principal.memberId,
-          originalName: filename,
-        },
-      },
+  const bucket =
+    mediaType === "image" ||
+    typedFiles.some((file) => file.fileSize >= 90 * 1024 * 1024)
+      ? await getTaskMediaBucket()
+      : null;
+  if (
+    (mediaType === "image" ||
+      typedFiles.some((file) => file.fileSize >= 90 * 1024 * 1024)) &&
+    !bucket
+  ) {
+    return Response.json(
+      { error: "Storage media non configurato" },
+      { status: 503 },
     );
-    uploadId = multipart.uploadId;
-  } else {
-    uploadUrl = await signedUploadUrl(storageKey);
-    if (!uploadUrl) {
-      return Response.json(
-        { error: "Nodo video non configurato" },
-        { status: 503 },
+  }
+
+  const uploads: Array<{
+    ok: true;
+    videoId: string;
+    mediaId: string;
+    mediaType: "image" | "video";
+    storageKey: string;
+    uploadMode: "r2_multipart" | "node_put";
+    uploadUrl: string | null;
+    uploadId: string | null;
+    partSize: number;
+    slideIndex: number | null;
+  }> = [];
+  for (let index = 0; index < typedFiles.length; index += 1) {
+    const file = typedFiles[index];
+    const videoId = createId("vrvd");
+    const title = file.filename.replace(/\.[^.]+$/, "");
+    const useMultipart =
+      mediaType === "image" || file.fileSize >= 90 * 1024 * 1024;
+    const storageKey = useMultipart
+      ? `r2://post-review/${org}/${id}/${videoId}/${file.filename}`
+      : `da-revisionare/${clientDir}/${trancheDir}/${file.filename}`;
+
+    let uploadUrl: string | null = null;
+    let uploadId: string | null = null;
+    if (useMultipart) {
+      const multipart = await bucket.createMultipartUpload(
+        storageKey.replace(/^r2:\/\//, ""),
+        {
+          httpMetadata: { contentType: file.contentType },
+          customMetadata: {
+            organizationId: org,
+            trancheId: id,
+            videoId,
+            uploadedBy: principal.memberId,
+            originalName: file.filename,
+            mediaType,
+          },
+        },
       );
+      uploadId = multipart.uploadId;
+    } else {
+      uploadUrl = await signedUploadUrl(storageKey);
+      if (!uploadUrl) {
+        return Response.json(
+          { error: "Nodo video non configurato" },
+          { status: 503 },
+        );
+      }
     }
+
+    await db
+      .prepare(
+        `INSERT INTO vr_videos
+           (id, organization_id, tranche_id, client_id, title, filename, storage_key,
+            source, status, version, project_id, media_type, mime_type, file_size, slide_index,
+            created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'upload', 'uploading', 1, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        videoId,
+        org,
+        id,
+        tranche.client_id ? String(tranche.client_id) : null,
+        title,
+        file.filename,
+        storageKey,
+        tranche.project_id ? String(tranche.project_id) : null,
+        mediaType,
+        file.contentType,
+        file.fileSize,
+        mediaType === "image" ? index + 1 : null,
+        now,
+        now,
+      )
+      .run();
+
+    uploads.push({
+      ok: true,
+      videoId,
+      mediaId: videoId,
+      mediaType,
+      storageKey,
+      uploadMode: useMultipart ? "r2_multipart" : "node_put",
+      uploadUrl,
+      uploadId,
+      partSize: 8 * 1024 * 1024,
+      slideIndex: mediaType === "image" ? index + 1 : null,
+    });
   }
 
   await db
     .prepare(
-      `INSERT INTO vr_videos
-         (id, organization_id, tranche_id, client_id, title, filename, storage_key,
-          source, status, version, project_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'upload', 'uploading', 1, ?, ?, ?)`,
+      `UPDATE vr_tranches
+          SET post_type = ?, updated_at = ?
+        WHERE id = ? AND organization_id = ?`,
     )
-    .bind(
-      videoId,
-      org,
-      id,
-      tranche.client_id ? String(tranche.client_id) : null,
-      title,
-      filename,
-      storageKey,
-      tranche.project_id ? String(tranche.project_id) : null,
-      now,
-      now,
-    )
+    .bind(postType, now, id, org)
     .run();
 
+  const first = uploads[0];
+
   return Response.json({
+    ...first,
     ok: true,
-    videoId,
-    storageKey,
-    uploadMode: useMultipart ? "r2_multipart" : "node_put",
-    uploadUrl,
-    uploadId,
-    partSize: 8 * 1024 * 1024,
+    postType,
+    uploads,
   });
 }

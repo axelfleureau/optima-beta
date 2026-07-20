@@ -44,6 +44,19 @@ function parseRange(header: string | null) {
   };
 }
 
+function fallbackContentType(objectKey: string) {
+  const key = objectKey.toLowerCase();
+  if (key.endsWith(".jpg") || key.endsWith(".jpeg")) return "image/jpeg";
+  if (key.endsWith(".png")) return "image/png";
+  if (key.endsWith(".webp")) return "image/webp";
+  if (key.endsWith(".gif")) return "image/gif";
+  if (key.endsWith(".heic")) return "image/heic";
+  if (key.endsWith(".heif")) return "image/heif";
+  if (key.endsWith(".webm")) return "video/webm";
+  if (key.endsWith(".mov")) return "video/quicktime";
+  return "video/mp4";
+}
+
 export async function GET(request: NextRequest) {
   const secret = process.env.VIDEO_NODE_SIGNING_SECRET || "";
   if (!secret)
@@ -78,12 +91,15 @@ export async function GET(request: NextRequest) {
   object.writeHttpMetadata?.(headers);
   headers.set("Accept-Ranges", "bytes");
   headers.set("Cache-Control", "private, max-age=21600");
-  headers.set("Content-Type", headers.get("Content-Type") || "video/mp4");
+  headers.set(
+    "Content-Type",
+    headers.get("Content-Type") || fallbackContentType(objectKey),
+  );
   headers.set("ETag", object.httpEtag || "");
   if (url.searchParams.get("dl") === "1") {
     headers.set(
       "Content-Disposition",
-      `attachment; filename="${objectKey.split("/").pop() || "video.mp4"}"`,
+      `attachment; filename="${objectKey.split("/").pop() || "media.bin"}"`,
     );
   }
 

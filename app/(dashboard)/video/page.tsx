@@ -80,10 +80,12 @@ type Tranche = {
   token: string;
   clientId: string | null;
   clientName: string | null;
+  postType?: "video" | "image" | "carousel";
   projectNames: string[];
   collaborators: Collab[];
   counts: {
     total: number;
+    images?: number;
     pending: number;
     revision: number;
     approved: number;
@@ -230,8 +232,8 @@ export default function VideoReviewPage() {
           {/* Testata: stesso pattern di Controllo Aziendale/Dashboard */}
           <VrPageHeader
             icon={Clapperboard}
-            title="Video Review"
-            subtitle="Consegne video ai clienti: approvazione, note di modifica e pubblicazione."
+            title="Post Review"
+            subtitle="Review clienti per reel, post immagine e caroselli social."
             actions={
               <>
                 <Button
@@ -245,7 +247,7 @@ export default function VideoReviewPage() {
                   className={primaryButtonClass}
                   onClick={() => setOpen(true)}
                 >
-                  <Plus className="mr-2 h-4 w-4" /> Nuova consegna
+                  <Plus className="mr-2 h-4 w-4" /> Nuovo post
                 </Button>
               </>
             }
@@ -346,7 +348,7 @@ export default function VideoReviewPage() {
           ) : grouped.length === 0 ? (
             <div className={`${surfaceClass} p-12 text-center text-slate-400`}>
               {tranches.length === 0
-                ? "Nessuna consegna visibile. Creane una, oppure chiedi di essere aggiunto come collaboratore."
+                ? "Nessun post visibile. Creane uno, oppure chiedi di essere aggiunto come collaboratore."
                 : "Nessun risultato per questa ricerca."}
             </div>
           ) : (
@@ -418,6 +420,18 @@ export default function VideoReviewPage() {
                           <h3 className="text-base font-semibold text-slate-100">
                             {t.title}
                           </h3>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="border-cyan-400/20 bg-cyan-400/10 text-[10px] text-cyan-200"
+                            >
+                              {t.postType === "carousel"
+                                ? `Carosello ${t.counts.images || t.counts.total} slide`
+                                : t.postType === "image"
+                                  ? "Immagine"
+                                  : "Video/Reel"}
+                            </Badge>
+                          </div>
                           {t.projectNames.length > 0 && (
                             <div className="flex flex-wrap gap-1 pt-1.5">
                               {t.projectNames.slice(0, 2).map((p) => (
@@ -447,7 +461,7 @@ export default function VideoReviewPage() {
                               variant="outline"
                               className="border-white/10 bg-white/5 text-xs text-slate-300"
                             >
-                              {t.counts.total} video
+                              {t.counts.total} media
                             </Badge>
                             {t.counts.revision > 0 && (
                               <Badge
@@ -518,9 +532,9 @@ export default function VideoReviewPage() {
               <DialogHeader>
                 <DialogTitle>Nuova consegna</DialogTitle>
                 <DialogDescription className="text-slate-400">
-                  Una consegna raccoglie più video per un cliente, con un unico
-                  link di review. Collaboratori e progetto si impostano dopo,
-                  anche per singolo video.
+                  Una consegna raccoglie un post social: video, immagine o
+                  carosello. Collaboratori e progetto si impostano dopo, anche
+                  per singolo media.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -591,7 +605,7 @@ export default function VideoReviewPage() {
                   <span className="font-semibold text-slate-200">
                     {deleteTarget?.title}
                   </span>
-                  , tutti i video caricati, marker, collaboratori e link di
+                  , tutti i media caricati, marker, collaboratori e link di
                   review cliente collegati. L'azione non e reversibile.
                 </AlertDialogDescription>
               </AlertDialogHeader>

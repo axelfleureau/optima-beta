@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 /**
- * Board SMM: video approvati dal cliente, da descrivere e pubblicare.
+ * Board SMM: media approvati dal cliente, da descrivere e pubblicare.
  * Visibile a tutti gli utenti (nessun gating per ruolo); `mine` filtra per
  * comodità sui video la cui tranche assegna l'utente corrente come SMM.
  */
@@ -15,7 +15,11 @@ import { videoVisibilityClause } from "@/lib/video-review-acl";
 
 export async function GET(_request: NextRequest) {
   const db = await getCloudflareDb();
-  if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 });
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
   const user = await requireClerkUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const principal = await ensureWorkspacePrincipal(db, user);
@@ -42,6 +46,9 @@ export async function GET(_request: NextRequest) {
       id: v.id,
       title: v.title,
       filename: v.filename,
+      mediaType: v.media_type || "video",
+      mimeType: v.mime_type || null,
+      slideIndex: v.slide_index ? Number(v.slide_index) : null,
       clientName: v.client_name || null,
       trancheTitle: v.tranche_title,
       plannedPublishDate: v.planned_publish_date,
@@ -51,8 +58,17 @@ export async function GET(_request: NextRequest) {
       description: v.description || "",
       published: !!v.published,
       isMine: String(v.smm_member_id || "") === String(principal.memberId),
-      streamUrl: await signedByteUrl(v.approved_key || v.storage_key),
-      downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, { download: true }),
+      streamUrl:
+        String(v.media_type || "video") === "video"
+          ? await signedByteUrl(v.approved_key || v.storage_key)
+          : null,
+      imageUrl:
+        String(v.media_type || "video") === "image"
+          ? await signedByteUrl(v.approved_key || v.storage_key)
+          : null,
+      downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, {
+        download: true,
+      }),
     })),
   );
 
