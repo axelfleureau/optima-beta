@@ -1,11 +1,24 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -22,6 +35,8 @@ import {
   MessageSquare,
   Users,
   Save,
+  Building2,
+  ChevronsUpDown,
 } from "lucide-react";
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
 import { ProjectPicker } from "@/components/video-review/project-picker";
@@ -87,7 +102,7 @@ export default function TranchePage({
   const [openId, setOpenId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftClientId, setDraftClientId] = useState<string | null>(null);
-  const [clientQuery, setClientQuery] = useState("");
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const { clients, loading: metaLoading } = useVideoReviewMeta();
@@ -114,8 +129,7 @@ export default function TranchePage({
     if (!tranche) return;
     setDraftTitle(tranche.title || "");
     setDraftClientId(tranche.clientId || null);
-    setClientQuery(tranche.clientName || "");
-  }, [tranche?.id, tranche?.title, tranche?.clientId, tranche?.clientName]);
+  }, [tranche?.id, tranche?.title, tranche?.clientId]);
 
   async function copyLink() {
     if (!tranche) return;
@@ -129,18 +143,6 @@ export default function TranchePage({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
-
-  const clientMatches = useMemo(() => {
-    const query = clientQuery.trim().toLowerCase();
-    const base = query
-      ? clients.filter((client) => {
-          const haystack =
-            `${client.name || ""} ${client.company || ""}`.toLowerCase();
-          return haystack.includes(query);
-        })
-      : clients;
-    return base.slice(0, 8);
-  }, [clients, clientQuery]);
 
   const selectedClient =
     clients.find((client) => client.id === draftClientId) || null;
@@ -158,11 +160,6 @@ export default function TranchePage({
       setDetailsError("Inserisci un nome per la tranche.");
       return;
     }
-    if (clientQuery.trim() && !draftClientId) {
-      setDetailsError("Seleziona un cliente dai risultati prima di salvare.");
-      return;
-    }
-
     setSavingDetails(true);
     try {
       const response = await fetch(`/api/video-review/tranches/${tranche.id}`, {
@@ -247,77 +244,118 @@ export default function TranchePage({
           />
 
           <Card className={surfaceClass}>
-            <CardContent className="grid gap-5 p-5 lg:grid-cols-[1.1fr_1fr_auto] lg:items-end">
-              <div className="space-y-2">
-                <span className="text-sm font-medium text-slate-300">
-                  Nome tranche
-                </span>
-                <Input
-                  value={draftTitle}
-                  onChange={(event) => setDraftTitle(event.target.value)}
-                  className="border-white/10 bg-[#070b16] text-slate-100"
-                  placeholder="Es. Reel luglio"
-                />
+            <CardContent className="space-y-5 p-5">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-300">
+                    Nome tranche
+                  </span>
+                  <Input
+                    value={draftTitle}
+                    onChange={(event) => setDraftTitle(event.target.value)}
+                    className="h-11 border-white/10 bg-[#070b16] text-slate-100"
+                    placeholder="Es. Reel luglio"
+                  />
+                </label>
+                <div className="space-y-2">
+                  <span className="text-sm font-medium text-slate-300">
+                    Cliente
+                  </span>
+                  <Popover
+                    open={clientPickerOpen}
+                    onOpenChange={setClientPickerOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 w-full justify-between border-white/10 bg-[#070b16] px-3 text-left text-slate-100 hover:bg-white/5"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Building2 className="h-4 w-4 shrink-0 text-cyan-300" />
+                          <span className="truncate">
+                            {selectedClient?.name || "Seleziona cliente"}
+                          </span>
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="w-[--radix-popover-trigger-width] border-white/10 bg-[#090e1a] p-0 text-slate-100"
+                    >
+                      <Command className="bg-transparent">
+                        <CommandInput
+                          placeholder={
+                            metaLoading
+                              ? "Caricamento clienti..."
+                              : "Cerca cliente..."
+                          }
+                          className="text-slate-100"
+                        />
+                        <CommandList className="max-h-72">
+                          <CommandEmpty>Nessun cliente trovato.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="senza cliente"
+                              onSelect={() => {
+                                setDraftClientId(null);
+                                setClientPickerOpen(false);
+                              }}
+                              className="cursor-pointer text-slate-300"
+                            >
+                              Senza cliente
+                            </CommandItem>
+                            {clients.map((client) => (
+                              <CommandItem
+                                key={client.id}
+                                value={`${client.name} ${client.company || ""}`}
+                                onSelect={() => {
+                                  setDraftClientId(client.id);
+                                  setClientPickerOpen(false);
+                                }}
+                                className="cursor-pointer text-slate-200"
+                              >
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate font-medium">
+                                    {client.name}
+                                  </span>
+                                  {client.company && (
+                                    <span className="truncate text-xs text-slate-500">
+                                      {client.company}
+                                    </span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-slate-500">
+                    Cambia cliente quando una consegna e stata creata nel posto
+                    sbagliato.
+                  </p>
+                </div>
               </div>
-              <div className="relative space-y-2">
-                <span className="text-sm font-medium text-slate-300">
-                  Cliente
-                </span>
-                <Input
-                  value={clientQuery}
-                  onChange={(event) => {
-                    setClientQuery(event.target.value);
-                    setDraftClientId(null);
-                  }}
-                  className="border-white/10 bg-[#070b16] text-slate-100"
-                  placeholder={
-                    metaLoading ? "Caricamento clienti..." : "Cerca cliente..."
-                  }
-                />
-                {clientQuery.trim() && !draftClientId && (
-                  <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-lg border border-white/10 bg-[#090e1a] p-2 shadow-2xl">
-                    {clientMatches.length ? (
-                      clientMatches.map((client) => (
-                        <button
-                          key={client.id}
-                          type="button"
-                          onClick={() => {
-                            setDraftClientId(client.id);
-                            setClientQuery(client.name);
-                          }}
-                          className="flex w-full flex-col rounded-md px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:bg-white/10"
-                        >
-                          <span className="font-medium">{client.name}</span>
-                          {client.company && (
-                            <span className="text-xs text-slate-500">
-                              {client.company}
-                            </span>
-                          )}
-                        </button>
-                      ))
-                    ) : (
-                      <p className="px-3 py-2 text-sm text-slate-500">
-                        Nessun cliente trovato.
-                      </p>
-                    )}
-                  </div>
-                )}
+              <div className="flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-slate-500">
-                  {selectedClient
-                    ? `Selezionato: ${selectedClient.name}`
-                    : "Cambia cliente quando una consegna e stata creata nel posto sbagliato."}
+                  {detailsDirty
+                    ? "Modifiche non salvate."
+                    : "Dettagli consegna allineati."}
                 </p>
-              </div>
-              <div className="space-y-2">
                 <Button
                   type="button"
                   onClick={saveDetails}
                   disabled={!detailsDirty || savingDetails}
-                  className="w-full bg-pink-500 text-white hover:bg-pink-400 lg:w-auto"
+                  className="w-full bg-pink-500 text-white hover:bg-pink-400 sm:w-auto"
                 >
                   <Save className="mr-2 h-4 w-4" />
                   {savingDetails ? "Salvo..." : "Salva dettagli"}
                 </Button>
+              </div>
+              <div>
                 {detailsError && (
                   <p className="max-w-xs text-xs text-red-300">
                     {detailsError}
