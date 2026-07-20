@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,6 +52,9 @@ import {
   CheckCircle2,
   Send,
   Users,
+  MoreHorizontal,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { useVideoReviewMeta } from "@/hooks/use-video-review";
 import {
@@ -71,6 +91,7 @@ type Tranche = {
 };
 
 export default function VideoReviewPage() {
+  const router = useRouter();
   const {
     clients,
     members,
@@ -89,6 +110,9 @@ export default function VideoReviewPage() {
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState(NONE);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Tranche | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function load() {
     return fetch("/api/video-review/tranches")
@@ -120,6 +144,31 @@ export default function VideoReviewPage() {
       setClientId(NONE);
       setOpen(false);
       load();
+    }
+  }
+
+  async function deleteTranche() {
+    if (!deleteTarget || deletingId) return;
+    setDeleteError(null);
+    setDeletingId(deleteTarget.id);
+    try {
+      const response = await fetch(
+        `/api/video-review/tranches/${deleteTarget.id}`,
+        { method: "DELETE" },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error || "Eliminazione non riuscita");
+      }
+      setTranches((items) =>
+        items.filter((item) => item.id !== deleteTarget.id),
+      );
+      setDeleteTarget(null);
+      load();
+    } catch (error: any) {
+      setDeleteError(error?.message || "Eliminazione non riuscita");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -312,102 +361,150 @@ export default function VideoReviewPage() {
                   </h2>
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {list.map((t) => (
-                      <Link key={t.id} href={`/video/${t.id}`}>
-                        <div
-                          className={`${interactiveSurfaceClass} flex h-full flex-col gap-3 p-5`}
-                        >
-                          <div>
-                            <h3 className="text-base font-semibold text-slate-100">
-                              {t.title}
-                            </h3>
-                            {t.projectNames.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-1.5">
-                                {t.projectNames.slice(0, 2).map((p) => (
-                                  <Badge
-                                    key={p}
-                                    variant="outline"
-                                    className="border-white/10 bg-white/5 text-[10px] text-slate-300"
+                      <div
+                        key={t.id}
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => router.push(`/video/${t.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            router.push(`/video/${t.id}`);
+                          }
+                        }}
+                        className={`${interactiveSurfaceClass} relative flex h-full cursor-pointer flex-col gap-3 p-5 pr-14 outline-none focus-visible:ring-2 focus-visible:ring-righello-pink/60`}
+                      >
+                        {canSeeAll && (
+                          <div
+                            className="absolute right-3 top-3"
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          >
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Azioni consegna ${t.title}`}
+                                  className="h-8 w-8 rounded-md text-slate-400 hover:bg-white/10 hover:text-slate-100"
+                                >
+                                  {deletingId === t.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                className="w-56 border-white/10 bg-[#0d1320] text-slate-100"
+                              >
+                                <DropdownMenuItem
+                                  className="cursor-pointer text-red-200 focus:bg-red-500/10 focus:text-red-100"
+                                  onClick={() => {
+                                    setDeleteError(null);
+                                    setDeleteTarget(t);
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Elimina consegna
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="text-base font-semibold text-slate-100">
+                            {t.title}
+                          </h3>
+                          {t.projectNames.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1.5">
+                              {t.projectNames.slice(0, 2).map((p) => (
+                                <Badge
+                                  key={p}
+                                  variant="outline"
+                                  className="border-white/10 bg-white/5 text-[10px] text-slate-300"
+                                >
+                                  {p}
+                                </Badge>
+                              ))}
+                              {t.projectNames.length > 2 && (
+                                <Badge
+                                  variant="outline"
+                                  className="border-white/10 bg-white/5 text-[10px] text-slate-400"
+                                >
+                                  +{t.projectNames.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-3">
+                          {/* Stato PER VIDEO: nella stessa consegna convivono stati diversi */}
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="border-white/10 bg-white/5 text-xs text-slate-300"
+                            >
+                              {t.counts.total} video
+                            </Badge>
+                            {t.counts.revision > 0 && (
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${statusMeta("revision").badge}`}
+                              >
+                                {t.counts.revision} da revisionare
+                              </Badge>
+                            )}
+                            {t.counts.pending > 0 && (
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${statusMeta("pending").badge}`}
+                              >
+                                {t.counts.pending} in attesa
+                              </Badge>
+                            )}
+                            {t.counts.approved > 0 && (
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${statusMeta("approved").badge}`}
+                              >
+                                {t.counts.approved} approvati
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Chi ci lavora */}
+                          <div className="flex items-center gap-2">
+                            <Users className="h-3.5 w-3.5 text-slate-500" />
+                            {t.collaborators.length === 0 ? (
+                              <span className="text-xs text-slate-500">
+                                Nessun collaboratore
+                              </span>
+                            ) : (
+                              <div className="flex -space-x-1.5">
+                                {t.collaborators.slice(0, 4).map((c) => (
+                                  <Avatar
+                                    key={c.id}
+                                    className="h-6 w-6 border border-[#172235]"
+                                    title={`${c.name} · ${COLLAB_ROLE_META[c.role]?.label || c.role}`}
                                   >
-                                    {p}
-                                  </Badge>
+                                    <AvatarFallback className="bg-white/10 text-[9px] text-slate-200">
+                                      {initials(c.name)}
+                                    </AvatarFallback>
+                                  </Avatar>
                                 ))}
-                                {t.projectNames.length > 2 && (
-                                  <Badge
-                                    variant="outline"
-                                    className="border-white/10 bg-white/5 text-[10px] text-slate-400"
-                                  >
-                                    +{t.projectNames.length - 2}
-                                  </Badge>
+                                {t.collaborators.length > 4 && (
+                                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#172235] bg-white/10 text-[9px] text-slate-300">
+                                    +{t.collaborators.length - 4}
+                                  </span>
                                 )}
                               </div>
                             )}
                           </div>
-                          <div className="space-y-3">
-                            {/* Stato PER VIDEO: nella stessa consegna convivono stati diversi */}
-                            <div className="flex flex-wrap gap-1.5">
-                              <Badge
-                                variant="outline"
-                                className="border-white/10 bg-white/5 text-xs text-slate-300"
-                              >
-                                {t.counts.total} video
-                              </Badge>
-                              {t.counts.revision > 0 && (
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs ${statusMeta("revision").badge}`}
-                                >
-                                  {t.counts.revision} da revisionare
-                                </Badge>
-                              )}
-                              {t.counts.pending > 0 && (
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs ${statusMeta("pending").badge}`}
-                                >
-                                  {t.counts.pending} in attesa
-                                </Badge>
-                              )}
-                              {t.counts.approved > 0 && (
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs ${statusMeta("approved").badge}`}
-                                >
-                                  {t.counts.approved} approvati
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Chi ci lavora */}
-                            <div className="flex items-center gap-2">
-                              <Users className="h-3.5 w-3.5 text-slate-500" />
-                              {t.collaborators.length === 0 ? (
-                                <span className="text-xs text-slate-500">
-                                  Nessun collaboratore
-                                </span>
-                              ) : (
-                                <div className="flex -space-x-1.5">
-                                  {t.collaborators.slice(0, 4).map((c) => (
-                                    <Avatar
-                                      key={c.id}
-                                      className="h-6 w-6 border border-[#172235]"
-                                      title={`${c.name} · ${COLLAB_ROLE_META[c.role]?.label || c.role}`}
-                                    >
-                                      <AvatarFallback className="bg-white/10 text-[9px] text-slate-200">
-                                        {initials(c.name)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                  ))}
-                                  {t.collaborators.length > 4 && (
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#172235] bg-white/10 text-[9px] text-slate-300">
-                                      +{t.collaborators.length - 4}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
                         </div>
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 </section>
@@ -476,6 +573,53 @@ export default function VideoReviewPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          <AlertDialog
+            open={Boolean(deleteTarget)}
+            onOpenChange={(nextOpen) => {
+              if (!nextOpen && !deletingId) {
+                setDeleteTarget(null);
+                setDeleteError(null);
+              }
+            }}
+          >
+            <AlertDialogContent className="border-white/10 bg-[#0b1220] text-slate-100">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Eliminare questa consegna?</AlertDialogTitle>
+                <AlertDialogDescription className="text-slate-400">
+                  Verranno eliminati la tranche{" "}
+                  <span className="font-semibold text-slate-200">
+                    {deleteTarget?.title}
+                  </span>
+                  , tutti i video caricati, marker, collaboratori e link di
+                  review cliente collegati. L'azione non e reversibile.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {deleteError && (
+                <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                  {deleteError}
+                </p>
+              )}
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  disabled={Boolean(deletingId)}
+                  className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                >
+                  Annulla
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={Boolean(deletingId)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    deleteTranche();
+                  }}
+                  className="bg-red-500 text-white hover:bg-red-400"
+                >
+                  {deletingId ? "Elimino..." : "Elimina tutto"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </div>

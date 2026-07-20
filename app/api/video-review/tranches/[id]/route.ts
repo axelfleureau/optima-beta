@@ -7,11 +7,14 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { isR2VideoKey, r2VideoObjectKey } from "@/lib/video-node";
 import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
 import {
   canAccessTranche,
+  seesEverything,
   videoVisibilityClause,
 } from "@/lib/video-review-acl";
 
@@ -304,4 +307,100 @@ export async function PATCH(
   }
 
   return Response.json({ ok: true });
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const db = await getCloudflareDb();
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
+  const principal = await principalFor(db);
+  if (!principal)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!seesEverything(principal)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const tranche: any = await db
+    .prepare(
+      `SELECT id
+         FROM vr_tranches
+        WHERE id = ? AND organization_id = ? LIMIT 1`,
+    )
+    .bind(id, principal.organizationId)
+    .first();
+  if (!tranche) {
+    return Response.json({ error: "Tranche non trovata" }, { status: 404 });
+  }
+
+  const videos = await db
+    .prepare(
+      `SELECT id, storage_key, approved_key
+         FROM vr_videos
+        WHERE tranche_id = ? AND organization_id = ?`,
+    )
+    .bind(id, principal.organizationId)
+    .all();
+  const videoRows = (videos?.results || []) as any[];
+  const videoIds = videoRows.map((video) => String(video.id));
+
+  if (videoIds.length) {
+    const placeholders = videoIds.map(() => "?").join(",");
+    await db
+      .prepare(`DELETE FROM vr_markers WHERE video_id IN (${placeholders})`)
+      .bind(...videoIds)
+      .run();
+    await db
+      .prepare(
+        `DELETE FROM vr_collaborators
+          WHERE organization_id = ?
+            AND scope = 'video'
+            AND scope_id IN (${placeholders})`,
+      )
+      .bind(principal.organizationId, ...videoIds)
+      .run();
+  }
+
+  await db
+    .prepare(
+      `DELETE FROM vr_collaborators
+        WHERE organization_id = ? AND scope = 'tranche' AND scope_id = ?`,
+    )
+    .bind(principal.organizationId, id)
+    .run();
+  await db
+    .prepare(
+      `DELETE FROM vr_videos WHERE tranche_id = ? AND organization_id = ?`,
+    )
+    .bind(id, principal.organizationId)
+    .run();
+  await db
+    .prepare(`DELETE FROM vr_tranches WHERE id = ? AND organization_id = ?`)
+    .bind(id, principal.organizationId)
+    .run();
+
+  const bucket = await getTaskMediaBucket();
+  if (bucket) {
+    const keys = videoRows
+      .flatMap((video) => [video.storage_key, video.approved_key])
+      .filter(Boolean)
+      .filter(
+        (key: string, index: number, all: string[]) =>
+          all.indexOf(key) === index,
+      )
+      .filter((key: string) => isR2VideoKey(key))
+      .map((key: string) => r2VideoObjectKey(key));
+    await Promise.all(
+      keys.map((key: string) => bucket.delete(key).catch(() => {})),
+    );
+  }
+
+  return Response.json({ ok: true, deletedVideos: videoIds.length });
 }
