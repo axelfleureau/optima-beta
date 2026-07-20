@@ -24,6 +24,7 @@ type PreparedUpload = {
 const LARGE_VIDEO_WARNING_BYTES = 95 * 1024 * 1024;
 const UPLOAD_TIMEOUT_MS = 45 * 60 * 1000;
 const PROXIED_VIDEO_HOST = "video.wearerighello.com";
+const MULTIPART_RETRIES = 3;
 
 function assertUploadUrl(url: string) {
   try {
@@ -152,6 +153,60 @@ async function readLocalVideoMetadata(file: File): Promise<UploadResult> {
   });
 }
 
+async function readApiPayload(response: Response) {
+  const text = await response.text().catch(() => "");
+  if (!text) return { payload: null, text: "" };
+  try {
+    return { payload: JSON.parse(text), text };
+  } catch {
+    return { payload: null, text };
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function uploadMultipartPart({
+  prepared,
+  uploadId,
+  partNumber,
+  chunk,
+}: {
+  prepared: PreparedUpload;
+  uploadId: string;
+  partNumber: number;
+  chunk: Blob;
+}) {
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= MULTIPART_RETRIES; attempt += 1) {
+    try {
+      const response = await fetch(
+        `/api/video-review/videos/${prepared.videoId}/multipart?uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: chunk,
+        },
+      );
+      const { payload, text } = await readApiPayload(response);
+      if (response.ok && payload?.ok) return payload.part;
+      throw new Error(
+        payload?.error ||
+          text ||
+          `Upload parte ${partNumber} non riuscito (${response.status})`,
+      );
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error
+          : new Error(`Upload parte ${partNumber} non riuscito`);
+      if (attempt < MULTIPART_RETRIES) await sleep(600 * attempt);
+    }
+  }
+  throw lastError || new Error(`Upload parte ${partNumber} non riuscito`);
+}
+
 async function uploadVideoFileToR2Multipart({
   prepared,
   file,
@@ -165,7 +220,7 @@ async function uploadVideoFileToR2Multipart({
   if (!uploadId) throw new Error("Upload multipart non inizializzato.");
   const partSize = Math.max(
     5 * 1024 * 1024,
-    Number(prepared.partSize || 24 * 1024 * 1024),
+    Number(prepared.partSize || 8 * 1024 * 1024),
   );
   const totalParts = Math.ceil(file.size / partSize);
   const parts: Array<{ partNumber: number; etag: string }> = [];
@@ -174,23 +229,15 @@ async function uploadVideoFileToR2Multipart({
     const partNumber = index + 1;
     const start = index * partSize;
     const chunk = file.slice(start, Math.min(file.size, start + partSize));
-    const response = await fetch(
-      `/api/video-review/videos/${prepared.videoId}/multipart?uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: chunk,
-      },
-    );
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.ok) {
-      throw new Error(
-        payload?.error || `Upload parte ${partNumber} non riuscito`,
-      );
-    }
+    const part = await uploadMultipartPart({
+      prepared,
+      uploadId,
+      partNumber,
+      chunk,
+    });
     parts.push({
       partNumber,
-      etag: String(payload.part?.etag || ""),
+      etag: String(part?.etag || ""),
     });
     onProgress?.(Math.round((partNumber / totalParts) * 100));
   }
@@ -203,10 +250,13 @@ async function uploadVideoFileToR2Multipart({
       body: JSON.stringify({ uploadId, parts }),
     },
   );
-  const completePayload = await complete.json().catch(() => null);
+  const { payload: completePayload, text: completeText } =
+    await readApiPayload(complete);
   if (!complete.ok || !completePayload?.ok) {
     throw new Error(
-      completePayload?.error || "Completamento upload multipart non riuscito",
+      completePayload?.error ||
+        completeText ||
+        "Completamento upload multipart non riuscito",
     );
   }
 

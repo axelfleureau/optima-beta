@@ -63,13 +63,39 @@ export async function PUT(
   if (!uploadId || !Number.isInteger(partNumber) || partNumber < 1) {
     return Response.json({ error: "Parte upload non valida" }, { status: 400 });
   }
-  if (!request.body)
+  let chunk: ArrayBuffer;
+  try {
+    chunk = await request.arrayBuffer();
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? `Chunk non leggibile: ${error.message}`
+            : "Chunk non leggibile",
+      },
+      { status: 400 },
+    );
+  }
+  if (!chunk.byteLength)
     return Response.json({ error: "Chunk mancante" }, { status: 400 });
 
   const key = r2VideoObjectKey(String(ctx.video.storage_key));
   const multipart = ctx.bucket.resumeMultipartUpload(key, uploadId);
-  const part = await multipart.uploadPart(partNumber, request.body);
-  return Response.json({ ok: true, part });
+  try {
+    const part = await multipart.uploadPart(partNumber, chunk);
+    return Response.json({ ok: true, part });
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? `Upload parte ${partNumber} non riuscito: ${error.message}`
+            : `Upload parte ${partNumber} non riuscito`,
+      },
+      { status: 502 },
+    );
+  }
 }
 
 export async function POST(
@@ -93,9 +119,33 @@ export async function POST(
     return Response.json({ ok: true });
   }
 
-  const parts = Array.isArray(body?.parts) ? body.parts : [];
+  const parts = Array.isArray(body?.parts)
+    ? body.parts
+        .map((part: any) => ({
+          partNumber: Number(part?.partNumber ?? part?.part),
+          etag: String(part?.etag || ""),
+        }))
+        .filter(
+          (part: any) =>
+            Number.isInteger(part.partNumber) &&
+            part.partNumber > 0 &&
+            part.etag,
+        )
+    : [];
   if (!parts.length)
     return Response.json({ error: "Parti upload mancanti" }, { status: 400 });
-  const object = await multipart.complete(parts);
-  return Response.json({ ok: true, key: object.key, etag: object.httpEtag });
+  try {
+    const object = await multipart.complete(parts);
+    return Response.json({ ok: true, key: object.key, etag: object.httpEtag });
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? `Completamento upload non riuscito: ${error.message}`
+            : "Completamento upload non riuscito",
+      },
+      { status: 502 },
+    );
+  }
 }

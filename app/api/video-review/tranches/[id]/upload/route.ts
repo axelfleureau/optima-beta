@@ -158,6 +158,6 @@ export async function POST(
     uploadMode: useMultipart ? "r2_multipart" : "node_put",
     uploadUrl,
     uploadId,
-    partSize: 24 * 1024 * 1024,
+    partSize: 8 * 1024 * 1024,
   });
 }
