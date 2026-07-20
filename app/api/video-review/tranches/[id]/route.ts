@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Dettaglio tranche: video con URL BYTE FIRMATI verso il nodo (Mac Studio),
- * marker e assegnazioni. PATCH per aggiornare cliente/videomaker/SMM.
+ * marker e assegnazioni. PATCH per aggiornare metadati, cliente e default.
  */
 
 import type { NextRequest } from "next/server";
@@ -10,7 +10,10 @@ import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
-import { canAccessTranche, videoVisibilityClause } from "@/lib/video-review-acl";
+import {
+  canAccessTranche,
+  videoVisibilityClause,
+} from "@/lib/video-review-acl";
 
 async function principalFor(db: any) {
   const user = await requireClerkUser();
@@ -18,12 +21,20 @@ async function principalFor(db: any) {
   return ensureWorkspacePrincipal(db, user);
 }
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const db = await getCloudflareDb();
-  if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 });
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
   const principal = await principalFor(db);
-  if (!principal) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!principal)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   // Non basta esistere: devi essere coinvolto (o essere un manager).
   if (!(await canAccessTranche(db, principal, id))) {
@@ -39,7 +50,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     )
     .bind(id, principal.organizationId)
     .first();
-  if (!t) return Response.json({ error: "Tranche non trovata" }, { status: 404 });
+  if (!t)
+    return Response.json({ error: "Tranche non trovata" }, { status: 404 });
 
   // Se ti hanno delegato un solo video, vedi solo quello.
   const vvis = videoVisibilityClause(principal);
@@ -94,7 +106,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .prepare(`SELECT id, name FROM projects WHERE organization_id = ?`)
       .bind(principal.organizationId)
       .all();
-    for (const p of (pr?.results || []) as any[]) projNameById[String(p.id)] = String(p.name);
+    for (const p of (pr?.results || []) as any[])
+      projNameById[String(p.id)] = String(p.name);
 
     const cr = await db
       .prepare(
@@ -105,7 +118,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .bind(principal.organizationId, ...videoIds)
       .all();
     const name = (f: any, l: any, e: any) =>
-      [f, l].filter(Boolean).join(" ").trim() || String(e || "").split("@")[0] || null;
+      [f, l].filter(Boolean).join(" ").trim() ||
+      String(e || "").split("@")[0] ||
+      null;
     for (const r of (cr?.results || []) as any[]) {
       (collabByVideo[String(r.scope_id)] ||= []).push({
         id: r.id,
@@ -133,10 +148,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         description: v.description,
         published: !!v.published,
         projectId: v.project_id || null,
-        projectName: effectiveProjectId ? projNameById[String(effectiveProjectId)] || null : null,
+        projectName: effectiveProjectId
+          ? projNameById[String(effectiveProjectId)] || null
+          : null,
         projectInherited: !v.project_id && !!t.project_id,
         streamUrl: await signedByteUrl(v.approved_key || v.storage_key),
-        downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, { download: true }),
+        downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, {
+          download: true,
+        }),
         thumbUrl: await signedThumbUrl(v.approved_key || v.storage_key),
         collaborators: collabByVideo[String(v.id)] || [],
         markers: markersByVideo[String(v.id)] || [],
@@ -158,12 +177,20 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const db = await getCloudflareDb();
-  if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 });
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
   const principal = await principalFor(db);
-  if (!principal) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!principal)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => ({}) as any);
   const org = principal.organizationId;
@@ -173,7 +200,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const memberOrNull = async (v: unknown) => {
     if (!v) return null;
     const m = await db
-      .prepare(`SELECT id FROM members WHERE id = ? AND organization_id = ? LIMIT 1`)
+      .prepare(
+        `SELECT id FROM members WHERE id = ? AND organization_id = ? LIMIT 1`,
+      )
       .bind(String(v), org)
       .first();
     return m ? String(m.id) : null;
@@ -187,13 +216,64 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     sets.push("smm_member_id = ?");
     vals.push(await memberOrNull(body.smmMemberId));
   }
+  if ("title" in body) {
+    const title = String(body.title || "").trim();
+    if (!title) {
+      return Response.json(
+        { error: "Nome consegna obbligatorio" },
+        { status: 400 },
+      );
+    }
+    sets.push("title = ?");
+    vals.push(title.slice(0, 160));
+  }
+  let shouldSyncVideoClient = false;
+  let nextClientId: string | null = null;
+  if ("clientId" in body) {
+    if (body.clientId) {
+      const client = await db
+        .prepare(
+          `SELECT id FROM clients WHERE id = ? AND organization_id = ? LIMIT 1`,
+        )
+        .bind(String(body.clientId), org)
+        .first();
+      if (!client) {
+        return Response.json({ error: "Cliente non trovato" }, { status: 404 });
+      }
+      nextClientId = String(client.id);
+    }
+    sets.push("client_id = ?");
+    vals.push(nextClientId);
+    shouldSyncVideoClient = true;
+
+    const current: any = await db
+      .prepare(
+        `SELECT t.project_id, p.client_id AS project_client_id
+           FROM vr_tranches t
+           LEFT JOIN projects p ON p.id = t.project_id AND p.organization_id = t.organization_id
+          WHERE t.id = ? AND t.organization_id = ? LIMIT 1`,
+      )
+      .bind(id, org)
+      .first();
+    if (
+      current?.project_id &&
+      nextClientId &&
+      current.project_client_id &&
+      String(current.project_client_id) !== nextClientId
+    ) {
+      sets.push("project_id = ?");
+      vals.push(null);
+    }
+  }
   // Progetto di DEFAULT della consegna: i video lo ereditano ma possono averne
   // uno proprio (nella stessa tranche possono convivere progetti diversi).
   if ("projectId" in body) {
     let pid: string | null = null;
     if (body.projectId) {
       const p = await db
-        .prepare(`SELECT id FROM projects WHERE id = ? AND organization_id = ? LIMIT 1`)
+        .prepare(
+          `SELECT id FROM projects WHERE id = ? AND organization_id = ? LIMIT 1`,
+        )
         .bind(String(body.projectId), org)
         .first();
       pid = p ? String(p.id) : null;
@@ -206,9 +286,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   sets.push("updated_at = ?");
   vals.push(new Date().toISOString(), id, org);
   await db
-    .prepare(`UPDATE vr_tranches SET ${sets.join(", ")} WHERE id = ? AND organization_id = ?`)
+    .prepare(
+      `UPDATE vr_tranches SET ${sets.join(", ")} WHERE id = ? AND organization_id = ?`,
+    )
     .bind(...vals)
     .run();
+
+  if (shouldSyncVideoClient) {
+    await db
+      .prepare(
+        `UPDATE vr_videos
+            SET client_id = ?, updated_at = ?
+          WHERE tranche_id = ? AND organization_id = ?`,
+      )
+      .bind(nextClientId, new Date().toISOString(), id, org)
+      .run();
+  }
 
   return Response.json({ ok: true });
 }

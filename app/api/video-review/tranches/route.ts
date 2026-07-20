@@ -29,9 +29,14 @@ async function principalFor(db: any) {
 
 export async function GET() {
   const db = await getCloudflareDb();
-  if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 });
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
   const principal = await principalFor(db);
-  if (!principal) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!principal)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   // Vedi solo le tranche in cui sei coinvolto (i manager vedono tutto).
   const vis = trancheVisibilityClause(principal);
@@ -43,7 +48,7 @@ export async function GET() {
               c.name AS client_name,
               vm.first_name AS vm_first, vm.last_name AS vm_last, vm.email AS vm_email,
               sm.first_name AS sm_first, sm.last_name AS sm_last, sm.email AS sm_email,
-              (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id) AS video_count,
+              (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status != 'uploading') AS video_count,
               (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status='pending')  AS pending_count,
               (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status='revision') AS revision_count,
               (SELECT COUNT(*) FROM vr_videos v WHERE v.tranche_id = t.id AND v.status='approved') AS approved_count
@@ -58,7 +63,9 @@ export async function GET() {
     .all();
 
   const name = (f: any, l: any, e: any) =>
-    [f, l].filter(Boolean).join(" ").trim() || String(e || "").split("@")[0] || null;
+    [f, l].filter(Boolean).join(" ").trim() ||
+    String(e || "").split("@")[0] ||
+    null;
 
   const ids = ((res?.results || []) as any[]).map((t) => String(t.id));
 
@@ -90,8 +97,8 @@ export async function GET() {
       .prepare(
         `SELECT DISTINCT v.tranche_id, p.name
            FROM vr_videos v
-           JOIN projects p ON p.id = COALESCE(v.project_id, (SELECT t2.project_id FROM vr_tranches t2 WHERE t2.id = v.tranche_id))
-          WHERE v.organization_id = ? AND v.tranche_id IN (${ph})`,
+          JOIN projects p ON p.id = COALESCE(v.project_id, (SELECT t2.project_id FROM vr_tranches t2 WHERE t2.id = v.tranche_id))
+          WHERE v.organization_id = ? AND v.tranche_id IN (${ph}) AND v.status != 'uploading'`,
       )
       .bind(principal.organizationId, ...ids)
       .all();
@@ -124,13 +131,19 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const db = await getCloudflareDb();
-  if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 });
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
   const principal = await principalFor(db);
-  if (!principal) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!principal)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));
   const title = String(body?.title || "").trim();
-  if (!title) return Response.json({ error: "Titolo mancante" }, { status: 400 });
+  if (!title)
+    return Response.json({ error: "Titolo mancante" }, { status: 400 });
 
   const org = principal.organizationId;
 
@@ -138,7 +151,9 @@ export async function POST(request: NextRequest) {
   let clientId: string | null = null;
   if (body?.clientId) {
     const c = await db
-      .prepare(`SELECT id FROM clients WHERE id = ? AND organization_id = ? LIMIT 1`)
+      .prepare(
+        `SELECT id FROM clients WHERE id = ? AND organization_id = ? LIMIT 1`,
+      )
       .bind(String(body.clientId), org)
       .first();
     clientId = c ? String(c.id) : null;
@@ -146,7 +161,9 @@ export async function POST(request: NextRequest) {
   const memberOrNull = async (id: unknown) => {
     if (!id) return null;
     const m = await db
-      .prepare(`SELECT id FROM members WHERE id = ? AND organization_id = ? LIMIT 1`)
+      .prepare(
+        `SELECT id FROM members WHERE id = ? AND organization_id = ? LIMIT 1`,
+      )
       .bind(String(id), org)
       .first();
     return m ? String(m.id) : null;

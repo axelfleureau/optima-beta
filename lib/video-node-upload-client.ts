@@ -168,7 +168,7 @@ async function uploadVideoFileToR2Multipart({
     Number(prepared.partSize || 24 * 1024 * 1024),
   );
   const totalParts = Math.ceil(file.size / partSize);
-  const parts: Array<{ part: number; etag: string }> = [];
+  const parts: Array<{ partNumber: number; etag: string }> = [];
 
   for (let index = 0; index < totalParts; index += 1) {
     const partNumber = index + 1;
@@ -188,7 +188,10 @@ async function uploadVideoFileToR2Multipart({
         payload?.error || `Upload parte ${partNumber} non riuscito`,
       );
     }
-    parts.push({ part: partNumber, etag: String(payload.part?.etag || "") });
+    parts.push({
+      partNumber,
+      etag: String(payload.part?.etag || ""),
+    });
     onProgress?.(Math.round((partNumber / totalParts) * 100));
   }
 

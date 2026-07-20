@@ -1,18 +1,34 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Copy, Check, Clapperboard, Play, MessageSquare, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Check,
+  Clapperboard,
+  Play,
+  MessageSquare,
+  Users,
+  Save,
+} from "lucide-react";
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
 import { ProjectPicker } from "@/components/video-review/project-picker";
 import { VrPageHeader } from "@/components/video-review/page-chrome";
 import { TrancheUploadButton } from "@/components/video-review/tranche-upload-button";
 import { VideoDrawer } from "@/components/video-review/video-drawer";
+import { useVideoReviewMeta } from "@/hooks/use-video-review";
 import {
   pageClass,
   containerClass,
@@ -57,7 +73,11 @@ type Tranche = {
   projectId: string | null;
 };
 
-export default function TranchePage({ params }: { params: Promise<{ id: string }> }) {
+export default function TranchePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const [tranche, setTranche] = useState<Tranche | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
@@ -65,6 +85,12 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
   const [copied, setCopied] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftClientId, setDraftClientId] = useState<string | null>(null);
+  const [clientQuery, setClientQuery] = useState("");
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const { clients, loading: metaLoading } = useVideoReviewMeta();
 
   const load = useCallback(() => {
     return fetch(`/api/video-review/tranches/${id}`)
@@ -84,15 +110,80 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!tranche) return;
+    setDraftTitle(tranche.title || "");
+    setDraftClientId(tranche.clientId || null);
+    setClientQuery(tranche.clientName || "");
+  }, [tranche?.id, tranche?.title, tranche?.clientId, tranche?.clientName]);
+
   async function copyLink() {
     if (!tranche) return;
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/review/${tranche.token}`);
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/review/${tranche.token}`,
+      );
     } catch {
       /* ignore */
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  const clientMatches = useMemo(() => {
+    const query = clientQuery.trim().toLowerCase();
+    const base = query
+      ? clients.filter((client) => {
+          const haystack =
+            `${client.name || ""} ${client.company || ""}`.toLowerCase();
+          return haystack.includes(query);
+        })
+      : clients;
+    return base.slice(0, 8);
+  }, [clients, clientQuery]);
+
+  const selectedClient =
+    clients.find((client) => client.id === draftClientId) || null;
+  const detailsDirty = Boolean(
+    tranche &&
+    (draftTitle.trim() !== tranche.title ||
+      (draftClientId || null) !== (tranche.clientId || null)),
+  );
+
+  async function saveDetails() {
+    if (!tranche || savingDetails) return;
+    setDetailsError(null);
+    const title = draftTitle.trim();
+    if (!title) {
+      setDetailsError("Inserisci un nome per la tranche.");
+      return;
+    }
+    if (clientQuery.trim() && !draftClientId) {
+      setDetailsError("Seleziona un cliente dai risultati prima di salvare.");
+      return;
+    }
+
+    setSavingDetails(true);
+    try {
+      const response = await fetch(`/api/video-review/tranches/${tranche.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, clientId: draftClientId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error || "Salvataggio non riuscito");
+      }
+      await load();
+    } catch (error) {
+      setDetailsError(
+        error instanceof Error
+          ? error.message
+          : "Non sono riuscito a salvare i dettagli della tranche.",
+      );
+    } finally {
+      setSavingDetails(false);
+    }
   }
 
   if (loading)
@@ -139,22 +230,117 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
             actions={
               <>
                 <TrancheUploadButton trancheId={tranche.id} onUploaded={load} />
-                <Button variant="outline" onClick={copyLink} className="border-white/10 bg-white/5">
-                  {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                <Button
+                  variant="outline"
+                  onClick={copyLink}
+                  className="border-white/10 bg-white/5"
+                >
+                  {copied ? (
+                    <Check className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Copy className="mr-2 h-4 w-4" />
+                  )}
                   {copied ? "Copiato" : "Link review cliente"}
                 </Button>
               </>
             }
           />
 
+          <Card className={surfaceClass}>
+            <CardContent className="grid gap-5 p-5 lg:grid-cols-[1.1fr_1fr_auto] lg:items-end">
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-slate-300">
+                  Nome tranche
+                </span>
+                <Input
+                  value={draftTitle}
+                  onChange={(event) => setDraftTitle(event.target.value)}
+                  className="border-white/10 bg-[#070b16] text-slate-100"
+                  placeholder="Es. Reel luglio"
+                />
+              </div>
+              <div className="relative space-y-2">
+                <span className="text-sm font-medium text-slate-300">
+                  Cliente
+                </span>
+                <Input
+                  value={clientQuery}
+                  onChange={(event) => {
+                    setClientQuery(event.target.value);
+                    setDraftClientId(null);
+                  }}
+                  className="border-white/10 bg-[#070b16] text-slate-100"
+                  placeholder={
+                    metaLoading ? "Caricamento clienti..." : "Cerca cliente..."
+                  }
+                />
+                {clientQuery.trim() && !draftClientId && (
+                  <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-lg border border-white/10 bg-[#090e1a] p-2 shadow-2xl">
+                    {clientMatches.length ? (
+                      clientMatches.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          onClick={() => {
+                            setDraftClientId(client.id);
+                            setClientQuery(client.name);
+                          }}
+                          className="flex w-full flex-col rounded-md px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:bg-white/10"
+                        >
+                          <span className="font-medium">{client.name}</span>
+                          {client.company && (
+                            <span className="text-xs text-slate-500">
+                              {client.company}
+                            </span>
+                          )}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-3 py-2 text-sm text-slate-500">
+                        Nessun cliente trovato.
+                      </p>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-slate-500">
+                  {selectedClient
+                    ? `Selezionato: ${selectedClient.name}`
+                    : "Cambia cliente quando una consegna e stata creata nel posto sbagliato."}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  onClick={saveDetails}
+                  disabled={!detailsDirty || savingDetails}
+                  className="w-full bg-pink-500 text-white hover:bg-pink-400 lg:w-auto"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {savingDetails ? "Salvo..." : "Salva dettagli"}
+                </Button>
+                {detailsError && (
+                  <p className="max-w-xs text-xs text-red-300">
+                    {detailsError}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Collaboratori della consegna + progetto di default */}
           <Card className={surfaceClass}>
             <CardContent className="grid gap-6 p-5 md:grid-cols-2">
-              <CollaboratorsField scope="tranche" scopeId={tranche.id} label="Collaboratori della consegna" />
+              <CollaboratorsField
+                scope="tranche"
+                scopeId={tranche.id}
+                label="Collaboratori della consegna"
+              />
               <div className="space-y-2">
-                <span className="text-sm font-medium text-slate-300">Progetto di default</span>
+                <span className="text-sm font-medium text-slate-300">
+                  Progetto di default
+                </span>
                 <ProjectPicker
-                  clientId={tranche.clientId}
+                  clientId={draftClientId || tranche.clientId}
                   value={projectId}
                   onChange={async (p) => {
                     setProjectId(p);
@@ -167,7 +353,8 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
                   }}
                 />
                 <p className="text-xs text-slate-500">
-                  I video lo ereditano, ma ognuno può stare su un progetto diverso.
+                  I video lo ereditano, ma ognuno può stare su un progetto
+                  diverso.
                 </p>
               </div>
             </CardContent>
@@ -175,7 +362,9 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
 
           {/* Video: card COMPATTE; le azioni vivono nel drawer */}
           {videos.length === 0 ? (
-            <div className={`${surfaceClass} flex flex-col items-center gap-4 p-12 text-center`}>
+            <div
+              className={`${surfaceClass} flex flex-col items-center gap-4 p-12 text-center`}
+            >
               <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300">
                 <Clapperboard className="h-6 w-6" />
               </span>
@@ -188,7 +377,11 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
                   passare dal cloud.
                 </p>
               </div>
-              <TrancheUploadButton trancheId={tranche.id} onUploaded={load} primary />
+              <TrancheUploadButton
+                trancheId={tranche.id}
+                onUploaded={load}
+                primary
+              />
               <p className="max-w-xl text-xs text-slate-500">
                 In alternativa il videomaker esporta in{" "}
                 <code className="rounded bg-white/5 px-1.5 py-0.5 text-[11px] text-slate-400">
@@ -200,7 +393,11 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {videos.map((v) => (
-                <VideoCardCompact key={v.id} video={v} onOpen={() => setOpenId(v.id)} />
+                <VideoCardCompact
+                  key={v.id}
+                  video={v}
+                  onOpen={() => setOpenId(v.id)}
+                />
               ))}
             </div>
           )}
@@ -216,7 +413,9 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
           {openVideo && (
             <>
               <SheetHeader className="mb-4">
-                <SheetTitle className="text-slate-100">{openVideo.title}</SheetTitle>
+                <SheetTitle className="text-slate-100">
+                  {openVideo.title}
+                </SheetTitle>
               </SheetHeader>
               <VideoDrawer
                 video={openVideo}
@@ -233,7 +432,13 @@ export default function TranchePage({ params }: { params: Promise<{ id: string }
 }
 
 /** Card compatta: colpo d'occhio. Tutte le azioni sono nel drawer. */
-function VideoCardCompact({ video: v, onOpen }: { video: Video; onOpen: () => void }) {
+function VideoCardCompact({
+  video: v,
+  onOpen,
+}: {
+  video: Video;
+  onOpen: () => void;
+}) {
   const st = statusMeta(v.status);
   const openNotes = v.markers.filter((m) => !m.done).length;
   const isVertical = !!(v.width && v.height && v.height > v.width);
@@ -250,7 +455,11 @@ function VideoCardCompact({ video: v, onOpen }: { video: Video; onOpen: () => vo
           <img
             src={v.thumbUrl}
             alt=""
-            className={isVertical ? "mx-auto h-full w-auto" : "h-full w-full object-cover"}
+            className={
+              isVertical
+                ? "mx-auto h-full w-auto"
+                : "h-full w-full object-cover"
+            }
           />
         ) : (
           <div className="flex h-full items-center justify-center text-slate-600">
@@ -260,7 +469,9 @@ function VideoCardCompact({ video: v, onOpen }: { video: Video; onOpen: () => vo
         <span className="absolute inset-0 flex items-center justify-center transition-colors group-hover:bg-black/30">
           <Play className="h-9 w-9 text-white opacity-0 transition-opacity group-hover:opacity-90" />
         </span>
-        <span className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-[11px] ${st.badge}`}>
+        <span
+          className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-[11px] ${st.badge}`}
+        >
           {st.label}
         </span>
         {v.version > 1 && (
@@ -271,10 +482,15 @@ function VideoCardCompact({ video: v, onOpen }: { video: Video; onOpen: () => vo
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-3">
-        <p className="truncate text-sm font-semibold text-slate-100">{v.title}</p>
+        <p className="truncate text-sm font-semibold text-slate-100">
+          {v.title}
+        </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
           {v.projectName && (
-            <Badge variant="outline" className="border-white/10 bg-white/5 text-[10px] text-slate-300">
+            <Badge
+              variant="outline"
+              className="border-white/10 bg-white/5 text-[10px] text-slate-300"
+            >
               {v.projectName}
             </Badge>
           )}
