@@ -4,11 +4,27 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Upload, Play, FileDown, Scissors, Crop, Loader2 } from "lucide-react";
+import {
+  Download,
+  Upload,
+  Play,
+  FileDown,
+  Scissors,
+  Crop,
+  Loader2,
+} from "lucide-react";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
 import { ProjectPicker } from "@/components/video-review/project-picker";
-import { statusMeta, primaryButtonClass, insetPanelClass } from "@/lib/video-review-ui";
+import {
+  statusMeta,
+  primaryButtonClass,
+  insetPanelClass,
+} from "@/lib/video-review-ui";
+import {
+  cleanupPreparedVideoUpload,
+  uploadPreparedVideo,
+} from "@/lib/video-node-upload-client";
 
 type Marker = { id: string; tSeconds: number; note: string; done: boolean };
 type Video = {
@@ -99,26 +115,21 @@ export function VideoDrawer({
       const prep = await fetch(`/api/video-review/videos/${v.id}/new-version`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name }),
+        body: JSON.stringify({
+          filename: file.name,
+          fileSize: file.size,
+          contentType: file.type || "video/mp4",
+        }),
       }).then((r) => r.json());
       if (!prep?.ok) throw new Error(prep?.error || "preparazione fallita");
 
-      const meta = await new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", prep.uploadUrl);
-        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
-        xhr.upload.onprogress = (e) =>
-          e.lengthComputable && setProgress(Math.round((e.loaded / e.total) * 100));
-        xhr.onload = () => {
-          try {
-            const j = JSON.parse(xhr.responseText);
-            j?.ok ? resolve(j) : reject(new Error(j?.error || "upload fallito"));
-          } catch {
-            reject(new Error(`upload fallito (${xhr.status})`));
-          }
-        };
-        xhr.onerror = () => reject(new Error("errore di rete verso il nodo"));
-        xhr.send(file);
+      const meta = await uploadPreparedVideo({
+        prepared: prep,
+        file,
+        onProgress: setProgress,
+      }).catch(async (error) => {
+        await cleanupPreparedVideoUpload(prep);
+        throw error;
       });
 
       await fetch(`/api/video-review/videos/${prep.videoId}`, {
@@ -141,7 +152,11 @@ export function VideoDrawer({
   }
 
   /** Editing sul nodo (taglia/9:16) → crea una nuova versione. */
-  async function runEdit(op: "trim" | "reframe", params: Record<string, unknown>, tag: string) {
+  async function runEdit(
+    op: "trim" | "reframe",
+    params: Record<string, unknown>,
+    tag: string,
+  ) {
     setEditErr(null);
     setEditing(tag);
     try {
@@ -152,7 +167,9 @@ export function VideoDrawer({
       }).then((r) => r.json());
       if (!prep?.ok) throw new Error(prep?.error || "preparazione fallita");
 
-      const meta = await fetch(prep.editUrl, { method: "POST" }).then((r) => r.json());
+      const meta = await fetch(prep.editUrl, { method: "POST" }).then((r) =>
+        r.json(),
+      );
       if (!meta?.ok) throw new Error(meta?.error || "elaborazione fallita");
 
       await fetch(`/api/video-review/videos/${prep.videoId}`, {
@@ -182,12 +199,27 @@ export function VideoDrawer({
   return (
     <div className="space-y-5">
       {/* Player */}
-      <AdaptivePlayer src={v.streamUrl} width={v.width} height={v.height} videoRef={videoRef} maxVerticalHeight="min(56vh, 460px)" />
+      <AdaptivePlayer
+        src={v.streamUrl}
+        width={v.width}
+        height={v.height}
+        videoRef={videoRef}
+        maxVerticalHeight="min(56vh, 460px)"
+      />
 
       {/* Meta + stato */}
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-        <Badge variant="outline" className={st.badge}>{st.label}</Badge>
-        {v.version > 1 && <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300">v{v.version}</Badge>}
+        <Badge variant="outline" className={st.badge}>
+          {st.label}
+        </Badge>
+        {v.version > 1 && (
+          <Badge
+            variant="outline"
+            className="border-white/10 bg-white/5 text-slate-300"
+          >
+            v{v.version}
+          </Badge>
+        )}
         <span className="font-mono">
           {v.filename}
           {v.durationSeconds ? ` · ${Math.round(v.durationSeconds)}s` : ""}
@@ -209,19 +241,36 @@ export function VideoDrawer({
             e.target.value = "";
           }}
         />
-        <Button size="sm" className={primaryButtonClass} disabled={progress !== null} onClick={() => fileRef.current?.click()}>
+        <Button
+          size="sm"
+          className={primaryButtonClass}
+          disabled={progress !== null}
+          onClick={() => fileRef.current?.click()}
+        >
           <Upload className="mr-2 h-4 w-4" />
-          {progress !== null ? `Carico ${progress}%` : `Carica v${v.version + 1}`}
+          {progress !== null
+            ? `Carico ${progress}%`
+            : `Carica v${v.version + 1}`}
         </Button>
         {v.downloadUrl && (
-          <Button asChild size="sm" variant="outline" className="border-white/10 bg-white/5">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="border-white/10 bg-white/5"
+          >
             <a href={v.downloadUrl}>
               <Download className="mr-2 h-4 w-4" /> Scarica
             </a>
           </Button>
         )}
         {markers.length > 0 && (
-          <Button asChild size="sm" variant="outline" className="border-white/10 bg-white/5">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="border-white/10 bg-white/5"
+          >
             <a href={`/api/video-review/videos/${v.id}/edl`}>
               <FileDown className="mr-2 h-4 w-4" /> EDL
             </a>
@@ -230,7 +279,10 @@ export function VideoDrawer({
       </div>
       {progress !== null && (
         <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full bg-righello-pink transition-all" style={{ width: `${progress}%` }} />
+          <div
+            className="h-full bg-righello-pink transition-all"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       )}
       {upErr && <p className="text-sm text-red-400">{upErr}</p>}
@@ -246,13 +298,19 @@ export function VideoDrawer({
             disabled={!!editing}
             onClick={() => runEdit("reframe", { aspect: "9:16" }, "9x16")}
           >
-            {editing === "9x16" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Crop className="mr-2 h-4 w-4" />}
+            {editing === "9x16" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Crop className="mr-2 h-4 w-4" />
+            )}
             Ritaglia 9:16
           </Button>
           <Button
             size="sm"
             variant={trimMode ? "default" : "outline"}
-            className={trimMode ? primaryButtonClass : "border-white/10 bg-white/5"}
+            className={
+              trimMode ? primaryButtonClass : "border-white/10 bg-white/5"
+            }
             disabled={!!editing}
             onClick={() => setTrimMode((x) => !x)}
           >
@@ -263,10 +321,20 @@ export function VideoDrawer({
         {trimMode && (
           <div className="space-y-2 rounded-md border border-white/10 bg-black/20 p-2.5">
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Button size="sm" variant="ghost" className="h-9 text-slate-300" onClick={() => setTrimIn(videoRef.current?.currentTime ?? 0)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-9 text-slate-300"
+                onClick={() => setTrimIn(videoRef.current?.currentTime ?? 0)}
+              >
                 Inizio = {trimIn === null ? "qui" : timecode(trimIn, fps)}
               </Button>
-              <Button size="sm" variant="ghost" className="h-9 text-slate-300" onClick={() => setTrimOut(videoRef.current?.currentTime ?? 0)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-9 text-slate-300"
+                onClick={() => setTrimOut(videoRef.current?.currentTime ?? 0)}
+              >
                 Fine = {trimOut === null ? "qui" : timecode(trimOut, fps)}
               </Button>
             </div>
@@ -276,16 +344,29 @@ export function VideoDrawer({
             <Button
               size="sm"
               className={primaryButtonClass}
-              disabled={!!editing || trimIn === null || trimOut === null || (trimOut ?? 0) <= (trimIn ?? 0)}
-              onClick={() => runEdit("trim", { start: trimIn, end: trimOut }, "trim")}
+              disabled={
+                !!editing ||
+                trimIn === null ||
+                trimOut === null ||
+                (trimOut ?? 0) <= (trimIn ?? 0)
+              }
+              onClick={() =>
+                runEdit("trim", { start: trimIn, end: trimOut }, "trim")
+              }
             >
-              {editing === "trim" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Scissors className="mr-2 h-4 w-4" />}
+              {editing === "trim" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Scissors className="mr-2 h-4 w-4" />
+              )}
               Applica taglio
             </Button>
           </div>
         )}
         {editErr && <p className="text-sm text-red-400">{editErr}</p>}
-        <p className="text-xs text-slate-500">Ogni modifica diventa una nuova versione, che il cliente rivede.</p>
+        <p className="text-xs text-slate-500">
+          Ogni modifica diventa una nuova versione, che il cliente rivede.
+        </p>
       </div>
 
       {/* Note di modifica: clic = vai al punto · spunta = fatto */}
@@ -299,15 +380,26 @@ export function VideoDrawer({
           </p>
           <div className="space-y-1">
             {markers.map((m) => (
-              <div key={m.id} className="flex items-start gap-2 rounded px-1 py-1.5 hover:bg-white/5">
+              <div
+                key={m.id}
+                className="flex items-start gap-2 rounded px-1 py-1.5 hover:bg-white/5"
+              >
                 <Checkbox
                   checked={m.done}
                   onCheckedChange={() => toggleDone(m)}
                   className="mt-0.5 border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
                 />
-                <button type="button" onClick={() => seekTo(m)} className="flex flex-1 items-start gap-2 text-left">
-                  <span className="shrink-0 font-mono text-xs text-amber-400">{timecode(m.tSeconds, fps)}</span>
-                  <span className={`flex-1 text-sm ${m.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                <button
+                  type="button"
+                  onClick={() => seekTo(m)}
+                  className="flex flex-1 items-start gap-2 text-left"
+                >
+                  <span className="shrink-0 font-mono text-xs text-amber-400">
+                    {timecode(m.tSeconds, fps)}
+                  </span>
+                  <span
+                    className={`flex-1 text-sm ${m.done ? "text-slate-500 line-through" : "text-slate-200"}`}
+                  >
                     {m.note}
                   </span>
                   <Play className="mt-0.5 h-3 w-3 shrink-0 text-slate-600" />
@@ -321,11 +413,15 @@ export function VideoDrawer({
       {/* Impostazioni del singolo video */}
       <div className={`${insetPanelClass} space-y-4 p-4`}>
         <div className="space-y-2">
-          <span className="text-sm font-medium text-slate-300">Progetto del video</span>
+          <span className="text-sm font-medium text-slate-300">
+            Progetto del video
+          </span>
           <ProjectPicker
             clientId={clientId}
             value={projectId}
-            inheritedLabel={!projectId && trancheProjectId ? "quello della consegna" : null}
+            inheritedLabel={
+              !projectId && trancheProjectId ? "quello della consegna" : null
+            }
             onChange={async (p) => {
               setProjectId(p);
               await patchVideo({ projectId: p });
@@ -333,12 +429,16 @@ export function VideoDrawer({
             }}
           />
           {v.projectInherited && !projectId && (
-            <p className="text-xs text-slate-500">Eredita il progetto della consegna.</p>
+            <p className="text-xs text-slate-500">
+              Eredita il progetto della consegna.
+            </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <span className="text-sm font-medium text-slate-300">Data pubblicazione prevista</span>
+          <span className="text-sm font-medium text-slate-300">
+            Data pubblicazione prevista
+          </span>
           <input
             type="date"
             value={plannedDate}
@@ -350,7 +450,11 @@ export function VideoDrawer({
           />
         </div>
 
-        <CollaboratorsField scope="video" scopeId={v.id} label="Delegati di questo video" />
+        <CollaboratorsField
+          scope="video"
+          scopeId={v.id}
+          label="Delegati di questo video"
+        />
       </div>
     </div>
   );

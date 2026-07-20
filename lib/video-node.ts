@@ -15,6 +15,22 @@ function b64url(bytes: Uint8Array) {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+function appBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://appbeta.wearerighello.com"
+  ).replace(/\/$/, "");
+}
+
+export function isR2VideoKey(storageKey: string | null | undefined) {
+  return String(storageKey || "").startsWith("r2://");
+}
+
+export function r2VideoObjectKey(storageKey: string) {
+  return storageKey.replace(/^r2:\/\//, "");
+}
+
 async function hmacHex(secret: string, payload: string) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -30,7 +46,16 @@ async function hmacHex(secret: string, payload: string) {
 }
 
 export function videoNodeUrl() {
-  return (process.env.VIDEO_NODE_URL || "https://video.wearerighello.com").replace(/\/$/, "");
+  return (
+    process.env.VIDEO_NODE_URL || "https://video.wearerighello.com"
+  ).replace(/\/$/, "");
+}
+
+export function videoNodeUploadUrl() {
+  return (process.env.VIDEO_NODE_UPLOAD_URL || videoNodeUrl()).replace(
+    /\/$/,
+    "",
+  );
 }
 
 export function videoNodeReady() {
@@ -55,6 +80,9 @@ export async function signedByteUrl(
   const qs = await signQuery(storageKey, opts.ttlSeconds ?? 21600); // 6h
   if (!qs) return null;
   if (opts.download) qs.set("dl", "1");
+  if (isR2VideoKey(storageKey)) {
+    return `${appBaseUrl()}/api/video-review/media?${qs.toString()}`;
+  }
   return `${videoNodeUrl()}/v/stream?${qs.toString()}`;
 }
 
@@ -64,13 +92,19 @@ export async function signedThumbUrl(
   ttlSeconds = 21600,
 ): Promise<string | null> {
   if (!storageKey) return null;
+  if (isR2VideoKey(storageKey)) return null;
   const qs = await signQuery(storageKey, ttlSeconds);
   return qs ? `${videoNodeUrl()}/v/thumb?${qs.toString()}` : null;
 }
 
 /** URL firmato per un'operazione di EDITING (trim/reframe) sul nodo. */
 export async function signedEditUrl(
-  job: { src: string; dst: string; op: string; params?: Record<string, unknown> },
+  job: {
+    src: string;
+    dst: string;
+    op: string;
+    params?: Record<string, unknown>;
+  },
   ttlSeconds = 3600,
 ): Promise<string | null> {
   const qs = await signQuery(JSON.stringify(job), ttlSeconds);
@@ -87,5 +121,5 @@ export async function signedUploadUrl(
   ttlSeconds = 3600,
 ): Promise<string | null> {
   const qs = await signQuery(storageKey, ttlSeconds);
-  return qs ? `${videoNodeUrl()}/v/upload?${qs.toString()}` : null;
+  return qs ? `${videoNodeUploadUrl()}/v/upload?${qs.toString()}` : null;
 }

@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { getCloudflareDb, createId } from "@/lib/cloudflare-db";
+import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { canAccessTranche } from "@/lib/video-review-acl";
@@ -51,7 +52,10 @@ export async function POST(
   const { id } = await params;
   const db = await getCloudflareDb();
   if (!db) {
-    return Response.json({ error: "D1 database binding missing" }, { status: 500 });
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
   }
   const user = await requireClerkUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -64,6 +68,8 @@ export async function POST(
 
   const body = await request.json().catch(() => ({}) as any);
   const filename = safeName(body?.filename);
+  const fileSize = Number(body?.fileSize || 0);
+  const contentType = String(body?.contentType || "video/mp4");
   if (!/\.(mp4|mov|m4v|mkv|avi|mxf|webm)$/i.test(filename)) {
     return Response.json({ error: "Formato non supportato" }, { status: 400 });
   }
@@ -81,18 +87,48 @@ export async function POST(
     return Response.json({ error: "Consegna non trovata" }, { status: 404 });
   }
 
-  const clientDir = safeSegment(tranche.client_name || "Senza cliente");
-  const trancheDir = safeSegment(tranche.title);
-  const storageKey = `da-revisionare/${clientDir}/${trancheDir}/${filename}`;
-
-  const uploadUrl = await signedUploadUrl(storageKey);
-  if (!uploadUrl) {
-    return Response.json({ error: "Nodo video non configurato" }, { status: 503 });
-  }
-
   const videoId = createId("vrvd");
   const now = new Date().toISOString();
   const title = filename.replace(/\.[^.]+$/, "");
+  const useMultipart = fileSize >= 90 * 1024 * 1024;
+  const clientDir = safeSegment(tranche.client_name || "Senza cliente");
+  const trancheDir = safeSegment(tranche.title);
+  const storageKey = useMultipart
+    ? `r2://video-review/${org}/da-revisionare/${videoId}/${filename}`
+    : `da-revisionare/${clientDir}/${trancheDir}/${filename}`;
+
+  let uploadUrl: string | null = null;
+  let uploadId: string | null = null;
+  if (useMultipart) {
+    const bucket = await getTaskMediaBucket();
+    if (!bucket)
+      return Response.json(
+        { error: "Storage video non configurato" },
+        { status: 503 },
+      );
+    const multipart = await bucket.createMultipartUpload(
+      storageKey.replace(/^r2:\/\//, ""),
+      {
+        httpMetadata: { contentType },
+        customMetadata: {
+          organizationId: org,
+          trancheId: id,
+          videoId,
+          uploadedBy: principal.memberId,
+          originalName: filename,
+        },
+      },
+    );
+    uploadId = multipart.uploadId;
+  } else {
+    uploadUrl = await signedUploadUrl(storageKey);
+    if (!uploadUrl) {
+      return Response.json(
+        { error: "Nodo video non configurato" },
+        { status: 503 },
+      );
+    }
+  }
 
   await db
     .prepare(
@@ -115,5 +151,13 @@ export async function POST(
     )
     .run();
 
-  return Response.json({ ok: true, videoId, storageKey, uploadUrl });
+  return Response.json({
+    ok: true,
+    videoId,
+    storageKey,
+    uploadMode: useMultipart ? "r2_multipart" : "node_put",
+    uploadUrl,
+    uploadId,
+    partSize: 24 * 1024 * 1024,
+  });
 }

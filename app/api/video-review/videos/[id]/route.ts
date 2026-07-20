@@ -6,11 +6,19 @@ import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
+import { canAccessVideo } from "@/lib/video-review-acl";
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const db = await getCloudflareDb();
-  if (!db) return Response.json({ error: "D1 database binding missing" }, { status: 500 });
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
   const user = await requireClerkUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const principal = await ensureWorkspacePrincipal(db, user);
@@ -33,7 +41,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     let pid: string | null = null;
     if (body.projectId) {
       const p = await db
-        .prepare(`SELECT id FROM projects WHERE id = ? AND organization_id = ? LIMIT 1`)
+        .prepare(
+          `SELECT id FROM projects WHERE id = ? AND organization_id = ? LIMIT 1`,
+        )
         .bind(String(body.projectId), principal.organizationId)
         .first();
       pid = p ? String(p.id) : null;
@@ -49,7 +59,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   // Conferma di una nuova versione: i byte sono sul nodo, il video entra in
   // attesa di review e salviamo i metadati letti da ffprobe dal nodo stesso.
   if (body?.finalize) {
-    sets.push("status = ?", "fps = ?", "duration_seconds = ?", "width = ?", "height = ?");
+    sets.push(
+      "status = ?",
+      "fps = ?",
+      "duration_seconds = ?",
+      "width = ?",
+      "height = ?",
+    );
     vals.push(
       "pending",
       body.fps ? Number(body.fps) : null,
@@ -65,8 +81,39 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   vals.push(now, id, principal.organizationId);
 
   await db
-    .prepare(`UPDATE vr_videos SET ${sets.join(", ")} WHERE id = ? AND organization_id = ?`)
+    .prepare(
+      `UPDATE vr_videos SET ${sets.join(", ")} WHERE id = ? AND organization_id = ?`,
+    )
     .bind(...vals)
+    .run();
+
+  return Response.json({ ok: true });
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const db = await getCloudflareDb();
+  if (!db)
+    return Response.json(
+      { error: "D1 database binding missing" },
+      { status: 500 },
+    );
+  const user = await requireClerkUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const principal = await ensureWorkspacePrincipal(db, user);
+
+  if (!(await canAccessVideo(db, principal, id))) {
+    return Response.json({ error: "Video non trovato" }, { status: 404 });
+  }
+
+  await db
+    .prepare(
+      `DELETE FROM vr_videos WHERE id = ? AND organization_id = ? AND status = 'uploading'`,
+    )
+    .bind(id, principal.organizationId)
     .run();
 
   return Response.json({ ok: true });

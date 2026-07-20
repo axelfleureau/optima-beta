@@ -3,6 +3,10 @@
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  cleanupPreparedVideoUpload,
+  uploadPreparedVideo,
+} from "@/lib/video-node-upload-client";
 
 /**
  * Carica un video NUOVO nella consegna, dal browser direttamente al nodo
@@ -26,30 +30,27 @@ export function TrancheUploadButton({
     setError(null);
     setProgress(0);
     try {
-      const prep = await fetch(`/api/video-review/tranches/${trancheId}/upload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name }),
-      }).then((r) => r.json());
+      const prep = await fetch(
+        `/api/video-review/tranches/${trancheId}/upload`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: file.name,
+            fileSize: file.size,
+            contentType: file.type || "video/mp4",
+          }),
+        },
+      ).then((r) => r.json());
       if (!prep?.ok) throw new Error(prep?.error || "preparazione fallita");
 
-      const meta = await new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", prep.uploadUrl);
-        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
-        xhr.upload.onprogress = (e) =>
-          e.lengthComputable &&
-          setProgress(Math.round((e.loaded / e.total) * 100));
-        xhr.onload = () => {
-          try {
-            const j = JSON.parse(xhr.responseText);
-            j?.ok ? resolve(j) : reject(new Error(j?.error || "upload fallito"));
-          } catch {
-            reject(new Error(`upload fallito (${xhr.status})`));
-          }
-        };
-        xhr.onerror = () => reject(new Error("errore di rete verso il nodo"));
-        xhr.send(file);
+      const meta = await uploadPreparedVideo({
+        prepared: prep,
+        file,
+        onProgress: setProgress,
+      }).catch(async (error) => {
+        await cleanupPreparedVideoUpload(prep);
+        throw error;
       });
 
       await fetch(`/api/video-review/videos/${prep.videoId}`, {
