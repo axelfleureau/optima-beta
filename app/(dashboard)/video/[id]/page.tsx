@@ -422,6 +422,10 @@ export default function TranchePage({
                 clientId={tranche.clientId}
                 trancheProjectId={tranche.projectId}
                 onChange={load}
+                onDeleted={() => {
+                  setOpenId(null);
+                  load();
+                }}
               />
             </>
           )}

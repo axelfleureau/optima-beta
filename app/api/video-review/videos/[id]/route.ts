@@ -4,9 +4,11 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { canAccessVideo } from "@/lib/video-review-acl";
+import { isR2VideoKey, r2VideoObjectKey } from "@/lib/video-node";
 
 export async function PATCH(
   request: NextRequest,
@@ -109,12 +111,45 @@ export async function DELETE(
     return Response.json({ error: "Video non trovato" }, { status: 404 });
   }
 
-  await db
+  const video: any = await db
     .prepare(
-      `DELETE FROM vr_videos WHERE id = ? AND organization_id = ? AND status = 'uploading'`,
+      `SELECT id, storage_key, approved_key
+         FROM vr_videos
+        WHERE id = ? AND organization_id = ? LIMIT 1`,
     )
     .bind(id, principal.organizationId)
+    .first();
+  if (!video) {
+    return Response.json({ error: "Video non trovato" }, { status: 404 });
+  }
+
+  await db.prepare(`DELETE FROM vr_markers WHERE video_id = ?`).bind(id).run();
+  await db
+    .prepare(
+      `DELETE FROM vr_collaborators
+        WHERE organization_id = ? AND scope = 'video' AND scope_id = ?`,
+    )
+    .bind(principal.organizationId, id)
     .run();
+  await db
+    .prepare(`DELETE FROM vr_videos WHERE id = ? AND organization_id = ?`)
+    .bind(id, principal.organizationId)
+    .run();
+
+  const bucket = await getTaskMediaBucket();
+  if (bucket) {
+    const keys = [video.storage_key, video.approved_key]
+      .filter(Boolean)
+      .filter(
+        (key: string, index: number, all: string[]) =>
+          all.indexOf(key) === index,
+      )
+      .filter((key: string) => isR2VideoKey(key))
+      .map((key: string) => r2VideoObjectKey(key));
+    await Promise.all(
+      keys.map((key: string) => bucket.delete(key).catch(() => {})),
+    );
+  }
 
   return Response.json({ ok: true });
 }

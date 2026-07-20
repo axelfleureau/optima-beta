@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Download,
   Upload,
   Play,
@@ -12,6 +22,7 @@ import {
   Scissors,
   Crop,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
@@ -61,11 +72,13 @@ export function VideoDrawer({
   clientId,
   trancheProjectId,
   onChange,
+  onDeleted,
 }: {
   video: Video;
   clientId: string | null;
   trancheProjectId: string | null;
   onChange: () => void;
+  onDeleted?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -80,6 +93,9 @@ export function VideoDrawer({
   const [trimOut, setTrimOut] = useState<number | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editErr, setEditErr] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
   const st = statusMeta(v.status);
   const fps = v.fps || 25;
 
@@ -148,6 +164,32 @@ export function VideoDrawer({
     } catch (e: any) {
       setProgress(null);
       setUpErr(e?.message || "errore");
+    }
+  }
+
+  async function deleteVideo() {
+    if (deleting) return;
+    setDeleteErr(null);
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/video-review/videos/${v.id}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error || "Eliminazione non riuscita");
+      }
+      setDeleteOpen(false);
+      onDeleted?.();
+      onChange();
+    } catch (error) {
+      setDeleteErr(
+        error instanceof Error
+          ? error.message
+          : "Non sono riuscito a eliminare il video.",
+      );
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -276,6 +318,16 @@ export function VideoDrawer({
             </a>
           </Button>
         )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-red-500/30 bg-red-500/10 text-red-200 hover:border-red-400/60 hover:bg-red-500/15"
+          disabled={progress !== null || deleting}
+          onClick={() => setDeleteOpen(true)}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Elimina dalla tranche
+        </Button>
       </div>
       {progress !== null && (
         <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -456,6 +508,42 @@ export function VideoDrawer({
           label="Delegati di questo video"
         />
       </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="border-white/10 bg-[#0b1220] text-slate-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare questo video?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Il video sparira dalla tranche e non sara piu visibile nella
+              review. Marker e deleghe collegate verranno rimossi.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteErr && <p className="text-sm text-red-300">{deleteErr}</p>}
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={deleting}
+              className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+            >
+              Annulla
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault();
+                void deleteVideo();
+              }}
+              className="bg-red-500 text-white hover:bg-red-400"
+            >
+              {deleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Elimina video
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
