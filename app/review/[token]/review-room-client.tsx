@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
+import { derivePostType } from "@/lib/video-review-posts";
 
 type Marker = {
   id: string;
@@ -60,12 +61,21 @@ function initials(name: string | null) {
     .join("");
 }
 
+/**
+ * Il tipo si deriva dai media effettivi, non da tranche.post_type: quel campo
+ * viene sovrascritto a ogni upload ed è inaffidabile.
+ */
 function postLabel(data: ReviewData) {
-  if (data.tranche.postType === "carousel") {
-    return `Carosello ${data.videos.length} slide`;
-  }
-  if (data.tranche.postType === "image") return "Post immagine";
-  return "Video/Reel";
+  const type = derivePostType(
+    data.videos.map((media) => ({
+      id: media.id,
+      mediaType: media.mediaType,
+      slideIndex: media.slideIndex,
+    })),
+  );
+  if (type === "carousel") return `Carosello · ${data.videos.length} slide`;
+  if (type === "image") return "Post immagine";
+  return "Video / Reel";
 }
 
 function SocialPostReview({

@@ -32,6 +32,7 @@ import {
   Check,
   Clapperboard,
   Image as ImageIcon,
+  Layers,
   Play,
   MessageSquare,
   Users,
@@ -39,6 +40,11 @@ import {
   Building2,
   ChevronsUpDown,
 } from "lucide-react";
+import {
+  groupIntoPosts,
+  POST_TYPE_META,
+  type MediaPost,
+} from "@/lib/video-review-posts";
 import { CollaboratorsField } from "@/components/video-review/collaborators-field";
 import { ProjectPicker } from "@/components/video-review/project-picker";
 import { VrPageHeader } from "@/components/video-review/page-chrome";
@@ -67,6 +73,7 @@ type Video = {
   mimeType: string | null;
   fileSize: number | null;
   slideIndex: number | null;
+  postGroupId: string | null;
   fps: number | null;
   durationSeconds: number | null;
   width: number | null;
@@ -438,11 +445,11 @@ export default function TranchePage({
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {videos.map((v) => (
-                <VideoCardCompact
-                  key={v.id}
-                  video={v}
-                  onOpen={() => setOpenId(v.id)}
+              {groupIntoPosts(videos).map((post) => (
+                <PostCard
+                  key={post.groupId}
+                  post={post}
+                  onOpen={(id) => setOpenId(id)}
                 />
               ))}
             </div>
@@ -481,81 +488,134 @@ export default function TranchePage({
   );
 }
 
-/** Card compatta: colpo d'occhio. Tutte le azioni sono nel drawer. */
-function VideoCardCompact({
-  video: v,
+/**
+ * Card di POST: il tipo (video / immagine / carosello) si riconosce a colpo
+ * d'occhio. Un carosello è UNA card con le sue slide sfogliabili, non N card.
+ */
+function PostCard({
+  post,
   onOpen,
 }: {
-  video: Video;
-  onOpen: () => void;
+  post: MediaPost<Video>;
+  onOpen: (videoId: string) => void;
 }) {
-  const st = statusMeta(v.status);
-  const openNotes = v.markers.filter((m) => !m.done).length;
-  const isVertical = !!(v.width && v.height && v.height > v.width);
-  const isImage = v.mediaType === "image";
+  const [slide, setSlide] = useState(0);
+  const index = Math.min(slide, post.slides.length - 1);
+  const current = post.slides[index];
+  const st = statusMeta(current.status);
+  const typeMeta = POST_TYPE_META[post.type];
+  const isCarousel = post.type === "carousel";
+  const TypeIcon =
+    post.type === "video" ? Play : isCarousel ? Layers : ImageIcon;
+
+  const openNotes = post.slides.reduce(
+    (total, s) => total + s.markers.filter((m) => !m.done).length,
+    0,
+  );
+  const isVertical = !!(
+    current.width &&
+    current.height &&
+    current.height > current.width
+  );
+  const cover = current.thumbUrl || current.imageUrl;
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`${interactiveSurfaceClass} group flex w-full flex-col overflow-hidden text-left`}
+    <div
+      className={`${interactiveSurfaceClass} group flex w-full flex-col overflow-hidden`}
     >
-      <div className="relative aspect-video w-full overflow-hidden bg-black">
-        {v.thumbUrl || v.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={v.thumbUrl || v.imageUrl || ""}
-            alt=""
-            className={
-              isImage
-                ? "h-full w-full object-contain"
-                : isVertical
-                  ? "mx-auto h-full w-auto"
-                  : "h-full w-full object-cover"
-            }
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-slate-600">
-            <Clapperboard className="h-8 w-8" />
-          </div>
+      <button
+        type="button"
+        onClick={() => onOpen(current.id)}
+        className="relative aspect-video w-full overflow-hidden bg-black text-left"
+      >
+        {/* Carosello: accenno alle pagine sotto la copertina */}
+        {isCarousel && (
+          <>
+            <span className="absolute inset-x-3 top-1 h-2 rounded-t-md border border-b-0 border-white/10 bg-white/[0.06]" />
+            <span className="absolute inset-x-1.5 top-2.5 h-2 rounded-t-md border border-b-0 border-white/10 bg-white/[0.09]" />
+          </>
         )}
-        <span className="absolute inset-0 flex items-center justify-center transition-colors group-hover:bg-black/30">
-          {isImage ? (
-            <ImageIcon className="h-9 w-9 text-white opacity-0 transition-opacity group-hover:opacity-90" />
+        <span
+          className={`absolute inset-0 ${isCarousel ? "top-4" : ""} overflow-hidden`}
+        >
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={cover}
+              alt=""
+              className={
+                current.mediaType === "image"
+                  ? "h-full w-full object-contain"
+                  : isVertical
+                    ? "mx-auto h-full w-auto"
+                    : "h-full w-full object-cover"
+              }
+            />
           ) : (
-            <Play className="h-9 w-9 text-white opacity-0 transition-opacity group-hover:opacity-90" />
+            <span className="flex h-full items-center justify-center text-slate-600">
+              <TypeIcon className="h-8 w-8" />
+            </span>
           )}
         </span>
+
+        <span className="absolute inset-0 flex items-center justify-center transition-colors group-hover:bg-black/30">
+          <TypeIcon className="h-9 w-9 text-white opacity-0 transition-opacity group-hover:opacity-90" />
+        </span>
+
+        {/* Tipo del post: sempre visibile, con icona e colore dedicati */}
+        <span
+          className={`absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${typeMeta.badge}`}
+        >
+          <TypeIcon className="h-3 w-3" />
+          {typeMeta.label}
+          {isCarousel && ` · ${post.slideCount}`}
+        </span>
+
         <span
           className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-[11px] ${st.badge}`}
         >
           {st.label}
         </span>
-        {v.version > 1 && (
+        {current.version > 1 && (
           <span className="absolute right-2 top-2 rounded-full border border-white/15 bg-black/50 px-2 py-0.5 text-[11px] text-slate-200">
-            v{v.version}
+            v{current.version}
           </span>
         )}
-        <span className="absolute bottom-2 left-2 rounded-full border border-white/15 bg-black/50 px-2 py-0.5 text-[11px] text-slate-200">
-          {isImage
-            ? v.slideIndex
-              ? `Slide ${v.slideIndex}`
-              : "Immagine"
-            : "Video"}
-        </span>
-      </div>
+        {isCarousel && (
+          <span className="absolute bottom-2 right-2 rounded-full border border-white/15 bg-black/60 px-2 py-0.5 text-[11px] tabular-nums text-slate-200">
+            {index + 1}/{post.slideCount}
+          </span>
+        )}
+      </button>
+
+      {/* Sfoglia le slide senza aprire il drawer */}
+      {isCarousel && (
+        <div className="flex items-center gap-1.5 border-t border-white/5 px-3 py-2">
+          {post.slides.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              aria-label={`Slide ${i + 1}`}
+              onClick={() => setSlide(i)}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                i === index ? "bg-amber-300" : "bg-white/15 hover:bg-white/30"
+              }`}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col gap-2 p-3">
         <p className="truncate text-sm font-semibold text-slate-100">
-          {v.title}
+          {post.type === "carousel" ? post.slides[0].title : current.title}
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-          {v.projectName && (
+          {current.projectName && (
             <Badge
               variant="outline"
               className="border-white/10 bg-white/5 text-[10px] text-slate-300"
             >
-              {v.projectName}
+              {current.projectName}
             </Badge>
           )}
           {openNotes > 0 && (
@@ -564,9 +624,9 @@ function VideoCardCompact({
             </span>
           )}
           <span className="ml-auto inline-flex items-center gap-1">
-            {v.collaborators.length > 0 ? (
+            {current.collaborators.length > 0 ? (
               <span className="flex -space-x-1.5">
-                {v.collaborators.slice(0, 3).map((c) => (
+                {current.collaborators.slice(0, 3).map((c) => (
                   <Avatar
                     key={c.id}
                     className="h-5 w-5 border border-[#121b2b]"
@@ -584,6 +644,6 @@ function VideoCardCompact({
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

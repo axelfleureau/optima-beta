@@ -81,6 +81,7 @@ export async function GET(
         mimeType: v.mime_type || null,
         fileSize: v.file_size ? Number(v.file_size) : null,
         slideIndex: v.slide_index ? Number(v.slide_index) : null,
+        postGroupId: v.post_group_id ? String(v.post_group_id) : null,
         fps: v.fps || 25,
         durationSeconds: v.duration_seconds,
         width: v.width,

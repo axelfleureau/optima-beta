@@ -176,6 +176,9 @@ export async function POST(
     );
   }
 
+  // I file caricati insieme formano UN post (es. carosello di N immagini).
+  const postGroupId = createId("vrpost");
+
   const uploads: Array<{
     ok: true;
     videoId: string;
@@ -231,8 +234,8 @@ export async function POST(
         `INSERT INTO vr_videos
            (id, organization_id, tranche_id, client_id, title, filename, storage_key,
             source, status, version, project_id, media_type, mime_type, file_size, slide_index,
-            created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'upload', 'uploading', 1, ?, ?, ?, ?, ?, ?, ?)`,
+            post_group_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'upload', 'uploading', 1, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         videoId,
@@ -247,6 +250,7 @@ export async function POST(
         file.contentType,
         file.fileSize,
         mediaType === "image" ? index + 1 : null,
+        postGroupId,
         now,
         now,
       )
