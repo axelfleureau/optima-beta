@@ -23,7 +23,12 @@ export async function POST(
     );
 
   const body = await request.json().catch(() => ({}) as any);
-  const videoId = String(body?.videoId || body?.mediaId || "");
+  const singleId = String(body?.videoId || body?.mediaId || "");
+  // Un post carosello sono N media: il cliente approva il gruppo, non la tranche.
+  const mediaIds: string[] = Array.isArray(body?.mediaIds)
+    ? body.mediaIds.map((value: any) => String(value)).filter(Boolean)
+    : [];
+  const perMedia = Boolean(singleId) && mediaIds.length === 0;
 
   const t: any = await db
     .prepare(
@@ -36,28 +41,36 @@ export async function POST(
     .first();
   if (!t) return Response.json({ error: "Link non valido" }, { status: 404 });
 
-  const videosResult = videoId
+  const videosResult = mediaIds.length
     ? await db
         .prepare(
-          `SELECT id, title FROM vr_videos WHERE id = ? AND tranche_id = ? LIMIT 1`,
+          `SELECT id, title FROM vr_videos
+            WHERE tranche_id = ? AND id IN (${mediaIds.map(() => "?").join(",")})`,
         )
-        .bind(videoId, String(t.id))
+        .bind(String(t.id), ...mediaIds)
         .all()
-    : await db
-        .prepare(
-          `SELECT v.id, v.title FROM vr_videos v
-            WHERE v.tranche_id = ? AND v.status != 'uploading'
-              AND NOT EXISTS (
-                SELECT 1 FROM vr_videos nv
-                 WHERE nv.organization_id = v.organization_id
-                   AND nv.parent_video_id = COALESCE(v.parent_video_id, v.id)
-                   AND nv.version > v.version
-                   AND nv.status != 'uploading'
-              )
-            ORDER BY COALESCE(v.slide_index, 9999), v.created_at ASC`,
-        )
-        .bind(String(t.id))
-        .all();
+    : singleId
+      ? await db
+          .prepare(
+            `SELECT id, title FROM vr_videos WHERE id = ? AND tranche_id = ? LIMIT 1`,
+          )
+          .bind(singleId, String(t.id))
+          .all()
+      : await db
+          .prepare(
+            `SELECT v.id, v.title FROM vr_videos v
+              WHERE v.tranche_id = ? AND v.status != 'uploading'
+                AND NOT EXISTS (
+                  SELECT 1 FROM vr_videos nv
+                   WHERE nv.organization_id = v.organization_id
+                     AND nv.parent_video_id = COALESCE(v.parent_video_id, v.id)
+                     AND nv.version > v.version
+                     AND nv.status != 'uploading'
+                )
+              ORDER BY COALESCE(v.slide_index, 9999), v.created_at ASC`,
+          )
+          .bind(String(t.id))
+          .all();
   const videos = (videosResult?.results || []) as any[];
   if (!videos.length) {
     return Response.json({ error: "Media non valido" }, { status: 404 });
@@ -82,17 +95,17 @@ export async function POST(
       memberId: String(t.smm_member_id),
       actorMemberId: null,
       type: "general",
-      title: videoId
+      title: perMedia
         ? "Media approvato dal cliente"
         : "Post approvato dal cliente",
-      message: videoId
+      message: perMedia
         ? `"${videos[0].title}"${t.client_name ? ` — ${t.client_name}` : ""} è approvato: pronto per descrizione e pubblicazione.`
         : `"${t.title}"${t.client_name ? ` — ${t.client_name}` : ""} è approvato (${videos.length} media): pronto per descrizione e pubblicazione.`,
       taskId: null,
       metadata: {
         source: "post-review",
         trancheId: String(t.id),
-        videoId: videoId || null,
+        videoId: singleId || null,
         mediaIds: ids,
       },
     });

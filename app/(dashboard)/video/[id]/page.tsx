@@ -221,6 +221,16 @@ export default function TranchePage({
     );
 
   const openVideo = videos.find((v) => v.id === openId) || null;
+  // Se il media aperto è una slide di carosello, mostro le sorelle per navigare.
+  const openPostSlides = openVideo
+    ? videos
+        .filter(
+          (v) =>
+            (v.postGroupId || v.id) ===
+            (openVideo.postGroupId || openVideo.id),
+        )
+        .sort((a, b) => (a.slideIndex ?? 0) - (b.slideIndex ?? 0))
+    : [];
 
   return (
     <div className={pageClass}>
@@ -470,6 +480,50 @@ export default function TranchePage({
                   {openVideo.title}
                 </SheetTitle>
               </SheetHeader>
+
+              {/* Carosello: naviga tra le slide senza chiudere il drawer */}
+              {openPostSlides.length > 1 && (
+                <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-500/[0.06] p-2">
+                  <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                    Carosello · slide {openPostSlides.findIndex((s) => s.id === openVideo.id) + 1}/
+                    {openPostSlides.length}
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {openPostSlides.map((s, i) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setOpenId(s.id)}
+                        className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-md border ${
+                          s.id === openVideo.id
+                            ? "border-amber-300 ring-1 ring-amber-300"
+                            : "border-white/10 hover:border-white/30"
+                        }`}
+                      >
+                        {s.thumbUrl || s.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={s.thumbUrl || s.imageUrl || ""}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full items-center justify-center text-slate-500">
+                            <ImageIcon className="h-4 w-4" />
+                          </span>
+                        )}
+                        <span className="absolute bottom-0 right-0 rounded-tl bg-black/70 px-1 text-[9px] text-white">
+                          {i + 1}
+                        </span>
+                        {s.markers.filter((m) => !m.done).length > 0 && (
+                          <span className="absolute left-0.5 top-0.5 h-2 w-2 rounded-full bg-amber-300" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <VideoDrawer
                 video={openVideo}
                 clientId={tranche.clientId}

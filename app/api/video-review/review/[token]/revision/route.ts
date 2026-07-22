@@ -39,6 +39,10 @@ export async function POST(
 
   const body = await request.json().catch(() => ({}) as any);
   const requestedMediaId = String(body?.videoId || body?.mediaId || "");
+  // Un post carosello sono N media: la revisione colpisce il gruppo, non la tranche.
+  const mediaIds: string[] = Array.isArray(body?.mediaIds)
+    ? body.mediaIds.map((value: any) => String(value)).filter(Boolean)
+    : [];
   const rawMarkers: Array<{
     mediaId?: string;
     videoId?: string;
@@ -91,10 +95,11 @@ export async function POST(
       .filter((item) => item.slide_index)
       .map((item) => [Number(item.slide_index), item]),
   );
+  const firstInGroup = mediaIds.find((mid) => byId.has(mid));
   const defaultMedia =
-    requestedMediaId && byId.has(requestedMediaId)
-      ? byId.get(requestedMediaId)
-      : media[0];
+    (requestedMediaId && byId.get(requestedMediaId)) ||
+    (firstInGroup ? byId.get(firstInGroup) : null) ||
+    media[0];
 
   const valid = rawMarkers
     .map((marker) => {
@@ -118,8 +123,10 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
-  const affectedIds =
-    requestedMediaId && byId.has(requestedMediaId)
+  const groupIds = mediaIds.filter((mid) => byId.has(mid));
+  const affectedIds = groupIds.length
+    ? [...new Set(groupIds)]
+    : requestedMediaId && byId.has(requestedMediaId)
       ? [requestedMediaId]
       : [...new Set(media.map((item) => String(item.id)))];
   const affectedPlaceholders = affectedIds.map(() => "?").join(",");

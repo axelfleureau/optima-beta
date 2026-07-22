@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
-import { derivePostType } from "@/lib/video-review-posts";
+import { derivePostType, groupIntoPosts } from "@/lib/video-review-posts";
 
 type Marker = {
   id: string;
@@ -22,6 +22,7 @@ type ReviewMedia = {
   imageUrl: string | null;
   thumbUrl: string | null;
   slideIndex: number | null;
+  postGroupId: string | null;
   markers: Marker[];
 };
 type ReviewData = {
@@ -65,34 +66,38 @@ function initials(name: string | null) {
  * Il tipo si deriva dai media effettivi, non da tranche.post_type: quel campo
  * viene sovrascritto a ogni upload ed è inaffidabile.
  */
-function postLabel(data: ReviewData) {
+function postLabel(media: ReviewMedia[]) {
   const type = derivePostType(
-    data.videos.map((media) => ({
-      id: media.id,
-      mediaType: media.mediaType,
-      slideIndex: media.slideIndex,
+    media.map((item) => ({
+      id: item.id,
+      mediaType: item.mediaType,
+      slideIndex: item.slideIndex,
     })),
   );
-  if (type === "carousel") return `Carosello · ${data.videos.length} slide`;
+  if (type === "carousel") return `Carosello · ${media.length} slide`;
   if (type === "image") return "Post immagine";
   return "Video / Reel";
 }
 
 function SocialPostReview({
   token,
-  data,
+  clientName,
+  trancheTitle,
+  media,
 }: {
   token: string;
-  data: ReviewData;
+  clientName: string | null;
+  trancheTitle: string;
+  media: ReviewMedia[];
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<"idle" | "revising">("idle");
   const [markers, setMarkers] = useState<Marker[]>(
-    data.videos.flatMap((media) =>
-      (media.markers || []).map((marker) => ({
+    media.flatMap((item) =>
+      (item.markers || []).map((marker) => ({
         ...marker,
-        mediaId: media.id,
+        mediaId: item.id,
       })),
     ),
   );
@@ -100,17 +105,17 @@ function SocialPostReview({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [statuses, setStatuses] = useState<Record<string, string>>(
-    Object.fromEntries(data.videos.map((media) => [media.id, media.status])),
+    Object.fromEntries(media.map((item) => [item.id, item.status])),
   );
 
   const sorted = useMemo(
     () =>
-      [...data.videos].sort(
+      [...media].sort(
         (a, b) =>
           (a.slideIndex || 9999) - (b.slideIndex || 9999) ||
           a.title.localeCompare(b.title),
       ),
-    [data.videos],
+    [media],
   );
   const current = sorted[Math.min(index, Math.max(0, sorted.length - 1))];
   const isVideo = current?.mediaType === "video";
@@ -156,7 +161,7 @@ function SocialPostReview({
     const r = await fetch(`/api/video-review/review/${token}/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ mediaIds: sorted.map((item) => item.id) }),
     })
       .then((response) => response.json())
       .catch(() => ({ ok: false }));
@@ -183,11 +188,12 @@ function SocialPostReview({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        mediaIds: sorted.map((item) => item.id),
         markers: markers.map((marker) => {
-          const media = sorted.find((item) => item.id === marker.mediaId);
+          const target = sorted.find((item) => item.id === marker.mediaId);
           return {
             mediaId: marker.mediaId,
-            slideIndex: media?.slideIndex || null,
+            slideIndex: target?.slideIndex || null,
             tSeconds: marker.tSeconds,
             note: marker.note,
           };
@@ -223,15 +229,13 @@ function SocialPostReview({
     <div className="overflow-hidden rounded-[28px] border border-white/10 bg-neutral-900/70 shadow-2xl">
       <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d6487e] to-[#06b6d4] text-sm font-bold text-white">
-          {initials(data.tranche.clientName)}
+          {initials(clientName)}
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-neutral-100">
-            {data.tranche.clientName || "Righello"}
+            {clientName || "Righello"}
           </p>
-          <p className="truncate text-xs text-neutral-500">
-            {data.tranche.title}
-          </p>
+          <p className="truncate text-xs text-neutral-500">{trancheTitle}</p>
         </div>
         <span
           className={`ml-auto rounded-full border px-3 py-1 text-xs font-semibold ${statusClass}`}
@@ -309,7 +313,7 @@ function SocialPostReview({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-[#d6487e]/30 bg-[#d6487e]/15 px-3 py-1 text-xs font-semibold text-[#ff8ab6]">
-              {postLabel(data)}
+              {postLabel(sorted)}
             </span>
             {current.plannedPublishDate && (
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-300">
@@ -318,8 +322,7 @@ function SocialPostReview({
             )}
           </div>
           <p className="mt-3 text-sm leading-6 text-neutral-200">
-            <strong>{data.tranche.clientName || "Righello"}</strong>{" "}
-            {current.title}
+            <strong>{clientName || "Righello"}</strong> {current.title}
           </p>
         </div>
 
@@ -509,8 +512,22 @@ export default function ReviewRoomClient({
           di modifica sulla slide o sul punto del video.
         </p>
 
-        <div className="mt-8">
-          <SocialPostReview token={token} data={data} />
+        <div className="mt-8 space-y-8">
+          {groupIntoPosts(data.videos).map((post, i, arr) => (
+            <div key={post.groupId} className="space-y-3">
+              {arr.length > 1 && (
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  Post {i + 1} di {arr.length} · {postLabel(post.slides)}
+                </p>
+              )}
+              <SocialPostReview
+                token={token}
+                clientName={data.tranche.clientName}
+                trancheTitle={data.tranche.title}
+                media={post.slides}
+              />
+            </div>
+          ))}
         </div>
 
         <p className="mt-12 text-center text-xs text-neutral-600">
