@@ -13,7 +13,7 @@ import {
   usesTaskOnlyWorkLog,
   workScheduleForMember,
 } from "@/lib/time-tracking";
-import { isExternalWorkspaceMember } from "@/lib/workspace-permissions";
+import { canBrowseClientDirectory } from "@/lib/workspace-permissions";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, max-age=0, must-revalidate",
@@ -187,7 +187,6 @@ export async function GET(request: NextRequest) {
     const requestedMemberId = searchParams.get("memberId");
     const selectedMemberId =
       isManager && requestedMemberId ? requestedMemberId : principal.memberId;
-    const shouldScopeOptions = isExternalWorkspaceMember(principal.role);
 
     const selectedMember = await db
       .prepare(
@@ -211,6 +210,9 @@ export async function GET(request: NextRequest) {
       (selectedMember as any).weekly_capacity_minutes,
     );
     const selectedMemberTracksPresence = tracksPresence(
+      (selectedMember as any).role,
+    );
+    const shouldScopeOptions = !canBrowseClientDirectory(
       (selectedMember as any).role,
     );
     const selectedMemberWorkTrackingMode = usesTaskOnlyWorkLog(

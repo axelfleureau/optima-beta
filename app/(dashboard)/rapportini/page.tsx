@@ -2537,7 +2537,27 @@ export default function RapportiniPage() {
 
                       {!filteredClientOptions.length ? (
                         <div className="rounded-[8px] border border-dashed border-white/15 p-8 text-center text-slate-400">
-                          Nessun cliente trovato.
+                          <div className="text-sm font-semibold text-slate-200">
+                            {clientOptions.length
+                              ? "Nessun cliente corrisponde alla ricerca."
+                              : "Nessun cliente disponibile per il tuo account."}
+                          </div>
+                          {clientSearch && clientOptions.length ? (
+                            <>
+                              <p className="mt-2 text-xs leading-5 text-slate-500">
+                                Hai {clientOptions.length} clienti disponibili:
+                                azzera il filtro per sfogliarli tutti.
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="mt-4 border-white/10 bg-white/5 text-slate-200 hover:border-cyan-300/50"
+                                onClick={() => setClientSearch("")}
+                              >
+                                Mostra tutti
+                              </Button>
+                            </>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>
