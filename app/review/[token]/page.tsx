@@ -30,7 +30,7 @@ async function getReviewPreview(token: string) {
 
   const firstMedia: any = await db
     .prepare(
-      `SELECT v.title, v.storage_key, v.approved_key, v.media_type
+      `SELECT v.title, v.storage_key, v.approved_key, v.media_type, v.poster_key
          FROM vr_videos v
         WHERE v.tranche_id = ? AND v.status != 'uploading'
           AND NOT EXISTS (
@@ -46,16 +46,21 @@ async function getReviewPreview(token: string) {
     .bind(String(tranche.id))
     .first();
 
-  const image =
-    String(firstMedia?.media_type || "video") === "image"
-      ? (await signedByteUrl(
-          firstMedia?.approved_key || firstMedia?.storage_key,
-          { ttlSeconds: 604800 },
-        )) || FALLBACK_IMAGE
-      : (await signedThumbUrl(
-          firstMedia?.approved_key || firstMedia?.storage_key,
-          604800,
-        )) || FALLBACK_IMAGE;
+  // Anteprima social: immagine -> i byte stessi; video -> poster R2 (pubblico via
+  // proxy) se c'è, altrimenti la thumbnail del nodo, altrimenti il placeholder.
+  const isImage = String(firstMedia?.media_type || "video") === "image";
+  const image = isImage
+    ? (await signedByteUrl(firstMedia?.approved_key || firstMedia?.storage_key, {
+        ttlSeconds: 604800,
+      })) || FALLBACK_IMAGE
+    : (firstMedia?.poster_key
+        ? await signedByteUrl(firstMedia.poster_key, { ttlSeconds: 604800 })
+        : null) ||
+      (await signedThumbUrl(
+        firstMedia?.approved_key || firstMedia?.storage_key,
+        604800,
+      )) ||
+      FALLBACK_IMAGE;
 
   return {
     title: String(tranche.title || "Post Review"),
