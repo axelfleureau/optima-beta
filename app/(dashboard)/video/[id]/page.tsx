@@ -49,6 +49,7 @@ import { CollaboratorsField } from "@/components/video-review/collaborators-fiel
 import { ProjectPicker } from "@/components/video-review/project-picker";
 import { VrPageHeader } from "@/components/video-review/page-chrome";
 import { TrancheUploadButton } from "@/components/video-review/tranche-upload-button";
+import { SendReviewEmailButton } from "@/components/video-review/send-review-email-button";
 import { VideoDrawer } from "@/components/video-review/video-drawer";
 import { useVideoReviewMeta } from "@/hooks/use-video-review";
 import {
@@ -251,6 +252,7 @@ export default function TranchePage({
             actions={
               <>
                 <TrancheUploadButton trancheId={tranche.id} onUploaded={load} />
+                <SendReviewEmailButton trancheId={tranche.id} />
                 <Button
                   variant="outline"
                   onClick={copyLink}
