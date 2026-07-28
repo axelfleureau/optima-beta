@@ -111,6 +111,15 @@ export async function signedEditUrl(
   return qs ? `${videoNodeUrl()}/v/edit?${qs.toString()}` : null;
 }
 
+/** URL firmato per SPOSTARE un file sul nodo (es. da-revisionare → approvati). */
+export async function signedMoveUrl(
+  job: { src: string; dst: string },
+  ttlSeconds = 600,
+): Promise<string | null> {
+  const qs = await signQuery(JSON.stringify(job), ttlSeconds);
+  return qs ? `${videoNodeUrl()}/v/move?${qs.toString()}` : null;
+}
+
 /**
  * URL firmato dove il BROWSER carica i byte (PUT diretto al nodo).
  * I byte non passano dal Worker: Cloudflare ha limiti di dimensione sulle

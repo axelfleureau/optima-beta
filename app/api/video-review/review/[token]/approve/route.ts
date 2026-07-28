@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { createNotification } from "@/lib/notifications-db";
+import { signedMoveUrl } from "@/lib/video-node";
 
 export async function POST(
   request: NextRequest,
@@ -44,7 +45,7 @@ export async function POST(
   const videosResult = mediaIds.length
     ? await db
         .prepare(
-          `SELECT id, title FROM vr_videos
+          `SELECT id, title, storage_key FROM vr_videos
             WHERE tranche_id = ? AND id IN (${mediaIds.map(() => "?").join(",")})`,
         )
         .bind(String(t.id), ...mediaIds)
@@ -52,13 +53,13 @@ export async function POST(
     : singleId
       ? await db
           .prepare(
-            `SELECT id, title FROM vr_videos WHERE id = ? AND tranche_id = ? LIMIT 1`,
+            `SELECT id, title, storage_key FROM vr_videos WHERE id = ? AND tranche_id = ? LIMIT 1`,
           )
           .bind(singleId, String(t.id))
           .all()
       : await db
           .prepare(
-            `SELECT v.id, v.title FROM vr_videos v
+            `SELECT v.id, v.title, v.storage_key FROM vr_videos v
               WHERE v.tranche_id = ? AND v.status != 'uploading'
                 AND NOT EXISTS (
                   SELECT 1 FROM vr_videos nv
@@ -87,6 +88,27 @@ export async function POST(
     )
     .bind(now, now, ...ids, String(t.id))
     .run();
+
+  // Sposta i video del NODO da …/da-revisionare/… a …/approvati/… (best-effort).
+  // I video su R2 restano dove sono (approved_key null → si legge storage_key).
+  for (const v of videos) {
+    const key = String(v.storage_key || "");
+    if (key.startsWith("r2://") || !key.includes("/da-revisionare/")) continue;
+    const dst = key.replace("/da-revisionare/", "/approvati/");
+    const moveUrl = await signedMoveUrl({ src: key, dst });
+    if (!moveUrl) continue;
+    const moved = await fetch(moveUrl, { method: "POST" })
+      .then((r) => r.ok)
+      .catch(() => false);
+    if (moved) {
+      await db
+        .prepare(
+          `UPDATE vr_videos SET approved_key = ?, updated_at = ? WHERE id = ?`,
+        )
+        .bind(dst, now, String(v.id))
+        .run();
+    }
+  }
 
   // Notifica nativa all'SMM assegnato (se c'è).
   if (t.smm_member_id) {

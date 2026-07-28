@@ -152,6 +152,19 @@ export async function POST(
     return Response.json({ error: "Consegna non trovata" }, { status: 404 });
   }
 
+  // Il progetto è OBBLIGATORIO: definisce la cartella. Se manca, Optima chiede
+  // di sceglierlo (il ProjectPicker è già sulla pagina consegna).
+  if (!tranche.project_id || !tranche.project_name) {
+    return Response.json(
+      {
+        error:
+          "Specifica il progetto della consegna prima di caricare: le cartelle sono organizzate per Cliente / Progetto.",
+        needsProject: true,
+      },
+      { status: 400 },
+    );
+  }
+
   const now = new Date().toISOString();
   const postType =
     mediaType === "video"
@@ -159,11 +172,11 @@ export async function POST(
       : typedFiles.length > 1
         ? "carousel"
         : "image";
-  // Struttura NAS cliente-prima: [Holding/]Cliente/[Progetto/]da-revisionare/Consegna.
+  // Struttura NAS: [Holding/]Cliente/Progetto/da-revisionare/Consegna (progetto sempre presente).
   const videoDir = [
     tranche.parent_name ? safeSegment(tranche.parent_name) : null,
     safeSegment(tranche.client_name || "Senza cliente"),
-    tranche.project_name ? safeSegment(tranche.project_name) : null,
+    safeSegment(tranche.project_name),
     "da-revisionare",
     safeSegment(tranche.title),
   ]
