@@ -82,8 +82,9 @@ export async function POST(
   const newId = createId("vrvd");
   const now = new Date().toISOString();
   const rootKey = String(root?.storage_key || parent.storage_key);
-  const useMultipart =
-    fileSize >= 90 * 1024 * 1024 || rootKey.startsWith("r2://");
+  // I video vanno al nodo/NAS (qualsiasi dimensione). Resta su R2 solo se la
+  // versione originale era già su R2 (catene vecchie, per non spezzarle).
+  const useMultipart = rootKey.startsWith("r2://");
   const dir = rootKey.startsWith("r2://")
     ? rootKey.split("/").slice(0, -1).join("/")
     : rootKey

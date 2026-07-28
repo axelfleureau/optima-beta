@@ -139,9 +139,11 @@ export async function POST(
 
   const tranche: any = await db
     .prepare(
-      `SELECT t.*, c.name AS client_name
+      `SELECT t.*, c.name AS client_name, pc.name AS parent_name, pr.name AS project_name
          FROM vr_tranches t
          LEFT JOIN clients c ON c.id = t.client_id
+         LEFT JOIN clients pc ON pc.id = c.parent_client_id AND pc.organization_id = t.organization_id
+         LEFT JOIN projects pr ON pr.id = t.project_id AND pr.organization_id = t.organization_id
         WHERE t.id = ? AND t.organization_id = ? LIMIT 1`,
     )
     .bind(id, org)
@@ -157,19 +159,21 @@ export async function POST(
       : typedFiles.length > 1
         ? "carousel"
         : "image";
-  const clientDir = safeSegment(tranche.client_name || "Senza cliente");
-  const trancheDir = safeSegment(tranche.title);
+  // Struttura NAS cliente-prima: [Holding/]Cliente/[Progetto/]da-revisionare/Consegna.
+  const videoDir = [
+    tranche.parent_name ? safeSegment(tranche.parent_name) : null,
+    safeSegment(tranche.client_name || "Senza cliente"),
+    tranche.project_name ? safeSegment(tranche.project_name) : null,
+    "da-revisionare",
+    safeSegment(tranche.title),
+  ]
+    .filter(Boolean)
+    .join("/");
 
-  const bucket =
-    mediaType === "image" ||
-    typedFiles.some((file) => file.fileSize >= 90 * 1024 * 1024)
-      ? await getTaskMediaBucket()
-      : null;
-  if (
-    (mediaType === "image" ||
-      typedFiles.some((file) => file.fileSize >= 90 * 1024 * 1024)) &&
-    !bucket
-  ) {
+  // Solo le IMMAGINI vanno su R2; i VIDEO vanno sempre al nodo (Mac Studio/NAS),
+  // che li ottimizza (faststart) e genera la thumbnail/poster.
+  const bucket = mediaType === "image" ? await getTaskMediaBucket() : null;
+  if (mediaType === "image" && !bucket) {
     return Response.json(
       { error: "Storage media non configurato" },
       { status: 503 },
@@ -195,11 +199,10 @@ export async function POST(
     const file = typedFiles[index];
     const videoId = createId("vrvd");
     const title = file.filename.replace(/\.[^.]+$/, "");
-    const useMultipart =
-      mediaType === "image" || file.fileSize >= 90 * 1024 * 1024;
+    const useMultipart = mediaType === "image";
     const storageKey = useMultipart
       ? `r2://post-review/${org}/${id}/${videoId}/${file.filename}`
-      : `da-revisionare/${clientDir}/${trancheDir}/${file.filename}`;
+      : `${videoDir}/${file.filename}`;
 
     let uploadUrl: string | null = null;
     let uploadId: string | null = null;
