@@ -120,6 +120,15 @@ export async function signedMoveUrl(
   return qs ? `${videoNodeUrl()}/v/move?${qs.toString()}` : null;
 }
 
+/** URL firmato per MIGRARE: il nodo scarica da srcUrl e scrive su dst (NAS). */
+export async function signedMigrateUrl(
+  job: { srcUrl: string; dst: string },
+  ttlSeconds = 1800,
+): Promise<string | null> {
+  const qs = await signQuery(JSON.stringify(job), ttlSeconds);
+  return qs ? `${videoNodeUrl()}/v/migrate?${qs.toString()}` : null;
+}
+
 /**
  * URL firmato dove il BROWSER carica i byte (PUT diretto al nodo).
  * I byte non passano dal Worker: Cloudflare ha limiti di dimensione sulle

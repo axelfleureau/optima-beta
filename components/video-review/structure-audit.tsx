@@ -86,6 +86,8 @@ export function StructureAudit() {
   const [audit, setAudit] = useState<Audit | null>(null);
   const [hidden, setHidden] = useState(false);
   const [linking, setLinking] = useState<string | null>(null);
+  const [migrating, setMigrating] = useState<string | null>(null);
+  const [migrateError, setMigrateError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/video-review/audit", { cache: "no-store" });
@@ -109,6 +111,39 @@ export function StructureAudit() {
       body: JSON.stringify({ parentClientId: h.parentId }),
     }).catch(() => {});
     setLinking(null);
+    await load();
+  }
+
+  async function migrateOne(videoId: string) {
+    setMigrateError(null);
+    setMigrating(videoId);
+    const res = await fetch(`/api/video-review/videos/${videoId}/migrate`, {
+      method: "POST",
+    });
+    const data = await res.json().catch(() => null);
+    setMigrating(null);
+    if (!data?.ok) {
+      setMigrateError(data?.error || "Migrazione non riuscita.");
+      return;
+    }
+    await load();
+  }
+
+  async function migrateAll(videos: OnR2[]) {
+    setMigrateError(null);
+    for (const v of videos) {
+      setMigrating(v.id);
+      const res = await fetch(`/api/video-review/videos/${v.id}/migrate`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => null);
+      if (!data?.ok) {
+        setMigrating(null);
+        setMigrateError(`"${v.title}": ${data?.error || "errore"}`);
+        break;
+      }
+    }
+    setMigrating(null);
     await load();
   }
 
@@ -178,12 +213,32 @@ export function StructureAudit() {
                     {v.clientName || v.trancheTitle}
                     {v.sizeMb ? ` · ${v.sizeMb} MB` : ""}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => migrateOne(v.id)}
+                    disabled={migrating !== null}
+                    className="shrink-0 rounded-md border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-xs font-semibold text-sky-200 hover:bg-sky-400/20 disabled:opacity-50"
+                  >
+                    {migrating === v.id ? "Migro…" : "Migra"}
+                  </button>
                 </div>
               ))}
-              <p className="px-2 pt-1 text-[11px] text-slate-500">
-                La migrazione automatica sul NAS è in arrivo; per ora restano
-                riproducibili da R2.
-              </p>
+              <div className="flex items-center justify-between px-2 pt-2">
+                <p className="text-[11px] text-slate-500">
+                  Sposta i byte sul Mac Studio (faststart incluso).
+                </p>
+                <button
+                  type="button"
+                  onClick={() => migrateAll(audit.videosOnR2)}
+                  disabled={migrating !== null}
+                  className="rounded-md bg-sky-500/90 px-3 py-1 text-xs font-bold text-white hover:bg-sky-500 disabled:opacity-50"
+                >
+                  {migrating ? "Migro…" : "Migra tutti sul NAS"}
+                </button>
+              </div>
+              {migrateError && (
+                <p className="px-2 text-[11px] text-red-300">{migrateError}</p>
+              )}
             </div>
           </Group>
 
