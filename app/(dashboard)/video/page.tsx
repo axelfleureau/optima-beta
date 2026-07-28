@@ -11,6 +11,7 @@ import {
   VrStatCard,
 } from "@/components/video-review/page-chrome";
 import { TodoBoard } from "@/components/video-review/todo-board";
+import { StructureAudit } from "@/components/video-review/structure-audit";
 import {
   Dialog,
   DialogContent,
@@ -255,6 +256,9 @@ export default function VideoReviewPage() {
 
           {/* Cosa richiede la TUA attenzione */}
           <TodoBoard />
+
+          {/* Diagnosi struttura (manager) */}
+          <StructureAudit />
 
           {/* Riepilogo */}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
