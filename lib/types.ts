@@ -43,6 +43,8 @@ export interface Client {
   email: string;
   phone?: string;
   company?: string;
+  parentClientId?: string | null;
+  parentName?: string | null;
   tenantId: string;
   clientTenantId?: string;
   color?: string;

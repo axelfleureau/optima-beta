@@ -25,6 +25,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Plus,
   Search,
   MoreHorizontal,
@@ -35,6 +42,8 @@ import {
   Phone,
   MapPin,
   Building,
+  Building2,
+  Network,
   Calendar,
   DollarSign,
   Users,
@@ -78,9 +87,30 @@ const inputClass =
   "h-11 border-white/10 bg-[#172235] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
 
 export default function ClientiPage() {
-  const { clients, loading, error } = useClients();
+  const { clients, loading, error, setClientParent } = useClients();
   const [searchTerm, setSearchTerm] = useState("");
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  // Cliente di cui stiamo scegliendo l'azienda madre (gerarchia holding).
+  const [parentFor, setParentFor] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [parentSearch, setParentSearch] = useState("");
+  const [parentSaving, setParentSaving] = useState(false);
+
+  async function linkParent(parentId: string | null) {
+    if (!parentFor) return;
+    setParentSaving(true);
+    try {
+      await setClientParent(parentFor.id, parentId);
+      setParentFor(null);
+      setParentSearch("");
+    } catch {
+      /* l'errore è già gestito nel hook */
+    } finally {
+      setParentSaving(false);
+    }
+  }
   const [paymentMethodDialog, setPaymentMethodDialog] = useState<{
     open: boolean;
     clientId: string;
@@ -336,6 +366,12 @@ export default function ClientiPage() {
                               <span className="truncate">{client.company}</span>
                             </CardDescription>
                           )}
+                          {client.parentName && (
+                            <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-200">
+                              <Network className="h-3 w-3" />
+                              sotto {client.parentName}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-2 self-end sm:self-start">
@@ -363,6 +399,17 @@ export default function ClientiPage() {
                             <DropdownMenuItem>
                               <Edit className="mr-2 h-4 w-4" />
                               Modifica
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setParentFor({
+                                  id: client.id,
+                                  name: client.name,
+                                })
+                              }
+                            >
+                              <Network className="mr-2 h-4 w-4" />
+                              Azienda madre
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Mail className="mr-2 h-4 w-4" />
@@ -507,6 +554,71 @@ export default function ClientiPage() {
         open={clientDialogOpen}
         onOpenChange={setClientDialogOpen}
       />
+
+      {/* Gerarchia holding: scegli l'azienda madre di un cliente */}
+      <Dialog
+        open={!!parentFor}
+        onOpenChange={(open) => {
+          if (!open) {
+            setParentFor(null);
+            setParentSearch("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md border-white/10 bg-[#111b2d] text-slate-100">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Network className="h-5 w-5 text-cyan-300" />
+              Azienda madre di {parentFor?.name}
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Collega questo cliente a una holding: si rifletterà nella struttura
+              cartelle del Post Review.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              autoFocus
+              value={parentSearch}
+              onChange={(e) => setParentSearch(e.target.value)}
+              placeholder="Cerca azienda madre..."
+              className="h-10 border-white/10 bg-[#0b1424] text-slate-100"
+            />
+            <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+              <button
+                type="button"
+                disabled={parentSaving}
+                onClick={() => linkParent(null)}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-300 hover:bg-white/5"
+              >
+                <Building2 className="h-4 w-4 text-slate-500" />
+                Nessuna (azienda indipendente)
+              </button>
+              {clients
+                .filter(
+                  (c) =>
+                    c.id !== parentFor?.id &&
+                    (c.name || "")
+                      .toLowerCase()
+                      .includes(parentSearch.trim().toLowerCase()),
+                )
+                .slice(0, 60)
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    disabled={parentSaving}
+                    onClick={() => linkParent(c.id)}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/5"
+                  >
+                    <Building className="h-4 w-4 text-slate-500" />
+                    <span className="truncate">{c.name}</span>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <PaymentMethodManager
         open={paymentMethodDialog.open}

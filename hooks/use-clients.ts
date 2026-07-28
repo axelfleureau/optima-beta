@@ -131,11 +131,26 @@ export function useClients() {
     }
   };
 
+  const setClientParent = async (
+    clientId: string,
+    parentClientId: string | null,
+  ) => {
+    const response = await fetch(`/api/clients/${clientId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parentClientId }),
+    });
+    await parseClientResponse(response);
+    await refreshClients();
+    notifyOperationalDataChanged();
+  };
+
   return {
     clients,
     loading,
     error,
     refreshClients,
     createClient,
+    setClientParent,
   };
 }

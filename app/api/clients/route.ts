@@ -62,6 +62,8 @@ export async function GET() {
                 code, type, source, contact_name, phone, pec, vat_number,
                 fiscal_code, sdi_code, address, city, postal_code, work_type,
                 notes, onedrive_folder, onedrive_remote_path, notion_url,
+                parent_client_id,
+                (SELECT pc.name FROM clients pc WHERE pc.id = clients.parent_client_id) AS parent_name,
                 (
                   SELECT COUNT(*)
                   FROM projects p
@@ -194,6 +196,8 @@ export async function GET() {
         email: client.email || "",
         contactEmail: client.email || "",
         company: client.company || client.name,
+        parentClientId: client.parent_client_id || null,
+        parentName: client.parent_name || null,
         code: client.code || "",
         type: client.type || "",
         source: client.source || "",
