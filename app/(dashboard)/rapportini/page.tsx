@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { WorkCalendar } from "@/components/time-tracking/work-calendar";
 import {
   Dialog,
   DialogContent,
@@ -1492,6 +1493,14 @@ export default function RapportiniPage() {
             tone={reviewStats.changesRequestedCount > 0 ? "pink" : "green"}
           />
         </section>
+
+        {selectedMemberId && (
+          <WorkCalendar
+            memberId={selectedMemberId}
+            anchorDate={date}
+            onPickDay={setDate}
+          />
+        )}
 
         <section className={panelClass}>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
