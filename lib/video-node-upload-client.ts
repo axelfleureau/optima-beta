@@ -314,6 +314,75 @@ export async function uploadPreparedVideo({
   return result;
 }
 
+/** Estrae un frame a META' video (nel browser) come JPEG per il poster social. */
+export async function extractVideoPoster(file: File): Promise<Blob | null> {
+  if (typeof document === "undefined" || !file.type.startsWith("video/")) {
+    return null;
+  }
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    let settled = false;
+    const done = (blob: Blob | null) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      resolve(blob);
+    };
+    video.preload = "auto";
+    video.muted = true;
+    (video as HTMLVideoElement & { playsInline?: boolean }).playsInline = true;
+    video.onloadedmetadata = () => {
+      const mid =
+        Number.isFinite(video.duration) && video.duration > 0
+          ? video.duration / 2
+          : 0;
+      try {
+        video.currentTime = Math.max(0, mid);
+      } catch {
+        done(null);
+      }
+    };
+    video.onseeked = () => {
+      try {
+        const maxW = 1280;
+        const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return done(null);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => done(blob), "image/jpeg", 0.85);
+      } catch {
+        done(null);
+      }
+    };
+    video.onerror = () => done(null);
+    setTimeout(() => done(null), 20000); // safety: non blocca mai l'upload
+    video.src = url;
+  });
+}
+
+/** Genera e carica il poster (best-effort: se fallisce non rompe l'upload). */
+export async function uploadVideoPoster(
+  videoId: string,
+  file: File,
+): Promise<boolean> {
+  try {
+    const blob = await extractVideoPoster(file);
+    if (!blob) return false;
+    const res = await fetch(`/api/video-review/videos/${videoId}/poster`, {
+      method: "POST",
+      headers: { "Content-Type": "image/jpeg" },
+      body: blob,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function cleanupPreparedVideoUpload(prepared: PreparedUpload) {
   if (prepared.uploadMode === "r2_multipart" && prepared.uploadId) {
     await fetch(`/api/video-review/videos/${prepared.videoId}/multipart`, {
