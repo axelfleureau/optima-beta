@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   cleanupPreparedVideoUpload,
   uploadPreparedVideo,
+  uploadVideoPoster,
 } from "@/lib/video-node-upload-client";
 
 /**
@@ -24,7 +25,13 @@ export function TrancheUploadButton({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  const [fatti, setFatti] = useState(0);
+  const [totale, setTotale] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  /** Quanti file salgono davvero insieme. Oltre non si guadagna: la banda è
+   *  quella, e il nodo deve restare reattivo per chi sta guardando i video. */
+  const CONCURRENZA = 3;
 
   function classify(files: File[]) {
     const hasImage = files.some((file) => file.type.startsWith("image/"));
@@ -33,13 +40,7 @@ export function TrancheUploadButton({
       return {
         ok: false as const,
         error:
-          "Caricamento misto non supportato: seleziona solo immagini oppure un solo video.",
-      };
-    }
-    if (hasVideo && files.length !== 1) {
-      return {
-        ok: false as const,
-        error: "Carica un solo video alla volta.",
+          "Seleziona solo immagini (diventano un carosello) oppure solo video (uno per post).",
       };
     }
     return { ok: true as const };
@@ -53,6 +54,8 @@ export function TrancheUploadButton({
     }
     setError(null);
     setProgress(0);
+    setFatti(0);
+    setTotale(files.length);
     try {
       const prep = await fetch(
         `/api/video-review/tranches/${trancheId}/upload`,
@@ -71,37 +74,91 @@ export function TrancheUploadButton({
       if (!prep?.ok) throw new Error(prep?.error || "preparazione fallita");
 
       const uploads = Array.isArray(prep.uploads) ? prep.uploads : [prep];
-      for (let index = 0; index < uploads.length; index += 1) {
+
+      // Progresso aggregato: ogni file contribuisce per la sua quota, così la
+      // barra non salta all'indietro quando i file finiscono in ordine sparso.
+      const pct = new Array(uploads.length).fill(0);
+      const refresh = () => {
+        const sum = pct.reduce((a, b) => a + b, 0);
+        setProgress(Math.round(sum / uploads.length));
+      };
+
+      const errors: string[] = [];
+      let completati = 0;
+      let cursore = 0;
+
+      const carica = async (index: number) => {
         const prepared = uploads[index];
         const file = files[index];
-        const meta = await uploadPreparedVideo({
-          prepared,
-          file,
-          onProgress: (value) => {
-            const total = uploads.length;
-            setProgress(Math.round(((index + value / 100) / total) * 100));
-          },
-        }).catch(async (error) => {
-          await cleanupPreparedVideoUpload(prepared);
-          throw error;
-        });
+        try {
+          const meta = await uploadPreparedVideo({
+            prepared,
+            file,
+            onProgress: (value) => {
+              pct[index] = value;
+              refresh();
+            },
+          }).catch(async (error) => {
+            await cleanupPreparedVideoUpload(prepared);
+            throw error;
+          });
 
-        await fetch(`/api/video-review/videos/${prepared.videoId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            finalize: true,
-            fps: meta.fps,
-            durationSeconds: meta.durationSeconds,
-            width: meta.width,
-            height: meta.height,
-          }),
-        });
-      }
+          await fetch(`/api/video-review/videos/${prepared.videoId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              finalize: true,
+              fps: meta.fps,
+              durationSeconds: meta.durationSeconds,
+              width: meta.width,
+              height: meta.height,
+            }),
+          });
+
+          // Poster automatico (frame a metà) per l'anteprima social. Best-effort.
+          if (file.type.startsWith("video/")) {
+            await uploadVideoPoster(prepared.videoId, file);
+          }
+
+          pct[index] = 100;
+          completati += 1;
+          setFatti(completati);
+          refresh();
+        } catch (e: any) {
+          // Un file che fallisce non deve buttare giù gli altri: si segnala
+          // alla fine, gli altri proseguono.
+          errors.push(`${file.name}: ${e?.message || "errore"}`);
+          pct[index] = 100;
+          refresh();
+        }
+      };
+
+      const worker = async () => {
+        while (cursore < uploads.length) {
+          const mio = cursore;
+          cursore += 1;
+          await carica(mio);
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENZA, uploads.length) }, worker),
+      );
+
       setProgress(null);
+      setFatti(0);
+      setTotale(0);
+      if (errors.length) {
+        setError(
+          errors.length === uploads.length
+            ? errors[0]
+            : `${errors.length} su ${uploads.length} non caricati — ${errors[0]}`,
+        );
+      }
       onUploaded();
     } catch (e: any) {
       setProgress(null);
+      setFatti(0);
+      setTotale(0);
       setError(e?.message || "errore");
     }
   }
@@ -135,7 +192,11 @@ export function TrancheUploadButton({
         ) : (
           <Upload className="mr-2 h-4 w-4" />
         )}
-        {progress !== null ? `Carico... ${progress}%` : "Carica contenuto"}
+        {progress === null
+          ? "Carica contenuto"
+          : totale > 1
+            ? `Carico ${fatti}/${totale} · ${progress}%`
+            : `Carico... ${progress}%`}
       </Button>
       {progress !== null && (
         <div className="h-1 w-full max-w-[200px] overflow-hidden rounded-full bg-white/10">

@@ -130,12 +130,6 @@ export async function POST(
     );
   }
   const mediaType = typedFiles[0].mediaType as "image" | "video";
-  if (mediaType === "video" && typedFiles.length !== 1) {
-    return Response.json(
-      { error: "Carica un solo video alla volta." },
-      { status: 400 },
-    );
-  }
 
   const tranche: any = await db
     .prepare(
@@ -193,8 +187,10 @@ export async function POST(
     );
   }
 
-  // I file caricati insieme formano UN post (es. carosello di N immagini).
-  const postGroupId = createId("vrpost");
+  // Le IMMAGINI caricate insieme formano un unico post (il carosello).
+  // I VIDEO no: ogni video e' un post a se', anche se caricati nello stesso
+  // momento. Era questo il motivo del vecchio limite "un solo video alla volta".
+  const sharedImageGroupId = createId("vrpost");
 
   const uploads: Array<{
     ok: true;
@@ -212,6 +208,9 @@ export async function POST(
     const file = typedFiles[index];
     const videoId = createId("vrvd");
     const title = file.filename.replace(/\.[^.]+$/, "");
+    // Immagini: tutte nello stesso gruppo (un carosello). Video: uno per post.
+    const postGroupId =
+      mediaType === "image" ? sharedImageGroupId : createId("vrpost");
     const useMultipart = mediaType === "image";
     const storageKey = useMultipart
       ? `r2://post-review/${org}/${id}/${videoId}/${file.filename}`
