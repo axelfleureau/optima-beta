@@ -8,7 +8,11 @@ import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { canAccessVideo } from "@/lib/video-review-acl";
-import { isR2VideoKey, r2VideoObjectKey } from "@/lib/video-node";
+import {
+  isR2VideoKey,
+  r2VideoObjectKey,
+  signedHlsBuildUrl,
+} from "@/lib/video-node";
 
 export async function PATCH(
   request: NextRequest,
@@ -89,7 +93,47 @@ export async function PATCH(
     .bind(...vals)
     .run();
 
+  // Appena il video è completo, accoda la conversione HLS sul nodo.
+  // Best-effort: il video è già guardabile in MP4, l'HLS arriva dopo.
+  if (body?.finalize) {
+    await enqueueHlsBuild(db, id, principal.organizationId).catch(() => {});
+  }
+
   return Response.json({ ok: true });
+}
+
+/**
+ * Chiede al nodo di generare l'HLS. Il nodo risponde subito (202) e avvisa a
+ * lavoro finito su /api/video-review/hls-callback: qui non si aspetta nulla.
+ * Solo per i video sul NAS: quelli su R2 il nodo non li vede.
+ */
+async function enqueueHlsBuild(db: any, videoId: string, org: string) {
+  const row: any = await db
+    .prepare(
+      `SELECT storage_key, media_type FROM vr_videos
+        WHERE id = ? AND organization_id = ? LIMIT 1`,
+    )
+    .bind(videoId, org)
+    .first();
+  const key = String(row?.storage_key || "");
+  if (!key || String(row?.media_type || "video") !== "video") return;
+  if (isR2VideoKey(key)) return;
+
+  const url = await signedHlsBuildUrl({ src: key, videoId });
+  if (!url) return;
+
+  await db
+    .prepare(
+      `UPDATE vr_videos SET hls_status = 'queued', hls_error = NULL
+        WHERE id = ? AND organization_id = ?`,
+    )
+    .bind(videoId, org)
+    .run();
+
+  await fetch(url, {
+    method: "POST",
+    signal: AbortSignal.timeout(10000),
+  }).catch(() => {});
 }
 
 export async function DELETE(

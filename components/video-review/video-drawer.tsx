@@ -56,6 +56,7 @@ type Video = {
   projectId: string | null;
   projectInherited: boolean;
   streamUrl: string | null;
+  hlsUrl?: string | null;
   imageUrl: string | null;
   downloadUrl: string | null;
   markers: Marker[];
@@ -270,6 +271,7 @@ export function VideoDrawer({
       ) : (
         <AdaptivePlayer
           src={v.streamUrl}
+          hlsSrc={v.hlsUrl}
           width={v.width}
           height={v.height}
           videoRef={videoRef}

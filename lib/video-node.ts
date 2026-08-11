@@ -120,6 +120,35 @@ export async function signedMoveUrl(
   return qs ? `${videoNodeUrl()}/v/move?${qs.toString()}` : null;
 }
 
+/**
+ * URL della playlist HLS. La firma copre la CARTELLA `.hls`, non il singolo
+ * file: i segmenti sono centinaia e il nodo riscrive le playlist perche' ogni
+ * riga punti a un URL firmato con la stessa firma.
+ * TTL lungo: se scade a meta' riproduzione il video si interrompe.
+ */
+export async function signedHlsUrl(
+  hlsKey: string | null | undefined,
+  ttlSeconds = 43200, // 12h
+): Promise<string | null> {
+  if (!hlsKey) return null;
+  // hlsKey e' "<video>.hls/master.m3u8": la firma va sulla cartella.
+  const dirKey = hlsKey.replace(/\/master\.m3u8$/, "");
+  const file = hlsKey.slice(dirKey.length + 1) || "master.m3u8";
+  const qs = await signQuery(dirKey, ttlSeconds);
+  if (!qs) return null;
+  qs.set("f", file);
+  return `${videoNodeUrl()}/v/hls?${qs.toString()}`;
+}
+
+/** URL firmato per far GENERARE l'HLS al nodo (server-to-server). */
+export async function signedHlsBuildUrl(
+  job: { src: string; videoId?: string; force?: boolean },
+  ttlSeconds = 1800,
+): Promise<string | null> {
+  const qs = await signQuery(JSON.stringify(job), ttlSeconds);
+  return qs ? `${videoNodeUrl()}/v/hls-build?${qs.toString()}` : null;
+}
+
 /** URL firmato per MIGRARE: il nodo scarica da srcUrl e scrive su dst (NAS). */
 export async function signedMigrateUrl(
   job: { srcUrl: string; dst: string },

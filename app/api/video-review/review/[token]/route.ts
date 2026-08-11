@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
+import { signedByteUrl, signedThumbUrl, signedHlsUrl } from "@/lib/video-node";
 
 export async function GET(
   _request: NextRequest,
@@ -88,6 +88,11 @@ export async function GET(
         height: v.height,
         plannedPublishDate: v.planned_publish_date,
         streamUrl: mediaType === "video" ? mediaUrl : null,
+        // HLS adattivo se pronto; se manca, il player usa streamUrl (MP4).
+        hlsUrl:
+          mediaType === "video" && v.hls_status === "ready"
+            ? await signedHlsUrl(v.hls_key)
+            : null,
         imageUrl: mediaType === "image" ? mediaUrl : null,
         thumbUrl:
           mediaType === "image"

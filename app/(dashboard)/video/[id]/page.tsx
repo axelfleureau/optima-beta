@@ -87,6 +87,7 @@ type Video = {
   projectName: string | null;
   projectInherited: boolean;
   streamUrl: string | null;
+  hlsUrl: string | null;
   imageUrl: string | null;
   downloadUrl: string | null;
   thumbUrl: string | null;

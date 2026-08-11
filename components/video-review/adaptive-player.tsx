@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
+import { useHlsVideo } from "@/hooks/use-hls-video";
 
 /**
  * Player che rispetta il formato REALE del video (16:9, 9:16 verticale,
@@ -11,6 +13,7 @@ import { cn } from "@/lib/utils";
  */
 export function AdaptivePlayer({
   src,
+  hlsSrc,
   width,
   height,
   className,
@@ -18,6 +21,8 @@ export function AdaptivePlayer({
   videoRef,
 }: {
   src: string | null;
+  /** Playlist HLS: se c'è si usa quella, altrimenti resta l'MP4 di `src`. */
+  hlsSrc?: string | null;
   width?: number | null;
   height?: number | null;
   className?: string;
@@ -25,6 +30,10 @@ export function AdaptivePlayer({
   /** Serve a posizionare il video sul timecode di un marker. */
   videoRef?: React.RefObject<HTMLVideoElement | null>;
 }) {
+  const ownRef = useRef<HTMLVideoElement | null>(null);
+  const ref = videoRef ?? ownRef;
+  useHlsVideo(ref, hlsSrc, src);
+
   const known = Boolean(width && height);
   const isVertical = known ? (height as number) > (width as number) : false;
   const ratio = known ? `${width} / ${height}` : "16 / 9";
@@ -43,11 +52,10 @@ export function AdaptivePlayer({
   return (
     <div className={cn("flex w-full justify-center overflow-hidden rounded-md bg-black", className)}>
       <video
-        ref={videoRef}
+        ref={ref}
         controls
         preload="metadata"
         playsInline
-        src={src}
         className="max-w-full bg-black"
         style={
           isVertical

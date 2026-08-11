@@ -2,6 +2,7 @@
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import { derivePostType, groupIntoPosts } from "@/lib/video-review-posts";
+import { useHlsVideo } from "@/hooks/use-hls-video";
 
 type Marker = {
   id: string;
@@ -19,6 +20,7 @@ type ReviewMedia = {
   height: number | null;
   plannedPublishDate: string | null;
   streamUrl: string | null;
+  hlsUrl: string | null;
   imageUrl: string | null;
   thumbUrl: string | null;
   slideIndex: number | null;
@@ -119,6 +121,10 @@ function SocialPostReview({
   );
   const current = sorted[Math.min(index, Math.max(0, sorted.length - 1))];
   const isVideo = current?.mediaType === "video";
+
+  // HLS se pronto, altrimenti l'MP4 di sempre. Va chiamato qui: è un hook,
+  // deve stare prima di qualsiasi return condizionale.
+  useHlsVideo(videoRef, isVideo ? current?.hlsUrl : null, current?.streamUrl);
   const aggregateStatus = sorted.every(
     (media) => statuses[media.id] === "approved",
   )
@@ -251,7 +257,6 @@ function SocialPostReview({
             controls
             preload="metadata"
             playsInline
-            src={current.streamUrl || ""}
             className="mx-auto max-h-[72vh] max-w-full bg-black"
             style={
               current.width && current.height

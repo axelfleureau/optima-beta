@@ -11,7 +11,7 @@ import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { isR2VideoKey, r2VideoObjectKey } from "@/lib/video-node";
-import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
+import { signedByteUrl, signedThumbUrl, signedHlsUrl } from "@/lib/video-node";
 import {
   canAccessTranche,
   seesEverything,
@@ -163,6 +163,11 @@ export async function GET(
           : null,
         projectInherited: !v.project_id && !!t.project_id,
         streamUrl: mediaType === "video" ? mediaUrl : null,
+        // HLS adattivo se pronto; se manca, il player usa streamUrl (MP4).
+        hlsUrl:
+          mediaType === "video" && v.hls_status === "ready"
+            ? await signedHlsUrl(v.hls_key)
+            : null,
         imageUrl: mediaType === "image" ? mediaUrl : null,
         downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, {
           download: true,
