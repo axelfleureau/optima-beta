@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
 import ReviewRoomClient from "./review-room-client";
 
 type PageParams = { params: Promise<{ token: string }> };
@@ -30,7 +29,7 @@ async function getReviewPreview(token: string) {
 
   const firstMedia: any = await db
     .prepare(
-      `SELECT v.title, v.storage_key, v.approved_key, v.media_type, v.poster_key
+      `SELECT v.title
          FROM vr_videos v
         WHERE v.tranche_id = ? AND v.status != 'uploading'
           AND NOT EXISTS (
@@ -46,21 +45,11 @@ async function getReviewPreview(token: string) {
     .bind(String(tranche.id))
     .first();
 
-  // Anteprima social: immagine -> i byte stessi; video -> poster R2 (pubblico via
-  // proxy) se c'è, altrimenti la thumbnail del nodo, altrimenti il placeholder.
-  const isImage = String(firstMedia?.media_type || "video") === "image";
-  const image = isImage
-    ? (await signedByteUrl(firstMedia?.approved_key || firstMedia?.storage_key, {
-        ttlSeconds: 604800,
-      })) || FALLBACK_IMAGE
-    : (firstMedia?.poster_key
-        ? await signedByteUrl(firstMedia.poster_key, { ttlSeconds: 604800 })
-        : null) ||
-      (await signedThumbUrl(
-        firstMedia?.approved_key || firstMedia?.storage_key,
-        604800,
-      )) ||
-      FALLBACK_IMAGE;
+  // Anteprima social: una CARD BRANDIZZATA con logo, titolo e cliente.
+  // Prima si usava un fotogramma del video: imprevedibile (gesti a metà,
+  // inquadrature buie) e non diceva a chi riceve il link da chi arriva.
+  // La card è generata al volo e non richiede alcun file salvato.
+  const image = `${SITE_URL}/api/video-review/review/${token}/og`;
 
   return {
     title: String(tranche.title || "Post Review"),
