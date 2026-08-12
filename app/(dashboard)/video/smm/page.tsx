@@ -39,6 +39,7 @@ type Video = {
   isMine: boolean;
   streamUrl: string | null;
   imageUrl?: string | null;
+  thumbUrl?: string | null;
   downloadUrl: string | null;
 };
 
@@ -151,6 +152,7 @@ function SmmCard({ video, onChange }: { video: Video; onChange: () => void }) {
         ) : (
           <AdaptivePlayer
             src={video.streamUrl}
+            poster={video.thumbUrl}
             width={video.width}
             height={video.height}
             maxVerticalHeight="min(60vh, 460px)"

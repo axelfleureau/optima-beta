@@ -10,7 +10,7 @@ import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
-import { signedByteUrl } from "@/lib/video-node";
+import { signedByteUrl, signedThumbUrl } from "@/lib/video-node";
 import { videoVisibilityClause } from "@/lib/video-review-acl";
 
 export async function GET(_request: NextRequest) {
@@ -65,6 +65,11 @@ export async function GET(_request: NextRequest) {
       imageUrl:
         String(v.media_type || "video") === "image"
           ? await signedByteUrl(v.approved_key || v.storage_key)
+          : null,
+      // Anteprima del player: senza, la board mostra rettangoli neri.
+      thumbUrl:
+        String(v.media_type || "video") === "video"
+          ? await signedThumbUrl(v.approved_key || v.storage_key)
           : null,
       downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, {
         download: true,

@@ -14,6 +14,7 @@ import { useHlsVideo } from "@/hooks/use-hls-video";
 export function AdaptivePlayer({
   src,
   hlsSrc,
+  poster,
   width,
   height,
   className,
@@ -23,6 +24,8 @@ export function AdaptivePlayer({
   src: string | null;
   /** Playlist HLS: se c'è si usa quella, altrimenti resta l'MP4 di `src`. */
   hlsSrc?: string | null;
+  /** Fotogramma mostrato prima dell'avvio: senza, il player resta nero. */
+  poster?: string | null;
   width?: number | null;
   height?: number | null;
   className?: string;
@@ -54,6 +57,7 @@ export function AdaptivePlayer({
       <video
         ref={ref}
         controls
+        poster={poster || undefined}
         preload="metadata"
         playsInline
         className="max-w-full bg-black"

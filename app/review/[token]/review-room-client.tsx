@@ -255,6 +255,7 @@ function SocialPostReview({
           <video
             ref={videoRef}
             controls
+            poster={current.thumbUrl || undefined}
             preload="metadata"
             playsInline
             className="mx-auto max-h-[72vh] max-w-full bg-black"
