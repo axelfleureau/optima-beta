@@ -42,7 +42,7 @@ async function getReviewPreview(token: string) {
 
   const firstMedia: any = await db
     .prepare(
-      `SELECT v.title, v.storage_key
+      `SELECT v.title, COALESCE(v.approved_key, v.storage_key) AS media_key
          FROM vr_videos v
         WHERE v.tranche_id = ? AND v.status != 'uploading'
           AND NOT EXISTS (
@@ -66,7 +66,7 @@ async function getReviewPreview(token: string) {
       t: String(tranche.title || "Contenuti da approvare"),
       c: tranche.client_name ? String(tranche.client_name) : null,
       d: mese(tranche.created_at ? String(tranche.created_at) : null),
-      f: firstMedia?.storage_key ? String(firstMedia.storage_key) : null,
+      f: firstMedia?.media_key ? String(firstMedia.media_key) : null,
     })) || FALLBACK_IMAGE;
 
   return {
