@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
+import { signedOgCardUrl } from "@/lib/video-node";
 import ReviewRoomClient from "./review-room-client";
 
 type PageParams = { params: Promise<{ token: string }> };
@@ -10,7 +11,19 @@ const SITE_URL = (
   "https://appbeta.wearerighello.com"
 ).replace(/\/$/, "");
 
-const FALLBACK_IMAGE = `${SITE_URL}/placeholder-logo.png`;
+// Card statica di riserva: se il nodo non risponde l'anteprima resta
+// brandizzata invece di sparire del tutto.
+const FALLBACK_IMAGE = `${SITE_URL}/og-post-review.png`;
+
+function mese(iso: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat("it-IT", {
+    month: "long",
+    year: "numeric",
+  }).format(d);
+}
 
 async function getReviewPreview(token: string) {
   const db = await getCloudflareDb();
@@ -18,7 +31,7 @@ async function getReviewPreview(token: string) {
 
   const tranche: any = await db
     .prepare(
-      `SELECT t.id, t.title, t.post_type, c.name AS client_name
+      `SELECT t.id, t.title, t.post_type, t.created_at, c.name AS client_name
          FROM vr_tranches t
          LEFT JOIN clients c ON c.id = t.client_id
         WHERE t.token = ? LIMIT 1`,
@@ -29,7 +42,7 @@ async function getReviewPreview(token: string) {
 
   const firstMedia: any = await db
     .prepare(
-      `SELECT v.title
+      `SELECT v.title, v.storage_key
          FROM vr_videos v
         WHERE v.tranche_id = ? AND v.status != 'uploading'
           AND NOT EXISTS (
@@ -45,11 +58,16 @@ async function getReviewPreview(token: string) {
     .bind(String(tranche.id))
     .first();
 
-  // Anteprima social: una CARD BRANDIZZATA con logo, titolo e cliente.
-  // Prima si usava un fotogramma del video: imprevedibile (gesti a metà,
-  // inquadrature buie) e non diceva a chi riceve il link da chi arriva.
-  // La card è generata al volo e non richiede alcun file salvato.
-  const image = `${SITE_URL}/api/video-review/review/${token}/og`;
+  // Anteprima social: card brandizzata con logo, titolo, cliente e un frame
+  // del primo contenuto dentro un mockup di telefono. La genera il nodo (Mac
+  // Studio): su Cloudflare `next/og` manda il Worker in timeout.
+  const image =
+    (await signedOgCardUrl({
+      t: String(tranche.title || "Contenuti da approvare"),
+      c: tranche.client_name ? String(tranche.client_name) : null,
+      d: mese(tranche.created_at ? String(tranche.created_at) : null),
+      f: firstMedia?.storage_key ? String(firstMedia.storage_key) : null,
+    })) || FALLBACK_IMAGE;
 
   return {
     title: String(tranche.title || "Post Review"),

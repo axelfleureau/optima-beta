@@ -140,6 +140,26 @@ export async function signedHlsUrl(
   return `${videoNodeUrl()}/v/hls?${qs.toString()}`;
 }
 
+/**
+ * URL della card social (1200x630) generata dal nodo con titolo e cliente.
+ * La generazione avviene sul Mac Studio: su Cloudflare (next/og) il Worker
+ * va in timeout. TTL lungo perché i crawler ripassano a distanza di giorni.
+ */
+export async function signedOgCardUrl(
+  card: { t: string; c?: string | null; d?: string | null; f?: string | null },
+  ttlSeconds = 2592000, // 30 giorni
+): Promise<string | null> {
+  // `f` = storage_key del primo contenuto: il nodo ne estrae un fotogramma e
+  // lo mette dentro il mockup di telefono, cosi' la card e' diversa per ogni
+  // consegna. I file su R2 non sono raggiungibili dal nodo: si omettono.
+  const frame = card.f && !isR2VideoKey(card.f) ? card.f : "";
+  const qs = await signQuery(
+    JSON.stringify({ t: card.t, c: card.c || "", d: card.d || "", f: frame }),
+    ttlSeconds,
+  );
+  return qs ? `${videoNodeUrl()}/v/og?${qs.toString()}` : null;
+}
+
 /** URL firmato per far GENERARE l'HLS al nodo (server-to-server). */
 export async function signedHlsBuildUrl(
   job: { src: string; videoId?: string; force?: boolean },
