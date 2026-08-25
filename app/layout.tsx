@@ -2,6 +2,7 @@ import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ScrollStabilityGuard } from "@/components/scroll-stability-guard";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -63,6 +64,10 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
+            {/* Sblocca lo scroll rimasto appeso da un overlay chiuso male.
+                Stava solo nel guscio della dashboard: la stanza di review del
+                cliente, che vive fuori da quel guscio, restava scoperta. */}
+            <ScrollStabilityGuard />
             {children}
             <Toaster />
             <SonnerToaster richColors closeButton position="top-right" />

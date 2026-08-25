@@ -135,9 +135,13 @@ body {
   line-height: 1.6;
 }
 
-body:not([data-scroll-locked]) {
-  overflow-y: auto;
-}
+/* NIENTE `overflow-y: auto` sul body: non serviva e faceva danno.
+   Era nata per contrastare il lock di Radix, ma Radix scrive `overflow:
+   hidden` come stile INLINE e una regola di foglio non lo sovrascrive mai:
+   non riparava nulla. In compenso rendeva il body un SECONDO contenitore di
+   scroll accanto al viewport, e con `overscroll-behavior: contain` addosso
+   un contenitore del genere può assorbire la rotella invece di passarla
+   alla pagina. Lo scroll della pagina lo fa il viewport, punto. */
 
 .optima-app-surface {
   height: 100svh;

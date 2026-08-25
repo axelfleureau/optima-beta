@@ -13,7 +13,6 @@ import { useImageGeneratorStore } from "@/lib/stores/image-generator-store";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { NotificationProvider } from "@/lib/notification-context";
 import { CommandBar } from "@/components/command-bar/command-bar";
-import { ScrollStabilityGuard } from "@/components/scroll-stability-guard";
 import { FinancialPrivacyProvider } from "@/components/financial-privacy-provider";
 import { AiPageGuide } from "@/components/ai-page-guide";
 
@@ -46,7 +45,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <NotificationProvider>
         <Provider store={store}>
           <AuthInitializer />
-          <ScrollStabilityGuard />
           <DashboardChrome>{children}</DashboardChrome>
 
           <ImageGenerator
