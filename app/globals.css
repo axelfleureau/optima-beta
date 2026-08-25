@@ -122,8 +122,13 @@ html {
 
 body {
   min-height: 100dvh;
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
+  /* NIENTE overflow qui. Il taglio orizzontale e il contenimento del bounce
+     stanno su <html>, che li propaga al viewport: e' quello lo scroller della
+     pagina. Metterli anche sul body lo trasformava in un SECONDO contenitore
+     di scroll — basta `overflow-x: hidden` perche' l'asse Y computi `auto` —
+     e un contenitore con `overscroll-behavior: contain` puo' assorbire la
+     rotella invece di passarla alla pagina: risultato, pagina che non scrolla
+     ne' col mouse ne' col trackpad. */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
   background-color: hsl(var(--background));
@@ -135,13 +140,10 @@ body {
   line-height: 1.6;
 }
 
-/* NIENTE `overflow-y: auto` sul body: non serviva e faceva danno.
-   Era nata per contrastare il lock di Radix, ma Radix scrive `overflow:
-   hidden` come stile INLINE e una regola di foglio non lo sovrascrive mai:
-   non riparava nulla. In compenso rendeva il body un SECONDO contenitore di
-   scroll accanto al viewport, e con `overscroll-behavior: contain` addosso
-   un contenitore del genere può assorbire la rotella invece di passarla
-   alla pagina. Lo scroll della pagina lo fa il viewport, punto. */
+/* Qui c'era `body:not([data-scroll-locked]) { overflow-y: auto }`: doveva
+   contrastare il lock di Radix, ma Radix scrive lo stile INLINE e una regola
+   di foglio non lo sovrascrive mai. Non riparava nulla e rendeva il body
+   scrollabile: rimossa. Del lock rimasto appeso si occupa ScrollStabilityGuard. */
 
 .optima-app-surface {
   height: 100svh;
@@ -266,8 +268,7 @@ body {
     min-height: 100svh;
   }
 
-  html,
-  body {
+  html {
     overscroll-behavior-y: contain;
   }
 }
