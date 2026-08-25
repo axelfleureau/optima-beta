@@ -2,8 +2,7 @@ export const dynamic = "force-dynamic"
 
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { adminDb } from "@/lib/firebase-admin"
-import { FieldValue } from "@/lib/firebase-admin-firestore"
+import { getCloudflareDb, createId } from "@/lib/cloudflare-db"
 
 /**
  * Ingest dei messaggi raccolti dalla segreteria telefonica.
@@ -11,11 +10,11 @@ import { FieldValue } from "@/lib/firebase-admin-firestore"
  * Chiamato server-to-server dal Worker `righello-segreteria-webhook`, che riceve
  * il post-call webhook di ElevenLabs, ne verifica la firma HMAC e inoltra qui i
  * campi gia' strutturati. Non c'e' un utente autenticato dietro questa chiamata:
- * l'autorizzazione e' un segreto condiviso, e il tenant e' configurato, non dedotto.
+ * l'autorizzazione e' un segreto condiviso, e l'organizzazione e' configurata.
  *
- * L'idempotenza e' sulla conversation_id di ElevenLabs: ElevenLabs ritenta i
- * webhook falliti, e una segreteria che crea due volte lo stesso cliente e' peggio
- * di una che non lo crea affatto.
+ * Scrive su D1 — `clients`, `tasks`, `members` — che e' lo store da cui l'app
+ * legge davvero. Le collection Firestore con gli stessi nomi sono il vecchio
+ * modello: scriverci significa creare record che nessuno vedra' mai.
  */
 
 const MAX_BODY_BYTES = 32 * 1024
@@ -81,6 +80,22 @@ function priorityFrom(urgenza?: string): "high" | "medium" | "low" {
   return "medium"
 }
 
+/**
+ * L'organizzazione si risolve da un'email di configurazione, non da un id.
+ * Un `org_...` scritto a mano in un file di configurazione si sbaglia senza
+ * accorgersene, e i lead finiscono in un'organizzazione che non esiste.
+ */
+async function resolveOrgId(db: any, env: Record<string, string | undefined>) {
+  if (env.SEGRETERIA_ORG_ID) return env.SEGRETERIA_ORG_ID
+  const ownerEmail = cleanEmail(env.SEGRETERIA_OWNER_EMAIL)
+  if (!ownerEmail) return null
+  const row = await db
+    .prepare(`SELECT organization_id FROM members WHERE lower(email) = ? LIMIT 1`)
+    .bind(ownerEmail)
+    .first()
+  return row?.organization_id ?? null
+}
+
 /** Chi richiama, per categoria. Rispecchia l'instradamento del prompt della segreteria. */
 function assigneeEmailFor(categoria: string | undefined, env: Record<string, string | undefined>) {
   switch (categoria) {
@@ -92,81 +107,47 @@ function assigneeEmailFor(categoria: string | undefined, env: Record<string, str
   }
 }
 
-/**
- * Risolve il tenant da un'email di configurazione invece che da un id opaco.
- * Il tenantId di Optima e' `tenant_<uid>`: non e' un valore che si possa scrivere
- * a mano in un file di configurazione senza sbagliarlo, mentre un'email si'.
- */
-let tenantCache: { value: string; expiresAt: number } | null = null
-
-async function resolveTenantId(env: Record<string, string | undefined>): Promise<string | null> {
-  if (env.SEGRETERIA_TENANT_ID) return env.SEGRETERIA_TENANT_ID
-  const ownerEmail = env.SEGRETERIA_OWNER_EMAIL
-  if (!ownerEmail) return null
-
-  if (tenantCache && tenantCache.expiresAt > Date.now()) return tenantCache.value
-
-  const snap = await adminDb
-    .collection("users")
-    .where("email", "==", ownerEmail.toLowerCase())
-    .limit(1)
-    .get()
-  if (snap.empty) return null
-
-  const data = snap.docs[0].data() || {}
-  const tenantId = data.tenantId || snap.docs[0].id
-  if (!tenantId) return null
-
-  tenantCache = { value: tenantId, expiresAt: Date.now() + 10 * 60 * 1000 }
-  return tenantId
+async function findAssignee(db: any, email: string | undefined, orgId: string) {
+  const clean = cleanEmail(email)
+  if (!clean) return null
+  const row = await db
+    .prepare(
+      `SELECT id, first_name, last_name FROM members
+       WHERE lower(email) = ? AND organization_id = ? AND status = 'active' LIMIT 1`,
+    )
+    .bind(clean, orgId)
+    .first()
+  if (!row) return null
+  const nome = [row.first_name, row.last_name].filter(Boolean).join(" ").trim()
+  return { id: row.id as string, name: nome || (clean as string) }
 }
 
-async function findUserIdByEmail(email: string, tenantId: string): Promise<string | null> {
-  try {
-    const snap = await adminDb
-      .collection("users")
-      .where("email", "==", email.toLowerCase())
-      .limit(5)
-      .get()
-    if (snap.empty) return null
-    const match =
-      snap.docs.find((d: any) => (d.data()?.tenantId || d.id) === tenantId) || snap.docs[0]
-    return match?.id || null
-  } catch (error) {
-    // Un assegnatario non risolto non deve far fallire l'ingest: il task resta da smistare.
-    console.warn("segreteria/lead: risoluzione assegnatario fallita")
-    return null
-  }
-}
-
-async function findExistingClient(lead: Lead, tenantId: string) {
+async function findExistingClient(db: any, lead: Lead, orgId: string) {
   const email = cleanEmail(lead.email)
   if (email) {
-    const byEmail = await adminDb
-      .collection("clients")
-      .where("email", "==", email)
-      .where("tenantId", "==", tenantId)
-      .limit(1)
-      .get()
-    if (!byEmail.empty) return byEmail.docs[0]
+    const row = await db
+      .prepare(
+        `SELECT id, name FROM clients WHERE organization_id = ? AND lower(email) = ? LIMIT 1`,
+      )
+      .bind(orgId, email)
+      .first()
+    if (row) return row
   }
 
   const phone = normalizePhone(lead.telefono || lead.callerNumber)
   if (phone) {
-    const byPhone = await adminDb
-      .collection("clients")
-      .where("phone", "==", phone)
-      .where("tenantId", "==", tenantId)
-      .limit(1)
-      .get()
-    if (!byPhone.empty) return byPhone.docs[0]
+    const row = await db
+      .prepare(`SELECT id, name FROM clients WHERE organization_id = ? AND phone = ? LIMIT 1`)
+      .bind(orgId, phone)
+      .first()
+    if (row) return row
   }
 
   return null
 }
 
 function describe(lead: Lead): string {
-  const righe = [
+  return [
     lead.motivo ? `Motivo: ${lead.motivo}` : null,
     lead.messaggio ? `\nMessaggio raccolto:\n${lead.messaggio}` : null,
     lead.riepilogo ? `\nRiepilogo della chiamata:\n${lead.riepilogo}` : null,
@@ -174,17 +155,18 @@ function describe(lead: Lead): string {
     `Origine: segreteria telefonica · conversazione ${lead.conversationId}`,
     lead.callerNumber ? `Numero chiamante: ${lead.callerNumber}` : null,
     lead.calledAt ? `Ricevuta: ${lead.calledAt}` : null,
-  ].filter(Boolean)
-  return righe.join("\n")
+  ]
+    .filter(Boolean)
+    .join("\n")
 }
 
 export async function POST(request: NextRequest) {
   const env = process.env as Record<string, string | undefined>
 
   const expectedSecret = env.SEGRETERIA_INGEST_SECRET
-  if (!expectedSecret || (!env.SEGRETERIA_TENANT_ID && !env.SEGRETERIA_OWNER_EMAIL)) {
+  if (!expectedSecret || (!env.SEGRETERIA_ORG_ID && !env.SEGRETERIA_OWNER_EMAIL)) {
     console.error(
-      "segreteria/lead: serve SEGRETERIA_INGEST_SECRET e uno fra SEGRETERIA_TENANT_ID e SEGRETERIA_OWNER_EMAIL",
+      "segreteria/lead: serve SEGRETERIA_INGEST_SECRET e uno fra SEGRETERIA_ORG_ID e SEGRETERIA_OWNER_EMAIL",
     )
     return NextResponse.json({ error: "Endpoint non configurato" }, { status: 503 })
   }
@@ -211,124 +193,138 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (!adminDb) {
-    return NextResponse.json({ error: "Database non configurato" }, { status: 503 })
+  const db = await getCloudflareDb()
+  if (!db) {
+    return NextResponse.json({ error: "Database non disponibile" }, { status: 503 })
   }
-
-  let tenantId: string | null
-  try {
-    tenantId = await resolveTenantId(env)
-  } catch (error: any) {
-    console.error(`segreteria/lead: risoluzione tenant fallita: ${error?.message ?? error}`)
-    return NextResponse.json({ error: "Errore interno" }, { status: 500 })
-  }
-  if (!tenantId) {
-    console.error("segreteria/lead: tenant non risolto")
-    return NextResponse.json({ error: "Tenant non risolto" }, { status: 503 })
-  }
-
-  const auditRef = adminDb.collection("segreteria_leads").doc(lead.conversationId)
 
   try {
-    const existing = await auditRef.get()
-    if (existing.exists) {
-      const d = existing.data() || {}
+    const orgId = await resolveOrgId(db, env)
+    if (!orgId) {
+      console.error("segreteria/lead: organizzazione non risolta")
+      return NextResponse.json({ error: "Organizzazione non risolta" }, { status: 503 })
+    }
+
+    const gia = await db
+      .prepare(
+        `SELECT client_id, task_id, skipped FROM segreteria_leads WHERE conversation_id = ? LIMIT 1`,
+      )
+      .bind(lead.conversationId)
+      .first()
+    if (gia) {
       return NextResponse.json({
         success: true,
         duplicate: true,
-        clientId: d.clientId ?? null,
-        taskId: d.taskId ?? null,
-        skipped: d.skipped ?? null,
+        clientId: gia.client_id ?? null,
+        taskId: gia.task_id ?? null,
+        skipped: gia.skipped ?? null,
       })
     }
 
     // Le vendite a freddo si registrano ma non entrano nel CRM: un lead che non e'
     // un lead sporca la pipeline e fa perdere tempo a chi la guarda.
     if (lead.categoria === "vendita_a_freddo") {
-      await auditRef.set({
-        conversationId: lead.conversationId,
-        tenantId,
-        skipped: "vendita_a_freddo",
-        callerNumber: lead.callerNumber ?? null,
-        receivedAt: FieldValue.serverTimestamp(),
-      })
+      await db
+        .prepare(
+          `INSERT INTO segreteria_leads
+             (conversation_id, organization_id, skipped, categoria, urgenza, caller_number)
+           VALUES (?, ?, 'vendita_a_freddo', ?, ?, ?)`,
+        )
+        .bind(
+          lead.conversationId,
+          orgId,
+          lead.categoria ?? null,
+          lead.urgenza ?? null,
+          lead.callerNumber ?? null,
+        )
+        .run()
       return NextResponse.json({ success: true, skipped: "vendita_a_freddo" })
     }
 
     const email = cleanEmail(lead.email)
     const phone = normalizePhone(lead.telefono || lead.callerNumber)
-    const displayName = lead.nome?.trim() || lead.azienda?.trim() || phone || "Contatto da segreteria"
+    const displayName =
+      lead.azienda?.trim() || lead.nome?.trim() || phone || "Contatto da segreteria"
 
-    const existingClient = await findExistingClient(lead, tenantId)
+    const esistente = await findExistingClient(db, lead, orgId)
     let clientId: string
+    let clientName: string
     let clientCreated = false
 
-    if (existingClient) {
-      clientId = existingClient.id
+    if (esistente) {
+      clientId = esistente.id as string
+      clientName = (esistente.name as string) || displayName
     } else {
-      const clientRef = await adminDb.collection("clients").add({
-        name: displayName,
-        email: email,
-        phone: phone,
-        company: lead.azienda?.trim() || null,
-        industry: null,
-        contactEmail: null,
-        contactPhone: phone,
-        address: null,
-        status: "lead",
-        source: "segreteria_telefonica",
-        tenantId,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        totalValue: 0,
-        projectsCount: 0,
-      })
-      clientId = clientRef.id
+      clientId = createId("client")
+      clientName = displayName
+      await db
+        .prepare(
+          `INSERT INTO clients
+             (id, organization_id, name, email, company, status, source, contact_name, phone, notes)
+           VALUES (?, ?, ?, ?, ?, 'lead', 'segreteria', ?, ?, ?)`,
+        )
+        .bind(
+          clientId,
+          orgId,
+          clientName,
+          email,
+          lead.azienda?.trim() || null,
+          lead.nome?.trim() || null,
+          phone,
+          lead.motivo ? `Primo contatto dalla segreteria telefonica: ${lead.motivo}` : null,
+        )
+        .run()
       clientCreated = true
     }
 
-    const assigneeEmail = assigneeEmailFor(lead.categoria, env)
-    const assignedTo = assigneeEmail ? await findUserIdByEmail(assigneeEmail, tenantId) : null
+    const assignee = await findAssignee(db, assigneeEmailFor(lead.categoria, env), orgId)
 
-    const titolo = `Richiamare ${displayName}${lead.azienda ? ` — ${lead.azienda}` : ""}`
-    const taskRef = await adminDb.collection("tasks").add({
-      title: titolo.slice(0, 140),
-      description: describe(lead),
-      clientId,
-      tenantId,
-      status: "to-do",
-      columnId: "to-do",
-      priority: priorityFrom(lead.urgenza),
-      assignedTo,
-      dueDate: new Date(),
-      createdAt: new Date(),
-      createdBy: "segreteria",
-      userId: assignedTo,
-      metadata: {
-        source: "segreteria_telefonica",
-        conversationId: lead.conversationId,
-        categoria: lead.categoria ?? null,
-        urgenza: lead.urgenza ?? null,
-        callerNumber: lead.callerNumber ?? null,
-        durationSecs: lead.durationSecs ?? null,
-      },
-    })
+    const taskId = createId("task")
+    const titolo = `Richiamare ${lead.nome?.trim() || clientName}${
+      lead.azienda?.trim() && lead.nome?.trim() ? ` — ${lead.azienda.trim()}` : ""
+    }`
+    await db
+      .prepare(
+        `INSERT INTO tasks
+           (id, organization_id, title, description, status, column_id, priority,
+            client_id, client_name, assignee_member_id, assignee_name, type, due_at)
+         VALUES (?, ?, ?, ?, 'to-do', 'to-do', ?, ?, ?, ?, ?, 'segreteria', ?)`,
+      )
+      .bind(
+        taskId,
+        orgId,
+        titolo.slice(0, 140),
+        describe(lead),
+        priorityFrom(lead.urgenza),
+        clientId,
+        clientName,
+        assignee?.id ?? null,
+        assignee?.name ?? null,
+        new Date().toISOString(),
+      )
+      .run()
 
-    await auditRef.set({
-      conversationId: lead.conversationId,
-      tenantId,
-      clientId,
-      taskId: taskRef.id,
-      clientCreated,
-      assignedTo,
-      categoria: lead.categoria ?? null,
-      urgenza: lead.urgenza ?? null,
-      callerNumber: lead.callerNumber ?? null,
-      receivedAt: FieldValue.serverTimestamp(),
-    })
+    await db
+      .prepare(
+        `INSERT INTO segreteria_leads
+           (conversation_id, organization_id, client_id, task_id, client_created,
+            categoria, urgenza, caller_number)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        lead.conversationId,
+        orgId,
+        clientId,
+        taskId,
+        clientCreated ? 1 : 0,
+        lead.categoria ?? null,
+        lead.urgenza ?? null,
+        lead.callerNumber ?? null,
+      )
+      .run()
 
     console.log(
-      `segreteria/lead ok · conv=${lead.conversationId} client=${clientId} task=${taskRef.id} nuovo=${clientCreated}`,
+      `segreteria/lead ok · conv=${lead.conversationId} client=${clientId} task=${taskId} nuovo=${clientCreated} assegnato=${assignee?.id ?? "-"}`,
     )
 
     return NextResponse.json({
@@ -336,8 +332,9 @@ export async function POST(request: NextRequest) {
       duplicate: false,
       clientId,
       clientCreated,
-      taskId: taskRef.id,
-      assignedTo,
+      taskId,
+      assignedTo: assignee?.id ?? null,
+      assigneeName: assignee?.name ?? null,
     })
   } catch (error: any) {
     // 500: il Worker ritentera'. L'idempotenza sulla conversationId rende il retry sicuro.
