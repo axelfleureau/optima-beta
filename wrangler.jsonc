@@ -53,6 +53,8 @@
     "staging": {
       "name": "optima-beta-staging",
       "vars": {
+        "SEGRETERIA_OWNER_EMAIL": "axel@wearerighello.com",
+        "SEGRETERIA_ASSIGNEE_EMAIL": "edis@wearerighello.com",
         "APP_ENV": "staging",
         "NEXT_PUBLIC_APP_ENV": "staging",
         "NEXT_PUBLIC_SITE_URL": "https://optima-beta-staging.axel-15d.workers.dev",
@@ -98,6 +100,8 @@
         }
       ],
       "vars": {
+        "SEGRETERIA_OWNER_EMAIL": "axel@wearerighello.com",
+        "SEGRETERIA_ASSIGNEE_EMAIL": "edis@wearerighello.com",
         "APP_ENV": "production",
         "NEXT_PUBLIC_APP_ENV": "production",
         "NEXT_PUBLIC_SITE_URL": "https://appbeta.wearerighello.com",
