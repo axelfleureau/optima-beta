@@ -25,6 +25,7 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   Clapperboard,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -139,6 +140,13 @@ export function AppSidebar() {
       icon: CalendarDays,
     },
     {
+      title: "Calendo",
+      url:
+        process.env.NEXT_PUBLIC_CALENDO_URL ||
+        "https://calendo.wearerighello.com",
+      icon: Send,
+    },
+    {
       title: "Post Review",
       url: "/video",
       icon: Clapperboard,
@@ -187,6 +195,13 @@ export function AppSidebar() {
       icon: CalendarDays,
     },
     {
+      title: "Calendo",
+      url:
+        process.env.NEXT_PUBLIC_CALENDO_URL ||
+        "https://calendo.wearerighello.com",
+      icon: Send,
+    },
+    {
       title: "Post Review",
       url: "/video",
       icon: Clapperboard,
@@ -228,6 +243,13 @@ export function AppSidebar() {
       title: "Calendario Editoriale",
       url: "/calendario-editoriale",
       icon: CalendarDays,
+    },
+    {
+      title: "Calendo",
+      url:
+        process.env.NEXT_PUBLIC_CALENDO_URL ||
+        "https://calendo.wearerighello.com",
+      icon: Send,
     },
     {
       title: "Post Review",
