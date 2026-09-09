@@ -13,7 +13,7 @@
     "enabled": true
   },
   "triggers": {
-    "crons": ["0 9 * * *", "0 */6 * * *"]
+    "crons": ["0 9 * * *", "0 */6 * * *", "*/5 * * * *"]
   },
   "vars": {
     "APP_ENV": "production",

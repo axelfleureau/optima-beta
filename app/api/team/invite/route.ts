@@ -2,9 +2,12 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { sendInviteEmail } from "@/lib/email";
 import { canManageUser, type UserRole } from "@/lib/role-hierarchy";
 import { requireClerkUser } from "@/lib/server-clerk";
+import {
+  deliverTeamInviteOutboxItem,
+  queueTeamInvite,
+} from "@/lib/team-invite-outbox";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 
 const INVITABLE_ROLES = new Set([
@@ -159,7 +162,6 @@ export async function POST(request: NextRequest) {
       `${user.firstName} ${user.lastName}`.trim() || user.email;
     const newMemberSuffix = crypto.randomUUID().replace(/-/g, "");
     const invitedMemberId = memberId || `mem_${newMemberSuffix}`;
-    const invitedClerkUserId = `invite:${email}`;
     const inviteAcceptUrl = `${appUrl()}/register?email=${encodeURIComponent(email)}&invite=${encodeURIComponent(invitedMemberId)}`;
     const organization = await db
       .prepare(`SELECT name FROM organizations WHERE id = ? LIMIT 1`)
@@ -185,39 +187,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await sendInviteEmail({
-      to: email,
-      firstName,
-      lastName,
-      inviterName,
-      inviterEmail: user.email,
-      role,
-      resetLink: inviteAcceptUrl,
-      loginLink: loginUrl,
-      organizationName: String(organization?.name || "Righello"),
-      customMessage: body.message,
-    });
-
-    if (memberId) {
-      await db
-        .prepare(
-          `UPDATE members
-           SET clerk_user_id = ?, status = 'invited', updated_at = CURRENT_TIMESTAMP
-           WHERE organization_id = ? AND id = ?`,
-        )
-        .bind(invitedClerkUserId, principal.organizationId, memberId)
-        .run();
-    } else {
+    if (!memberId) {
       await db
         .prepare(
           `INSERT INTO members
            (id, organization_id, clerk_user_id, email, first_name, last_name, role, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'invited')`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive')`,
         )
         .bind(
           invitedMemberId,
           principal.organizationId,
-          invitedClerkUserId,
+          `placeholder:${email}`,
           email,
           firstName,
           lastName,
@@ -256,26 +236,51 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return Response.json({
-      success: true,
-      message: memberId
-        ? "Invito inviato al membro del team"
-        : "Invito inviato e membro aggiunto al team",
-      recipient: email,
-      user: {
-        id: invitedMemberId,
-        clerkUserId: invitedClerkUserId,
-        email,
-        firstName,
-        lastName,
-        role,
-        tenantId: principal.organizationId,
-        assignedClientIds,
-        status: "invited",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
+    const outboxId = await queueTeamInvite(db, {
+      organizationId: principal.organizationId,
+      memberId: invitedMemberId,
+      email,
+      firstName,
+      lastName,
+      role,
+      inviterName,
+      inviterEmail: user.email,
+      organizationName: String(organization?.name || "Righello"),
+      customMessage: body.message,
+      acceptUrl: inviteAcceptUrl,
+      loginUrl,
     });
+    const delivery = await deliverTeamInviteOutboxItem(db, outboxId);
+    const sent = delivery.status === "sent";
+
+    return Response.json(
+      {
+        success: true,
+        queued: !sent,
+        message: sent
+          ? memberId
+            ? "Invito inviato al membro del team"
+            : "Invito inviato e membro aggiunto al team"
+          : memberId
+            ? "Invito accodato: l'invio verrà ritentato automaticamente"
+            : "Membro aggiunto e invito accodato per l'invio automatico",
+        recipient: email,
+        user: {
+          id: invitedMemberId,
+          clerkUserId: sent ? `invite:${email}` : `placeholder:${email}`,
+          email,
+          firstName,
+          lastName,
+          role,
+          tenantId: principal.organizationId,
+          assignedClientIds,
+          status: sent ? "invited" : "inactive",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { status: sent ? 200 : 202 },
+    );
   } catch (error) {
     console.error("Team invite error:", error);
     return Response.json(

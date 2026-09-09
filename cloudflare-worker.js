@@ -38,11 +38,29 @@ async function runAgenticSelfImprovementCron(env, ctx) {
   return runCronPath(env, ctx, "/api/cron/agentic-self-improvement", "Agentic self-improvement")
 }
 
+async function runTeamInviteCron(env, ctx) {
+  return runCronPath(env, ctx, "/api/cron/team-invites", "Team invites")
+}
+
 export default {
   fetch: handler.fetch,
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(runMilestoneCron(env, ctx))
-    ctx.waitUntil(runAgenticSelfImprovementCron(env, ctx))
+    if (controller.cron === "0 9 * * *") {
+      ctx.waitUntil(runMilestoneCron(env, ctx))
+      return
+    }
+
+    if (controller.cron === "0 */6 * * *") {
+      ctx.waitUntil(runAgenticSelfImprovementCron(env, ctx))
+      return
+    }
+
+    if (controller.cron === "*/5 * * * *") {
+      ctx.waitUntil(runTeamInviteCron(env, ctx))
+      return
+    }
+
+    console.warn(`Unhandled cron trigger: ${controller.cron}`)
   },
 }
