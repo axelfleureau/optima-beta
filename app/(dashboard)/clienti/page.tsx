@@ -15,6 +15,14 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -231,16 +239,16 @@ export default function ClientiPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Card className={surfaceClass}>
-              <CardHeader className="pb-4">
+              <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-slate-200">
                   <Users className="h-5 w-5 text-slate-400" />
                   Totale Clienti
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-slate-100">
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-bold text-slate-100 md:text-3xl">
                   {stats.total}
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
@@ -250,14 +258,14 @@ export default function ClientiPage() {
             </Card>
 
             <Card className={surfaceClass}>
-              <CardHeader className="pb-4">
+              <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-slate-200">
                   <TrendingUp className="h-5 w-5 text-slate-400" />
                   Clienti Attivi
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-slate-100">
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-bold text-slate-100 md:text-3xl">
                   {stats.active}
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
@@ -267,14 +275,14 @@ export default function ClientiPage() {
             </Card>
 
             <Card className={surfaceClass}>
-              <CardHeader className="pb-4">
+              <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-3 text-slate-200">
                   <Sparkles className="h-5 w-5 text-slate-400" />
                   Prospect
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-slate-100">
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-bold text-slate-100 md:text-3xl">
                   {stats.prospects}
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
@@ -285,14 +293,14 @@ export default function ClientiPage() {
 
             {canViewEconomics ? (
               <Card className={surfaceClass}>
-                <CardHeader className="pb-4">
+                <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-3 text-slate-200">
                     <DollarSign className="h-5 w-5 text-slate-400" />
                     Valore Totale
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-slate-100">
+                <CardContent className="px-4 pb-4">
+                  <div className="text-2xl font-bold text-slate-100 md:text-3xl">
                     {formatCurrency(stats.totalValue)}
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
@@ -304,8 +312,8 @@ export default function ClientiPage() {
           </div>
 
           {/* Search */}
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 h-4 w-4" />
               <Input
                 placeholder="Cerca clienti..."
@@ -314,6 +322,9 @@ export default function ClientiPage() {
                 className={inputClass}
               />
             </div>
+            <p className="text-sm text-slate-500">
+              {filteredClients.length} di {clients.length} clienti
+            </p>
           </div>
 
           {/* Clients Grid */}
@@ -341,133 +352,293 @@ export default function ClientiPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {filteredClients.map((client) => (
-                <Card
-                  key={client.id}
-                  className={`${elevatedSurfaceClass} overflow-hidden transition-all duration-300 hover:border-righello-pink/35`}
-                >
-                  <CardHeader className={headerSurfaceClass}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                        <Avatar className="h-12 w-12 flex-shrink-0 border border-white/20 shadow-sm">
-                          <AvatarImage src="" alt={client.name} />
-                          <AvatarFallback className="bg-gradient-to-br from-righello-pink to-cyan-400 text-white font-semibold">
-                            {getInitials(client.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <CardTitle className="truncate text-lg text-white">
-                            {client.name}
-                          </CardTitle>
-                          {client.company && (
-                            <CardDescription className="flex min-w-0 items-center gap-1 text-slate-400">
-                              <Building className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{client.company}</span>
-                            </CardDescription>
-                          )}
-                          {client.parentName && (
-                            <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-200">
-                              <Network className="h-3 w-3" />
-                              sotto {client.parentName}
+            <>
+              <div className="hidden lg:block">
+                <Table className="min-w-[920px] border-white/10 bg-[#10151f] text-slate-100">
+                  <TableHeader className="bg-white/[0.035] [&_tr]:border-white/10">
+                    <TableRow className="border-white/10 hover:bg-transparent">
+                      <TableHead className="text-slate-500">Cliente</TableHead>
+                      <TableHead className="text-slate-500">Contatti</TableHead>
+                      <TableHead className="text-slate-500">Stato</TableHead>
+                      <TableHead className="text-slate-500">Progetti</TableHead>
+                      {canViewEconomics ? (
+                        <TableHead className="text-slate-500">Valore</TableHead>
+                      ) : null}
+                      <TableHead className="text-slate-500">
+                        Ultima attività
+                      </TableHead>
+                      <TableHead className="w-14 text-right text-slate-500">
+                        Azioni
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClients.map((client) => (
+                      <TableRow
+                        key={client.id}
+                        className="border-white/10 hover:bg-white/[0.035]"
+                      >
+                        <TableCell>
+                          <Link
+                            href={`/clienti/${client.id}`}
+                            className="flex min-w-0 items-center gap-3"
+                          >
+                            <Avatar className="h-9 w-9 flex-shrink-0 border border-white/10">
+                              <AvatarImage src="" alt={client.name} />
+                              <AvatarFallback className="bg-righello-pink/15 text-xs font-bold text-righello-pink">
+                                {getInitials(client.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="min-w-0">
+                              <span className="block truncate font-semibold text-white">
+                                {client.name}
+                              </span>
+                              <span className="block truncate text-xs text-slate-500">
+                                {client.company ||
+                                  client.parentName ||
+                                  "Cliente diretto"}
+                              </span>
                             </span>
-                          )}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <span className="block max-w-[220px] truncate text-sm text-slate-300">
+                            {client.email || client.contactEmail || "—"}
+                          </span>
+                          <span className="block text-xs text-slate-500">
+                            {client.phone ||
+                              client.contactPhone ||
+                              "Nessun telefono"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {client.status ? getStatusBadge(client.status) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-white">
+                            {client.projectsCount || 0}
+                          </span>
+                        </TableCell>
+                        {canViewEconomics ? (
+                          <TableCell className="font-medium text-slate-200">
+                            {formatCurrency(client.totalValue || 0)}
+                          </TableCell>
+                        ) : null}
+                        <TableCell className="text-slate-400">
+                          {client.lastActivity
+                            ? format(
+                                client.lastActivity instanceof Date
+                                  ? client.lastActivity
+                                  : (client.lastActivity as any).toDate(),
+                                "dd MMM yyyy",
+                                { locale: it },
+                              )
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 text-slate-400 hover:bg-white/10 hover:text-white"
+                                aria-label={`Azioni per ${client.name}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="border-white/10 bg-[#0f131c] text-slate-100 shadow-2xl"
+                            >
+                              <DropdownMenuItem asChild>
+                                <Link href={`/clienti/${client.id}`}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Portale cliente
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setParentFor({
+                                    id: client.id,
+                                    name: client.name,
+                                  })
+                                }
+                              >
+                                <Network className="mr-2 h-4 w-4" />
+                                Azienda madre
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setPaymentMethodDialog({
+                                    open: true,
+                                    clientId: client.id,
+                                    clientName: client.name,
+                                  })
+                                }
+                              >
+                                <CreditCard className="mr-2 h-4 w-4" />
+                                Metodo di pagamento
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-red-400">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Elimina
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:hidden">
+                {filteredClients.map((client) => (
+                  <Card
+                    key={client.id}
+                    className={`${elevatedSurfaceClass} overflow-hidden transition-all duration-300 hover:border-righello-pink/35`}
+                  >
+                    <CardHeader className={headerSurfaceClass}>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                          <Avatar className="h-12 w-12 flex-shrink-0 border border-white/20 shadow-sm">
+                            <AvatarImage src="" alt={client.name} />
+                            <AvatarFallback className="bg-gradient-to-br from-righello-pink to-cyan-400 text-white font-semibold">
+                              {getInitials(client.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <CardTitle className="truncate text-lg text-white">
+                              {client.name}
+                            </CardTitle>
+                            {client.company && (
+                              <CardDescription className="flex min-w-0 items-center gap-1 text-slate-400">
+                                <Building className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">
+                                  {client.company}
+                                </span>
+                              </CardDescription>
+                            )}
+                            {client.parentName && (
+                              <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-200">
+                                <Network className="h-3 w-3" />
+                                sotto {client.parentName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-shrink-0 items-center gap-2 self-end sm:self-start">
+                          {client.status && getStatusBadge(client.status)}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-slate-300 hover:bg-white/10 hover:text-white"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="border-white/10 bg-[#0f131c] text-slate-100 shadow-2xl"
+                            >
+                              <DropdownMenuItem asChild>
+                                <Link href={`/clienti/${client.id}`}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Portale cliente
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Modifica
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setParentFor({
+                                    id: client.id,
+                                    name: client.name,
+                                  })
+                                }
+                              >
+                                <Network className="mr-2 h-4 w-4" />
+                                Azienda madre
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Invia Email
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Elimina
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
-                      <div className="flex flex-shrink-0 items-center gap-2 self-end sm:self-start">
-                        {client.status && getStatusBadge(client.status)}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      {/* Contact Info */}
+                      <div className="space-y-2">
+                        {client.email && (
+                          <div className="flex items-center gap-2 text-sm text-slate-400">
+                            <Mail className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">{client.email}</span>
+                          </div>
+                        )}
+                        {client.phone && (
+                          <div className="flex items-center gap-2 text-sm text-slate-400">
+                            <Phone className="h-4 w-4 flex-shrink-0" />
+                            <span className="min-w-0 break-words">
+                              {client.phone}
+                            </span>
+                          </div>
+                        )}
+                        {client.address && (
+                          <div className="flex items-center gap-2 text-sm text-slate-400">
+                            <MapPin className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">{client.address}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Payment Method */}
+                      <div className="pt-3 border-t border-white/10">
+                        {client.defaultPaymentMethodId ? (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm text-slate-400">
+                              <CreditCard className="h-4 w-4 text-righello-pink" />
+                              <span>
+                                {client.paymentMethodType === "card"
+                                  ? "Carta"
+                                  : "SEPA"}{" "}
+                                terminante in{" "}
+                                <span className="font-medium text-white">
+                                  {client.last4}
+                                </span>
+                              </span>
+                            </div>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-slate-300 hover:bg-white/10 hover:text-white"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="border-white/10 bg-[#0f131c] text-slate-100 shadow-2xl"
-                          >
-                            <DropdownMenuItem asChild>
-                              <Link href={`/clienti/${client.id}`}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                Portale cliente
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Modifica
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
                               onClick={() =>
-                                setParentFor({
-                                  id: client.id,
-                                  name: client.name,
+                                setPaymentMethodDialog({
+                                  open: true,
+                                  clientId: client.id,
+                                  clientName: client.name,
                                 })
                               }
+                              className="h-8 text-xs text-slate-200 hover:bg-white/10 hover:text-white"
                             >
-                              <Network className="mr-2 h-4 w-4" />
-                              Azienda madre
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Mail className="mr-2 h-4 w-4" />
-                              Invia Email
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Elimina
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-6 space-y-4">
-                    {/* Contact Info */}
-                    <div className="space-y-2">
-                      {client.email && (
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <Mail className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{client.email}</span>
-                        </div>
-                      )}
-                      {client.phone && (
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <Phone className="h-4 w-4 flex-shrink-0" />
-                          <span className="min-w-0 break-words">
-                            {client.phone}
-                          </span>
-                        </div>
-                      )}
-                      {client.address && (
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <MapPin className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{client.address}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Payment Method */}
-                    <div className="pt-3 border-t border-white/10">
-                      {client.defaultPaymentMethodId ? (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-sm text-slate-400">
-                            <CreditCard className="h-4 w-4 text-righello-pink" />
-                            <span>
-                              {client.paymentMethodType === "card"
-                                ? "Carta"
-                                : "SEPA"}{" "}
-                              terminante in{" "}
-                              <span className="font-medium text-white">
-                                {client.last4}
-                              </span>
-                            </span>
+                              Modifica
+                            </Button>
                           </div>
+                        ) : (
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() =>
                               setPaymentMethodDialog({
@@ -476,76 +647,61 @@ export default function ClientiPage() {
                                 clientName: client.name,
                               })
                             }
-                            className="h-8 text-xs text-slate-200 hover:bg-white/10 hover:text-white"
+                            className="w-full border-righello-pink/40 bg-[#0a0f1d] text-slate-100 hover:border-righello-pink/70 hover:bg-righello-pink/10"
                           >
-                            Modifica
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Aggiungi Metodo di Pagamento
                           </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setPaymentMethodDialog({
-                              open: true,
-                              clientId: client.id,
-                              clientName: client.name,
-                            })
-                          }
-                          className="w-full border-righello-pink/40 bg-[#0a0f1d] text-slate-100 hover:border-righello-pink/70 hover:bg-righello-pink/10"
-                        >
-                          <CreditCard className="mr-2 h-4 w-4" />
-                          Aggiungi Metodo di Pagamento
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Stats */}
-                    <div
-                      className={`grid gap-4 pt-4 border-t border-white/10 ${
-                        canViewEconomics ? "grid-cols-2" : "grid-cols-1"
-                      }`}
-                    >
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-cyan-300">
-                          {client.projectsCount || 0}
-                        </div>
-                        <div className="text-xs text-slate-400">Progetti</div>
+                        )}
                       </div>
-                      {canViewEconomics ? (
+
+                      {/* Stats */}
+                      <div
+                        className={`grid gap-4 pt-4 border-t border-white/10 ${
+                          canViewEconomics ? "grid-cols-2" : "grid-cols-1"
+                        }`}
+                      >
                         <div className="text-center">
-                          <div className="text-lg font-semibold text-righello-pink">
-                            {client.totalValue
-                              ? formatCurrency(client.totalValue)
-                              : "€0"}
+                          <div className="text-lg font-semibold text-cyan-300">
+                            {client.projectsCount || 0}
                           </div>
-                          <div className="text-xs text-slate-400">Valore</div>
+                          <div className="text-xs text-slate-400">Progetti</div>
                         </div>
-                      ) : null}
-                    </div>
-
-                    {/* Last Activity */}
-                    {client.lastActivity && (
-                      <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-white/10">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Ultima attività
-                        </span>
-                        <span>
-                          {format(
-                            client.lastActivity instanceof Date
-                              ? client.lastActivity
-                              : (client.lastActivity as any).toDate(),
-                            "dd MMM yyyy",
-                            { locale: it },
-                          )}
-                        </span>
+                        {canViewEconomics ? (
+                          <div className="text-center">
+                            <div className="text-lg font-semibold text-righello-pink">
+                              {client.totalValue
+                                ? formatCurrency(client.totalValue)
+                                : "€0"}
+                            </div>
+                            <div className="text-xs text-slate-400">Valore</div>
+                          </div>
+                        ) : null}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+
+                      {/* Last Activity */}
+                      {client.lastActivity && (
+                        <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-white/10">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Ultima attività
+                          </span>
+                          <span>
+                            {format(
+                              client.lastActivity instanceof Date
+                                ? client.lastActivity
+                                : (client.lastActivity as any).toDate(),
+                              "dd MMM yyyy",
+                              { locale: it },
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -572,8 +728,8 @@ export default function ClientiPage() {
               Azienda madre di {parentFor?.name}
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Collega questo cliente a una holding: si rifletterà nella struttura
-              cartelle del Post Review.
+              Collega questo cliente a una holding: si rifletterà nella
+              struttura cartelle del Post Review.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

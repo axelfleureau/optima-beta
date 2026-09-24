@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { List, LayoutGrid, CalendarIcon } from "lucide-react"
-import { TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { List, LayoutGrid, CalendarIcon } from "lucide-react";
+import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CalendarTabsProps {
-  activeTab: string
-  onTabChange: (tab: string) => void
+  activeTab: string;
+  onTabChange: (tab: string) => void;
 }
 
 export function CalendarTabs({ activeTab, onTabChange }: CalendarTabsProps) {
@@ -39,16 +39,7 @@ export function CalendarTabs({ activeTab, onTabChange }: CalendarTabsProps) {
           <LayoutGrid className="mr-2 h-4 w-4 shrink-0" />
           Stato
         </TabsTrigger>
-        <button className="h-11 px-4 text-left text-sm font-medium text-slate-400" type="button" disabled>
-          Libreria dei post
-        </button>
-        <button className="h-11 px-4 text-left text-sm font-medium text-slate-400" type="button" disabled>
-          Liste automatiche
-        </button>
-        <button className="h-11 px-4 text-left text-sm font-medium text-slate-400" type="button" disabled>
-          Messaggi eliminati
-        </button>
       </TabsList>
     </div>
-  )
+  );
 }

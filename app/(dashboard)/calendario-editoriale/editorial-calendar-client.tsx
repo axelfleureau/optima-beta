@@ -415,13 +415,6 @@ export default function EditorialCalendarClient() {
                 userRole={userData?.role}
               />
 
-              <ContentCoveragePanel
-                month={trackerMonth}
-                loading={trackerLoading}
-                summary={trackerSummary}
-                rows={trackerRows}
-              />
-
               <Tabs
                 value={activeTab}
                 onValueChange={(value) => setActiveTab(value as any)}
@@ -434,68 +427,75 @@ export default function EditorialCalendarClient() {
                   }
                 />
 
+                <ContentCoveragePanel
+                  month={trackerMonth}
+                  loading={trackerLoading}
+                  summary={trackerSummary}
+                  rows={trackerRows}
+                />
+
                 <TabsContent
                   value="table"
                   className="min-w-0 space-y-4 md:space-y-6"
                 >
-              <TableView
-                posts={filteredPosts}
-                onEditPost={openEditForm}
-                onDeletePost={handleDeletePost}
-                onNewPost={openNewForm}
-                selectedClientId={selectedClientId}
-                userRole={userData?.role}
-              />
-            </TabsContent>
+                  <TableView
+                    posts={filteredPosts}
+                    onEditPost={openEditForm}
+                    onDeletePost={handleDeletePost}
+                    onNewPost={openNewForm}
+                    selectedClientId={selectedClientId}
+                    userRole={userData?.role}
+                  />
+                </TabsContent>
 
-            <TabsContent
-              value="kanban"
-              className="min-w-0 space-y-4 md:space-y-6"
-            >
-              <KanbanView
-                postsByStatus={postsByStatus}
-                onDragEnd={onDragEnd}
-                onEditPost={openEditForm}
-                onNewPost={openNewForm}
-              />
-            </TabsContent>
+                <TabsContent
+                  value="kanban"
+                  className="min-w-0 space-y-4 md:space-y-6"
+                >
+                  <KanbanView
+                    postsByStatus={postsByStatus}
+                    onDragEnd={onDragEnd}
+                    onEditPost={openEditForm}
+                    onNewPost={openNewForm}
+                  />
+                </TabsContent>
 
-            <TabsContent
-              value="calendar"
-              className="min-w-0 space-y-4 md:space-y-6"
-            >
-              <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2 md:mb-4">
-                <ViewSwitcher />
-                <CalendarSyncButton />
-              </div>
+                <TabsContent
+                  value="calendar"
+                  className="min-w-0 space-y-4 md:space-y-6"
+                >
+                  <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2 md:mb-4">
+                    <ViewSwitcher />
+                    <CalendarSyncButton />
+                  </div>
 
-              {viewMode === "month" && (
-                <CalendarView
-                  posts={filteredPosts}
-                  currentMonth={selectedDate}
-                  onMonthChange={setSelectedDate}
-                  onEditPost={openEditForm}
-                />
-              )}
+                  {viewMode === "month" && (
+                    <CalendarView
+                      posts={filteredPosts}
+                      currentMonth={selectedDate}
+                      onMonthChange={setSelectedDate}
+                      onEditPost={openEditForm}
+                    />
+                  )}
 
-              {viewMode === "week" && (
-                <CalendarWeekView
-                  posts={filteredPosts}
-                  selectedDate={selectedDate}
-                  onDateChange={setSelectedDate}
-                  onEditPost={openEditForm}
-                />
-              )}
+                  {viewMode === "week" && (
+                    <CalendarWeekView
+                      posts={filteredPosts}
+                      selectedDate={selectedDate}
+                      onDateChange={setSelectedDate}
+                      onEditPost={openEditForm}
+                    />
+                  )}
 
-              {viewMode === "day" && (
-                <CalendarDayView
-                  posts={filteredPosts}
-                  selectedDate={selectedDate}
-                  onDateChange={setSelectedDate}
-                  onEditPost={openEditForm}
-                />
-              )}
-            </TabsContent>
+                  {viewMode === "day" && (
+                    <CalendarDayView
+                      posts={filteredPosts}
+                      selectedDate={selectedDate}
+                      onDateChange={setSelectedDate}
+                      onEditPost={openEditForm}
+                    />
+                  )}
+                </TabsContent>
               </Tabs>
             </>
           )}

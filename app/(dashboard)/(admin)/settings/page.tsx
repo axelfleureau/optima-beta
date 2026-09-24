@@ -38,13 +38,12 @@ import {
 import { useAuth } from "@/lib/auth-context";
 
 const panelClass =
-  "overflow-hidden rounded-lg border border-white/10 bg-[#101927]/90 shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl";
-const panelHeaderClass =
-  "border-b border-white/10 bg-gradient-to-r from-white/[0.045] via-cyan-400/[0.035] to-pink-500/[0.045]";
+  "overflow-hidden rounded-xl border border-white/10 bg-[#10151f] shadow-none";
+const panelHeaderClass = "border-b border-white/10 bg-white/[0.025]";
 const fieldClass =
   "border-white/[0.12] bg-[#0b0e16] text-white placeholder:text-slate-600 shadow-inner shadow-black/20 focus-visible:border-cyan-300/70 focus-visible:ring-2 focus-visible:ring-cyan-400/20";
 const tabClass =
-  "gap-2 rounded-md px-3 py-2 text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-white data-[state=active]:bg-[#e14483] data-[state=active]:text-white data-[state=active]:shadow-[0_10px_30px_rgba(225,68,131,0.24)]";
+  "w-full justify-start gap-3 rounded-lg border-l-2 border-transparent px-3 py-2.5 text-slate-400 transition-colors hover:bg-white/[0.05] hover:text-white data-[state=active]:border-righello-pink data-[state=active]:bg-white/[0.07] data-[state=active]:text-white data-[state=active]:shadow-none";
 const integrationCardClass =
   "flex items-center justify-between rounded-lg border border-white/10 bg-[#0b1321]/80 p-4 transition-colors hover:border-cyan-300/35 hover:bg-[#101c2d]";
 const outlineActionClass =
@@ -327,6 +326,7 @@ export default function SettingsPage() {
   const { userData } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [activeSection, setActiveSection] = useState("profile");
 
   const handleSave = async () => {
     setLoading(true);
@@ -340,24 +340,26 @@ export default function SettingsPage() {
   return (
     <div className="optima-ops-page">
       <div className="optima-ops-container">
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           {/* Header */}
-          <div className="flex justify-between items-center">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-white flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-br from-[#e14483] via-[#8d4dff] to-[#22d3ee] rounded-lg shadow-[0_18px_50px_rgba(225,68,131,0.28)]">
-                  <Settings className="h-8 w-8 text-white" />
-                </div>
+          <div className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1">
+              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                <Settings className="h-4 w-4" />
+                Workspace Óptima
+              </div>
+              <h1 className="text-3xl font-bold text-white md:text-4xl">
                 Impostazioni
               </h1>
-              <p className="text-slate-400 text-lg">
-                Configura la tua piattaforma
+              <p className="max-w-2xl text-sm text-slate-400 md:text-base">
+                Gestisci profilo, sicurezza, notifiche e connessioni del tuo
+                spazio di lavoro.
               </p>
             </div>
             <Button
               onClick={handleSave}
               disabled={loading}
-              className="rounded-lg bg-[#e14483] text-white shadow-[0_14px_42px_rgba(225,68,131,0.28)] hover:bg-[#f05296] disabled:border disabled:border-white/10 disabled:bg-[#101927] disabled:text-slate-500"
+              className="h-11 rounded-lg bg-[#e14483] px-5 text-white shadow-none hover:bg-[#f05296] disabled:border disabled:border-white/10 disabled:bg-[#101927] disabled:text-slate-500"
             >
               {loading ? (
                 <>
@@ -384,404 +386,443 @@ export default function SettingsPage() {
           )}
 
           {/* Settings Tabs */}
-          <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="h-auto w-fit flex-wrap gap-1 rounded-lg border border-white/10 bg-[#0b0e16]/90 p-1 backdrop-blur-xl">
-              <TabsTrigger value="profile" className={tabClass}>
-                <User className="h-4 w-4" />
-                Profilo
-              </TabsTrigger>
-              <TabsTrigger value="notifications" className={tabClass}>
-                <Bell className="h-4 w-4" />
-                Notifiche
-              </TabsTrigger>
-              <TabsTrigger value="security" className={tabClass}>
-                <Shield className="h-4 w-4" />
-                Sicurezza
-              </TabsTrigger>
-              <TabsTrigger value="appearance" className={tabClass}>
-                <Palette className="h-4 w-4" />
-                Aspetto
-              </TabsTrigger>
-              <TabsTrigger value="integrations" className={tabClass}>
-                <Globe className="h-4 w-4" />
-                Integrazioni
-              </TabsTrigger>
-            </TabsList>
+          <Tabs
+            value={activeSection}
+            onValueChange={setActiveSection}
+            className="space-y-5"
+          >
+            <div className="lg:hidden">
+              <label
+                htmlFor="settings-section"
+                className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500"
+              >
+                Sezione
+              </label>
+              <select
+                id="settings-section"
+                value={activeSection}
+                onChange={(event) => setActiveSection(event.target.value)}
+                className="h-11 w-full rounded-lg border border-white/10 bg-[#10151f] px-3 text-sm text-white outline-none focus:border-righello-pink"
+              >
+                <option value="profile">Profilo</option>
+                <option value="notifications">Notifiche</option>
+                <option value="security">Sicurezza</option>
+                <option value="appearance">Aspetto</option>
+                <option value="integrations">Integrazioni</option>
+              </select>
+            </div>
 
-            {/* Profile Settings */}
-            <TabsContent value="profile" className="space-y-6">
-              <Card className={panelClass}>
-                <CardHeader className={panelHeaderClass}>
-                  <CardTitle className="flex items-center gap-3 text-white">
-                    <User className="h-5 w-5 text-cyan-200" />
-                    Informazioni Personali
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">
-                    Aggiorna le tue informazioni personali e di contatto
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-slate-200">
-                        Nome
-                      </Label>
-                      <Input
-                        id="firstName"
-                        defaultValue={userData?.firstName || ""}
-                        className={fieldClass}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-slate-200">
-                        Cognome
-                      </Label>
-                      <Input
-                        id="lastName"
-                        defaultValue={userData?.lastName || ""}
-                        className={fieldClass}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-slate-200">
-                      Email
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      defaultValue={userData?.email || ""}
-                      className={fieldClass}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company" className="text-slate-200">
-                      Azienda
-                    </Label>
-                    <Input
-                      id="company"
-                      defaultValue={userData?.companyName || ""}
-                      className={fieldClass}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bio" className="text-slate-200">
-                      Bio
-                    </Label>
-                    <Textarea
-                      id="bio"
-                      placeholder="Raccontaci qualcosa di te..."
-                      className={fieldClass}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className={panelClass}>
-                <CardHeader className={panelHeaderClass}>
-                  <CardTitle className="flex items-center gap-3 text-white">
-                    <Sparkles className="h-5 w-5 text-pink-300" />
-                    Piano e Utilizzo
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">
-                    Informazioni sul tuo piano attuale
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-300">
-                      Piano Attuale
-                    </span>
-                    <Badge className="border border-white/10 bg-white/[0.06] text-slate-100">
-                      {userData?.plan || "Base"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-300">
-                      Stato Account
-                    </span>
-                    <Badge className="border border-emerald-400/20 bg-emerald-400/[0.12] text-emerald-200">
-                      Attivo
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Notifications Settings */}
-            <TabsContent value="notifications" className="space-y-6">
-              <Card className={panelClass}>
-                <CardHeader className={panelHeaderClass}>
-                  <CardTitle className="flex items-center gap-3 text-white">
-                    <div className="p-2 bg-gradient-to-br from-[#f6c85f] to-[#e14483] rounded-lg shadow-sm">
-                      <Bell className="h-5 w-5 text-white" />
-                    </div>
-                    Preferenze Notifiche
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">
-                    Configura come e quando ricevere le notifiche
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-slate-200">
-                          Notifiche Email
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Ricevi aggiornamenti via email
-                        </p>
-                      </div>
-                      <Switch defaultChecked />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-slate-200">
-                          Notifiche Push
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Notifiche push nel browser
-                        </p>
-                      </div>
-                      <Switch />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-slate-200">
-                          Aggiornamenti Campagne
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Notifiche per le tue campagne
-                        </p>
-                      </div>
-                      <Switch defaultChecked />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-slate-200">
-                          Nuovi Clienti
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Notifiche per nuovi clienti
-                        </p>
-                      </div>
-                      <Switch defaultChecked />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Security Settings */}
-            <TabsContent value="security" className="space-y-6">
-              <Card className={panelClass}>
-                <CardHeader className={panelHeaderClass}>
-                  <CardTitle className="flex items-center gap-3 text-white">
-                    <div className="p-2 bg-gradient-to-br from-[#e14483] to-[#8d4dff] rounded-lg shadow-sm">
-                      <Shield className="h-5 w-5 text-white" />
-                    </div>
-                    Sicurezza Account
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">
-                    Gestisci la sicurezza del tuo account
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="currentPassword"
-                        className="text-slate-200"
-                      >
-                        Password Attuale
-                      </Label>
-                      <Input
-                        id="currentPassword"
-                        type="password"
-                        className={fieldClass}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="newPassword" className="text-slate-200">
-                        Nuova Password
-                      </Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        className={fieldClass}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="confirmPassword"
-                        className="text-slate-200"
-                      >
-                        Conferma Password
-                      </Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        className={fieldClass}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-white/10">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-slate-200">
-                          Autenticazione a Due Fattori
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Aggiungi un livello extra di sicurezza
-                        </p>
-                      </div>
-                      <Switch />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Appearance Settings */}
-            <TabsContent value="appearance" className="space-y-6">
-              <Card className={panelClass}>
-                <CardHeader className={panelHeaderClass}>
-                  <CardTitle className="flex items-center gap-3 text-white">
-                    <Palette className="h-5 w-5 text-cyan-200" />
-                    Personalizzazione
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">
-                    Personalizza l'aspetto della piattaforma
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-slate-200">
-                          Tema Scuro
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Attiva il tema scuro
-                        </p>
-                      </div>
-                      <Switch />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-slate-200">
-                          Animazioni
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Abilita animazioni nell'interfaccia
-                        </p>
-                      </div>
-                      <Switch defaultChecked />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-slate-200">
-                          Sidebar Compatta
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          Riduci la dimensione della sidebar
-                        </p>
-                      </div>
-                      <Switch />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Integrations Settings */}
-            <TabsContent value="integrations" className="space-y-6">
-              <Card className={panelClass}>
-                <CardHeader className={panelHeaderClass}>
-                  <CardTitle className="flex items-center gap-3 text-white">
-                    <div className="p-2 bg-gradient-to-br from-emerald-400 to-cyan-400 rounded-lg shadow-sm">
-                      <Globe className="h-5 w-5 text-white" />
-                    </div>
+            <div className="grid min-w-0 gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <aside className="hidden self-start lg:block lg:sticky lg:top-24">
+                <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Account
+                </p>
+                <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 rounded-xl border border-white/10 bg-[#0c1018] p-2">
+                  <TabsTrigger value="profile" className={tabClass}>
+                    <User className="h-4 w-4" />
+                    Profilo
+                  </TabsTrigger>
+                  <TabsTrigger value="notifications" className={tabClass}>
+                    <Bell className="h-4 w-4" />
+                    Notifiche
+                  </TabsTrigger>
+                  <TabsTrigger value="security" className={tabClass}>
+                    <Shield className="h-4 w-4" />
+                    Sicurezza
+                  </TabsTrigger>
+                  <TabsTrigger value="appearance" className={tabClass}>
+                    <Palette className="h-4 w-4" />
+                    Aspetto
+                  </TabsTrigger>
+                  <TabsTrigger value="integrations" className={tabClass}>
+                    <Globe className="h-4 w-4" />
                     Integrazioni
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">
-                    Connetti servizi esterni alla piattaforma
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <AgenticGitHubPolicyCard />
+                  </TabsTrigger>
+                </TabsList>
+              </aside>
 
-                  <div className="grid gap-4">
-                    <div className={integrationCardClass}>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-500 rounded-lg">
-                          <Mail className="h-4 w-4 text-white" />
+              <div className="min-w-0">
+                {/* Profile Settings */}
+                <TabsContent value="profile" className="mt-0 space-y-6">
+                  <Card className={panelClass}>
+                    <CardHeader className={panelHeaderClass}>
+                      <CardTitle className="flex items-center gap-3 text-white">
+                        <User className="h-5 w-5 text-cyan-200" />
+                        Informazioni Personali
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">
+                        Aggiorna le tue informazioni personali e di contatto
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="firstName" className="text-slate-200">
+                            Nome
+                          </Label>
+                          <Input
+                            id="firstName"
+                            defaultValue={userData?.firstName || ""}
+                            className={fieldClass}
+                          />
                         </div>
-                        <div>
-                          <h4 className="font-medium text-white">
-                            Email Marketing
-                          </h4>
-                          <p className="text-sm text-slate-500">
-                            Connetti il tuo servizio email
-                          </p>
+                        <div className="space-y-2">
+                          <Label htmlFor="lastName" className="text-slate-200">
+                            Cognome
+                          </Label>
+                          <Input
+                            id="lastName"
+                            defaultValue={userData?.lastName || ""}
+                            className={fieldClass}
+                          />
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={outlineActionClass}
-                      >
-                        Configura
-                      </Button>
-                    </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-slate-200">
+                          Email
+                        </Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          defaultValue={userData?.email || ""}
+                          className={fieldClass}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="company" className="text-slate-200">
+                          Azienda
+                        </Label>
+                        <Input
+                          id="company"
+                          defaultValue={userData?.companyName || ""}
+                          className={fieldClass}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="bio" className="text-slate-200">
+                          Bio
+                        </Label>
+                        <Textarea
+                          id="bio"
+                          placeholder="Raccontaci qualcosa di te..."
+                          className={fieldClass}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                    <div className={integrationCardClass}>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-500 rounded-lg">
-                          <Database className="h-4 w-4 text-white" />
+                  <Card className={panelClass}>
+                    <CardHeader className={panelHeaderClass}>
+                      <CardTitle className="flex items-center gap-3 text-white">
+                        <Sparkles className="h-5 w-5 text-pink-300" />
+                        Piano e Utilizzo
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">
+                        Informazioni sul tuo piano attuale
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-300">
+                          Piano Attuale
+                        </span>
+                        <Badge className="border border-white/10 bg-white/[0.06] text-slate-100">
+                          {userData?.plan || "Base"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-300">
+                          Stato Account
+                        </span>
+                        <Badge className="border border-emerald-400/20 bg-emerald-400/[0.12] text-emerald-200">
+                          Attivo
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Notifications Settings */}
+                <TabsContent value="notifications" className="mt-0 space-y-6">
+                  <Card className={panelClass}>
+                    <CardHeader className={panelHeaderClass}>
+                      <CardTitle className="flex items-center gap-3 text-white">
+                        <div className="p-2 bg-gradient-to-br from-[#f6c85f] to-[#e14483] rounded-lg shadow-sm">
+                          <Bell className="h-5 w-5 text-white" />
                         </div>
-                        <div>
-                          <h4 className="font-medium text-white">CRM</h4>
-                          <p className="text-sm text-slate-500">
-                            Sincronizza con il tuo CRM
-                          </p>
+                        Preferenze Notifiche
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">
+                        Configura come e quando ricevere le notifiche
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium text-slate-200">
+                              Notifiche Email
+                            </Label>
+                            <p className="text-xs text-slate-500">
+                              Ricevi aggiornamenti via email
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium text-slate-200">
+                              Notifiche Push
+                            </Label>
+                            <p className="text-xs text-slate-500">
+                              Notifiche push nel browser
+                            </p>
+                          </div>
+                          <Switch />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium text-slate-200">
+                              Aggiornamenti Campagne
+                            </Label>
+                            <p className="text-xs text-slate-500">
+                              Notifiche per le tue campagne
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium text-slate-200">
+                              Nuovi Clienti
+                            </Label>
+                            <p className="text-xs text-slate-500">
+                              Notifiche per nuovi clienti
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={outlineActionClass}
-                      >
-                        Configura
-                      </Button>
-                    </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                    <div className={integrationCardClass}>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-500 rounded-lg">
-                          <Key className="h-4 w-4 text-white" />
+                {/* Security Settings */}
+                <TabsContent value="security" className="mt-0 space-y-6">
+                  <Card className={panelClass}>
+                    <CardHeader className={panelHeaderClass}>
+                      <CardTitle className="flex items-center gap-3 text-white">
+                        <div className="p-2 bg-gradient-to-br from-[#e14483] to-[#8d4dff] rounded-lg shadow-sm">
+                          <Shield className="h-5 w-5 text-white" />
                         </div>
-                        <div>
-                          <h4 className="font-medium text-white">API Keys</h4>
-                          <p className="text-sm text-slate-500">
-                            Gestisci le tue chiavi API
-                          </p>
+                        Sicurezza Account
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">
+                        Gestisci la sicurezza del tuo account
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="currentPassword"
+                            className="text-slate-200"
+                          >
+                            Password Attuale
+                          </Label>
+                          <Input
+                            id="currentPassword"
+                            type="password"
+                            className={fieldClass}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="newPassword"
+                            className="text-slate-200"
+                          >
+                            Nuova Password
+                          </Label>
+                          <Input
+                            id="newPassword"
+                            type="password"
+                            className={fieldClass}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="confirmPassword"
+                            className="text-slate-200"
+                          >
+                            Conferma Password
+                          </Label>
+                          <Input
+                            id="confirmPassword"
+                            type="password"
+                            className={fieldClass}
+                          />
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={outlineActionClass}
-                      >
-                        Gestisci
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+
+                      <div className="pt-4 border-t border-white/10">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium text-slate-200">
+                              Autenticazione a Due Fattori
+                            </Label>
+                            <p className="text-xs text-slate-500">
+                              Aggiungi un livello extra di sicurezza
+                            </p>
+                          </div>
+                          <Switch />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Appearance Settings */}
+                <TabsContent value="appearance" className="mt-0 space-y-6">
+                  <Card className={panelClass}>
+                    <CardHeader className={panelHeaderClass}>
+                      <CardTitle className="flex items-center gap-3 text-white">
+                        <Palette className="h-5 w-5 text-cyan-200" />
+                        Personalizzazione
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">
+                        Personalizza l'aspetto della piattaforma
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium text-slate-200">
+                              Tema Scuro
+                            </Label>
+                            <p className="text-xs text-slate-500">
+                              Attiva il tema scuro
+                            </p>
+                          </div>
+                          <Switch />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium text-slate-200">
+                              Animazioni
+                            </Label>
+                            <p className="text-xs text-slate-500">
+                              Abilita animazioni nell'interfaccia
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium text-slate-200">
+                              Sidebar Compatta
+                            </Label>
+                            <p className="text-xs text-slate-500">
+                              Riduci la dimensione della sidebar
+                            </p>
+                          </div>
+                          <Switch />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Integrations Settings */}
+                <TabsContent value="integrations" className="mt-0 space-y-6">
+                  <Card className={panelClass}>
+                    <CardHeader className={panelHeaderClass}>
+                      <CardTitle className="flex items-center gap-3 text-white">
+                        <div className="p-2 bg-gradient-to-br from-emerald-400 to-cyan-400 rounded-lg shadow-sm">
+                          <Globe className="h-5 w-5 text-white" />
+                        </div>
+                        Integrazioni
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">
+                        Connetti servizi esterni alla piattaforma
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      <AgenticGitHubPolicyCard />
+
+                      <div className="grid gap-4">
+                        <div className={integrationCardClass}>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-500 rounded-lg">
+                              <Mail className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-white">
+                                Email Marketing
+                              </h4>
+                              <p className="text-sm text-slate-500">
+                                Connetti il tuo servizio email
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={outlineActionClass}
+                          >
+                            Configura
+                          </Button>
+                        </div>
+
+                        <div className={integrationCardClass}>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-purple-500 rounded-lg">
+                              <Database className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-white">CRM</h4>
+                              <p className="text-sm text-slate-500">
+                                Sincronizza con il tuo CRM
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={outlineActionClass}
+                          >
+                            Configura
+                          </Button>
+                        </div>
+
+                        <div className={integrationCardClass}>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-500 rounded-lg">
+                              <Key className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-white">
+                                API Keys
+                              </h4>
+                              <p className="text-sm text-slate-500">
+                                Gestisci le tue chiavi API
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={outlineActionClass}
+                          >
+                            Gestisci
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </div>
+            </div>
           </Tabs>
         </div>
       </div>
