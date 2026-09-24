@@ -8,7 +8,11 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { signedByteUrl, signedThumbUrl, signedHlsUrl } from "@/lib/video-node";
+import {
+  signedByteUrl,
+  signedHlsUrl,
+  signedPosterOrThumbUrl,
+} from "@/lib/video-node";
 
 export async function GET(
   _request: NextRequest,
@@ -97,7 +101,10 @@ export async function GET(
         thumbUrl:
           mediaType === "image"
             ? mediaUrl
-            : await signedThumbUrl(v.approved_key || v.storage_key),
+            : await signedPosterOrThumbUrl(
+                v.poster_key,
+                v.approved_key || v.storage_key,
+              ),
         markers: byVideo[String(v.id)] || [],
       };
     }),

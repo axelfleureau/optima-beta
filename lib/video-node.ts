@@ -97,6 +97,19 @@ export async function signedThumbUrl(
   return qs ? `${videoNodeUrl()}/v/thumb?${qs.toString()}` : null;
 }
 
+/** Usa il poster salvato in R2; per i video NAS ripiega sulla thumb del nodo. */
+export async function signedPosterOrThumbUrl(
+  posterKey: string | null | undefined,
+  storageKey: string | null | undefined,
+  ttlSeconds = 21600,
+): Promise<string | null> {
+  if (posterKey) {
+    const posterUrl = await signedByteUrl(posterKey, { ttlSeconds });
+    if (posterUrl) return posterUrl;
+  }
+  return signedThumbUrl(storageKey, ttlSeconds);
+}
+
 /** URL firmato per un'operazione di EDITING (trim/reframe) sul nodo. */
 export async function signedEditUrl(
   job: {

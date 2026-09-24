@@ -11,7 +11,11 @@ import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { isR2VideoKey, r2VideoObjectKey } from "@/lib/video-node";
-import { signedByteUrl, signedThumbUrl, signedHlsUrl } from "@/lib/video-node";
+import {
+  signedByteUrl,
+  signedHlsUrl,
+  signedPosterOrThumbUrl,
+} from "@/lib/video-node";
 import {
   canAccessTranche,
   seesEverything,
@@ -175,7 +179,10 @@ export async function GET(
         thumbUrl:
           mediaType === "image"
             ? mediaUrl
-            : await signedThumbUrl(v.approved_key || v.storage_key),
+            : await signedPosterOrThumbUrl(
+                v.poster_key,
+                v.approved_key || v.storage_key,
+              ),
         collaborators: collabByVideo[String(v.id)] || [],
         markers: markersByVideo[String(v.id)] || [],
       };
