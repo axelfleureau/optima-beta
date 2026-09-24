@@ -156,17 +156,27 @@ export function VideoDrawer({
         throw error;
       });
 
-      await fetch(`/api/video-review/videos/${prep.videoId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          finalize: true,
-          fps: meta.fps,
-          durationSeconds: meta.durationSeconds,
-          width: meta.width,
-          height: meta.height,
-        }),
-      });
+      const finalizeResponse = await fetch(
+        `/api/video-review/videos/${prep.videoId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            finalize: true,
+            fps: meta.fps,
+            durationSeconds: meta.durationSeconds,
+            width: meta.width,
+            height: meta.height,
+          }),
+        },
+      );
+      const finalizePayload = await finalizeResponse.json().catch(() => null);
+      if (!finalizeResponse.ok || !finalizePayload?.ok) {
+        await cleanupPreparedVideoUpload(prep);
+        throw new Error(
+          finalizePayload?.error || "Finalizzazione upload non riuscita",
+        );
+      }
       setProgress(null);
       onChange();
     } catch (e: any) {

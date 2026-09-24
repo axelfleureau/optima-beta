@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  VIDEO_MULTIPART_MAX_PART_BYTES,
+  VIDEO_MULTIPART_MAX_PARTS,
+  VIDEO_MULTIPART_MIN_PART_BYTES,
+  VIDEO_MULTIPART_PART_SIZE_BYTES,
+} from "@/lib/video-upload-policy";
+
 type UploadResult = {
   fps?: number;
   durationSeconds?: number;
@@ -23,9 +30,7 @@ type PreparedUpload = {
   partSize?: number;
 };
 
-const LARGE_VIDEO_WARNING_BYTES = 95 * 1024 * 1024;
 const UPLOAD_TIMEOUT_MS = 45 * 60 * 1000;
-const PROXIED_VIDEO_HOST = "video.wearerighello.com";
 const MULTIPART_RETRIES = 3;
 
 function assertUploadUrl(url: string) {
@@ -56,7 +61,7 @@ function nodeUploadError(xhr: XMLHttpRequest) {
   const payload = parseNodeResponse(xhr);
   const message = payload?.error ? String(payload.error) : "";
   if (xhr.status === 413) {
-    return "Video troppo grande per il canale di upload attuale. Esporta nella cartella monitorata dal nodo o riduci il file.";
+    return "Il canale diretto ha rifiutato il file. Ricarica la pagina e riprova: i video grandi vengono caricati automaticamente a blocchi.";
   }
   if (xhr.status === 401 || xhr.status === 403) {
     return "Link di upload scaduto o non valido. Riprova il caricamento.";
@@ -77,17 +82,6 @@ export function uploadVideoFileToNode({
 }: UploadOptions): Promise<UploadResult> {
   const uploadUrl = assertUploadUrl(url);
 
-  if (
-    uploadUrl.hostname === PROXIED_VIDEO_HOST &&
-    file.size >= LARGE_VIDEO_WARNING_BYTES
-  ) {
-    return Promise.reject(
-      new Error(
-        "Questo video supera il limite del canale web attuale verso il nodo. Per file grandi serve upload diretto/chunked: usa temporaneamente la cartella monitorata del nodo o esporta un file sotto 95 MB.",
-      ),
-    );
-  }
-
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", uploadUrl.toString());
@@ -107,13 +101,9 @@ export function uploadVideoFileToNode({
       reject(new Error(nodeUploadError(xhr)));
     };
     xhr.onerror = () => {
-      const suffix =
-        file.size >= LARGE_VIDEO_WARNING_BYTES
-          ? " Se il file e grande, il proxy puo interrompere la richiesta: in quel caso usa la cartella monitorata dal nodo o un export piu leggero."
-          : "";
       reject(
         new Error(
-          `Errore di rete verso il nodo video. Verifica connessione, VPN/rete aziendale e raggiungibilita di video.wearerighello.com.${suffix}`,
+          "Errore di rete verso il nodo video. Verifica la connessione e riprova.",
         ),
       );
     };
@@ -247,11 +237,17 @@ async function uploadVideoFileToR2Multipart({
 }): Promise<UploadResult> {
   const uploadId = prepared.uploadId;
   if (!uploadId) throw new Error("Upload multipart non inizializzato.");
-  const partSize = Math.max(
-    5 * 1024 * 1024,
-    Number(prepared.partSize || 8 * 1024 * 1024),
+  const partSize = Math.min(
+    VIDEO_MULTIPART_MAX_PART_BYTES,
+    Math.max(
+      VIDEO_MULTIPART_MIN_PART_BYTES,
+      Number(prepared.partSize || VIDEO_MULTIPART_PART_SIZE_BYTES),
+    ),
   );
   const totalParts = Math.ceil(file.size / partSize);
+  if (totalParts > VIDEO_MULTIPART_MAX_PARTS) {
+    throw new Error("Il file supera la dimensione massima gestibile dall'upload.");
+  }
   const parts: Array<{ partNumber: number; etag: string }> = [];
 
   for (let index = 0; index < totalParts; index += 1) {

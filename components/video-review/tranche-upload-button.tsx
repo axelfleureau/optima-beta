@@ -103,17 +103,29 @@ export function TrancheUploadButton({
             throw error;
           });
 
-          await fetch(`/api/video-review/videos/${prepared.videoId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              finalize: true,
-              fps: meta.fps,
-              durationSeconds: meta.durationSeconds,
-              width: meta.width,
-              height: meta.height,
-            }),
-          });
+          const finalizeResponse = await fetch(
+            `/api/video-review/videos/${prepared.videoId}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                finalize: true,
+                fps: meta.fps,
+                durationSeconds: meta.durationSeconds,
+                width: meta.width,
+                height: meta.height,
+              }),
+            },
+          );
+          const finalizePayload = await finalizeResponse
+            .json()
+            .catch(() => null);
+          if (!finalizeResponse.ok || !finalizePayload?.ok) {
+            await cleanupPreparedVideoUpload(prepared);
+            throw new Error(
+              finalizePayload?.error || "Finalizzazione upload non riuscita",
+            );
+          }
 
           // Poster automatico (frame a metà) per l'anteprima social. Best-effort.
           if (file.type.startsWith("video/")) {

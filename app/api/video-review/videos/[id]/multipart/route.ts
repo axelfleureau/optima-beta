@@ -7,6 +7,10 @@ import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { canAccessVideo } from "@/lib/video-review-acl";
 import { r2VideoObjectKey } from "@/lib/video-node";
+import {
+  VIDEO_MULTIPART_MAX_PART_BYTES,
+  VIDEO_MULTIPART_MAX_PARTS,
+} from "@/lib/video-upload-policy";
 
 async function contextFor(id: string) {
   const db = await getCloudflareDb();
@@ -60,8 +64,21 @@ export async function PUT(
   const partNumber = Number(
     request.nextUrl.searchParams.get("partNumber") || 0,
   );
-  if (!uploadId || !Number.isInteger(partNumber) || partNumber < 1) {
+  if (
+    !uploadId ||
+    uploadId.length > 512 ||
+    !Number.isInteger(partNumber) ||
+    partNumber < 1 ||
+    partNumber > VIDEO_MULTIPART_MAX_PARTS
+  ) {
     return Response.json({ error: "Parte upload non valida" }, { status: 400 });
+  }
+  const declaredLength = Number(request.headers.get("content-length") || 0);
+  if (declaredLength > VIDEO_MULTIPART_MAX_PART_BYTES) {
+    return Response.json(
+      { error: "Chunk troppo grande" },
+      { status: 413 },
+    );
   }
   let chunk: ArrayBuffer;
   try {
@@ -79,6 +96,12 @@ export async function PUT(
   }
   if (!chunk.byteLength)
     return Response.json({ error: "Chunk mancante" }, { status: 400 });
+  if (chunk.byteLength > VIDEO_MULTIPART_MAX_PART_BYTES) {
+    return Response.json(
+      { error: "Chunk troppo grande" },
+      { status: 413 },
+    );
+  }
 
   const key = r2VideoObjectKey(String(ctx.video.storage_key));
   const multipart = ctx.bucket.resumeMultipartUpload(key, uploadId);
@@ -131,8 +154,16 @@ export async function POST(
             part.partNumber > 0 &&
             part.etag,
         )
+        .sort((a: any, b: any) => a.partNumber - b.partNumber)
     : [];
-  if (!parts.length)
+  const uniquePartNumbers = new Set(
+    parts.map((part: { partNumber: number }) => part.partNumber),
+  );
+  if (
+    !parts.length ||
+    parts.length > VIDEO_MULTIPART_MAX_PARTS ||
+    uniquePartNumbers.size !== parts.length
+  )
     return Response.json({ error: "Parti upload mancanti" }, { status: 400 });
   try {
     const object = await multipart.complete(parts);

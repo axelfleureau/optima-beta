@@ -15,6 +15,10 @@ import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { signedUploadUrl } from "@/lib/video-node";
+import {
+  VIDEO_MULTIPART_PART_SIZE_BYTES,
+  VIDEO_MULTIPART_THRESHOLD_BYTES,
+} from "@/lib/video-upload-policy";
 
 /** Nome file sicuro: niente separatori, niente `..`. */
 function safeName(name: string) {
@@ -82,9 +86,10 @@ export async function POST(
   const newId = createId("vrvd");
   const now = new Date().toISOString();
   const rootKey = String(root?.storage_key || parent.storage_key);
-  // I video vanno al nodo/NAS (qualsiasi dimensione). Resta su R2 solo se la
-  // versione originale era già su R2 (catene vecchie, per non spezzarle).
-  const useMultipart = rootKey.startsWith("r2://");
+  // Le versioni grandi passano da R2 multipart per non attraversare il proxy
+  // Cloudflare in un'unica richiesta. Le catene già su R2 restano coerenti.
+  const useMultipart =
+    fileSize >= VIDEO_MULTIPART_THRESHOLD_BYTES || rootKey.startsWith("r2://");
   const dir = rootKey.startsWith("r2://")
     ? rootKey.split("/").slice(0, -1).join("/")
     : rootKey
@@ -161,6 +166,6 @@ export async function POST(
     uploadMode: useMultipart ? "r2_multipart" : "node_put",
     uploadUrl,
     uploadId,
-    partSize: 8 * 1024 * 1024,
+    partSize: VIDEO_MULTIPART_PART_SIZE_BYTES,
   });
 }

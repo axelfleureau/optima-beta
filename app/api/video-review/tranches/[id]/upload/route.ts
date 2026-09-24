@@ -21,6 +21,10 @@ import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { canAccessTranche } from "@/lib/video-review-acl";
 import { signedUploadUrl } from "@/lib/video-node";
+import {
+  shouldUseVideoMultipartUpload,
+  VIDEO_MULTIPART_PART_SIZE_BYTES,
+} from "@/lib/video-upload-policy";
 
 /** Nome file sicuro: niente separatori, niente `..`. */
 function safeName(name: string, fallback = "media.bin") {
@@ -177,10 +181,17 @@ export async function POST(
     .filter(Boolean)
     .join("/");
 
-  // Solo le IMMAGINI vanno su R2; i VIDEO vanno sempre al nodo (Mac Studio/NAS),
-  // che li ottimizza (faststart) e genera la thumbnail/poster.
-  const bucket = mediaType === "image" ? await getTaskMediaBucket() : null;
-  if (mediaType === "image" && !bucket) {
+  // I media grandi passano da R2 multipart: ogni richiesta resta piccola e non
+  // incontra il limite del proxy Cloudflare davanti al nodo. I video piccoli
+  // continuano ad andare direttamente al Mac Studio/NAS (faststart + thumbnail).
+  const needsMultipart = typedFiles.some((file) =>
+    shouldUseVideoMultipartUpload(
+      file.mediaType as "image" | "video",
+      file.fileSize,
+    ),
+  );
+  const bucket = needsMultipart ? await getTaskMediaBucket() : null;
+  if (needsMultipart && !bucket) {
     return Response.json(
       { error: "Storage media non configurato" },
       { status: 503 },
@@ -211,7 +222,10 @@ export async function POST(
     // Immagini: tutte nello stesso gruppo (un carosello). Video: uno per post.
     const postGroupId =
       mediaType === "image" ? sharedImageGroupId : createId("vrpost");
-    const useMultipart = mediaType === "image";
+    const useMultipart = shouldUseVideoMultipartUpload(
+      mediaType,
+      file.fileSize,
+    );
     const storageKey = useMultipart
       ? `r2://post-review/${org}/${id}/${videoId}/${file.filename}`
       : `${videoDir}/${file.filename}`;
@@ -280,7 +294,7 @@ export async function POST(
       uploadMode: useMultipart ? "r2_multipart" : "node_put",
       uploadUrl,
       uploadId,
-      partSize: 8 * 1024 * 1024,
+      partSize: VIDEO_MULTIPART_PART_SIZE_BYTES,
       slideIndex: mediaType === "image" ? index + 1 : null,
     });
   }
