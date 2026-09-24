@@ -599,7 +599,7 @@ function ContentCoveragePanel({
     .slice(0, 5);
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111b2d] px-4 py-3 lg:flex-row lg:items-center">
+    <section className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#0f131c] px-4 py-3 lg:flex-row lg:items-center">
       <div className="flex shrink-0 items-center gap-2.5">
         <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-200">
           <FileSpreadsheet className="h-4 w-4" />

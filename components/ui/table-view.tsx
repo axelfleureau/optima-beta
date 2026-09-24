@@ -33,11 +33,11 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
   }
 
   return (
-    <Card className="overflow-hidden rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
+    <Card className="overflow-hidden rounded-xl border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
       <CardContent className="p-0">
         <div className="space-y-3 p-3 md:hidden">
           {posts.length === 0 && (
-            <div className="rounded-[8px] border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+            <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
               <List className="mx-auto mb-3 h-8 w-8 text-slate-400" />
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Nessun post trovato</p>
               {!selectedClientId && userRole !== "client" && (
@@ -56,7 +56,7 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
             return (
               <div
                 key={post.id}
-                className="min-w-0 rounded-[8px] border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
+                className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
               >
                 <div className="mb-3 flex min-w-0 items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -71,7 +71,7 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-[8px]">
+                      <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -103,7 +103,7 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
 
                 {postText && <p className="mt-3 line-clamp-3 text-sm text-slate-600 dark:text-slate-400">{postText}</p>}
 
-                <Button onClick={() => onEditPost(post)} variant="outline" size="sm" className="mt-3 w-full rounded-[8px]">
+                <Button onClick={() => onEditPost(post)} variant="outline" size="sm" className="mt-3 w-full rounded-xl">
                   Apri post
                 </Button>
               </div>
@@ -235,7 +235,7 @@ export function TableView({ posts, onEditPost, onDeletePost, onNewPost, selected
         <Button
           variant="outline"
           onClick={onNewPost}
-          className="w-full rounded-[8px] border-2 border-dashed border-slate-300 bg-transparent transition-colors hover:border-pink-500 hover:text-pink-500 dark:border-slate-600"
+          className="w-full rounded-xl border-2 border-dashed border-slate-300 bg-transparent transition-colors hover:border-pink-500 hover:text-pink-500 dark:border-slate-600"
         >
           <PlusCircle className="w-4 h-4 mr-2" />
           Aggiungi nuovo post

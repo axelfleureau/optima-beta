@@ -80,7 +80,7 @@ export function CollaboratorsField({
               <Plus className="mr-1 h-3 w-3" /> Aggiungi
             </Button>
           </DialogTrigger>
-          <DialogContent className="border-white/10 bg-[#111b2d] text-slate-100 sm:max-w-md">
+          <DialogContent className="border-white/10 bg-[#0f131c] text-slate-100 sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Aggiungi collaboratore</DialogTitle>
               <DialogDescription className="text-slate-400">

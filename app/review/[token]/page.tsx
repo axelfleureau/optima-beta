@@ -106,7 +106,7 @@ export async function generateMetadata({
       title,
       description,
       url,
-      siteName: "Optima by Righello",
+      siteName: "Óptima by Righello",
       type: "website",
       images: [
         {

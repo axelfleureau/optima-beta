@@ -37,5 +37,6 @@ cloudflare-env.d.ts
 /data/imports/
 /.graphifyignore
 /graphify-out/
+/app/graphify-out/
 wrangler.jsonc.bak
 wrangler.jsonc.ci-backup

@@ -111,7 +111,7 @@ type ManagementData = {
 const pageClass = "optima-ops-page";
 const panelClass =
   "rounded-lg border border-white/10 bg-[#121b2b] shadow-[0_18px_70px_rgba(2,6,23,0.24)]";
-const insetPanelClass = "rounded-lg border border-white/10 bg-[#0e1625]";
+const insetPanelClass = "rounded-lg border border-white/10 bg-[#121722]";
 const mutedText = "text-slate-400";
 
 function formatDate(value?: string | null) {
@@ -634,7 +634,7 @@ export default function ManagementPage() {
                     {data.projects.map((project) => {
                       const pressure = pressureLabel(project.daysUntilDue);
                       return (
-                        <tr key={project.id} className="bg-[#0e1625]">
+                        <tr key={project.id} className="bg-[#121722]">
                           <td className="rounded-l-lg border-y border-l border-white/10 px-3 py-4">
                             <div className="flex items-center gap-3">
                               <span

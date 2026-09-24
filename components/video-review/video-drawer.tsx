@@ -556,7 +556,7 @@ export function VideoDrawer({
               setPlannedDate(e.target.value);
               patchVideo({ plannedPublishDate: e.target.value || null });
             }}
-            className="h-9 rounded-lg border border-white/10 bg-[#172235] px-3 text-sm text-slate-100 outline-none focus-visible:border-righello-pink/70"
+            className="h-9 rounded-lg border border-white/10 bg-[#121722] px-3 text-sm text-slate-100 outline-none focus-visible:border-righello-pink/70"
           />
         </div>
 

@@ -35,11 +35,11 @@ const notificationIcons = {
 }
 
 const notificationColors = {
-  task_assigned: "text-blue-600",
-  task_updated: "text-yellow-600", 
-  comment_added: "text-green-600",
-  due_date: "text-red-600",
-  general: "text-gray-600",
+  task_assigned: "text-righello-pink",
+  task_updated: "text-amber-500",
+  comment_added: "text-emerald-500",
+  due_date: "text-red-500",
+  general: "text-righello-cyan",
 }
 
 export function NotificationPanel() {
@@ -69,7 +69,7 @@ export function NotificationPanel() {
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 text-white text-xs"
+              className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center border-2 border-background bg-righello-pink p-0 text-[10px] text-white"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
             </Badge>
@@ -77,8 +77,11 @@ export function NotificationPanel() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[calc(100vw-1.5rem)] max-w-96 sm:w-96">
-        <div className="flex items-center justify-between p-3 border-b">
-          <h3 className="font-semibold text-sm">Notifiche</h3>
+        <div className="flex items-center justify-between gap-3 border-b p-3.5">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Centro attività</p>
+            <h3 className="mt-0.5 text-base font-black">Notifiche</h3>
+          </div>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
@@ -94,11 +97,11 @@ export function NotificationPanel() {
 
         <ScrollArea className="h-96">
           {loading ? (
-            <div className="p-4 text-center text-sm text-gray-500">
+            <div className="p-6 text-center text-sm text-muted-foreground">
               Caricamento notifiche...
             </div>
           ) : notifications.length === 0 ? (
-            <div className="p-4 text-center text-sm text-gray-500">
+            <div className="p-8 text-center text-sm text-muted-foreground">
               <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
               Nessuna notifica
             </div>
@@ -111,10 +114,10 @@ export function NotificationPanel() {
                 return (
                   <div
                     key={notification.id}
-                    className={`group px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer border-l-2 ${
+                    className={`group cursor-pointer border-l-2 px-3.5 py-3 transition-colors hover:bg-muted/55 ${
                       notification.read 
                         ? "border-transparent opacity-60" 
-                        : "border-blue-500 bg-blue-50/30 dark:bg-blue-900/10"
+                        : "border-righello-pink bg-righello-pink/[0.055]"
                     }`}
                     onClick={() => handleNotificationClick(notification)}
                   >
@@ -129,7 +132,7 @@ export function NotificationPanel() {
                           </h4>
                           <div className="flex items-center gap-1">
                             {!notification.read && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                              <div className="h-2 w-2 rounded-full bg-righello-pink" />
                             )}
                             <Button
                               variant="ghost"

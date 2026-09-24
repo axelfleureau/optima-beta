@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import { RighelloIcon } from '@/components/brand/righello-icon'
 import { 
   CheckCircle2, 
   XCircle, 
@@ -189,10 +190,10 @@ export default function QuotePublicApprovalPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4">
-        <Card className="p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Caricamento preventivo...</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#07090f] p-4 text-white">
+        <Card className="w-full max-w-md border-white/[0.08] bg-[#11151f]/92 p-8 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-white/15 border-t-righello-pink"></div>
+          <p className="text-white/56">Sto preparando il preventivo…</p>
         </Card>
       </div>
     )
@@ -200,11 +201,11 @@ export default function QuotePublicApprovalPage({
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4">
-        <Card className="p-8 max-w-md w-full text-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#07090f] p-4 text-white">
+        <Card className="w-full max-w-md border-white/[0.08] bg-[#11151f]/92 p-8 text-center">
           <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Ops!</h2>
-          <p className="text-gray-600">{error}</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Ops!</h2>
+          <p className="text-white/56">{error}</p>
         </Card>
       </div>
     )
@@ -217,13 +218,13 @@ export default function QuotePublicApprovalPage({
   // Handle pending_payment status - Allow retry after cancelled checkout
   if (quote.status === 'pending_payment') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4">
-        <Card className="p-8 max-w-md w-full text-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#07090f] p-4 text-white">
+        <Card className="w-full max-w-md border-white/[0.08] bg-[#11151f]/92 p-8 text-center">
           <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-white mb-2">
             Pagamento in sospeso
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-white/56 mb-6">
             Il preventivo è in attesa di completamento del pagamento. 
             Se hai annullato il checkout, puoi ritentare.
           </p>
@@ -233,13 +234,13 @@ export default function QuotePublicApprovalPage({
               // Reset to show approval form - local state only, server remains pending_payment
               setQuote({ ...quote, status: 'sent' })
             }}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            className="w-full"
           >
             <RotateCcw className="mr-2 h-4 w-4" />
             Riprova Pagamento
           </Button>
           
-          <p className="text-xs text-gray-500 mt-4">
+          <p className="text-xs text-white/42 mt-4">
             Il sistema creerà una nuova sessione di pagamento
           </p>
         </Card>
@@ -253,22 +254,38 @@ export default function QuotePublicApprovalPage({
     : null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="relative min-h-screen overflow-hidden bg-[#07090f] px-4 py-6 text-white sm:px-6 sm:py-10">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_-10%,rgba(214,72,126,0.18),transparent_30rem),radial-gradient(circle_at_95%_5%,rgba(6,182,212,0.08),transparent_28rem)]" />
+      <div className="relative mx-auto max-w-4xl space-y-5 sm:space-y-6">
+        <header className="flex items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <RighelloIcon className="h-11 w-11" imageClassName="h-6 w-6" priority />
+            <div className="min-w-0">
+              <p className="truncate text-lg font-black tracking-[-0.02em]">Óptima</p>
+              <p className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-white/38">Preventivo Righello</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-white/46">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            Documento verificato
+          </div>
+        </header>
+
         {/* Header Card */}
-        <Card className="p-8 bg-white/80 backdrop-blur-sm border-purple-100">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <Card className="border-white/[0.08] bg-[#11151f]/92 p-5 backdrop-blur-xl sm:p-8">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-righello-pink-light">Proposta commerciale</p>
+              <h1 className="break-words text-3xl font-black leading-none tracking-[-0.035em] text-white sm:text-4xl">
                 {quote.title}
               </h1>
               {quote.description && (
-                <p className="text-gray-600">{quote.description}</p>
+                <p className="mt-3 max-w-2xl text-white/56">{quote.description}</p>
               )}
             </div>
             <Badge 
               variant={isApproved ? "default" : "secondary"}
-              className="ml-4"
+              className="w-fit shrink-0 border-white/10"
             >
               {isApproved ? (
                 <><CheckCircle2 className="h-4 w-4 mr-1" /> Approvato</>
@@ -278,36 +295,36 @@ export default function QuotePublicApprovalPage({
             </Badge>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-purple-600" />
+          <div className="mt-6 grid grid-cols-1 gap-3 border-t border-white/[0.08] pt-5 md:grid-cols-3">
+            <div className="flex min-w-0 items-center gap-3 rounded-xl bg-white/[0.025] p-3">
+              <User className="h-5 w-5 text-righello-pink" />
               <div>
-                <p className="text-sm text-gray-500">Cliente</p>
-                <p className="font-medium text-gray-900">
+                <p className="text-sm text-white/42">Cliente</p>
+                <p className="font-medium text-white">
                   {quote.externalClientName || quote.clientName}
                 </p>
                 {quote.externalClientEmail && (
-                  <p className="text-xs text-gray-500">{quote.externalClientEmail}</p>
+                  <p className="text-xs text-white/42">{quote.externalClientEmail}</p>
                 )}
                 {quote.clientId && (
-                  <p className="text-xs text-purple-600">Cliente Piattaforma</p>
+                  <p className="text-xs text-righello-pink">Cliente Piattaforma</p>
                 )}
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-purple-600" />
+            <div className="flex min-w-0 items-center gap-3 rounded-xl bg-white/[0.025] p-3">
+              <Calendar className="h-5 w-5 text-righello-pink" />
               <div>
-                <p className="text-sm text-gray-500">Valido fino al</p>
-                <p className="font-medium text-gray-900">{formatDate(quote.validUntil)}</p>
+                <p className="text-sm text-white/42">Valido fino al</p>
+                <p className="font-medium text-white">{formatDate(quote.validUntil)}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Euro className="h-5 w-5 text-purple-600" />
+            <div className="flex min-w-0 items-center gap-3 rounded-xl bg-white/[0.025] p-3">
+              <Euro className="h-5 w-5 text-righello-pink" />
               <div>
-                <p className="text-sm text-gray-500">Totale</p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-sm text-white/42">Totale</p>
+                <p className="text-2xl font-bold text-righello-pink">
                   {formatCurrency(quote.total, quote.currency)}
                 </p>
               </div>
@@ -317,12 +334,12 @@ export default function QuotePublicApprovalPage({
 
         {/* Payment Cancelled Alert */}
         {paymentCancelled && (
-          <Card className="p-4 bg-yellow-50 border-yellow-200">
+          <Card className="border-amber-400/20 bg-amber-400/[0.08] p-4">
             <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <AlertCircle className="mt-0.5 h-5 w-5 text-amber-400" />
               <div>
-                <p className="font-medium text-yellow-900">Pagamento annullato</p>
-                <p className="text-sm text-yellow-700">
+                <p className="font-bold text-amber-100">Pagamento annullato</p>
+                <p className="text-sm text-amber-100/68">
                   Il pagamento è stato annullato. Puoi riprovare quando sei pronto.
                 </p>
               </div>
@@ -331,22 +348,22 @@ export default function QuotePublicApprovalPage({
         )}
 
         {/* Items Card */}
-        <Card className="p-8 bg-white/80 backdrop-blur-sm border-purple-100">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-purple-600" />
+        <Card className="border-white/[0.08] bg-[#11151f]/92 p-5 backdrop-blur-xl sm:p-8">
+          <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-righello-pink" />
             Dettagli Preventivo
           </h2>
 
           <div className="space-y-4">
             {quote.items.map((item, index) => (
-              <div key={index} className="pb-4 border-b border-gray-100 last:border-0">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="font-medium text-gray-900 flex-1">{item.description}</p>
-                  <p className="font-semibold text-purple-600 ml-4">
+              <div key={index} className="pb-4 border-b border-white/[0.08] last:border-0">
+                <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="font-medium text-white flex-1">{item.description}</p>
+                  <p className="shrink-0 font-bold text-righello-pink sm:ml-4">
                     {formatCurrency(item.total, quote.currency)}
                   </p>
                 </div>
-                <div className="flex gap-4 text-sm text-gray-500">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-white/42">
                   <span>Quantità: {item.quantity}</span>
                   <span>•</span>
                   <span>Prezzo unitario: {formatCurrency(item.unitPrice, quote.currency)}</span>
@@ -359,19 +376,19 @@ export default function QuotePublicApprovalPage({
 
           {/* Total */}
           <div className="flex justify-between items-center">
-            <span className="text-lg font-semibold text-gray-900">Totale</span>
-            <span className="text-2xl font-bold text-purple-600">
+            <span className="text-lg font-semibold text-white">Totale</span>
+            <span className="text-2xl font-bold text-righello-pink">
               {formatCurrency(quote.total, quote.currency)}
             </span>
           </div>
 
           {/* Payment Plan Info */}
           {depositAmount && (
-            <div className="mt-4 p-4 bg-purple-50 rounded-lg">
-              <p className="text-sm font-medium text-purple-900 mb-1">
+            <div className="mt-4 rounded-xl border border-righello-pink/15 bg-righello-pink/[0.08] p-4">
+              <p className="text-sm font-medium text-white mb-1">
                 Piano di Pagamento: Acconto + Saldo
               </p>
-              <p className="text-sm text-purple-700">
+              <p className="text-sm text-righello-pink-light">
                 Acconto richiesto ({quote.paymentPlan?.depositPercentage}%): {' '}
                 <span className="font-semibold">{formatCurrency(depositAmount, quote.currency)}</span>
               </p>
@@ -381,18 +398,18 @@ export default function QuotePublicApprovalPage({
 
         {/* Approval Form Card */}
         {!isApproved && (
-          <Card className="p-8 bg-white/80 backdrop-blur-sm border-purple-100">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
+          <Card className="border-white/[0.08] bg-[#11151f]/92 p-5 backdrop-blur-xl sm:p-8">
+            <h2 className="text-xl font-semibold text-white mb-6">
               Approva e Procedi al Pagamento
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white/72 mb-2">
                   Nome Completo *
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/32" />
                   <Input
                     type="text"
                     placeholder="Mario Rossi"
@@ -405,11 +422,11 @@ export default function QuotePublicApprovalPage({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white/72 mb-2">
                   Email *
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/32" />
                   <Input
                     type="email"
                     placeholder="mario.rossi@esempio.it"
@@ -421,7 +438,7 @@ export default function QuotePublicApprovalPage({
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.035] p-4">
                 <Checkbox
                   id="terms"
                   checked={formData.acceptedTerms}
@@ -432,7 +449,7 @@ export default function QuotePublicApprovalPage({
                 />
                 <label 
                   htmlFor="terms" 
-                  className="text-sm text-gray-700 leading-relaxed cursor-pointer"
+                  className="text-sm text-white/72 leading-relaxed cursor-pointer"
                 >
                   Accetto i termini e le condizioni del preventivo. Confermo di aver letto 
                   e compreso tutti i dettagli e mi impegno a procedere con il pagamento.
@@ -442,7 +459,7 @@ export default function QuotePublicApprovalPage({
               <Button
                 onClick={handleApprove}
                 disabled={approving || !formData.acceptedTerms || !formData.clientName || !formData.clientEmail}
-                className="w-full h-12 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                className="h-12 w-full text-base sm:text-lg"
               >
                 {approving ? (
                   <div className="flex items-center gap-2">
@@ -458,7 +475,7 @@ export default function QuotePublicApprovalPage({
                 )}
               </Button>
 
-              <p className="text-xs text-center text-gray-500">
+              <p className="text-xs text-center text-white/42">
                 Sarai reindirizzato alla pagina di pagamento sicura di Stripe
               </p>
             </div>
@@ -467,12 +484,12 @@ export default function QuotePublicApprovalPage({
 
         {/* Already Approved Message */}
         {isApproved && (
-          <Card className="p-8 bg-green-50 border-green-200 text-center">
-            <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-green-900 mb-2">
+          <Card className="border-emerald-400/20 bg-emerald-400/[0.08] p-8 text-center">
+            <CheckCircle2 className="mx-auto mb-4 h-16 w-16 text-emerald-400" />
+            <h2 className="mb-2 text-2xl font-black text-emerald-100">
               Preventivo Approvato!
             </h2>
-            <p className="text-green-700">
+            <p className="text-emerald-100/68">
               Questo preventivo è già stato approvato e processato.
             </p>
           </Card>

@@ -6135,7 +6135,7 @@ export function AgentJobsClient({
                           setConnectorSearch(event.target.value)
                         }
                         placeholder="Cerca GitHub, Browser, Cloudflare, Telegram..."
-                        className="h-11 w-full rounded-lg border border-white/10 bg-[#050914] px-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/45 focus:ring-2 focus:ring-cyan-300/10"
+                        className="h-11 w-full rounded-lg border border-white/10 bg-[#07090f] px-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/45 focus:ring-2 focus:ring-cyan-300/10"
                       />
                     </div>
                   </div>
@@ -7282,7 +7282,7 @@ export function AgentJobsClient({
                   <label className="grid gap-1.5 text-xs font-bold text-slate-300">
                     Tipo
                     <select
-                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                      className="h-10 rounded-lg border border-white/10 bg-[#07090f] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                       value={manualGraphNodeForm.nodeType}
                       onChange={(event) =>
                         setManualGraphNodeForm((current) => ({
@@ -7309,7 +7309,7 @@ export function AgentJobsClient({
                   <label className="grid gap-1.5 text-xs font-bold text-slate-300">
                     Titolo nodo
                     <input
-                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                      className="h-10 rounded-lg border border-white/10 bg-[#07090f] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                       value={manualGraphNodeForm.title}
                       onChange={(event) =>
                         setManualGraphNodeForm((current) => ({
@@ -7325,7 +7325,7 @@ export function AgentJobsClient({
                 <label className="mt-2 grid gap-1.5 text-xs font-bold text-slate-300">
                   Sommario
                   <textarea
-                    className="min-h-24 rounded-lg border border-white/10 bg-[#050914] px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                    className="min-h-24 rounded-lg border border-white/10 bg-[#07090f] px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                     value={manualGraphNodeForm.summary}
                     onChange={(event) =>
                       setManualGraphNodeForm((current) => ({
@@ -7341,7 +7341,7 @@ export function AgentJobsClient({
                   <label className="grid gap-1.5 text-xs font-bold text-slate-300">
                     Tag
                     <input
-                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                      className="h-10 rounded-lg border border-white/10 bg-[#07090f] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                       value={manualGraphNodeForm.tags}
                       onChange={(event) =>
                         setManualGraphNodeForm((current) => ({
@@ -7355,7 +7355,7 @@ export function AgentJobsClient({
                   <label className="grid gap-1.5 text-xs font-bold text-slate-300">
                     Sorgente
                     <select
-                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                      className="h-10 rounded-lg border border-white/10 bg-[#07090f] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                       value={manualGraphNodeForm.sourceType}
                       onChange={(event) =>
                         setManualGraphNodeForm((current) => ({
@@ -7375,7 +7375,7 @@ export function AgentJobsClient({
                   <label className="grid gap-1.5 text-xs font-bold text-slate-300">
                     Confidence
                     <select
-                      className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
+                      className="h-10 rounded-lg border border-white/10 bg-[#07090f] px-3 text-sm text-white outline-none transition focus:border-cyan-300/70"
                       value={manualGraphNodeForm.confidence}
                       onChange={(event) =>
                         setManualGraphNodeForm((current) => ({
@@ -7394,7 +7394,7 @@ export function AgentJobsClient({
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                   <input
-                    className="h-10 rounded-lg border border-white/10 bg-[#050914] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
+                    className="h-10 rounded-lg border border-white/10 bg-[#07090f] px-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70"
                     value={manualGraphNodeForm.sourceUrl}
                     onChange={(event) =>
                       setManualGraphNodeForm((current) => ({
@@ -8220,7 +8220,7 @@ export function AgentJobsClient({
                 ].map((metric) => (
                   <div
                     key={metric.label}
-                    className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-2"
+                    className="min-w-0 rounded-lg border border-white/10 bg-[#07090f] p-2"
                   >
                     <p className="truncate text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
                       {metric.label}
@@ -8287,7 +8287,7 @@ export function AgentJobsClient({
             ].map(([title, body]) => (
               <div
                 key={title}
-                className="min-w-0 rounded-md border border-white/10 bg-[#050914] p-2"
+                className="min-w-0 rounded-md border border-white/10 bg-[#07090f] p-2"
               >
                 <p className="font-black text-white">{title}</p>
                 <p className="mt-1 text-[11px] leading-4 text-slate-500">
@@ -9949,7 +9949,7 @@ export function AgentJobsClient({
                   );
                 })()}
 
-                <section className="rounded-lg border border-white/10 bg-[#050914] p-3 sm:p-4">
+                <section className="rounded-lg border border-white/10 bg-[#07090f] p-3 sm:p-4">
                   <div className="flex items-center justify-between gap-3">
                     <h4 className="font-black text-white">Connessioni</h4>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-bold text-slate-400">
@@ -10110,7 +10110,7 @@ export function AgentJobsClient({
                       </div>
                     </section>
 
-                    <section className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 sm:p-4">
+                    <section className="min-w-0 rounded-lg border border-white/10 bg-[#07090f] p-3 sm:p-4">
                       <div className="flex items-center gap-2">
                         <MessageSquareText className="h-4 w-4 text-righello-pink" />
                         <h4 className="font-black">
@@ -10194,7 +10194,7 @@ export function AgentJobsClient({
                           reviewDetails.artifacts.map((artifact) => (
                             <div
                               key={artifact.id}
-                              className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300"
+                              className="min-w-0 rounded-lg border border-white/10 bg-[#07090f] p-3 text-xs leading-5 text-slate-300"
                             >
                               <p className="break-words font-bold text-white">
                                 {artifact.label}
@@ -10222,7 +10222,7 @@ export function AgentJobsClient({
                           reviewDetails.events.map((event) => (
                             <div
                               key={event.id}
-                              className="min-w-0 rounded-lg border border-white/10 bg-[#050914] p-3 text-xs leading-5 text-slate-300"
+                              className="min-w-0 rounded-lg border border-white/10 bg-[#07090f] p-3 text-xs leading-5 text-slate-300"
                             >
                               <div className="flex min-w-0 items-center justify-between gap-2">
                                 <p className="min-w-0 truncate font-bold text-white">

@@ -177,7 +177,7 @@ type HeatmapDaySelection = {
 
 const pageClass = "optima-ops-page min-h-0";
 const panelClass =
-  "rounded-[8px] border border-white/10 bg-[#0a1020]/90 shadow-[0_18px_70px_rgba(0,0,0,0.26)]";
+  "rounded-xl border border-white/10 bg-[#0a1020]/90 shadow-[0_18px_70px_rgba(0,0,0,0.26)]";
 const nativeDateTimeInputClass =
   "optima-native-date-time min-w-0 max-w-full shrink border-white/10 bg-black/25 text-center text-white [color-scheme:dark] focus-visible:ring-righello-pink";
 const defaultWorkStartTime = "09:00";
@@ -881,7 +881,7 @@ export default function PresenzePage() {
       <div className="optima-ops-container optima-ops-stack relative overflow-x-clip">
         <header className="optima-ops-header">
           <div className="min-w-0">
-            <Badge className="mb-3 w-fit rounded-[8px] border border-righello-pink/30 bg-righello-pink/15 text-righello-pink">
+            <Badge className="mb-3 w-fit rounded-xl border border-righello-pink/30 bg-righello-pink/15 text-righello-pink">
               <Building2 className="mr-2 h-3.5 w-3.5" />
               Presenza ufficio
             </Badge>
@@ -900,11 +900,11 @@ export default function PresenzePage() {
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className={cn("h-11 rounded-[8px]", nativeDateTimeInputClass)}
+              className={cn("h-11 rounded-xl", nativeDateTimeInputClass)}
             />
             <Button
               variant="outline"
-              className="h-11 w-full min-w-0 rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="h-11 w-full min-w-0 rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10"
               onClick={() => load("refresh")}
               disabled={refreshing}
             >
@@ -945,7 +945,7 @@ export default function PresenzePage() {
 
             <div className="space-y-5 p-5">
               <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                <div className="min-w-0 overflow-hidden rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+                <div className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-sm text-slate-400">Entrata</p>
                   <p className="mt-1 text-3xl font-black text-white">
                     {formatTime(self?.checkInAt)}
@@ -962,12 +962,12 @@ export default function PresenzePage() {
                       setCheckInTimeDirty(true);
                     }}
                     className={cn(
-                      "mt-3 h-10 rounded-[8px]",
+                      "mt-3 h-10 rounded-xl",
                       nativeDateTimeInputClass,
                     )}
                   />
                 </div>
-                <div className="min-w-0 overflow-hidden rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+                <div className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-sm text-slate-400">Uscita</p>
                   <p className="mt-1 text-3xl font-black text-white">
                     {formatTime(self?.checkOutAt)}
@@ -984,7 +984,7 @@ export default function PresenzePage() {
                       setCheckOutTimeDirty(true);
                     }}
                     className={cn(
-                      "mt-3 h-10 rounded-[8px]",
+                      "mt-3 h-10 rounded-xl",
                       nativeDateTimeInputClass,
                     )}
                   />
@@ -994,7 +994,7 @@ export default function PresenzePage() {
               {/* 2026-06-24: reminder task-count prima del check-out (richiesta Edis).
                   Se non ci sono task oggi, mostro un banner soft + bottone "Aggiungi task veloce"
                   che apre un dialog inline. Il check-out resta funzionante in entrambi i casi. */}
-              <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
@@ -1084,7 +1084,7 @@ export default function PresenzePage() {
 
               <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <Button
-                  className="min-h-12 min-w-0 rounded-[8px] bg-righello-pink text-white hover:bg-righello-pink-dark"
+                  className="min-h-12 min-w-0 rounded-xl bg-righello-pink text-white hover:bg-righello-pink-dark"
                   onClick={() =>
                     mutateSelf(
                       "check-in",
@@ -1102,7 +1102,7 @@ export default function PresenzePage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-h-12 min-w-0 rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  className="min-h-12 min-w-0 rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10"
                   onClick={() =>
                     mutateSelf(
                       "check-out",
@@ -1120,7 +1120,7 @@ export default function PresenzePage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-h-12 min-w-0 rounded-[8px] border-amber-300/25 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 disabled:opacity-40"
+                  className="min-h-12 min-w-0 rounded-xl border-amber-300/25 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 disabled:opacity-40"
                   disabled={!self?.checkOutAt}
                   onClick={() =>
                     mutateSelf("undo-check-out")
@@ -1133,7 +1133,7 @@ export default function PresenzePage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-h-12 min-w-0 rounded-[8px] border-red-400/30 bg-red-950/25 text-red-100 hover:bg-red-500/15"
+                  className="min-h-12 min-w-0 rounded-xl border-red-400/30 bg-red-950/25 text-red-100 hover:bg-red-500/15"
                   onClick={() =>
                     mutateSelf("absence")
                       .then(() => toast.success("Assenza registrata"))
@@ -1144,7 +1144,7 @@ export default function PresenzePage() {
                 </Button>
               </div>
 
-              <div className="rounded-[8px] border border-white/10 bg-black/20 p-4">
+              <div className="rounded-xl border border-white/10 bg-black/20 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm text-slate-400">
@@ -1169,13 +1169,13 @@ export default function PresenzePage() {
                   dato dai minuti consuntivati sulle task.
                 </p>
                 {self?.assumedPresence && (
-                  <div className="mt-3 rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100">
+                  <div className="mt-3 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100">
                     Presenza direzione assunta: nessuna timbratura richiesta
                     finche non viene segnata un'assenza.
                   </div>
                 )}
                 {self?.presenceSignal && (
-                  <div className="mt-3 rounded-[8px] border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+                  <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
                     {self.presenceSignal === "late"
                       ? `Entrata oltre la tolleranza di ${formatMinutes(self.minutesLate)}.`
                       : `Uscita anticipata di ${formatMinutes(self.minutesEarly)} rispetto alla giornata indicativa.`}
@@ -1186,7 +1186,7 @@ export default function PresenzePage() {
               <Button
                 asChild
                 variant="outline"
-                className="w-full rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
+                className="w-full rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10"
               >
                 <Link href="/rapportini">
                   Apri rapportino attività
@@ -1259,7 +1259,7 @@ export default function PresenzePage() {
                   Aggiornamento automatico ogni 30 secondi.
                 </p>
               </div>
-              <Badge className="w-fit rounded-[8px] border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">
+              <Badge className="w-fit rounded-xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">
                 <Users className="mr-2 h-3.5 w-3.5" />
                 {payload.people.length} persone
               </Badge>
@@ -1486,7 +1486,7 @@ function PresenceCalendarHeatmap({
     <section className={cn(panelClass, "overflow-hidden")}>
       <div className="flex flex-col gap-4 border-b border-white/10 p-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <Badge className="mb-3 w-fit rounded-[8px] border border-cyan-300/25 bg-cyan-300/10 text-cyan-100">
+          <Badge className="mb-3 w-fit rounded-xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-100">
             <CalendarDays className="mr-2 h-3.5 w-3.5" />
             Calendario presenze
           </Badge>
@@ -1501,12 +1501,12 @@ function PresenceCalendarHeatmap({
               ? "Click sulla data: vista aggregata del giorno. Click sulla cella persona: dettaglio e correzione della giornata di quel lavoratore."
               : "La vista calendario legge il mese come registro: presenti, assenti, ritardi e uscite anticipate."}
           </p>
-          <div className="mt-4 grid w-full max-w-md grid-cols-2 rounded-[8px] border border-white/10 bg-black/30 p-1 text-sm">
+          <div className="mt-4 grid w-full max-w-md grid-cols-2 rounded-xl border border-white/10 bg-black/30 p-1 text-sm">
             <button
               type="button"
               onClick={() => setViewMode("heatmap")}
               className={cn(
-                "rounded-[7px] px-3 py-2 font-bold text-slate-400 transition",
+                "rounded-lg px-3 py-2 font-bold text-slate-400 transition",
                 viewMode === "heatmap" &&
                   "bg-righello-pink text-white shadow-[0_10px_28px_rgba(224,64,133,0.24)]",
               )}
@@ -1517,7 +1517,7 @@ function PresenceCalendarHeatmap({
               type="button"
               onClick={() => setViewMode("calendar")}
               className={cn(
-                "rounded-[7px] px-3 py-2 font-bold text-slate-400 transition",
+                "rounded-lg px-3 py-2 font-bold text-slate-400 transition",
                 viewMode === "calendar" &&
                   "bg-righello-cyan text-[#041118] shadow-[0_10px_28px_rgba(34,211,238,0.18)]",
               )}
@@ -1529,7 +1529,7 @@ function PresenceCalendarHeatmap({
             <select
               value={personFilter}
               onChange={(event) => setPersonFilter(event.target.value)}
-              className="mt-3 h-10 w-full max-w-sm rounded-[8px] border border-white/10 bg-black/30 px-3 text-sm text-white outline-none transition focus:border-righello-cyan"
+              className="mt-3 h-10 w-full max-w-sm rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white outline-none transition focus:border-righello-cyan"
             >
               <option value="all">Tutte le persone</option>
               {orderedCalendarPeople.map((person) => (
@@ -1541,7 +1541,7 @@ function PresenceCalendarHeatmap({
           )}
         </div>
         <div className="w-full space-y-2 text-sm text-slate-300 lg:min-w-[34rem] lg:max-w-[38rem]">
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                 Seleziona mese
@@ -1551,7 +1551,7 @@ function PresenceCalendarHeatmap({
                 variant="outline"
                 size="sm"
                 onClick={() => onDateChange(today())}
-                className="h-8 rounded-[8px] border-righello-cyan/25 bg-righello-cyan/10 px-3 text-xs text-righello-cyan hover:bg-righello-cyan/15"
+                className="h-8 rounded-xl border-righello-cyan/25 bg-righello-cyan/10 px-3 text-xs text-righello-cyan hover:bg-righello-cyan/15"
               >
                 Oggi
               </Button>
@@ -1564,7 +1564,7 @@ function PresenceCalendarHeatmap({
                 onClick={() =>
                   onDateChange(shiftMonth(calendar.monthStart, -1))
                 }
-                className="h-10 rounded-[8px] border-white/10 bg-black/20 p-0 text-white hover:bg-white/10"
+                className="h-10 rounded-xl border-white/10 bg-black/20 p-0 text-white hover:bg-white/10"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -1575,7 +1575,7 @@ function PresenceCalendarHeatmap({
                   onDateChange(dateFromMonthInput(event.target.value))
                 }
                 className={cn(
-                  "h-10 rounded-[8px] text-left",
+                  "h-10 rounded-xl text-left",
                   nativeDateTimeInputClass,
                 )}
               />
@@ -1584,38 +1584,38 @@ function PresenceCalendarHeatmap({
                 variant="outline"
                 aria-label="Mese successivo"
                 onClick={() => onDateChange(shiftMonth(calendar.monthStart, 1))}
-                className="h-10 rounded-[8px] border-white/10 bg-black/20 p-0 text-white hover:bg-white/10"
+                className="h-10 rounded-xl border-white/10 bg-black/20 p-0 text-white hover:bg-white/10"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-5">
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Periodo</p>
               <p className="mt-1 font-black capitalize text-white">
                 {formatMonthLabel(calendar.monthStart)}
               </p>
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Persone</p>
               <p className="mt-1 font-black text-white">
                 {visiblePeople.length}
               </p>
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Presenze</p>
               <p className="mt-1 font-black text-emerald-100">
                 {monthStats.presenceDays}
               </p>
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Assenze</p>
               <p className="mt-1 font-black text-red-100">
                 {monthStats.absenceDays}
               </p>
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Anomalie</p>
               <p className="mt-1 font-black text-amber-100">
                 {monthStats.anomalyDays}
@@ -1642,7 +1642,7 @@ function PresenceCalendarHeatmap({
               return (
                 <article
                   key={person.id}
-                  className="overflow-hidden rounded-[8px] border border-white/10 bg-black/20"
+                  className="overflow-hidden rounded-xl border border-white/10 bg-black/20"
                 >
                   <div className="border-b border-white/10 p-4">
                     <div className="flex min-w-0 items-start justify-between gap-3">
@@ -1654,7 +1654,7 @@ function PresenceCalendarHeatmap({
                           {person.role}
                         </p>
                       </div>
-                      <div className="shrink-0 rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
+                      <div className="shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
                           Attività
                         </p>
@@ -1664,25 +1664,25 @@ function PresenceCalendarHeatmap({
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                      <div className="rounded-[8px] border border-emerald-300/15 bg-emerald-300/10 px-2 py-2">
+                      <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/10 px-2 py-2">
                         <p className="text-slate-400">Presenze</p>
                         <p className="mt-1 text-base font-black text-emerald-100">
                           {stats.presenceDays}
                         </p>
                       </div>
-                      <div className="rounded-[8px] border border-red-300/15 bg-red-300/10 px-2 py-2">
+                      <div className="rounded-xl border border-red-300/15 bg-red-300/10 px-2 py-2">
                         <p className="text-slate-400">Assenze</p>
                         <p className="mt-1 text-base font-black text-red-100">
                           {stats.absenceDays}
                         </p>
                       </div>
-                      <div className="rounded-[8px] border border-cyan-300/15 bg-cyan-300/10 px-2 py-2">
+                      <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/10 px-2 py-2">
                         <p className="text-slate-400">Task</p>
                         <p className="mt-1 text-base font-black text-cyan-100">
                           {stats.taskCount}
                         </p>
                       </div>
-                      <div className="rounded-[8px] border border-amber-300/15 bg-amber-300/10 px-2 py-2">
+                      <div className="rounded-xl border border-amber-300/15 bg-amber-300/10 px-2 py-2">
                         <p className="text-slate-400">Orari</p>
                         <p className="mt-1 text-base font-black text-amber-100">
                           {stats.anomalyDays}
@@ -1720,7 +1720,7 @@ function PresenceCalendarHeatmap({
               <div className="grid items-end gap-1" style={heatmapGridStyle}>
                 <div
                   className={cn(
-                    "sticky left-0 z-20 flex items-center gap-2 rounded-[7px] bg-[#0a1020] px-2 pb-2 pt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 shadow-[12px_0_24px_rgba(5,9,20,0.85)]",
+                    "sticky left-0 z-20 flex items-center gap-2 rounded-lg bg-[#0a1020] px-2 pb-2 pt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 shadow-[12px_0_24px_rgba(5,9,20,0.85)]",
                     compactPeopleColumn
                       ? "justify-center px-1"
                       : "justify-between",
@@ -1740,7 +1740,7 @@ function PresenceCalendarHeatmap({
                     onClick={() =>
                       setCompactPeopleColumn((current) => !current)
                     }
-                    className="h-8 w-8 rounded-[8px] border-white/10 bg-white/[0.04] p-0 text-slate-300 hover:border-righello-cyan/35 hover:bg-righello-cyan/10 hover:text-righello-cyan"
+                    className="h-8 w-8 rounded-xl border-white/10 bg-white/[0.04] p-0 text-slate-300 hover:border-righello-cyan/35 hover:bg-righello-cyan/10 hover:text-righello-cyan"
                   >
                     {compactPeopleColumn ? (
                       <PanelLeftOpen className="h-4 w-4" />
@@ -1756,7 +1756,7 @@ function PresenceCalendarHeatmap({
                     onClick={() => openHeatmapDayDetails(day)}
                     aria-label={`Apri dettaglio giorno ${formatDateLabel(day)}`}
                     className={cn(
-                      "rounded-[7px] px-1 pb-2 pt-1 text-center transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                      "rounded-lg px-1 pb-2 pt-1 text-center transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                       day === selectedDate &&
                         "bg-righello-pink/15 ring-1 ring-righello-pink/35",
                     )}
@@ -1775,7 +1775,7 @@ function PresenceCalendarHeatmap({
                     <div
                       title={`${person.name} - ${person.role}`}
                       className={cn(
-                        "sticky left-0 z-10 min-w-0 rounded-[8px] border border-white/10 bg-[#0a1020] shadow-[12px_0_24px_rgba(5,9,20,0.85)]",
+                        "sticky left-0 z-10 min-w-0 rounded-xl border border-white/10 bg-[#0a1020] shadow-[12px_0_24px_rgba(5,9,20,0.85)]",
                         compactPeopleColumn
                           ? "flex min-h-12 items-center justify-center px-1.5 py-2 text-center"
                           : "px-3 py-3",
@@ -1928,7 +1928,7 @@ function PresenceMonthCalendar({
 
   return (
     <div className="p-4">
-      <div className="mb-4 rounded-[8px] border border-white/10 bg-black/20 p-4">
+      <div className="mb-4 rounded-xl border border-white/10 bg-black/20 p-4">
         <h3 className="text-lg font-black text-white">
           Registro mensile presenze
         </h3>
@@ -1938,16 +1938,16 @@ function PresenceMonthCalendar({
           persona-giorno.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
-          <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">
             Presente
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-amber-100">
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-amber-100">
             Ritardo / uscita anticipata
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-red-300/30 bg-red-500/10 px-2.5 py-1 text-red-100">
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/10 px-2.5 py-1 text-red-100">
             Assenza
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-[7px] border border-slate-300/20 bg-slate-300/10 px-2.5 py-1 text-slate-200">
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300/20 bg-slate-300/10 px-2.5 py-1 text-slate-200">
             Festivo non lavorativo
           </span>
         </div>
@@ -1971,7 +1971,7 @@ function PresenceMonthCalendar({
               onClick={() => openDay(date, records)}
               onKeyDown={(event) => handleDayKeyDown(event, date, records)}
               className={cn(
-                "w-full cursor-pointer rounded-[8px] border p-4 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                "w-full cursor-pointer rounded-xl border p-4 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                 calendarDayTone(records),
                 date === selectedDate &&
                   "border-righello-pink/65 shadow-[0_0_0_1px_rgba(224,64,133,0.35)]",
@@ -2006,7 +2006,7 @@ function PresenceMonthCalendar({
                   <div
                     key={`${date}-${person.id}`}
                     className={cn(
-                      "rounded-[7px] border px-3 py-2 text-sm",
+                      "rounded-lg border px-3 py-2 text-sm",
                       attendanceEventTone(day),
                     )}
                   >
@@ -2052,7 +2052,7 @@ function PresenceMonthCalendar({
               return (
                 <div
                   key={`empty-${index}`}
-                  className="min-h-[148px] rounded-[8px] border border-white/[0.04] bg-white/[0.015]"
+                  className="min-h-[148px] rounded-xl border border-white/[0.04] bg-white/[0.015]"
                 />
               );
             }
@@ -2073,7 +2073,7 @@ function PresenceMonthCalendar({
                 onClick={() => openDay(date, records)}
                 onKeyDown={(event) => handleDayKeyDown(event, date, records)}
                 className={cn(
-                  "min-h-[148px] cursor-pointer rounded-[8px] border p-3 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+                  "min-h-[148px] cursor-pointer rounded-xl border p-3 text-left transition hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
                   calendarDayTone(records),
                   date === selectedDate &&
                     "border-righello-pink/70 shadow-[0_0_0_1px_rgba(224,64,133,0.35)]",
@@ -2177,7 +2177,7 @@ function CalendarHeatmapCell({
         aria-label={calendarDayTitle(person, day)}
         onClick={handleSelect}
         className={cn(
-          "group relative flex h-12 flex-col items-center justify-center overflow-hidden rounded-[7px] border text-[10px] font-black transition hover:z-20 hover:scale-[1.08] hover:border-white/55 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+          "group relative flex h-12 flex-col items-center justify-center overflow-hidden rounded-lg border text-[10px] font-black transition hover:z-20 hover:scale-[1.08] hover:border-white/55 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
           calendarCellClass(day),
           timeSignal && day.status !== "absent" && timeSignal.cellTone,
           selected &&
@@ -2219,7 +2219,7 @@ function CalendarHeatmapCell({
       aria-label={calendarDayTitle(person, day)}
       onClick={handleSelect}
       className={cn(
-        "group relative flex h-[86px] flex-col items-center justify-center overflow-hidden rounded-[8px] border px-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
+        "group relative flex h-[86px] flex-col items-center justify-center overflow-hidden rounded-xl border px-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-righello-pink",
         calendarCellClass(day),
         timeSignal && day.status !== "absent" && timeSignal.cellTone,
         selected && "outline outline-2 outline-offset-2 outline-righello-pink",
@@ -2369,7 +2369,7 @@ function HeatmapCellContextBanner({
     <div className="border-t border-white/10 px-4 py-4">
       <div
         className={cn(
-          "overflow-hidden rounded-[8px] border bg-[#07101d]/95 text-white shadow-[0_20px_70px_rgba(0,0,0,0.28)]",
+          "overflow-hidden rounded-xl border bg-[#07101d]/95 text-white shadow-[0_20px_70px_rgba(0,0,0,0.28)]",
           contextTone,
         )}
       >
@@ -2383,7 +2383,7 @@ function HeatmapCellContextBanner({
               <h3 className="mt-1 flex min-w-0 items-center gap-2 text-xl font-black text-white">
                 <span
                   className={cn(
-                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border",
+                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
                     timeSignal?.chipTone ??
                       "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
                   )}
@@ -2404,14 +2404,14 @@ function HeatmapCellContextBanner({
                 type="button"
                 variant="outline"
                 onClick={onOpenDay}
-                className="h-9 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-black text-cyan-100 hover:bg-cyan-300/15"
+                className="h-9 rounded-xl border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-black text-cyan-100 hover:bg-cyan-300/15"
               >
                 Apri giorno
               </Button>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-[8px] border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+                className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
                 aria-label="Chiudi dettaglio cella"
               >
                 <X className="h-4 w-4" />
@@ -2422,7 +2422,7 @@ function HeatmapCellContextBanner({
 
         <div className="grid gap-4 p-4 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Segnale</p>
               <p className="mt-1 text-base font-black text-white">
                 {timeSignal?.label ?? signal.label}
@@ -2433,7 +2433,7 @@ function HeatmapCellContextBanner({
                 </p>
               ) : null}
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Valore operativo</p>
               <p className="mt-1 text-base font-black text-white">
                 {formatMinutes(day.activityMinutes)} · {day.taskCount} task
@@ -2445,7 +2445,7 @@ function HeatmapCellContextBanner({
                   : ""}
               </p>
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-xs text-slate-500">Team nel giorno</p>
               <p className="mt-1 text-base font-black text-white">
                 {daySummary.present} presenti · {daySummary.absent} assenti ·{" "}
@@ -2455,7 +2455,7 @@ function HeatmapCellContextBanner({
           </div>
 
           {isManager && (
-            <div className="rounded-[8px] border border-righello-cyan/20 bg-righello-cyan/10 p-3">
+            <div className="rounded-xl border border-righello-cyan/20 bg-righello-cyan/10 p-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-righello-cyan">
@@ -2467,7 +2467,7 @@ function HeatmapCellContextBanner({
                     aggregata del team.
                   </p>
                 </div>
-                <div className="rounded-[8px] border border-white/10 bg-black/20 px-3 py-2 text-xs">
+                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs">
                   <p className="text-slate-500">Stato attuale</p>
                   <p className="mt-0.5 font-black text-white">
                     {attendanceEventLabel(day)}
@@ -2478,7 +2478,7 @@ function HeatmapCellContextBanner({
                   variant="outline"
                   onClick={() => mutateSelectedDay("absence")}
                   disabled={adminSavingAction !== null}
-                  className="min-h-10 shrink-0 rounded-[8px] border-red-300/30 bg-red-500/10 px-3 text-xs font-black text-red-100 hover:bg-red-500/15"
+                  className="min-h-10 shrink-0 rounded-xl border-red-300/30 bg-red-500/10 px-3 text-xs font-black text-red-100 hover:bg-red-500/15"
                 >
                   {adminSavingAction === "absence" ? (
                     <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -2496,7 +2496,7 @@ function HeatmapCellContextBanner({
                     setAdminCheckInTime(event.target.value);
                     setAdminCheckInDirty(true);
                   }}
-                  className={cn("h-10 rounded-[8px]", nativeDateTimeInputClass)}
+                  className={cn("h-10 rounded-xl", nativeDateTimeInputClass)}
                   aria-label="Entrata amministrativa"
                 />
                 <Button
@@ -2511,7 +2511,7 @@ function HeatmapCellContextBanner({
                     )
                   }
                   disabled={adminSavingAction !== null}
-                  className="min-h-10 rounded-[8px] border-emerald-300/25 bg-emerald-300/10 px-3 text-xs font-black text-emerald-100 hover:bg-emerald-300/15"
+                  className="min-h-10 rounded-xl border-emerald-300/25 bg-emerald-300/10 px-3 text-xs font-black text-emerald-100 hover:bg-emerald-300/15"
                 >
                   {adminSavingAction === "check-in" ? (
                     <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -2527,7 +2527,7 @@ function HeatmapCellContextBanner({
                     setAdminCheckOutTime(event.target.value);
                     setAdminCheckOutDirty(true);
                   }}
-                  className={cn("h-10 rounded-[8px]", nativeDateTimeInputClass)}
+                  className={cn("h-10 rounded-xl", nativeDateTimeInputClass)}
                   aria-label="Uscita amministrativa"
                 />
                 <Button
@@ -2542,7 +2542,7 @@ function HeatmapCellContextBanner({
                     )
                   }
                   disabled={adminSavingAction !== null}
-                  className="min-h-10 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-black text-cyan-100 hover:bg-cyan-300/15"
+                  className="min-h-10 rounded-xl border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-black text-cyan-100 hover:bg-cyan-300/15"
                 >
                   {adminSavingAction === "check-out" ? (
                     <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -2562,7 +2562,7 @@ function HeatmapCellContextBanner({
                   variant="outline"
                   onClick={() => mutateSelectedDay("undo-check-out")}
                   disabled={adminSavingAction !== null || !day.checkOutAt}
-                  className="min-h-10 shrink-0 rounded-[8px] border-amber-300/25 bg-amber-300/10 px-3 text-xs font-black text-amber-100 hover:bg-amber-300/15 disabled:opacity-40"
+                  className="min-h-10 shrink-0 rounded-xl border-amber-300/25 bg-amber-300/10 px-3 text-xs font-black text-amber-100 hover:bg-amber-300/15 disabled:opacity-40"
                 >
                   {adminSavingAction === "undo-check-out" ? (
                     <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -2575,12 +2575,12 @@ function HeatmapCellContextBanner({
             </div>
           )}
 
-          <div className="rounded-[8px] border border-white/10 bg-black/20 p-3">
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                 Task del giorno
               </p>
-              <span className="rounded-[7px] border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-black text-slate-300">
+              <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-black text-slate-300">
                 {taskTitles.length}
               </span>
             </div>
@@ -2589,14 +2589,14 @@ function HeatmapCellContextBanner({
                 {taskTitles.map((title, index) => (
                   <li
                     key={`${day.date}-${selection.person.id}-${index}`}
-                    className="rounded-[7px] border border-white/10 bg-white/[0.035] px-3 py-2 text-sm leading-5 text-slate-100"
+                    className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-sm leading-5 text-slate-100"
                   >
                     {title}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 rounded-[7px] border border-dashed border-white/12 px-3 py-3 text-sm leading-6 text-slate-400">
+              <p className="mt-3 rounded-lg border border-dashed border-white/12 px-3 py-3 text-sm leading-6 text-slate-400">
                 Nessuna task collegata a questa persona nel giorno selezionato.
               </p>
             )}
@@ -2673,7 +2673,7 @@ function HeatmapSignalDialog({
         aria-live="polite"
         aria-label={`Dettaglio ${meta.label} di ${selection.person.name}`}
         className={cn(
-          "pointer-events-auto overflow-hidden rounded-[8px] border bg-[#070d1a]/95 text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl",
+          "pointer-events-auto overflow-hidden rounded-xl border bg-[#070d1a]/95 text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl",
           meta.tone,
         )}
       >
@@ -2688,7 +2688,7 @@ function HeatmapSignalDialog({
                 <span
                   data-signal-pop
                   className={cn(
-                    "inline-flex h-9 w-9 items-center justify-center rounded-[8px] border",
+                    "inline-flex h-9 w-9 items-center justify-center rounded-xl border",
                     meta.chipTone,
                   )}
                 >
@@ -2700,7 +2700,7 @@ function HeatmapSignalDialog({
             <button
               type="button"
               onClick={onClose}
-              className="relative rounded-[8px] border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+              className="relative rounded-xl border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
               aria-label="Chiudi dettaglio segnale"
             >
               <X className="h-4 w-4" />
@@ -2710,7 +2710,7 @@ function HeatmapSignalDialog({
         <div className="space-y-3 p-4">
           <div
             data-signal-pop
-            className="rounded-[8px] border border-white/10 bg-black/24 p-3"
+            className="rounded-xl border border-white/10 bg-black/24 p-3"
           >
             <p className="text-sm font-bold text-white">
               {selection.person.name}
@@ -2723,13 +2723,13 @@ function HeatmapSignalDialog({
             {meta.description}
           </p>
           <div data-signal-pop className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-slate-500">Entrata</p>
               <p className="mt-1 text-base font-black text-white">
                 {formatTime(day.checkInAt)}
               </p>
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
               <p className="text-slate-500">Uscita</p>
               <p className="mt-1 text-base font-black text-white">
                 {formatTime(day.checkOutAt)}
@@ -2738,7 +2738,7 @@ function HeatmapSignalDialog({
           </div>
           <div
             data-signal-pop
-            className="rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm text-cyan-50"
+            className="rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm text-cyan-50"
           >
             <div className="flex items-start gap-2">
               <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-righello-cyan" />
@@ -2775,7 +2775,7 @@ function HeatmapDayDialog({
         role="dialog"
         aria-modal="true"
         aria-label={`Dettaglio giornata ${formatDateLabel(selection.date)}`}
-        className="max-h-[86dvh] w-full max-w-3xl overflow-hidden rounded-[8px] border border-white/10 bg-[#070d1a] text-white shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+        className="max-h-[86dvh] w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-[#070d1a] text-white shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
       >
         <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
           <div className="min-w-0">
@@ -2789,7 +2789,7 @@ function HeatmapDayDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-[8px] border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+            className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
             aria-label="Chiudi dettaglio giorno"
           >
             <X className="h-4 w-4" />
@@ -2798,25 +2798,25 @@ function HeatmapDayDialog({
 
         <div className="max-h-[calc(86dvh-96px)] overflow-y-auto p-5">
           <div className="grid gap-2 text-sm sm:grid-cols-4">
-            <div className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-3">
+            <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3">
               <p className="text-xs text-slate-400">Presenti</p>
               <p className="mt-1 text-xl font-black text-emerald-100">
                 {summary.present}
               </p>
             </div>
-            <div className="rounded-[8px] border border-red-300/20 bg-red-500/10 p-3">
+            <div className="rounded-xl border border-red-300/20 bg-red-500/10 p-3">
               <p className="text-xs text-slate-400">Assenze</p>
               <p className="mt-1 text-xl font-black text-red-100">
                 {summary.absent}
               </p>
             </div>
-            <div className="rounded-[8px] border border-slate-300/15 bg-slate-300/10 p-3">
+            <div className="rounded-xl border border-slate-300/15 bg-slate-300/10 p-3">
               <p className="text-xs text-slate-400">Festivi</p>
               <p className="mt-1 text-xl font-black text-slate-100">
                 {summary.holiday}
               </p>
             </div>
-            <div className="rounded-[8px] border border-amber-300/20 bg-amber-300/10 p-3">
+            <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-3">
               <p className="text-xs text-slate-400">Anomalie</p>
               <p className="mt-1 text-xl font-black text-amber-100">
                 {summary.late + summary.earlyExit}
@@ -2829,7 +2829,7 @@ function HeatmapDayDialog({
               <div
                 key={`${person.id}-${day.date}`}
                 className={cn(
-                  "rounded-[8px] border p-4",
+                  "rounded-xl border p-4",
                   attendanceEventTone(day),
                 )}
               >
@@ -2838,7 +2838,7 @@ function HeatmapDayDialog({
                     <p className="truncate font-black">{person.name}</p>
                     <p className="mt-1 text-xs opacity-75">{person.role}</p>
                   </div>
-                  <span className="w-fit rounded-[7px] border border-white/10 bg-black/15 px-2 py-1 text-xs font-black">
+                  <span className="w-fit rounded-lg border border-white/10 bg-black/15 px-2 py-1 text-xs font-black">
                     {attendanceEventLabel(day)}
                   </span>
                 </div>
@@ -2876,7 +2876,7 @@ function HeatmapDayDialog({
           </div>
 
           {!taskTitles.length ? (
-            <p className="mt-4 rounded-[8px] border border-dashed border-white/12 p-4 text-sm text-slate-400">
+            <p className="mt-4 rounded-xl border border-dashed border-white/12 p-4 text-sm text-slate-400">
               Nessuna task collegata a questa giornata.
             </p>
           ) : null}
@@ -2891,7 +2891,7 @@ function PresenceBadge({ status }: { status: PresenceStatus }) {
   const Icon = meta.icon;
   return (
     <Badge
-      className={cn("w-fit rounded-[8px] border px-3 py-1.5", meta.className)}
+      className={cn("w-fit rounded-xl border px-3 py-1.5", meta.className)}
     >
       <span className={cn("mr-2 h-2 w-2 rounded-full", meta.dot)} />
       <Icon className="mr-1.5 h-3.5 w-3.5" />
@@ -2917,7 +2917,7 @@ function SummaryCard({
   };
 
   return (
-    <div className={cn("rounded-[8px] border p-4", tones[tone])}>
+    <div className={cn("rounded-xl border p-4", tones[tone])}>
       <p className="text-sm font-semibold opacity-80">{label}</p>
       <p className="mt-2 text-3xl font-black">{value}</p>
     </div>
@@ -2957,7 +2957,7 @@ function PresenceColumn({
             />
           ))
         ) : (
-          <div className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-500">
+          <div className="rounded-xl border border-dashed border-white/10 p-5 text-sm text-slate-500">
             {empty}
           </div>
         )}
@@ -2974,7 +2974,7 @@ function PresenceMiniCard({
   onMarkAbsent?: (memberId: string, memberName: string) => Promise<void>;
 }) {
   return (
-    <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-4">
+    <div className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-black text-white">{person.name}</p>
@@ -2990,13 +2990,13 @@ function PresenceMiniCard({
         <p className="mt-2 text-xs text-cyan-100">Presenza direzione assunta</p>
       )}
       {person.presenceSignal && (
-        <Badge className="mt-3 rounded-[8px] border border-amber-300/25 bg-amber-300/10 text-amber-100">
+        <Badge className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 text-amber-100">
           {presenceSignalLabel(person)}
         </Badge>
       )}
       <div
         className={cn(
-          "mt-3 rounded-[8px] border px-3 py-2 text-xs font-semibold",
+          "mt-3 rounded-xl border px-3 py-2 text-xs font-semibold",
           availabilityClass(person.availability?.status),
         )}
       >
@@ -3013,7 +3013,7 @@ function PresenceMiniCard({
               toast.error(err.message),
             )
           }
-          className="mt-3 h-9 w-full rounded-[8px] border-red-400/30 bg-red-950/25 text-red-100 hover:bg-red-500/15 disabled:opacity-45"
+          className="mt-3 h-9 w-full rounded-xl border-red-400/30 bg-red-950/25 text-red-100 hover:bg-red-500/15 disabled:opacity-45"
         >
           {person.status === "absent" ? "Assenza già segnata" : "Segna assenza"}
         </Button>
@@ -3024,7 +3024,7 @@ function PresenceMiniCard({
 
 function OperationalOutlookCard({ person }: { person: PersonPresence }) {
   return (
-    <div className="min-w-0 rounded-[8px] border border-white/10 bg-[#070d1a] p-4">
+    <div className="min-w-0 rounded-xl border border-white/10 bg-[#070d1a] p-4">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="truncate text-base font-black text-white">
@@ -3034,7 +3034,7 @@ function OperationalOutlookCard({ person }: { person: PersonPresence }) {
         </div>
         <Badge
           className={cn(
-            "w-fit rounded-[8px] border px-3 py-1",
+            "w-fit rounded-xl border px-3 py-1",
             availabilityClass(person.availability?.status),
           )}
         >
@@ -3065,7 +3065,7 @@ function OperationalOutlookCard({ person }: { person: PersonPresence }) {
             </p>
           )}
         </div>
-        <div className="rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-2 text-left sm:text-right">
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left sm:text-right">
           <p className="text-xs text-slate-500">Carico breve</p>
           <p className="text-lg font-black text-white">
             {formatMinutes(person.plannedSoonMinutes || 0)}
@@ -3078,7 +3078,7 @@ function OperationalOutlookCard({ person }: { person: PersonPresence }) {
           {person.upcomingTasks.slice(0, 3).map((task) => (
             <span
               key={task.id}
-              className="max-w-full truncate rounded-[8px] border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300"
+              className="max-w-full truncate rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300"
             >
               {task.priority === "urgent" ? "Urgente · " : ""}
               {task.title}
@@ -3128,7 +3128,7 @@ function PersonRow({
           </p>
         )}
       </div>
-      <div className="min-w-0 rounded-[8px] border border-white/10 bg-white/[0.03] p-3">
+      <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-3">
         <p className="truncate text-xs font-semibold text-slate-400">
           {person.availability?.label}
         </p>
@@ -3147,7 +3147,7 @@ function PersonRow({
               toast.error(err.message),
             )
           }
-          className="h-9 rounded-[8px] border-red-400/30 bg-red-950/25 px-3 text-red-100 hover:bg-red-500/15 disabled:opacity-45"
+          className="h-9 rounded-xl border-red-400/30 bg-red-950/25 px-3 text-red-100 hover:bg-red-500/15 disabled:opacity-45"
         >
           Assenza
         </Button>

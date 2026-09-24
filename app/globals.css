@@ -60,47 +60,47 @@
   --righello-medium-gray: #8b8b8b;
 
   /* Semantic Colors */
-  --background: 0 0% 100%;
-  --foreground: 0 0% 10%;
+  --background: 30 20% 98%;
+  --foreground: 225 18% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 10%;
+  --card-foreground: 225 18% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 10%;
+  --popover-foreground: 225 18% 11%;
   --primary: 337 64% 56%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 10%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 10%;
+  --secondary: 225 20% 95%;
+  --secondary-foreground: 225 18% 11%;
+  --muted: 225 16% 95%;
+  --muted-foreground: 223 10% 43%;
+  --accent: 337 45% 95%;
+  --accent-foreground: 337 58% 38%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
+  --border: 225 15% 88%;
+  --input: 225 15% 86%;
   --ring: 190 94% 43%;
-  --radius: 0.625rem;
+  --radius: 0.875rem;
 }
 
 .dark {
-  --background: 0 0% 2%;
-  --foreground: 0 0% 98%;
-  --card: 0 0% 4%;
-  --card-foreground: 0 0% 98%;
-  --popover: 0 0% 5%;
-  --popover-foreground: 0 0% 98%;
+  --background: 228 31% 5%;
+  --foreground: 220 25% 97%;
+  --card: 225 24% 8%;
+  --card-foreground: 220 25% 97%;
+  --popover: 225 25% 7%;
+  --popover-foreground: 220 25% 97%;
   --primary: 337 64% 56%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 7%;
+  --secondary: 225 20% 11%;
   --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 9%;
-  --muted-foreground: 0 0% 65%;
-  --accent: 190 94% 43%;
+  --muted: 225 19% 12%;
+  --muted-foreground: 220 11% 63%;
+  --accent: 337 34% 15%;
   --accent-foreground: 0 0% 98%;
   --destructive: 0 62% 50%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 14%;
-  --input: 0 0% 14%;
+  --border: 220 16% 16%;
+  --input: 220 16% 18%;
   --ring: 190 94% 43%;
 }
 
@@ -134,10 +134,10 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: "Degular Display", sans-serif;
-  font-size: 1.125rem;
+  font-size: 1rem;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 /* Qui c'era `body:not([data-scroll-locked]) { overflow-y: auto }`: doveva
@@ -154,7 +154,8 @@ body {
 }
 
 .optima-ops-page {
-  min-height: calc(100svh - 73px);
+  position: relative;
+  min-height: calc(100svh - 72px);
   width: 100%;
   overflow-x: clip;
   overflow-y: visible;
@@ -162,7 +163,9 @@ body {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
   background:
-    linear-gradient(180deg, rgba(8, 13, 26, 0.98), rgba(5, 9, 20, 1)), #050914;
+    radial-gradient(circle at 8% -10%, rgba(214, 72, 126, 0.1), transparent 27rem),
+    radial-gradient(circle at 94% 2%, rgba(6, 182, 212, 0.055), transparent 25rem),
+    linear-gradient(180deg, #090b12 0%, #07090f 52%, #06080d 100%);
   color: #f8fafc;
 }
 
@@ -170,14 +173,14 @@ body {
   width: 100%;
   max-width: 80rem;
   margin-inline: auto;
-  padding: 1.25rem 1rem;
+  padding: 1rem;
 }
 
 .optima-ops-stack {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 .optima-ops-header {
@@ -192,14 +195,15 @@ body {
   font-weight: 900;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--righello-pink);
+  color: #f06a9e;
 }
 
 .optima-ops-title {
   max-width: 48rem;
   font-size: clamp(2rem, 4vw, 3.125rem);
   font-weight: 900;
-  line-height: 0.96;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
   color: #fff;
 }
 
@@ -211,9 +215,10 @@ body {
 }
 
 .optima-ops-surface {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.72);
-  box-shadow: 0 18px 60px rgba(2, 6, 23, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 1rem;
+  background: rgba(17, 21, 31, 0.82);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.22);
 }
 
 .optima-ops-toolbar {
@@ -221,8 +226,9 @@ body {
   min-width: 0;
   flex-direction: column;
   gap: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(15, 23, 42, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 0.875rem;
+  background: rgba(17, 21, 31, 0.7);
   padding: 0.75rem;
 }
 
@@ -251,7 +257,7 @@ body {
   }
 
   .optima-ops-container {
-    padding-block: 2rem;
+    padding-block: 1.5rem 2.25rem;
   }
 
   .optima-ops-header {
@@ -281,6 +287,62 @@ body {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
+  background: #07090f;
+  scrollbar-gutter: stable;
+}
+
+.optima-dashboard-content {
+  min-height: calc(100svh - 72px);
+  min-width: 0;
+  background:
+    radial-gradient(circle at 12% -8%, rgba(214, 72, 126, 0.07), transparent 26rem),
+    radial-gradient(circle at 92% 0%, rgba(6, 182, 212, 0.04), transparent 24rem),
+    #07090f;
+}
+
+.optima-dashboard-content > * {
+  min-width: 0;
+}
+
+.optima-dashboard-content > .container {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .optima-dashboard-content > .container {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .optima-dashboard-content > .container {
+    padding-block: 1.5rem 2.25rem;
+  }
+}
+
+[data-app-scroll-root] :is(h1, h2, h3) {
+  text-wrap: balance;
+}
+
+[data-app-scroll-root] :is(p, td, th, label, button, a) {
+  overflow-wrap: anywhere;
+}
+
+[data-app-scroll-root] a,
+[data-app-scroll-root] button,
+[data-app-scroll-root] input,
+[data-app-scroll-root] textarea,
+[data-app-scroll-root] [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 767px) {
+  [data-app-scroll-root] :is(button, a, input, select, textarea) {
+    scroll-margin-top: 5rem;
+  }
 }
 
 /* 2026-06-23: rimosso il forcing di `overscroll-behavior: auto` su desktop.
@@ -436,9 +498,9 @@ html[data-financial-visible="true"] .financial-sensitive {
 
 .optima-app-surface {
   background:
-    linear-gradient(180deg, rgba(214, 72, 126, 0.08), transparent 24rem),
-    linear-gradient(135deg, rgba(6, 182, 212, 0.06), transparent 30rem),
-    hsl(var(--background));
+    radial-gradient(circle at 18% -8%, rgba(214, 72, 126, 0.1), transparent 30rem),
+    radial-gradient(circle at 92% 0%, rgba(6, 182, 212, 0.055), transparent 28rem),
+    #07090f;
 }
 
 .optima-kicker {
@@ -450,18 +512,20 @@ html[data-financial-visible="true"] .financial-sensitive {
 }
 
 .optima-panel {
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(17, 24, 39, 0.08);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
 }
 
 .dark .optima-panel {
-  background: rgba(255, 255, 255, 0.045);
-  border-color: rgba(255, 255, 255, 0.09);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  background: rgba(17, 21, 31, 0.84);
+  border-color: rgba(255, 255, 255, 0.085);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
 }
 
 .optima-glass-card {
+  border-radius: 1rem;
   background: rgba(255, 255, 255, 0.84);
   border: 1px solid rgba(17, 24, 39, 0.08);
   box-shadow: 0 16px 48px rgba(15, 23, 42, 0.07);
@@ -478,8 +542,8 @@ html[data-financial-visible="true"] .financial-sensitive {
 }
 
 .dark .optima-glass-card {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(17, 21, 31, 0.78);
+  border-color: rgba(255, 255, 255, 0.085);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
 }
 
@@ -503,6 +567,18 @@ html[data-financial-visible="true"] .financial-sensitive {
   );
   color: var(--righello-pink);
   border: 1px solid rgba(214, 72, 126, 0.18);
+  border-radius: 0.875rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Enhanced Typography */

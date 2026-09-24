@@ -56,7 +56,7 @@ const AIQuoteGenerator = dynamic(
   {
     loading: () => (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-        <div className="flex w-[min(420px,calc(100vw-32px))] flex-col items-center gap-4 rounded-[8px] border border-white/10 bg-[#090b12] p-8 shadow-2xl">
+        <div className="flex w-[min(420px,calc(100vw-32px))] flex-col items-center gap-4 rounded-xl border border-white/10 bg-[#090b12] p-8 shadow-2xl">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-righello-pink border-t-transparent" />
           <p className="text-center text-sm font-medium text-white">
             Caricamento generatore preventivi AI...
@@ -481,12 +481,12 @@ export default function PreventiviPage() {
     return (
       <div className="optima-ops-page">
         <div className="optima-ops-container space-y-5">
-          <div className="h-64 animate-pulse rounded-[8px] border border-white/10 bg-white/[0.04]" />
+          <div className="h-64 animate-pulse rounded-xl border border-white/10 bg-white/[0.04]" />
           <div className="grid gap-4 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={index}
-                className="h-28 animate-pulse rounded-[8px] border border-white/10 bg-white/[0.04]"
+                className="h-28 animate-pulse rounded-xl border border-white/10 bg-white/[0.04]"
               />
             ))}
           </div>
@@ -512,12 +512,12 @@ export default function PreventiviPage() {
     <div className="optima-ops-page overflow-x-hidden">
       <div className="optima-ops-container relative">
         <div className="space-y-6 md:space-y-8">
-          <section className="relative overflow-hidden rounded-[8px] border border-white/10 bg-[#080d18]/90 shadow-2xl">
+          <section className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0b0e15]/90 shadow-2xl">
             <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),transparent_28%,rgba(226,55,133,0.12)_70%,transparent)]" />
             <div className="relative grid min-w-0 gap-8 p-5 md:p-8 lg:p-10 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
               <div className="flex min-w-0 flex-col justify-between gap-8">
                 <div className="space-y-5">
-                  <Badge className="w-fit rounded-[8px] border border-righello-pink/30 bg-righello-pink/15 px-3 py-1 text-righello-pink">
+                  <Badge className="w-fit rounded-xl border border-righello-pink/30 bg-righello-pink/15 px-3 py-1 text-righello-pink">
                     <Sparkles className="mr-2 h-3.5 w-3.5" />
                     Proposal OS
                   </Badge>
@@ -536,7 +536,7 @@ export default function PreventiviPage() {
                     {righelloServiceLines.map((line) => (
                       <span
                         key={line}
-                        className="max-w-full truncate rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-300"
+                        className="max-w-full truncate rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-300"
                       >
                         {line}
                       </span>
@@ -546,7 +546,7 @@ export default function PreventiviPage() {
                     {RIGHELLO_QUOTE_FLOW_STEPS.map((flowStep, index) => (
                       <div
                         key={flowStep.id}
-                        className="rounded-[8px] border border-white/10 bg-black/20 p-3"
+                        className="rounded-xl border border-white/10 bg-black/20 p-3"
                         title={flowStep.summary}
                       >
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-righello-pink">
@@ -563,7 +563,7 @@ export default function PreventiviPage() {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     onClick={() => setShowAIGenerator(true)}
-                    className="h-12 w-full rounded-[8px] bg-righello-pink px-5 text-white shadow-[0_18px_55px_rgba(226,55,133,0.28)] hover:bg-righello-pink-dark sm:w-auto"
+                    className="h-12 w-full rounded-xl bg-righello-pink px-5 text-white shadow-[0_18px_55px_rgba(226,55,133,0.28)] hover:bg-righello-pink-dark sm:w-auto"
                   >
                     <Sparkles className="mr-2 h-4 w-4" />
                     Genera con AI
@@ -575,7 +575,7 @@ export default function PreventiviPage() {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className="h-12 w-full rounded-[8px] border-white/15 bg-white/5 px-5 text-white hover:bg-white/10 sm:w-auto"
+                        className="h-12 w-full rounded-xl border-white/15 bg-white/5 px-5 text-white hover:bg-white/10 sm:w-auto"
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         Nuovo preventivo
@@ -584,7 +584,7 @@ export default function PreventiviPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="w-60 rounded-[8px] border-white/10 bg-[#0d1320] text-white"
+                      className="w-60 rounded-xl border-white/10 bg-[#10141d] text-white"
                     >
                       <DropdownMenuLabel>Crea preventivo</DropdownMenuLabel>
                       <DropdownMenuSeparator className="bg-white/10" />
@@ -610,7 +610,7 @@ export default function PreventiviPage() {
                 </div>
               </div>
 
-              <div className="relative min-h-[360px] min-w-0 overflow-hidden rounded-[8px] border border-white/10 bg-black/30 p-4">
+              <div className="relative min-h-[360px] min-w-0 overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4">
                 <div className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   Pipeline live
@@ -629,7 +629,7 @@ export default function PreventiviPage() {
                     <div
                       key={quote.id}
                       className={cn(
-                        "rounded-[8px] border border-white/10 bg-[#101827]/90 p-4 shadow-xl",
+                        "rounded-xl border border-white/10 bg-[#101827]/90 p-4 shadow-xl",
                         index === 0
                           ? "translate-x-0"
                           : index === 1
@@ -651,24 +651,24 @@ export default function PreventiviPage() {
                               "Cliente da definire"}
                           </p>
                         </div>
-                        <Badge className="rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
+                        <Badge className="rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
                           {formatCurrency(quote.total || 0, quote.currency)}
                         </Badge>
                       </div>
                       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        <div className="rounded-[8px] bg-white/[0.04] p-3">
+                        <div className="rounded-xl bg-white/[0.04] p-3">
                           <p className="text-xs text-slate-500">Voci</p>
                           <p className="text-lg font-black text-white">
                             {getQuoteLineCount(quote)}
                           </p>
                         </div>
-                        <div className="rounded-[8px] bg-white/[0.04] p-3">
+                        <div className="rounded-xl bg-white/[0.04] p-3">
                           <p className="text-xs text-slate-500">Stato</p>
                           <p className="truncate text-sm font-bold text-white">
                             {getEffectiveStatus(quote)}
                           </p>
                         </div>
-                        <div className="rounded-[8px] bg-white/[0.04] p-3">
+                        <div className="rounded-xl bg-white/[0.04] p-3">
                           <p className="text-xs text-slate-500">Link</p>
                           <p className="text-sm font-bold text-white">
                             {quote.shareToken ? "attivo" : "draft"}
@@ -679,7 +679,7 @@ export default function PreventiviPage() {
                   ))}
 
                   {!featuredQuote && (
-                    <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[8px] border border-dashed border-white/15 text-center">
+                    <div className="flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-white/15 text-center">
                       <Layers className="h-10 w-10 text-slate-500" />
                       <p className="mt-3 text-sm font-semibold text-white">
                         La prima proposta diventa il tuo deck commerciale.
@@ -725,7 +725,7 @@ export default function PreventiviPage() {
             />
           </section>
 
-          <section className="rounded-[8px] border border-white/10 bg-[#080d18]/88 p-4 md:p-5">
+          <section className="rounded-xl border border-white/10 bg-[#0b0e15]/88 p-4 md:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-xl font-black text-white md:text-2xl">
@@ -743,12 +743,12 @@ export default function PreventiviPage() {
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
                     placeholder="Cerca cliente, titolo, email..."
-                    className="h-11 rounded-[8px] border-white/10 bg-black/25 pl-10 text-white placeholder:text-slate-500 focus-visible:ring-righello-pink"
+                    className="h-11 rounded-xl border-white/10 bg-black/25 pl-10 text-white placeholder:text-slate-500 focus-visible:ring-righello-pink"
                   />
                 </div>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  className="h-11 rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10"
                   onClick={() => router.push("/preventivi")}
                 >
                   <ArrowUpRight className="mr-2 h-4 w-4" />
@@ -774,7 +774,7 @@ export default function PreventiviPage() {
                       type="button"
                       onClick={() => setStatusFilter(tab.value)}
                       className={cn(
-                        "rounded-[8px] border px-4 py-2 text-sm font-bold transition",
+                        "rounded-xl border px-4 py-2 text-sm font-bold transition",
                         active
                           ? "border-righello-pink/70 bg-righello-pink text-white shadow-[0_12px_32px_rgba(226,55,133,0.22)]"
                           : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]",
@@ -797,8 +797,8 @@ export default function PreventiviPage() {
           </section>
 
           {filteredQuotes.length === 0 ? (
-            <section className="rounded-[8px] border border-white/10 bg-[#080d18]/88 p-8 text-center md:p-14">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[8px] border border-righello-pink/30 bg-righello-pink/15">
+            <section className="rounded-xl border border-white/10 bg-[#0b0e15]/88 p-8 text-center md:p-14">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl border border-righello-pink/30 bg-righello-pink/15">
                 <FileText className="h-8 w-8 text-righello-pink" />
               </div>
               <h3 className="mt-6 text-2xl font-black text-white">
@@ -812,7 +812,7 @@ export default function PreventiviPage() {
               <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                 <Button
                   onClick={handleCreateEmptyQuote}
-                  className="rounded-[8px] bg-righello-pink text-white hover:bg-righello-pink-dark"
+                  className="rounded-xl bg-righello-pink text-white hover:bg-righello-pink-dark"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Crea il primo preventivo
@@ -820,7 +820,7 @@ export default function PreventiviPage() {
                 <Button
                   variant="outline"
                   onClick={() => setShowAIGenerator(true)}
-                  className="rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  className="rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10"
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
                   Genera con AI
@@ -896,11 +896,11 @@ function MetricCard({
   };
 
   return (
-    <div className="rounded-[8px] border border-white/10 bg-[#080d18]/88 p-4">
+    <div className="rounded-xl border border-white/10 bg-[#0b0e15]/88 p-4">
       <div className="flex items-center justify-between gap-3">
         <div
           className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-[8px] bg-gradient-to-br",
+            "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br",
             tones[tone],
           )}
         >

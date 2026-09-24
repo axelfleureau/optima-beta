@@ -303,10 +303,10 @@ export default function VideoReviewPage() {
             </div>
             {projectOptions.length > 0 && (
               <Select value={projectFilter} onValueChange={setProjectFilter}>
-                <SelectTrigger className="h-11 w-full border-white/10 bg-[#172235] text-slate-100 sm:w-52">
+                <SelectTrigger className="h-11 w-full border-white/10 bg-[#121722] text-slate-100 sm:w-52">
                   <SelectValue placeholder="Progetto" />
                 </SelectTrigger>
-                <SelectContent className="border-white/10 bg-[#111b2d] text-slate-100">
+                <SelectContent className="border-white/10 bg-[#0f131c] text-slate-100">
                   <SelectItem value="__all__">Tutti i progetti</SelectItem>
                   {projectOptions.map((p) => (
                     <SelectItem key={p} value={p}>
@@ -404,7 +404,7 @@ export default function VideoReviewPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent
                                 align="end"
-                                className="w-56 border-white/10 bg-[#0d1320] text-slate-100"
+                                className="w-56 border-white/10 bg-[#10141d] text-slate-100"
                               >
                                 <DropdownMenuItem
                                   className="cursor-pointer text-red-200 focus:bg-red-500/10 focus:text-red-100"
@@ -505,7 +505,7 @@ export default function VideoReviewPage() {
                                 {t.collaborators.slice(0, 4).map((c) => (
                                   <Avatar
                                     key={c.id}
-                                    className="h-6 w-6 border border-[#172235]"
+                                    className="h-6 w-6 border border-[#121722]"
                                     title={`${c.name} · ${COLLAB_ROLE_META[c.role]?.label || c.role}`}
                                   >
                                     <AvatarFallback className="bg-white/10 text-[9px] text-slate-200">
@@ -514,7 +514,7 @@ export default function VideoReviewPage() {
                                   </Avatar>
                                 ))}
                                 {t.collaborators.length > 4 && (
-                                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#172235] bg-white/10 text-[9px] text-slate-300">
+                                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#121722] bg-white/10 text-[9px] text-slate-300">
                                     +{t.collaborators.length - 4}
                                   </span>
                                 )}
@@ -532,7 +532,7 @@ export default function VideoReviewPage() {
 
           {/* Nuova consegna */}
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="border-white/10 bg-[#111b2d] text-slate-100">
+            <DialogContent className="border-white/10 bg-[#0f131c] text-slate-100">
               <DialogHeader>
                 <DialogTitle>Nuova consegna</DialogTitle>
                 <DialogDescription className="text-slate-400">
@@ -551,10 +551,10 @@ export default function VideoReviewPage() {
                     onValueChange={setClientId}
                     disabled={metaLoading}
                   >
-                    <SelectTrigger className="h-11 border-white/10 bg-[#172235] text-slate-100">
+                    <SelectTrigger className="h-11 border-white/10 bg-[#121722] text-slate-100">
                       <SelectValue placeholder="Scegli cliente" />
                     </SelectTrigger>
-                    <SelectContent className="border-white/10 bg-[#111b2d] text-slate-100">
+                    <SelectContent className="border-white/10 bg-[#0f131c] text-slate-100">
                       <SelectItem value={NONE}>— Nessun cliente —</SelectItem>
                       {clients.map((c) => (
                         <SelectItem key={c.id} value={c.id}>

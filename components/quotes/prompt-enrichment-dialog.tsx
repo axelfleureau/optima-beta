@@ -479,7 +479,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                       )
                     })}
                   </RadioGroup>
-                  <div className="rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 p-4">
+                  <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-4">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-200">
                       Catalogo operativo Righello
                     </p>
@@ -488,7 +488,7 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                         <Badge
                           key={area.id}
                           variant="outline"
-                          className="rounded-[8px] border-cyan-300/30 bg-cyan-300/10 text-cyan-900 dark:text-cyan-100"
+                          className="rounded-xl border-cyan-300/30 bg-cyan-300/10 text-cyan-900 dark:text-cyan-100"
                           title={area.summary}
                         >
                           {area.shortLabel}
@@ -698,12 +698,12 @@ export function PromptEnrichmentDialog({ open, onOpenChange, onComplete }: Promp
                             Δ €{Math.max(0, (budgetDraftMax || DEFAULT_BUDGET_RANGE.max) - (budgetDraftMin || DEFAULT_BUDGET_RANGE.min)).toLocaleString()}
                           </Badge>
                         </div>
-                        <div className="rounded-[8px] border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs leading-5 text-emerald-700 dark:text-emerald-200">
+                        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs leading-5 text-emerald-700 dark:text-emerald-200">
                           Il massimo indicato viene trattato come limite reale: se il perimetro non entra, Optima sposta voci in fase 2/opzionali invece di gonfiare il totale.
                         </div>
                       </div>
                     </div>
-                    <div className="rounded-[8px] border border-white/10 bg-white/40 p-4 dark:bg-black/20">
+                    <div className="rounded-xl border border-white/10 bg-white/40 p-4 dark:bg-black/20">
                       <p className="text-sm font-semibold">Domande da non saltare</p>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         {RIGHELLO_QUOTE_DISCOVERY_QUESTIONS.slice(0, 6).map((question) => (

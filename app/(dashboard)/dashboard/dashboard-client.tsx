@@ -153,7 +153,7 @@ export function DashboardClient() {
           <div className="optima-panel overflow-hidden rounded-[1.75rem] p-5 md:p-8">
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
               <div className="space-y-3">
-                <div className="optima-kicker">Optima by Righello</div>
+                <div className="optima-kicker">Óptima by Righello</div>
                 <h1 className="flex items-center gap-3 text-3xl font-black leading-[0.98] text-slate-950 dark:text-white md:text-5xl">
                   <div className="optima-icon-tile flex h-12 w-12 items-center justify-center rounded-2xl md:h-14 md:w-14">
                     <Sparkles className="h-6 w-6 md:h-7 md:w-7" />

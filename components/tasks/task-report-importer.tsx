@@ -136,7 +136,7 @@ export function TaskReportImporter() {
               setSuccess(null)
             }}
             placeholder={sampleHint}
-            className="min-h-[420px] w-full resize-y rounded-lg border border-white/10 bg-[#050914] p-4 text-[15px] leading-7 text-slate-100 outline-none placeholder:text-slate-600 focus:border-righello-cyan/70 focus:ring-2 focus:ring-righello-cyan/15"
+            className="min-h-[420px] w-full resize-y rounded-lg border border-white/10 bg-[#07090f] p-4 text-[15px] leading-7 text-slate-100 outline-none placeholder:text-slate-600 focus:border-righello-cyan/70 focus:ring-2 focus:ring-righello-cyan/15"
           />
 
           {error && (

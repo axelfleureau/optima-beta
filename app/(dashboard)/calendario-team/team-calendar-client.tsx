@@ -701,7 +701,7 @@ export default function TeamCalendarClient() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-h-[92dvh] overflow-y-auto border-white/10 bg-[#050914] p-0 text-white sm:max-w-3xl">
+        <DialogContent className="max-h-[92dvh] overflow-y-auto border-white/10 bg-[#07090f] p-0 text-white sm:max-w-3xl">
           <DialogHeader className="border-b border-white/10 p-5">
             <DialogTitle>
               {form.id ? "Modifica evento" : "Nuovo evento team"}
@@ -903,7 +903,7 @@ export default function TeamCalendarClient() {
       </Dialog>
 
       <Dialog open={isFeedOpen} onOpenChange={setIsFeedOpen}>
-        <DialogContent className="border-white/10 bg-[#050914] text-white sm:max-w-xl">
+        <DialogContent className="border-white/10 bg-[#07090f] text-white sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Collega calendario</DialogTitle>
             <DialogDescription className="text-white/55">

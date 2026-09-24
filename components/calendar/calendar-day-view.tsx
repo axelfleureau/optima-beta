@@ -70,20 +70,20 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
 
   return (
     <div className="min-w-0 space-y-4">
-      <Card className="rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
+      <Card className="rounded-xl border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
         <CardHeader className="border-b border-slate-200/50 bg-gradient-to-r from-slate-50 to-slate-100 p-4 dark:border-slate-700/50 dark:from-slate-800 dark:to-slate-700">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="min-w-0 text-base font-bold capitalize text-slate-900 dark:text-slate-100 sm:text-xl">
               {format(selectedDate, "EEEE d MMMM yyyy", { locale: it })}
             </CardTitle>
             <div className="grid grid-cols-[44px_1fr_44px] gap-2 sm:flex sm:items-center">
-              <Button variant="outline" size="sm" onClick={handlePrevDay} className="rounded-[8px] border-slate-200 dark:border-slate-700">
+              <Button variant="outline" size="sm" onClick={handlePrevDay} className="rounded-xl border-slate-200 dark:border-slate-700">
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={handleToday} className="rounded-[8px] border-slate-200 dark:border-slate-700">
+              <Button variant="outline" size="sm" onClick={handleToday} className="rounded-xl border-slate-200 dark:border-slate-700">
                 Oggi
               </Button>
-              <Button variant="outline" size="sm" onClick={handleNextDay} className="rounded-[8px] border-slate-200 dark:border-slate-700">
+              <Button variant="outline" size="sm" onClick={handleNextDay} className="rounded-xl border-slate-200 dark:border-slate-700">
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
@@ -94,7 +94,7 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
           <ScrollArea className="h-[calc(100dvh-265px)] min-h-[420px] md:h-[600px]">
             <div className="p-3 sm:p-4">
               {unscheduledPosts.length > 0 && (
-                <div className="mb-6 rounded-[8px] border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800 dark:bg-amber-900/10 sm:p-4">
+                <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800 dark:bg-amber-900/10 sm:p-4">
                   <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2">
                     <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <h3 className="font-semibold text-amber-900 dark:text-amber-100">Da pianificare</h3>
@@ -118,7 +118,7 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                           key={post.id}
                           role="button"
                           tabIndex={0}
-                          className={`min-w-0 cursor-pointer rounded-[8px] border bg-white p-3 transition-all hover:shadow-lg dark:bg-slate-800 ${statusInfo.borderColor}`}
+                          className={`min-w-0 cursor-pointer rounded-xl border bg-white p-3 transition-all hover:shadow-lg dark:bg-slate-800 ${statusInfo.borderColor}`}
                           onClick={() => onEditPost(post)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -189,7 +189,7 @@ export function CalendarDayView({ posts, selectedDate, onDateChange, onEditPost 
                         return (
                           <div
                             key={post.id}
-                            className={`min-w-0 rounded-[8px] border bg-white p-3 transition-all hover:shadow-lg dark:bg-slate-800 ${statusInfo.borderColor}`}
+                            className={`min-w-0 rounded-xl border bg-white p-3 transition-all hover:shadow-lg dark:bg-slate-800 ${statusInfo.borderColor}`}
                             onClick={() => onEditPost(post)}
                             onMouseEnter={(e) => handlePostMouseEnter(post, e)}
                             onMouseLeave={() => setHoveredPost(null)}

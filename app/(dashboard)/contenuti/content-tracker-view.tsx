@@ -414,7 +414,7 @@ export function ContentTrackerView({
           />
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-[#111b2d] p-4">
+        <section className="rounded-lg border border-white/10 bg-[#0f131c] p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -429,7 +429,7 @@ export function ContentTrackerView({
               <SelectTrigger className="h-11 border-white/10 bg-[#0b1424] text-slate-100 lg:w-56">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#111b2d] text-slate-100">
+              <SelectContent className="border-white/10 bg-[#0f131c] text-slate-100">
                 <SelectItem value="all">Tutti gli stati</SelectItem>
                 <SelectItem value="to_schedule">Da programmare</SelectItem>
                 <SelectItem value="complete">Completi</SelectItem>
@@ -439,13 +439,13 @@ export function ContentTrackerView({
         </section>
 
         {loading ? (
-          <section className="overflow-hidden rounded-lg border border-white/10 bg-[#111b2d]">
+          <section className="overflow-hidden rounded-lg border border-white/10 bg-[#0f131c]">
             <div className="p-8 text-center text-sm text-slate-400">
               Caricamento tracker...
             </div>
           </section>
         ) : filteredRows.length === 0 ? (
-          <section className="overflow-hidden rounded-lg border border-white/10 bg-[#111b2d]">
+          <section className="overflow-hidden rounded-lg border border-white/10 bg-[#0f131c]">
             <div className="flex flex-col items-center gap-4 p-10 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300">
                 <ClipboardList className="h-6 w-6" />
@@ -504,7 +504,7 @@ export function ContentTrackerView({
             </div>
 
             {/* Desktop: tabella densa */}
-            <section className="hidden overflow-hidden rounded-lg border border-white/10 bg-[#111b2d] md:block">
+            <section className="hidden overflow-hidden rounded-lg border border-white/10 bg-[#0f131c] md:block">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[820px] border-collapse text-sm">
                 <thead>
@@ -545,7 +545,7 @@ export function ContentTrackerView({
       </div>
 
       <Dialog open={openNew} onOpenChange={setOpenNew}>
-        <DialogContent className="max-h-[90svh] overflow-y-auto border-white/10 bg-[#111b2d] text-slate-100">
+        <DialogContent className="max-h-[90svh] overflow-y-auto border-white/10 bg-[#0f131c] text-slate-100">
           <DialogHeader>
             <DialogTitle>Aggiungi cliente al mese</DialogTitle>
             <DialogDescription className="text-slate-400">
@@ -578,7 +578,7 @@ export function ContentTrackerView({
               <SelectTrigger className="h-11 border-white/10 bg-[#0b1424]">
                 <SelectValue placeholder="Scegli cliente Optima" />
               </SelectTrigger>
-              <SelectContent className="border-white/10 bg-[#111b2d] text-slate-100">
+              <SelectContent className="border-white/10 bg-[#0f131c] text-slate-100">
                 <SelectItem value="__custom__">
                   Cliente non collegato
                 </SelectItem>
@@ -642,7 +642,7 @@ function MetricCard({
   tone?: "slate" | "emerald" | "amber" | "cyan";
 }) {
   const toneClass = {
-    slate: "border-white/10 bg-[#111b2d]",
+    slate: "border-white/10 bg-[#0f131c]",
     emerald: "border-emerald-400/20 bg-emerald-500/10",
     amber: "border-amber-400/20 bg-amber-500/10",
     cyan: "border-cyan-400/20 bg-cyan-500/10",
@@ -732,7 +732,7 @@ function LabeledNum({
         className={`h-10 w-24 text-right text-slate-100 ${
           hot
             ? "border-emerald-400/40 bg-emerald-500/[0.08]"
-            : "border-white/10 bg-[#111b2d]"
+            : "border-white/10 bg-[#0f131c]"
         }`}
       />
     </label>
@@ -918,7 +918,7 @@ function TrackerEditor({
             value={row.notes}
             onChange={(event) => onChange({ notes: event.target.value })}
             placeholder="Es. range dichiarato 8-10, note operative..."
-            className="min-h-[64px] border-white/10 bg-[#111b2d] text-slate-100"
+            className="min-h-[64px] border-white/10 bg-[#0f131c] text-slate-100"
           />
         </label>
         <div className="flex gap-2">
@@ -970,7 +970,7 @@ function TrackerMobileCard({
   const mix = typeSummary(row);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-white/10 bg-[#111b2d]">
+    <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0f131c]">
       <button
         type="button"
         onClick={onToggle}

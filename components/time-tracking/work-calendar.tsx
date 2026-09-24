@@ -113,7 +113,7 @@ export function WorkCalendar({
   const days = data?.days || {};
 
   return (
-    <section className="rounded-lg border border-white/10 bg-[#111b2d]">
+    <section className="rounded-lg border border-white/10 bg-[#0f131c]">
       <header className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-200">

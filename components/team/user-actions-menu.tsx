@@ -136,7 +136,7 @@ export function UserActionsMenu({ user, onUserUpdated }: UserActionsMenuProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-56 rounded-[8px] border-white/10 bg-[#0d1320] p-1 text-slate-100 shadow-2xl shadow-black/30"
+          className="w-56 rounded-xl border-white/10 bg-[#10141d] p-1 text-slate-100 shadow-2xl shadow-black/30"
         >
           <DropdownMenuItem className={actionItemClass} onClick={() => setShowViewDialog(true)}>
             <Eye className="mr-2 h-4 w-4" />

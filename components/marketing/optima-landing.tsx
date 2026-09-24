@@ -191,7 +191,7 @@ function FrameCorners() {
 
 function ChromeShell({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-[8px] border border-white/12 bg-[#080b12] shadow-2xl shadow-black/40 ${className}`}>
+    <div className={`rounded-2xl border border-white/12 bg-[#080b12] shadow-2xl shadow-black/40 ${className}`}>
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-[#ff6aa6]" />
@@ -213,7 +213,7 @@ function ProductCockpit() {
           <div className="flex items-center gap-3">
             <RighelloIcon className="h-11 w-11" imageClassName="h-6 w-6" />
             <div>
-              <p className="text-lg font-black text-white">Optima</p>
+              <p className="text-lg font-black text-white">Óptima</p>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/38">by Righello</p>
             </div>
           </div>
@@ -230,7 +230,7 @@ function ProductCockpit() {
               return (
                 <div
                   key={String(label)}
-                  className="flex items-center gap-3 rounded-[8px] border border-white/8 bg-white/[0.035] px-3 py-3 text-sm font-bold text-white/70"
+                  className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-3 text-sm font-bold text-white/70"
                 >
                   <SidebarIcon className="h-4 w-4 text-[#67e8f9]" />
                   {label as string}
@@ -240,7 +240,7 @@ function ProductCockpit() {
           </div>
         </aside>
 
-        <div className="min-w-0 bg-[#0d1320]">
+        <div className="min-w-0 bg-[#10141d]">
           <div className="flex flex-col gap-4 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#67e8f9]">Workspace cliente</p>
@@ -252,7 +252,7 @@ function ProductCockpit() {
                 ["71%", "capacità"],
                 ["1", "rischio"],
               ].map(([value, label]) => (
-                <div key={label} className="rounded-[8px] border border-white/10 bg-black/24 px-3 py-2 text-center">
+                <div key={label} className="rounded-2xl border border-white/10 bg-black/24 px-3 py-2 text-center">
                   <p className="text-lg font-black text-white">
                     <CountNumber value={value} />
                   </p>
@@ -266,13 +266,13 @@ function ProductCockpit() {
             <div className="min-w-0">
               <div className="grid gap-3 md:grid-cols-3">
                 {kanbanColumns.map((column) => (
-                  <div key={column.title} className="rounded-[8px] border border-white/10 bg-[#111827] p-3">
+                  <div key={column.title} className="rounded-2xl border border-white/10 bg-[#111827] p-3">
                     <div className="mb-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: column.accent }} />
                         <p className="font-black text-white">{column.title}</p>
                       </div>
-                      <span className="rounded-[8px] bg-white/10 px-2 py-1 text-xs font-black text-white/54">
+                      <span className="rounded-2xl bg-white/10 px-2 py-1 text-xs font-black text-white/54">
                         {column.tasks.length}
                       </span>
                     </div>
@@ -280,7 +280,7 @@ function ProductCockpit() {
                       {column.tasks.map((task) => (
                         <div
                           key={task}
-                          className="rounded-[8px] border border-[#0f172a]/10 bg-[#fff7c9] p-3 text-[#111827]"
+                          className="rounded-2xl border border-[#0f172a]/10 bg-[#fff7c9] p-3 text-[#111827]"
                           style={{ boxShadow: `inset 0 4px 0 ${column.accent}` }}
                         >
                           <p className="text-sm font-black leading-5">{task}</p>
@@ -297,7 +297,7 @@ function ProductCockpit() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-[8px] border border-[#d6487e]/25 bg-[#d6487e]/10 p-4">
+              <div className="rounded-2xl border border-[#d6487e]/25 bg-[#d6487e]/10 p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-[#ff8fbd]">Command bar</p>
@@ -309,7 +309,7 @@ function ProductCockpit() {
                 </div>
               </div>
 
-              <div className="rounded-[8px] border border-white/10 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-white/44">Andamento</p>
@@ -319,7 +319,7 @@ function ProductCockpit() {
                 </div>
                 <div className="space-y-3">
                   {workRows.map(([name, label, value, color]) => (
-                    <div key={name} className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
+                    <div key={name} className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-white">{name}</p>
@@ -348,11 +348,11 @@ function ModuleCard({ module, index }: { module: Module; index: number }) {
   const Icon = module.icon
   return (
     <article
-      className="module-card rounded-[8px] border border-white/10 bg-[#0b101b] p-5"
+      className="module-card rounded-2xl border border-white/10 bg-[#0b101b] p-5"
       style={{ "--accent": module.accent } as CSSProperties}
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="grid h-12 w-12 place-items-center rounded-[8px] border border-white/10 bg-white/[0.045]">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/[0.045]">
           <Icon className="h-6 w-6" style={{ color: module.accent }} />
         </div>
         <span className="text-sm font-black text-white/28">0{index + 1}</span>
@@ -427,14 +427,11 @@ export default function HomePage() {
         gsap.set(".product-shell", { y: 40, scale: 0.94, opacity: 0 })
         gsap.set(".module-card", { y: 44, opacity: 0, rotateX: 16, transformOrigin: "center top" })
 
-        // --- Intro cinematografico ---
+        // --- Intro del prodotto: rapido, leggibile e rispettoso del focus ---
         const intro = gsap.timeline({ defaults: { ease: "expo.out" } })
         intro
-          .to(".boot-line", { yPercent: 0, duration: 0.72, stagger: 0.06 })
-          .to(".boot-progress", { scaleX: 1, duration: 1.0, ease: "power4.inOut" }, "<0.1")
-          .to(".boot-screen", { clipPath: "inset(0 0 100% 0)", duration: 0.9, ease: "power4.inOut" }, "+=0.15")
-          .to(".hero-word", { yPercent: 0, skewY: 0, opacity: 1, duration: 0.95, stagger: 0.028 }, "-=0.28")
-          .to(".product-shell", { y: 0, scale: 1, opacity: 1, duration: 1.0, ease: "power4.out" }, "<0.15")
+          .to(".hero-word", { yPercent: 0, skewY: 0, opacity: 1, duration: 0.75, stagger: 0.022 })
+          .to(".product-shell", { y: 0, scale: 1, opacity: 1, duration: 0.82, ease: "power4.out" }, "<0.12")
           .from(
             ".floating-metric-a, .floating-metric-b",
             { y: 24, opacity: 0, duration: 0.7, stagger: 0.12 },
@@ -605,43 +602,12 @@ export default function HomePage() {
 
   return (
     <main ref={rootRef} className="font-degular min-h-screen overflow-x-hidden bg-[#05070b] text-white">
-      <div className="boot-screen fixed inset-0 z-[90] flex flex-col justify-between bg-[#05070b] px-5 py-5 text-white [clip-path:inset(0_0_0_0)] sm:px-8">
-        <div className="grid gap-4 text-xs font-black uppercase tracking-[0.22em] text-white/46 sm:grid-cols-4">
-          {["Óptima", "by Righello", "Clienti · Progetti · Contenuti", "Caricamento…"].map(
-            (item) => (
-              <div key={item} className="overflow-hidden">
-                <p className="boot-line">{item}</p>
-              </div>
-            ),
-          )}
-        </div>
-        <div className="mx-auto grid h-44 w-44 place-items-center rounded-full border border-white/14">
-          <RighelloIcon className="h-24 w-24" imageClassName="h-14 w-14" />
-        </div>
-        <div>
-          <div className="h-1 overflow-hidden rounded-full bg-white/12">
-            <div className="boot-progress h-full origin-left scale-x-0 rounded-full bg-white" />
-          </div>
-          <div className="mt-4 grid gap-3 text-xs font-black uppercase tracking-[0.2em] text-white/46 sm:grid-cols-3">
-            <div className="overflow-hidden">
-              <p className="boot-line">Carico clienti e progetti</p>
-            </div>
-            <div className="overflow-hidden">
-              <p className="boot-line">Carico team e presenze</p>
-            </div>
-            <div className="overflow-hidden sm:text-right">
-              <p className="boot-line">Apro il gestionale</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#05070b]/82 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="Optima home">
+          <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="Óptima home">
             <RighelloIcon className="h-10 w-10" imageClassName="h-5 w-5" priority />
             <span className="min-w-0 leading-none">
-              <span className="block text-xl font-black">Optima</span>
+              <span className="block text-xl font-black">Óptima</span>
               <span className="block text-xs font-bold uppercase tracking-[0.18em] text-white/42">by Righello</span>
             </span>
           </Link>
@@ -728,14 +694,14 @@ export default function HomePage() {
           </div>
 
           <div className="relative mt-12">
-            <div className="floating-metric-a pointer-events-none absolute left-0 top-10 z-10 hidden rounded-[8px] border border-[#22c55e]/25 bg-[#06150f]/90 p-4 shadow-2xl shadow-black/30 lg:block">
+            <div className="floating-metric-a pointer-events-none absolute left-0 top-10 z-10 hidden rounded-2xl border border-[#22c55e]/25 bg-[#06150f]/90 p-4 shadow-2xl shadow-black/30 lg:block">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#86efac]">Capacity</p>
               <p className="mt-2 text-4xl font-black text-white">
                 <CountNumber value="71%" />
               </p>
               <p className="mt-1 text-sm font-semibold text-white/50">netto dopo pausa</p>
             </div>
-            <div className="floating-metric-b pointer-events-none absolute bottom-12 right-0 z-10 hidden rounded-[8px] border border-[#d6487e]/28 bg-[#1c0711]/90 p-4 shadow-2xl shadow-black/30 lg:block">
+            <div className="floating-metric-b pointer-events-none absolute bottom-12 right-0 z-10 hidden rounded-2xl border border-[#d6487e]/28 bg-[#1c0711]/90 p-4 shadow-2xl shadow-black/30 lg:block">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ff8fbd]">Signals</p>
               <p className="mt-2 text-4xl font-black text-white">
                 <CountNumber value="1" />
@@ -795,7 +761,7 @@ export default function HomePage() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             {method.map((step) => (
-              <article key={step.index} className="reveal-section rounded-[8px] border border-white/10 bg-[#0b101b] p-5">
+              <article key={step.index} className="reveal-section rounded-2xl border border-white/10 bg-[#0b101b] p-5">
                 <div className="text-sm font-black text-[#ff6aa6]">{step.index}</div>
                 <h3 className="mt-8 text-3xl font-bold leading-tight text-white">{step.title}</h3>
                 <p className="mt-4 text-sm font-medium leading-6 text-white/60">{step.body}</p>
@@ -807,7 +773,7 @@ export default function HomePage() {
 
       <section className="border-y border-white/10 bg-[#080c15] px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_0.95fr] lg:items-center">
-          <div className="reveal-section rounded-[8px] border border-white/10 bg-[#0a0e18] p-4 sm:p-5">
+          <div className="reveal-section rounded-2xl border border-white/10 bg-[#0a0e18] p-4 sm:p-5">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
                 <p className="text-sm font-bold text-white/46">Controllo aziendale</p>
@@ -822,7 +788,7 @@ export default function HomePage() {
                 ["Output chiusi", "18", "#67e8f9"],
                 ["Margine stimato", "38%", "#f59e0b"],
               ].map(([label, value, color]) => (
-                <div key={label} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+                <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <div className="text-4xl font-black" style={{ color }}>
                     <CountNumber value={value} />
                   </div>
@@ -832,7 +798,7 @@ export default function HomePage() {
             </div>
             <div className="mt-4 space-y-3">
               {workRows.map(([name, label, value, color]) => (
-                <div key={name} className="rounded-[8px] border border-white/10 bg-black/25 p-4">
+                <div key={name} className="rounded-2xl border border-white/10 bg-black/25 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <p className="truncate font-black text-white">{name}</p>
@@ -842,8 +808,8 @@ export default function HomePage() {
                       {value}
                     </span>
                   </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-[8px] bg-white/10">
-                    <div className="bar-fill h-full rounded-[8px]" style={{ width: value, backgroundColor: color }} />
+                  <div className="mt-3 h-2 overflow-hidden rounded-2xl bg-white/10">
+                    <div className="bar-fill h-full rounded-2xl" style={{ width: value, backgroundColor: color }} />
                   </div>
                 </div>
               ))}
@@ -865,7 +831,7 @@ export default function HomePage() {
                 ["Rapportini", "Il responsabile vede cosa è stato fatto, da chi, su quale progetto e con quale tempo."],
                 ["Notifiche operative", "Cliente e agenzia ricevono aggiornamenti quando commenti e follow-up cambiano una task."],
               ].map(([label, body]) => (
-                <div key={label} className="flex gap-3 rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+                <div key={label} className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-[#22c55e]" />
                   <div>
                     <p className="font-black text-white">{label}</p>
@@ -893,7 +859,7 @@ export default function HomePage() {
             {pricing.map((plan) => (
               <article
                 key={plan.name}
-                className={`reveal-section rounded-[8px] border p-5 ${
+                className={`reveal-section rounded-2xl border p-5 ${
                   plan.highlighted ? "border-[#d6487e]/55 bg-[#d6487e]/12" : "border-white/10 bg-[#0b101b]"
                 }`}
               >
@@ -903,7 +869,7 @@ export default function HomePage() {
                     <h3 className="text-5xl font-black leading-none text-white">{plan.name}</h3>
                   </div>
                   {plan.highlighted ? (
-                    <span className="rounded-[8px] bg-[#d6487e] px-3 py-2 text-xs font-black text-white">scelto</span>
+                    <span className="rounded-2xl bg-[#d6487e] px-3 py-2 text-xs font-black text-white">scelto</span>
                   ) : null}
                 </div>
                 <p className="mt-5 min-h-14 text-sm font-medium leading-6 text-white/62">{plan.body}</p>
@@ -938,7 +904,7 @@ export default function HomePage() {
       </section>
 
       <section className="px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8">
-        <div className="reveal-section mx-auto max-w-7xl rounded-[8px] border border-[#d6487e]/36 bg-[#d6487e]/12 p-6 sm:p-8 lg:p-10">
+        <div className="reveal-section mx-auto max-w-7xl rounded-2xl border border-[#d6487e]/36 bg-[#d6487e]/12 p-6 sm:p-8 lg:p-10">
           <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <div className="flex items-center gap-3 text-[#ff8fbd]">
@@ -983,7 +949,7 @@ export default function HomePage() {
           <div className="flex items-center gap-3">
             <Image src="/assets/logos/righello-white.png" alt="Righello" width={120} height={30} className="h-auto w-[120px]" />
             <span className="hidden h-4 w-px bg-white/18 sm:block" />
-            <span>Optima</span>
+            <span>Óptima</span>
           </div>
           <div className="flex flex-wrap gap-5">
             <Link href="https://www.wearerighello.com/" className="hover:text-white">

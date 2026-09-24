@@ -95,7 +95,7 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
 
   return (
     <div className="min-w-0 space-y-3">
-      <div className="flex min-w-0 flex-col gap-3 rounded-[8px] border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/45 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/45 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
             <Clock3 className="h-3.5 w-3.5" />
@@ -107,19 +107,19 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
         </div>
 
         <div className="grid grid-cols-[40px_1fr_40px] gap-2 sm:flex sm:items-center">
-          <Button variant="outline" size="icon" onClick={() => onDateChange(subWeeks(selectedDate, 1))} className="h-10 w-10 rounded-[8px] border-slate-300 dark:border-slate-700">
+          <Button variant="outline" size="icon" onClick={() => onDateChange(subWeeks(selectedDate, 1))} className="h-10 w-10 rounded-xl border-slate-300 dark:border-slate-700">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" onClick={() => onDateChange(new Date())} className="h-10 rounded-[8px] border-slate-300 px-4 text-sm dark:border-slate-700">
+          <Button variant="outline" onClick={() => onDateChange(new Date())} className="h-10 rounded-xl border-slate-300 px-4 text-sm dark:border-slate-700">
             Questa settimana
           </Button>
-          <Button variant="outline" size="icon" onClick={() => onDateChange(addWeeks(selectedDate, 1))} className="h-10 w-10 rounded-[8px] border-slate-300 dark:border-slate-700">
+          <Button variant="outline" size="icon" onClick={() => onDateChange(addWeeks(selectedDate, 1))} className="h-10 w-10 rounded-xl border-slate-300 dark:border-slate-700">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[8px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/45">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/45">
         <div className="overflow-x-auto">
           <div className="min-w-[1040px]">
             <div
@@ -192,7 +192,7 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
                             <button
                               key={post.id}
                               type="button"
-                              className="group w-full min-w-0 rounded-[7px] border border-white/80 bg-white p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
+                              className="group w-full min-w-0 rounded-lg border border-white/80 bg-white p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
                               onClick={() => onEditPost(post)}
                               onMouseEnter={(event) => handlePostMouseEnter(post, event)}
                               onMouseLeave={() => setHoveredPost(null)}
@@ -225,7 +225,7 @@ export function CalendarWeekView({ posts, selectedDate, onDateChange, onEditPost
         </div>
       </div>
 
-      <div className="grid gap-2 rounded-[8px] border border-slate-200 bg-white p-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950/45 dark:text-slate-400 sm:flex sm:items-center sm:justify-between">
+      <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950/45 dark:text-slate-400 sm:flex sm:items-center sm:justify-between">
         <span className="flex items-center gap-2">
           <CalendarIcon className="h-4 w-4" />
           Le fasce azzurre indicano finestre editoriali consigliate. I post restano modificabili cliccando la card.

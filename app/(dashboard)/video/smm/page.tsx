@@ -173,7 +173,7 @@ function SmmCard({ video, onChange }: { video: Video; onChange: () => void }) {
             Descrizione / caption
           </label>
           <Textarea
-            className="border-white/10 bg-[#172235] text-slate-100 placeholder:text-slate-500"
+            className="border-white/10 bg-[#121722] text-slate-100 placeholder:text-slate-500"
             placeholder="Scrivi qui la descrizione del post…"
             value={description}
             onChange={(e) => setDescription(e.target.value)}

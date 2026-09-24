@@ -80,10 +80,10 @@ export function ProjectPicker({
         value={value || NONE}
         onValueChange={(v) => onChange(v === NONE ? null : v)}
       >
-        <SelectTrigger className="h-9 border-white/10 bg-[#172235] text-slate-100">
+        <SelectTrigger className="h-9 border-white/10 bg-[#121722] text-slate-100">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent className="border-white/10 bg-[#111b2d] text-slate-100">
+        <SelectContent className="border-white/10 bg-[#0f131c] text-slate-100">
           <SelectItem value={NONE}>
             {inheritedLabel ? `Eredita: ${inheritedLabel}` : `— ${placeholder} —`}
           </SelectItem>

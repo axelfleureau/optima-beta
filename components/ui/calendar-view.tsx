@@ -56,7 +56,7 @@ function PostSummaryCard({ post, onEditPost }: { post: EditorialPost; onEditPost
   const postContent = post.caption || post.content
 
   return (
-    <div className="min-w-0 rounded-[8px] border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70">
+    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900/70">
       <div className="mb-2 flex min-w-0 items-start justify-between gap-2">
         <h4 className="min-w-0 flex-1 text-sm font-semibold leading-5 text-slate-950 dark:text-slate-100">
           {postTitle}
@@ -79,7 +79,7 @@ function PostSummaryCard({ post, onEditPost }: { post: EditorialPost; onEditPost
         {postContent && <p className="line-clamp-2 pt-1">{postContent}</p>}
       </div>
 
-      <Button onClick={() => onEditPost(post)} size="sm" className="mt-3 w-full rounded-[8px] bg-pink-500 hover:bg-pink-600">
+      <Button onClick={() => onEditPost(post)} size="sm" className="mt-3 w-full rounded-xl bg-pink-500 hover:bg-pink-600">
         Vedi dettagli
       </Button>
     </div>
@@ -119,7 +119,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
   return (
     <div className="min-w-0 space-y-4">
       <div className="space-y-4 md:hidden">
-        <Card className="overflow-hidden rounded-[8px] border-slate-200/50 bg-white/90 shadow-lg backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/85">
+        <Card className="overflow-hidden rounded-xl border-slate-200/50 bg-white/90 shadow-lg backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/85">
           <CardHeader className="border-b border-slate-200/50 bg-slate-50/80 p-4 dark:border-slate-700/50 dark:bg-slate-900/40">
             <div className="flex min-w-0 flex-col gap-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -134,14 +134,14 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                   variant="outline"
                   size="icon"
                   onClick={() => handleMobileDateChange(subWeeks(selectedDate, 1))}
-                  className="rounded-[8px] border-slate-200 dark:border-slate-700"
+                  className="rounded-xl border-slate-200 dark:border-slate-700"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => handleMobileDateChange(new Date())}
-                  className="rounded-[8px] border-slate-200 dark:border-slate-700"
+                  className="rounded-xl border-slate-200 dark:border-slate-700"
                 >
                   Oggi
                 </Button>
@@ -149,7 +149,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                   variant="outline"
                   size="icon"
                   onClick={() => handleMobileDateChange(addWeeks(selectedDate, 1))}
-                  className="rounded-[8px] border-slate-200 dark:border-slate-700"
+                  className="rounded-xl border-slate-200 dark:border-slate-700"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -169,7 +169,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                     key={day.toISOString()}
                     type="button"
                     onClick={() => handleMobileDateChange(day)}
-                    className={`min-w-0 rounded-[8px] border p-2 text-center transition ${
+                    className={`min-w-0 rounded-xl border p-2 text-center transition ${
                       selected
                         ? "border-pink-500 bg-pink-500 text-white shadow-md"
                         : today
@@ -191,7 +191,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden rounded-[8px] border-slate-200/50 bg-white/90 shadow-lg backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/85">
+        <Card className="overflow-hidden rounded-xl border-slate-200/50 bg-white/90 shadow-lg backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/85">
           <CardHeader className="border-b border-slate-200/50 p-4 dark:border-slate-700/50">
             <CardTitle className="text-base font-bold text-slate-950 dark:text-slate-100">
               Post del {format(selectedDate, "d MMMM", { locale: it })}
@@ -201,7 +201,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
             {postsOnSelectedDay.length > 0 ? (
               postsOnSelectedDay.map((post) => <PostSummaryCard key={post.id} post={post} onEditPost={onEditPost} />)
             ) : (
-              <div className="rounded-[8px] border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+              <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
                 <List className="mx-auto mb-3 h-8 w-8 text-slate-400" />
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Nessun post pianificato</p>
               </div>
@@ -211,8 +211,8 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
       </div>
 
       <div className="hidden space-y-4 md:block">
-        <Card className="overflow-hidden rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#0d1626]">
-          <CardHeader className="border-b border-slate-200/50 bg-slate-50 p-4 dark:border-white/10 dark:bg-[#111b2d]">
+        <Card className="overflow-hidden rounded-xl border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#0d1626]">
+          <CardHeader className="border-b border-slate-200/50 bg-slate-50 p-4 dark:border-white/10 dark:bg-[#0f131c]">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl font-bold capitalize text-slate-900 dark:text-slate-100">
                 {format(currentMonth, "MMMM yyyy", { locale: it })}
@@ -222,7 +222,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                   variant="outline"
                   size="sm"
                   onClick={() => onMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-                  className="rounded-[8px] border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
+                  className="rounded-xl border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
                 >
                   Precedente
                 </Button>
@@ -234,7 +234,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                     setSelectedDate(today)
                     onMonthChange(today)
                   }}
-                  className="rounded-[8px] border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
+                  className="rounded-xl border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
                 >
                   Oggi
                 </Button>
@@ -242,7 +242,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
                   variant="outline"
                   size="sm"
                   onClick={() => onMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
-                  className="rounded-[8px] border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
+                  className="rounded-xl border-slate-200 dark:border-white/10 dark:bg-[#0b1424]"
                 >
                   Successivo
                 </Button>
@@ -250,7 +250,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-[#111b2d]">
+            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-[#0f131c]">
               {WEEKDAY_LABELS.map((weekday) => (
                 <div
                   key={weekday}
@@ -312,7 +312,7 @@ export function CalendarView({ posts, currentMonth, onMonthChange, onEditPost }:
         </Card>
 
         {postsOnSelectedDay.length > 0 && (
-          <Card className="overflow-hidden rounded-[8px] border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
+          <Card className="overflow-hidden rounded-xl border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-800/80">
             <CardHeader className="border-b border-slate-200/50 bg-gradient-to-r from-pink-50 to-purple-50 p-4 dark:border-slate-700/50 dark:from-pink-900/20 dark:to-purple-900/20">
               <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Post del {format(selectedDate, "PPP", { locale: it })}

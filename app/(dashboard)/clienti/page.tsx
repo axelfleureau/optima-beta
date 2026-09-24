@@ -78,13 +78,13 @@ const statusConfig = {
 
 const pageClass = "optima-ops-page";
 const surfaceClass =
-  "border border-white/10 bg-[#172235] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]";
+  "border border-white/10 bg-[#121722] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]";
 const elevatedSurfaceClass =
-  "border border-white/10 bg-[#172235] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.28)]";
+  "border border-white/10 bg-[#121722] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.28)]";
 const headerSurfaceClass =
-  "border-x-0 border-t-0 border-b border-white/10 bg-[#111b2d]";
+  "border-x-0 border-t-0 border-b border-white/10 bg-[#0f131c]";
 const inputClass =
-  "h-11 border-white/10 bg-[#172235] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
+  "h-11 border-white/10 bg-[#121722] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
 
 export default function ClientiPage() {
   const { clients, loading, error, setClientParent } = useClients();
@@ -320,7 +320,7 @@ export default function ClientiPage() {
           {filteredClients.length === 0 ? (
             <Card className={surfaceClass}>
               <CardContent className="flex flex-col items-center justify-center py-16">
-                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-lg border border-white/10 bg-[#111b2d]">
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-lg border border-white/10 bg-[#0f131c]">
                   <Users className="h-10 w-10 text-slate-400" />
                 </div>
                 <h3 className="text-xl font-semibold mb-3 text-white">
@@ -388,7 +388,7 @@ export default function ClientiPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="border-white/10 bg-[#111b2d] text-slate-100 shadow-2xl"
+                            className="border-white/10 bg-[#0f131c] text-slate-100 shadow-2xl"
                           >
                             <DropdownMenuItem asChild>
                               <Link href={`/clienti/${client.id}`}>
@@ -565,7 +565,7 @@ export default function ClientiPage() {
           }
         }}
       >
-        <DialogContent className="max-w-md border-white/10 bg-[#111b2d] text-slate-100">
+        <DialogContent className="max-w-md border-white/10 bg-[#0f131c] text-slate-100">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Network className="h-5 w-5 text-cyan-300" />

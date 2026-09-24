@@ -118,7 +118,7 @@ export default function CampagnePage() {
   return (
     <div className="optima-ops-page">
       <div className="optima-ops-container optima-ops-stack">
-        <section className="overflow-hidden rounded-lg border border-white/10 bg-[#080d18]/90">
+        <section className="overflow-hidden rounded-lg border border-white/10 bg-[#0b0e15]/90">
           <div className="grid gap-8 p-5 md:p-8 lg:grid-cols-[1.05fr_0.95fr] lg:p-10">
             <div className="flex flex-col justify-between gap-8">
               <div className="space-y-5">

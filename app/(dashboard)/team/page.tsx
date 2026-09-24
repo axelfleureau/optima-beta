@@ -101,10 +101,10 @@ const statusConfig = {
 
 const pageClass = "optima-ops-page";
 const surfaceClass =
-  "border border-white/10 bg-[#172235] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]";
-const mutedSurfaceClass = "border border-white/10 bg-[#111b2d] text-slate-100";
+  "border border-white/10 bg-[#121722] text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.24)]";
+const mutedSurfaceClass = "border border-white/10 bg-[#0f131c] text-slate-100";
 const inputClass =
-  "h-11 border-white/10 bg-[#172235] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
+  "h-11 border-white/10 bg-[#121722] pl-10 text-slate-100 placeholder:text-slate-500 shadow-none outline-none focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
 
 export default function TeamPage() {
   const { users, loading, error, refreshUsers } = useUsers();

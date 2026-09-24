@@ -225,7 +225,7 @@ function summarizeEntryReview(entries: Entry[]): ReviewTotals {
 
 const pageClass = "optima-ops-page min-h-0 max-w-full";
 const panelClass =
-  "w-full min-w-0 max-w-full overflow-hidden rounded-[8px] border border-white/10 bg-[#151d2c] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.28)] sm:p-5";
+  "w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-[#151d2c] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.28)] sm:p-5";
 const fieldClass =
   "h-11 w-full min-w-0 max-w-full border-white/10 bg-[#222a31] text-slate-100 placeholder:text-slate-400 focus-visible:border-righello-pink/70 focus-visible:ring-righello-pink/20";
 const selectClass =
@@ -423,7 +423,7 @@ function TimePickerField({
     <div className="grid min-w-0 gap-2">
       <span className="text-sm font-semibold text-slate-400">{label}</span>
       <Input
-        className="h-14 rounded-[8px] border-white/10 bg-[#222a31] text-center text-base font-semibold text-slate-100 [color-scheme:dark]"
+        className="h-14 rounded-xl border-white/10 bg-[#222a31] text-center text-base font-semibold text-slate-100 [color-scheme:dark]"
         type="time"
         value={value}
         aria-label={label}
@@ -455,7 +455,7 @@ function DailyMetricCard({
   };
 
   return (
-    <div className={`rounded-[8px] border p-4 ${tones[tone]}`}>
+    <div className={`rounded-xl border p-4 ${tones[tone]}`}>
       <p className="text-xs font-black uppercase tracking-[0.12em] opacity-80">
         {label}
       </p>
@@ -486,9 +486,9 @@ function FlowStepCard({
 
   return (
     <div
-      className={`flex min-w-0 items-start gap-3 rounded-[8px] border p-3 ${stateClass}`}
+      className={`flex min-w-0 items-start gap-3 rounded-xl border p-3 ${stateClass}`}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-black/20 text-sm font-black">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20 text-sm font-black">
         {number}
       </div>
       <div className="min-w-0 flex-1">
@@ -1519,7 +1519,7 @@ export default function RapportiniPage() {
                   : "Puoi aggiungere attività durante la giornata. A fine giornata la direzione vede un solo riepilogo aggregato, ordinato per stato."}
               </p>
             </div>
-            <Badge className="w-fit rounded-[8px] border border-white/10 bg-white/10 px-3 py-1 text-slate-100">
+            <Badge className="w-fit rounded-xl border border-white/10 bg-white/10 px-3 py-1 text-slate-100">
               {payload?.day?.reviewStatus === "submitted"
                 ? "In revisione"
                 : payload?.day?.reviewStatus === "approved"
@@ -1613,7 +1613,7 @@ export default function RapportiniPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-10 w-full max-w-full shrink-0 rounded-[8px] border-amber-300/30 bg-amber-300/10 px-3 text-amber-100 hover:bg-amber-300/15 sm:w-auto"
+                  className="min-h-10 w-full max-w-full shrink-0 rounded-xl border-amber-300/30 bg-amber-300/10 px-3 text-amber-100 hover:bg-amber-300/15 sm:w-auto"
                   onClick={() =>
                     undoCheckOut().catch((err) => toast.error(err.message))
                   }
@@ -1624,7 +1624,7 @@ export default function RapportiniPage() {
               )}
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+              <div className="rounded-xl border border-white/10 bg-[#101827] p-3">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
                   {isTaskOnlyWorkLog ? "Modalità" : "Entrata"}
                 </p>
@@ -1634,7 +1634,7 @@ export default function RapportiniPage() {
                     : formatTime(payload?.day?.checkInAt)}
                 </p>
               </div>
-              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+              <div className="rounded-xl border border-white/10 bg-[#101827] p-3">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
                   {isTaskOnlyWorkLog ? "Valore" : "Uscita"}
                 </p>
@@ -1644,7 +1644,7 @@ export default function RapportiniPage() {
                     : formatTime(payload?.day?.checkOutAt)}
                 </p>
               </div>
-              <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+              <div className="rounded-xl border border-white/10 bg-[#101827] p-3">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
                   Task registrate
                 </p>
@@ -1653,7 +1653,7 @@ export default function RapportiniPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 grid gap-3 rounded-[8px] border border-white/10 bg-[#101827] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="mt-4 grid gap-3 rounded-xl border border-white/10 bg-[#101827] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="min-w-0">
                 <p className="text-sm font-black text-white">
                   {payload?.day?.reviewStatus === "changes_requested"
@@ -1669,7 +1669,7 @@ export default function RapportiniPage() {
                 </p>
               </div>
               <Badge
-                className={`w-fit rounded-[8px] border ${
+                className={`w-fit rounded-xl border ${
                   payload?.day?.reviewStatus === "changes_requested"
                     ? "border-amber-300/30 bg-amber-400/10 text-amber-100"
                     : payload?.day?.reviewStatus === "approved"
@@ -1726,9 +1726,9 @@ export default function RapportiniPage() {
               ].map((step, index) => (
                 <div
                   key={step}
-                  className="flex items-start gap-3 rounded-[8px] border border-white/10 bg-[#101827] p-3"
+                  className="flex items-start gap-3 rounded-xl border border-white/10 bg-[#101827] p-3"
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-cyan-300/10 text-xs font-black text-righello-cyan">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-cyan-300/10 text-xs font-black text-righello-cyan">
                     {index + 1}
                   </div>
                   <div className="min-w-0">
@@ -1747,7 +1747,7 @@ export default function RapportiniPage() {
             <Button
               asChild
               variant="outline"
-              className="mt-4 min-h-10 rounded-[8px] border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
+              className="mt-4 min-h-10 rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
             >
               <Link href="/workspace">
                 Apri workspace
@@ -1781,7 +1781,7 @@ export default function RapportiniPage() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="rounded-[8px] border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
+                  className="rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
                   onClick={selectAllSubmittedReports}
                 >
                   {selectedReviewIds.length === payload.submittedReports.length
@@ -1791,7 +1791,7 @@ export default function RapportiniPage() {
                 <Button
                   type="button"
                   size="sm"
-                  className="rounded-[8px] bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50"
+                  className="rounded-xl bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50"
                   disabled={
                     !selectedReviewIds.length || reviewingIds.length > 0
                   }
@@ -1829,7 +1829,7 @@ export default function RapportiniPage() {
                         openReportForEdit(report);
                       }
                     }}
-                    className={`cursor-pointer rounded-[8px] border p-4 transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.04] ${
+                    className={`cursor-pointer rounded-xl border p-4 transition hover:border-cyan-300/35 hover:bg-cyan-300/[0.04] ${
                       active
                         ? "border-righello-pink/45 bg-righello-pink/[0.07]"
                         : selected
@@ -1873,7 +1873,7 @@ export default function RapportiniPage() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="rounded-[8px] border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15"
+                          className="rounded-xl border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15"
                           onClick={(event) => {
                             event.stopPropagation();
                             openReportForEdit(report);
@@ -1885,7 +1885,7 @@ export default function RapportiniPage() {
                         <Button
                           type="button"
                           size="sm"
-                          className="rounded-[8px] bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50"
+                          className="rounded-xl bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50"
                           disabled={busy}
                           onClick={(event) => {
                             event.stopPropagation();
@@ -1901,7 +1901,7 @@ export default function RapportiniPage() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          className={`rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 ${
+                          className={`rounded-xl border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 ${
                             changeRequestOpen ? "border-amber-200/60" : ""
                           }`}
                           disabled={busy}
@@ -2040,7 +2040,7 @@ export default function RapportiniPage() {
                   <label className="text-sm font-semibold text-slate-400">
                     Giornata
                   </label>
-                  <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-[8px] border border-white/10 bg-[#222a31]">
+                  <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-xl border border-white/10 bg-[#222a31]">
                     <Button
                       type="button"
                       variant="ghost"
@@ -2104,7 +2104,7 @@ export default function RapportiniPage() {
                 )}
 
                 {isTaskOnlyWorkLog ? (
-                  <div className="rounded-[8px] border border-cyan-300/20 bg-cyan-300/[0.06] p-4">
+                  <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] p-4">
                     <div className="flex items-start gap-3">
                       <ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
                       <div className="min-w-0">
@@ -2193,7 +2193,7 @@ export default function RapportiniPage() {
                           />
                         </div>
 
-                        <div className="flex flex-col gap-2 rounded-[8px] border border-cyan-300/15 bg-cyan-300/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-2 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
                           <p className="text-xs leading-5 text-slate-400">
                             Per correggere una giornata già aperta o chiusa,
                             aggiorna gli orari qui e salva. I pulsanti sopra
@@ -2202,7 +2202,7 @@ export default function RapportiniPage() {
                           <Button
                             type="button"
                             variant="outline"
-                            className="min-h-10 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15"
+                            className="min-h-10 rounded-xl border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15"
                             onClick={() =>
                               savePresenceTimes().catch((err) =>
                                 toast.error(err.message),
@@ -2215,7 +2215,7 @@ export default function RapportiniPage() {
                         </div>
                       </>
                     ) : (
-                      <div className="rounded-[8px] border border-cyan-300/15 bg-cyan-300/[0.04] p-3 text-xs leading-5 text-slate-400">
+                      <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3 text-xs leading-5 text-slate-400">
                         Entrata e uscita usano l'orario certificato dal server
                         al momento del click. Le correzioni manuali passano da
                         un responsabile.
@@ -2251,7 +2251,7 @@ export default function RapportiniPage() {
                   </div>
                 </div>
 
-                <div className="rounded-[8px] border border-white/10 bg-[#101827] p-3">
+                <div className="rounded-xl border border-white/10 bg-[#101827] p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-bold text-white">
@@ -2270,7 +2270,7 @@ export default function RapportiniPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 rounded-[8px] border-white/10 bg-white/[0.04] px-2.5 text-xs text-slate-100 hover:bg-white/10"
+                          className="h-8 rounded-xl border-white/10 bg-white/[0.04] px-2.5 text-xs text-slate-100 hover:bg-white/10"
                           onClick={() => setMinutes(String(value))}
                         >
                           {formatMinutes(value)}
@@ -2311,7 +2311,7 @@ export default function RapportiniPage() {
                   </div>
 
                   <div
-                    className={`flex min-w-0 items-start gap-3 rounded-[8px] border p-3 text-left transition ${
+                    className={`flex min-w-0 items-start gap-3 rounded-xl border p-3 text-left transition ${
                       isBillable
                         ? "border-emerald-300/35 bg-emerald-400/10 text-emerald-50"
                         : "border-amber-300/35 bg-amber-400/10 text-amber-50"
@@ -2339,7 +2339,7 @@ export default function RapportiniPage() {
                 </div>
 
                 <div
-                  className={`flex min-w-0 items-start gap-3 rounded-[8px] border p-3 text-left transition ${
+                  className={`flex min-w-0 items-start gap-3 rounded-xl border p-3 text-left transition ${
                     isRemote
                       ? "border-cyan-300/45 bg-cyan-400/12 text-cyan-50"
                       : "border-white/10 bg-[#101827] text-slate-200 hover:border-white/20 hover:bg-white/[0.05]"
@@ -2455,7 +2455,7 @@ export default function RapportiniPage() {
                   open={clientPickerOpen}
                   onOpenChange={setClientPickerOpen}
                 >
-                  <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-xl overflow-hidden rounded-[8px] border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
+                  <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-xl overflow-hidden rounded-xl border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
                     <DialogHeader className="border-b border-white/10 px-4 py-4 sm:px-5">
                       <DialogTitle className="flex items-center gap-2 text-xl font-black text-white">
                         <Building2 className="h-5 w-5 text-cyan-200" />
@@ -2483,7 +2483,7 @@ export default function RapportiniPage() {
                     <div className="max-h-[58dvh] space-y-2 overflow-y-auto overscroll-contain p-4 sm:p-5">
                       <button
                         type="button"
-                        className={`flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition ${
+                        className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
                           !selectedClientId
                             ? "border-cyan-300/70 bg-cyan-300/10"
                             : "border-white/10 bg-[#111827] hover:border-white/25"
@@ -2515,7 +2515,7 @@ export default function RapportiniPage() {
                           <button
                             key={client.id}
                             type="button"
-                            className={`flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition ${
+                            className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
                               selected
                                 ? "border-cyan-300/70 bg-cyan-300/10"
                                 : "border-white/10 bg-[#111827] hover:border-white/25"
@@ -2545,7 +2545,7 @@ export default function RapportiniPage() {
                       })}
 
                       {!filteredClientOptions.length ? (
-                        <div className="rounded-[8px] border border-dashed border-white/15 p-8 text-center text-slate-400">
+                        <div className="rounded-xl border border-dashed border-white/15 p-8 text-center text-slate-400">
                           <div className="text-sm font-semibold text-slate-200">
                             {clientOptions.length
                               ? "Nessun cliente corrisponde alla ricerca."
@@ -2574,7 +2574,7 @@ export default function RapportiniPage() {
                 </Dialog>
 
                 {selectedOption?.kind !== "task" && (
-                  <label className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-cyan-300/20 bg-cyan-300/10 p-3 transition hover:border-cyan-300/35 hover:bg-cyan-300/15">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-3 transition hover:border-cyan-300/35 hover:bg-cyan-300/15">
                     <Checkbox
                       checked={createTaskFromReport}
                       onCheckedChange={(checked) =>
@@ -2599,7 +2599,7 @@ export default function RapportiniPage() {
                   open={targetPickerOpen}
                   onOpenChange={setTargetPickerOpen}
                 >
-                  <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-3xl overflow-hidden rounded-[8px] border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
+                  <DialogContent className="max-h-[86dvh] w-[calc(100vw-24px)] max-w-3xl overflow-hidden rounded-xl border-white/10 bg-[#070b14] p-0 text-slate-100 shadow-2xl sm:w-full">
                     <DialogHeader className="border-b border-white/10 px-4 py-4 sm:px-5">
                       <DialogTitle className="flex items-center gap-2 text-xl font-black text-white">
                         <ListChecks className="h-5 w-5 text-righello-pink" />
@@ -2629,7 +2629,7 @@ export default function RapportiniPage() {
                     <div className="max-h-[58dvh] space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-5">
                       <button
                         type="button"
-                        className="w-full rounded-[8px] border border-dashed border-white/15 bg-white/[0.03] p-4 text-left transition hover:border-righello-pink/50 hover:bg-righello-pink/10"
+                        className="w-full rounded-xl border border-dashed border-white/15 bg-white/[0.03] p-4 text-left transition hover:border-righello-pink/50 hover:bg-righello-pink/10"
                         onClick={() => {
                           setSelectedTarget("");
                           setSelectedClientId("");
@@ -2661,7 +2661,7 @@ export default function RapportiniPage() {
                               return (
                                 <div
                                   key={option.value}
-                                  className={`rounded-[8px] border p-3 transition ${
+                                  className={`rounded-xl border p-3 transition ${
                                     selectedTarget === option.value
                                       ? "border-righello-pink/70 bg-righello-pink/10"
                                       : "border-white/10 bg-[#111827] hover:border-white/25"
@@ -2759,7 +2759,7 @@ export default function RapportiniPage() {
                               <button
                                 key={option.value}
                                 type="button"
-                                className={`rounded-[8px] border p-3 text-left transition ${
+                                className={`rounded-xl border p-3 text-left transition ${
                                   selectedTarget === option.value
                                     ? "border-righello-cyan/70 bg-righello-cyan/10"
                                     : "border-white/10 bg-[#111827] hover:border-white/25"
@@ -2795,7 +2795,7 @@ export default function RapportiniPage() {
                               <button
                                 key={option.value}
                                 type="button"
-                                className={`rounded-[8px] border p-3 text-left transition ${
+                                className={`rounded-xl border p-3 text-left transition ${
                                   selectedTarget === option.value
                                     ? "border-cyan-300/70 bg-cyan-300/10"
                                     : "border-white/10 bg-[#111827] hover:border-white/25"
@@ -2822,7 +2822,7 @@ export default function RapportiniPage() {
                       ) : null}
 
                       {!filteredTargets.length && (
-                        <div className="rounded-[8px] border border-dashed border-white/15 p-8 text-center text-slate-400">
+                        <div className="rounded-xl border border-dashed border-white/15 p-8 text-center text-slate-400">
                           Nessuna task, progetto o cliente trovato.
                         </div>
                       )}
@@ -2899,7 +2899,7 @@ export default function RapportiniPage() {
               </div>
 
               <div className="w-full min-w-0 max-w-full space-y-3">
-                <div className="rounded-[8px] border border-white/10 bg-[#0d1524] p-4">
+                <div className="rounded-xl border border-white/10 bg-[#0d1524] p-4">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-righello-pink" />
                     <div>
@@ -2917,7 +2917,7 @@ export default function RapportiniPage() {
                         <button
                           key={option.value}
                           type="button"
-                          className="w-full rounded-[8px] border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-righello-pink/40 hover:bg-righello-pink/10"
+                          className="w-full rounded-xl border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-righello-pink/40 hover:bg-righello-pink/10"
                           onClick={() => {
                             setSelectedTarget(option.value);
                             const nextClientId = resolveClientId(option);
@@ -2941,14 +2941,14 @@ export default function RapportiniPage() {
                                   : ""}
                               </p>
                             </div>
-                            <Badge className="w-fit rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
+                            <Badge className="w-fit rounded-xl border border-white/10 bg-white/10 text-slate-200">
                               Usa come base
                             </Badge>
                           </div>
                         </button>
                       ))
                     ) : (
-                      <div className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-500">
+                      <div className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-500">
                         Nessuna task aperta assegnata per questa giornata. Puoi
                         comunque registrare un'attività manuale.
                       </div>
@@ -2967,7 +2967,7 @@ export default function RapportiniPage() {
                           {entryReviewLabel(group.status)}
                         </div>
                         <Badge
-                          className={`rounded-[8px] border ${entryReviewTone(group.status)}`}
+                          className={`rounded-xl border ${entryReviewTone(group.status)}`}
                         >
                           {group.entries.length}
                         </Badge>
@@ -2997,7 +2997,7 @@ export default function RapportiniPage() {
                         return (
                           <div
                             key={entry.id}
-                            className="min-w-0 rounded-[8px] border border-white/10 bg-[#222a31] p-4"
+                            className="min-w-0 rounded-xl border border-white/10 bg-[#222a31] p-4"
                           >
                             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                               <div className="min-w-0">
@@ -3014,17 +3014,17 @@ export default function RapportiniPage() {
                                   <Clock className="h-4 w-4 shrink-0" />
                                   {formatMinutes(entry.minutes)}
                                   <Badge
-                                    className={`rounded-[8px] border ${entryReviewTone(entry.reviewStatus)}`}
+                                    className={`rounded-xl border ${entryReviewTone(entry.reviewStatus)}`}
                                   >
                                     {entryReviewLabel(entry.reviewStatus)}
                                   </Badge>
                                   {entry.activityCategory ? (
-                                    <Badge className="rounded-[8px] border border-white/10 bg-white/10 text-slate-200">
+                                    <Badge className="rounded-xl border border-white/10 bg-white/10 text-slate-200">
                                       {entry.activityCategory}
                                     </Badge>
                                   ) : null}
                                   <Badge
-                                    className={`rounded-[8px] border ${
+                                    className={`rounded-xl border ${
                                       entry.billable === false
                                         ? "border-amber-300/30 bg-amber-400/10 text-amber-100"
                                         : "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
@@ -3035,13 +3035,13 @@ export default function RapportiniPage() {
                                       : "Fatturabile"}
                                   </Badge>
                                   {entry.workMode === "remote" ? (
-                                    <Badge className="gap-1 rounded-[8px] border border-cyan-300/25 bg-cyan-400/10 text-cyan-100">
+                                    <Badge className="gap-1 rounded-xl border border-cyan-300/25 bg-cyan-400/10 text-cyan-100">
                                       <MonitorUp className="h-3.5 w-3.5" />
                                       Remoto
                                     </Badge>
                                   ) : null}
                                   {entry.clientName ? (
-                                    <Badge className="gap-1 rounded-[8px] border border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
+                                    <Badge className="gap-1 rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-100">
                                       <Building2 className="h-3.5 w-3.5" />
                                       {entry.clientName}
                                     </Badge>
@@ -3053,7 +3053,7 @@ export default function RapportiniPage() {
                                   ) : null}
                                 </div>
                                 {entry.reviewNotes ? (
-                                  <div className="mt-3 rounded-[8px] border border-amber-300/20 bg-amber-300/[0.06] p-3 text-sm leading-6 text-amber-100">
+                                  <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-3 text-sm leading-6 text-amber-100">
                                     {entry.reviewNotes}
                                   </div>
                                 ) : null}
@@ -3063,7 +3063,7 @@ export default function RapportiniPage() {
                                   type="button"
                                   size="sm"
                                   variant="outline"
-                                  className="flex-1 rounded-[8px] border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15 disabled:opacity-50 sm:flex-none"
+                                  className="flex-1 rounded-xl border-cyan-300/25 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15 disabled:opacity-50 sm:flex-none"
                                   disabled={!canEditEntry || busy}
                                   onClick={() => openEntryEditor(entry)}
                                 >
@@ -3074,7 +3074,7 @@ export default function RapportiniPage() {
                                   <Button
                                     type="button"
                                     size="sm"
-                                    className="flex-1 rounded-[8px] bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50 sm:flex-none"
+                                    className="flex-1 rounded-xl bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50 sm:flex-none"
                                     disabled={busy}
                                     onClick={() =>
                                       handleReviewEntries(
@@ -3092,7 +3092,7 @@ export default function RapportiniPage() {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    className="flex-1 rounded-[8px] border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 disabled:opacity-50 sm:flex-none"
+                                    className="flex-1 rounded-xl border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15 disabled:opacity-50 sm:flex-none"
                                     disabled={busy}
                                     onClick={() =>
                                       setEntryChangeRequestOpenId((current) =>
@@ -3136,7 +3136,7 @@ export default function RapportiniPage() {
                                         })
                                       }
                                       rows={2}
-                                      className="min-h-[74px] resize-none rounded-[8px] border-white/10 bg-[#07101d] text-sm text-white placeholder:text-slate-500 focus:border-cyan-200/50 focus:ring-cyan-200/20"
+                                      className="min-h-[74px] resize-none rounded-xl border-white/10 bg-[#07101d] text-sm text-white placeholder:text-slate-500 focus:border-cyan-200/50 focus:ring-cyan-200/20"
                                       placeholder="Correggi descrizione attività..."
                                     />
                                   </div>
@@ -3229,7 +3229,7 @@ export default function RapportiniPage() {
                                         Modalità
                                       </label>
                                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                        <label className="flex min-w-0 items-start gap-2 rounded-[8px] border border-white/10 bg-[#07101d] p-3 text-sm text-slate-200">
+                                        <label className="flex min-w-0 items-start gap-2 rounded-xl border border-white/10 bg-[#07101d] p-3 text-sm text-slate-200">
                                           <Checkbox
                                             checked={entryDraft.billable}
                                             onCheckedChange={(checked) =>
@@ -3241,7 +3241,7 @@ export default function RapportiniPage() {
                                           />
                                           Fatturabile
                                         </label>
-                                        <label className="flex min-w-0 items-start gap-2 rounded-[8px] border border-white/10 bg-[#07101d] p-3 text-sm text-slate-200">
+                                        <label className="flex min-w-0 items-start gap-2 rounded-xl border border-white/10 bg-[#07101d] p-3 text-sm text-slate-200">
                                           <Checkbox
                                             checked={
                                               entryDraft.workMode === "remote"
@@ -3266,7 +3266,7 @@ export default function RapportiniPage() {
                                     <Button
                                       type="button"
                                       variant="outline"
-                                      className="rounded-[8px] border-white/10 bg-white/5 text-slate-100 hover:bg-white/10"
+                                      className="rounded-xl border-white/10 bg-white/5 text-slate-100 hover:bg-white/10"
                                       onClick={() => {
                                         setEditingEntryId(null);
                                         setEntryEditDrafts((current) => {
@@ -3280,7 +3280,7 @@ export default function RapportiniPage() {
                                     </Button>
                                     <Button
                                       type="button"
-                                      className="rounded-[8px] bg-cyan-400 text-slate-950 hover:bg-cyan-300 disabled:opacity-50"
+                                      className="rounded-xl bg-cyan-400 text-slate-950 hover:bg-cyan-300 disabled:opacity-50"
                                       disabled={
                                         busy ||
                                         !entryDraft.note.trim() ||
@@ -3358,7 +3358,7 @@ export default function RapportiniPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-lg border border-dashed border-white/15 bg-[#111b2d] p-8 text-center text-slate-400">
+                  <div className="rounded-lg border border-dashed border-white/15 bg-[#0f131c] p-8 text-center text-slate-400">
                     <FileText className="mx-auto mb-3 h-8 w-8" />
                     Nessuna attività registrata per questa giornata. Aggiungi il
                     primo blocco di lavoro dal form.
@@ -3387,7 +3387,7 @@ export default function RapportiniPage() {
                     <CalendarDays className="mr-2 h-4 w-4" />
                     Salva note
                   </Button>
-                  <div className="rounded-[8px] border border-white/10 bg-[#101827] p-4">
+                  <div className="rounded-xl border border-white/10 bg-[#101827] p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="font-bold text-white">
@@ -3409,7 +3409,7 @@ export default function RapportiniPage() {
                       </div>
                       <Button
                         type="button"
-                        className="h-10 rounded-[8px] bg-righello-pink px-4 text-white hover:bg-righello-pink-dark"
+                        className="h-10 rounded-xl bg-righello-pink px-4 text-white hover:bg-righello-pink-dark"
                         onClick={() =>
                           handleSubmitReport().catch((err) =>
                             toast.error(err.message),

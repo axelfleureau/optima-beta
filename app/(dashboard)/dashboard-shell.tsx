@@ -15,6 +15,7 @@ import { NotificationProvider } from "@/lib/notification-context";
 import { CommandBar } from "@/components/command-bar/command-bar";
 import { FinancialPrivacyProvider } from "@/components/financial-privacy-provider";
 import { AiPageGuide } from "@/components/ai-page-guide";
+import { AppTopbar } from "@/components/app-topbar";
 
 // Lazy load Image Generator Dialog - reduces initial bundle size
 const ImageGenerator = dynamic(
@@ -78,8 +79,9 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
               className="h-[100svh] min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y]"
             >
               <MobileHeader />
+              <AppTopbar />
               <RouteError />
-              <div className="min-h-full">{children}</div>
+              <div className="optima-dashboard-content min-h-[calc(100%-72px)] min-w-0">{children}</div>
             </main>
           </div>
         </FinancialPrivacyProvider>

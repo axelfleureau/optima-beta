@@ -9,7 +9,7 @@ export function ViewSwitcher() {
 
   return (
     <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)} className="w-full sm:w-auto">
-      <TabsList className="grid h-10 w-full grid-cols-3 rounded-[8px] border border-slate-300 bg-white p-1 shadow-none dark:border-slate-700 dark:bg-slate-950/60 sm:w-auto sm:flex">
+      <TabsList className="grid h-10 w-full grid-cols-3 rounded-xl border border-slate-300 bg-white p-1 shadow-none dark:border-slate-700 dark:bg-slate-950/60 sm:w-auto sm:flex">
         <TabsTrigger
           value="month"
           className="min-w-0 rounded-[6px] px-2 py-1.5 text-xs font-medium transition-all data-[state=active]:bg-[#2b1025] data-[state=active]:text-white dark:data-[state=active]:bg-pink-500 sm:px-4 sm:text-sm"

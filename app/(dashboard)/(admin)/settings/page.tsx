@@ -42,7 +42,7 @@ const panelClass =
 const panelHeaderClass =
   "border-b border-white/10 bg-gradient-to-r from-white/[0.045] via-cyan-400/[0.035] to-pink-500/[0.045]";
 const fieldClass =
-  "border-white/[0.12] bg-[#070d18] text-white placeholder:text-slate-600 shadow-inner shadow-black/20 focus-visible:border-cyan-300/70 focus-visible:ring-2 focus-visible:ring-cyan-400/20";
+  "border-white/[0.12] bg-[#0b0e16] text-white placeholder:text-slate-600 shadow-inner shadow-black/20 focus-visible:border-cyan-300/70 focus-visible:ring-2 focus-visible:ring-cyan-400/20";
 const tabClass =
   "gap-2 rounded-md px-3 py-2 text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-white data-[state=active]:bg-[#e14483] data-[state=active]:text-white data-[state=active]:shadow-[0_10px_30px_rgba(225,68,131,0.24)]";
 const integrationCardClass =
@@ -247,7 +247,7 @@ function AgenticGitHubPolicyCard() {
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
-        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#070d18]/80 p-4">
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#0b0e16]/80 p-4">
           <div className="space-y-1">
             <Label className="text-sm font-medium text-slate-200">
               Commit e push
@@ -262,7 +262,7 @@ function AgenticGitHubPolicyCard() {
             disabled={!canEdit || loading}
           />
         </div>
-        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#070d18]/80 p-4">
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#0b0e16]/80 p-4">
           <div className="space-y-1">
             <Label className="flex items-center gap-2 text-sm font-medium text-slate-200">
               <Rocket className="h-4 w-4 text-emerald-300" />
@@ -385,7 +385,7 @@ export default function SettingsPage() {
 
           {/* Settings Tabs */}
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="h-auto w-fit flex-wrap gap-1 rounded-lg border border-white/10 bg-[#070d18]/90 p-1 backdrop-blur-xl">
+            <TabsList className="h-auto w-fit flex-wrap gap-1 rounded-lg border border-white/10 bg-[#0b0e16]/90 p-1 backdrop-blur-xl">
               <TabsTrigger value="profile" className={tabClass}>
                 <User className="h-4 w-4" />
                 Profilo

@@ -976,16 +976,16 @@ export function WorkspaceShell() {
 
                   <div className="flex min-w-0 items-start gap-3">
                     {showTenantWorkspace ? (
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-400/10 dark:text-indigo-200">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-400/10 dark:text-indigo-200">
                         <Building className="h-5 w-5" />
                       </div>
                     ) : showAllClients ? (
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-200">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-200">
                         <Globe className="h-5 w-5" />
                       </div>
                     ) : (
                       <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] ${selectedClient?.color || "bg-slate-700"} shadow-sm`}
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selectedClient?.color || "bg-slate-700"} shadow-sm`}
                       >
                         <span className="text-base font-black text-white">
                           {selectedClient?.name?.charAt(0) || "?"}
@@ -1002,7 +1002,7 @@ export function WorkspaceShell() {
                               : "Workspace cliente"}
                         </p>
                         {workspaceMetrics.overdue > 0 && (
-                          <Badge className="rounded-[8px] border border-red-200 bg-red-50 text-red-700 dark:border-red-400/25 dark:bg-red-400/10 dark:text-red-200">
+                          <Badge className="rounded-xl border border-red-200 bg-red-50 text-red-700 dark:border-red-400/25 dark:bg-red-400/10 dark:text-red-200">
                             {workspaceMetrics.overdue} scadute
                           </Badge>
                         )}
@@ -1035,13 +1035,13 @@ export function WorkspaceShell() {
                   </label>
                   <Button
                     variant="outline"
-                    className="hidden h-11 rounded-[8px] border-slate-200 bg-white px-4 text-slate-800 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 md:flex"
+                    className="hidden h-11 rounded-xl border-slate-200 bg-white px-4 text-slate-800 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 md:flex"
                   >
                     <Filter className="mr-2 h-4 w-4" />
                     Filtri
                   </Button>
                   <Button
-                    className="h-11 rounded-[8px] bg-righello-pink px-4 text-white shadow-sm hover:bg-righello-pink-dark"
+                    className="h-11 rounded-xl bg-righello-pink px-4 text-white shadow-sm hover:bg-righello-pink-dark"
                     onClick={handleNewTaskClick}
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -1051,7 +1051,7 @@ export function WorkspaceShell() {
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/70">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/70">
                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                     <Target className="h-3.5 w-3.5" />
                     Attive
@@ -1060,7 +1060,7 @@ export function WorkspaceShell() {
                     {workspaceMetrics.active}
                   </p>
                 </div>
-                <div className="rounded-[8px] border border-red-200 bg-red-50 p-3 dark:border-red-400/20 dark:bg-red-400/10">
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-400/20 dark:bg-red-400/10">
                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-red-700 dark:text-red-200">
                     <Clock3 className="h-3.5 w-3.5" />
                     Urgenti
@@ -1069,7 +1069,7 @@ export function WorkspaceShell() {
                     {workspaceMetrics.urgent}
                   </p>
                 </div>
-                <div className="rounded-[8px] border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-400/20 dark:bg-emerald-400/10">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-400/20 dark:bg-emerald-400/10">
                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-200">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Completate
@@ -1078,7 +1078,7 @@ export function WorkspaceShell() {
                     {workspaceMetrics.done}
                   </p>
                 </div>
-                <div className="rounded-[8px] border border-cyan-200 bg-cyan-50 p-3 dark:border-cyan-400/20 dark:bg-cyan-400/10">
+                <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-3 dark:border-cyan-400/20 dark:bg-cyan-400/10">
                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-cyan-700 dark:text-cyan-200">
                     <Briefcase className="h-3.5 w-3.5" />
                     Progetti
@@ -1089,7 +1089,7 @@ export function WorkspaceShell() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 rounded-[8px] border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                     <Briefcase className="h-3.5 w-3.5" />
@@ -1100,7 +1100,7 @@ export function WorkspaceShell() {
                       <Badge
                         key={project.id}
                         variant="outline"
-                        className="max-w-[210px] truncate rounded-[8px] border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                        className="max-w-[210px] truncate rounded-xl border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                         title={project.name}
                       >
                         {project.name}
@@ -1124,7 +1124,7 @@ export function WorkspaceShell() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 shrink-0 rounded-[8px] border-slate-300 bg-white text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="h-9 shrink-0 rounded-xl border-slate-300 bg-white text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   onClick={() => setShowProjectDialog(true)}
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -1491,7 +1491,7 @@ export function WorkspaceShell() {
                   Modalità
                 </Label>
                 <div
-                  className={`sm:col-span-3 flex min-w-0 items-start gap-3 rounded-[8px] border p-3 text-left transition ${
+                  className={`sm:col-span-3 flex min-w-0 items-start gap-3 rounded-xl border p-3 text-left transition ${
                     taskForm.workMode === "remote"
                       ? "border-cyan-300/60 bg-cyan-50 text-cyan-950 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100"
                       : "border-slate-200/70 bg-white/60 text-slate-700 dark:border-slate-700/60 dark:bg-slate-700/50 dark:text-slate-200"

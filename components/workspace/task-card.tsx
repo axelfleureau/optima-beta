@@ -197,7 +197,7 @@ export function TaskCard({
             {...provided.dragHandleProps}
             style={dropStyle}
             id={`task-${task.id}`}
-            className={`group min-h-[112px] cursor-pointer rounded-[8px] border-l-4 p-3 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform [touch-action:pan-x_pan-y] sm:min-h-[124px] lg:[touch-action:auto] ${getPriorityColor(task.priority)} ${
+            className={`group min-h-[112px] cursor-pointer rounded-xl border-l-4 p-3 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform [touch-action:pan-x_pan-y] sm:min-h-[124px] lg:[touch-action:auto] ${getPriorityColor(task.priority)} ${
               snapshot.isDragging
                 ? "z-50 rotate-1 scale-[1.02] shadow-2xl transform-gpu"
                 : isHighlighted
@@ -225,7 +225,7 @@ export function TaskCard({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-10 w-10 shrink-0 rounded-[8px] p-0 text-slate-600 hover:bg-slate-900/10 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white sm:h-8 sm:w-8"
+                        className="h-10 w-10 shrink-0 rounded-xl p-0 text-slate-600 hover:bg-slate-900/10 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white sm:h-8 sm:w-8"
                         aria-label="Configura task"
                         onClick={(event) => event.stopPropagation()}
                         onMouseDown={(event) => event.stopPropagation()}
@@ -458,7 +458,7 @@ export function TaskCard({
               {task.type && (
                 <Badge
                   variant="outline"
-                  className="rounded-[8px] border-slate-300 bg-slate-50 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
+                  className="rounded-xl border-slate-300 bg-slate-50 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
                 >
                   {task.type}
                 </Badge>
@@ -467,7 +467,7 @@ export function TaskCard({
               {task.projectName && (
                 <Badge
                   variant="outline"
-                  className="max-w-full rounded-[8px] border-cyan-300/70 bg-cyan-50/85 text-xs font-medium text-cyan-800 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-100"
+                  className="max-w-full rounded-xl border-cyan-300/70 bg-cyan-50/85 text-xs font-medium text-cyan-800 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-100"
                 >
                   <Briefcase className="mr-1 h-3 w-3 flex-shrink-0" />
                   <span className="truncate">{task.projectName}</span>
@@ -477,7 +477,7 @@ export function TaskCard({
               {task.workMode === "remote" && (
                 <Badge
                   variant="outline"
-                  className="max-w-full rounded-[8px] border-cyan-300/70 bg-cyan-50/85 text-xs font-semibold text-cyan-800 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-100"
+                  className="max-w-full rounded-xl border-cyan-300/70 bg-cyan-50/85 text-xs font-semibold text-cyan-800 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-100"
                 >
                   <MonitorUp className="mr-1 h-3 w-3 flex-shrink-0" />
                   <span className="truncate">Remoto</span>

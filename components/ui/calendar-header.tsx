@@ -32,7 +32,7 @@ export function CalendarHeader({
           placeholder="Cerca post, piattaforme, caption..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-10 min-w-0 rounded-[8px] border-white/10 bg-[#0b1424] pl-10 text-sm text-slate-100 shadow-none"
+          className="h-10 min-w-0 rounded-xl border-white/10 bg-[#0b1424] pl-10 text-sm text-slate-100 shadow-none"
         />
       </div>
 
@@ -42,10 +42,10 @@ export function CalendarHeader({
             value={selectedClientId || "all"}
             onValueChange={(value) => onClientChange(value === "all" ? null : value)}
           >
-            <SelectTrigger className="h-10 min-w-0 rounded-[8px] border-white/10 bg-[#0b1424] text-sm text-slate-100 shadow-none">
+            <SelectTrigger className="h-10 min-w-0 rounded-xl border-white/10 bg-[#0b1424] text-sm text-slate-100 shadow-none">
               <SelectValue placeholder="Seleziona cliente..." />
             </SelectTrigger>
-            <SelectContent className="border-white/10 bg-[#111b2d] text-slate-100">
+            <SelectContent className="border-white/10 bg-[#0f131c] text-slate-100">
               <SelectItem value="all">Tutti i clienti</SelectItem>
               {clientOptions.map((client) => (
                 <SelectItem key={client.value} value={client.value}>
@@ -58,15 +58,15 @@ export function CalendarHeader({
       )}
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" className="h-10 w-10 rounded-[8px] border-white/10 bg-[#0b1424] text-slate-300">
+        <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-white/10 bg-[#0b1424] text-slate-300">
           <Filter className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="icon" className="h-10 w-10 rounded-[8px] border-white/10 bg-[#0b1424] text-slate-300">
+        <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-white/10 bg-[#0b1424] text-slate-300">
           <MoreVertical className="h-4 w-4" />
         </Button>
         <Button
           onClick={onNewPost}
-          className="h-10 rounded-[8px] bg-righello-pink px-4 text-sm font-semibold text-white shadow-none hover:bg-righello-pink/90"
+          className="h-10 rounded-xl bg-righello-pink px-4 text-sm font-semibold text-white shadow-none hover:bg-righello-pink/90"
         >
           <Plus className="mr-2 h-4 w-4" />
           Crea post

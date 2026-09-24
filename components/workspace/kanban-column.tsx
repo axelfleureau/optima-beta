@@ -47,12 +47,12 @@ export function KanbanColumn({
       <div className={`shrink-0 rounded-t-[8px] border-x border-t bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${column.color}`}>
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] ${column.bgColor}`}>
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${column.bgColor}`}>
               <Clock className={`h-4 w-4 ${column.iconColor}`} />
             </div>
             <h3 className="truncate text-sm font-black text-slate-950 dark:text-slate-50">{column.title}</h3>
           </div>
-          <Badge variant="secondary" className="rounded-[8px] bg-slate-100 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          <Badge variant="secondary" className="rounded-xl bg-slate-100 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
             {tasks.length}
           </Badge>
         </div>
@@ -86,7 +86,7 @@ export function KanbanColumn({
 
             <Button
               variant="ghost"
-              className="h-12 w-full rounded-[8px] border border-dashed border-slate-300 text-sm font-bold text-slate-500 transition-all duration-150 hover:border-righello-pink hover:bg-righello-pink/10 hover:text-righello-pink dark:border-slate-700 dark:text-slate-300 dark:hover:border-righello-pink"
+              className="h-12 w-full rounded-xl border border-dashed border-slate-300 text-sm font-bold text-slate-500 transition-all duration-150 hover:border-righello-pink hover:bg-righello-pink/10 hover:text-righello-pink dark:border-slate-700 dark:text-slate-300 dark:hover:border-righello-pink"
               onClick={() => onAddTaskToColumn(column.id)}
             >
               <Plus className="mr-2 h-4 w-4" />

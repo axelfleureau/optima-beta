@@ -308,7 +308,7 @@ export default function ClientPortalPage() {
   return (
     <div className="optima-ops-page">
       <div className="optima-ops-container optima-ops-stack">
-        <header className="flex flex-col gap-5 rounded-lg border border-white/10 bg-[#111b2d] p-5 shadow-[0_18px_60px_rgba(2,6,23,0.28)] md:p-6">
+        <header className="flex flex-col gap-5 rounded-lg border border-white/10 bg-[#0f131c] p-5 shadow-[0_18px_60px_rgba(2,6,23,0.28)] md:p-6">
           <Link
             href="/clienti"
             className="inline-flex w-fit items-center gap-2 text-sm text-slate-400 transition hover:text-white"
@@ -362,7 +362,7 @@ export default function ClientPortalPage() {
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <main className="min-w-0 space-y-6">
-            <Card className="border-white/10 bg-[#111b2d] text-slate-100">
+            <Card className="border-white/10 bg-[#0f131c] text-slate-100">
               <CardHeader className="gap-4 border-b border-white/10">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
@@ -428,7 +428,7 @@ export default function ClientPortalPage() {
             </Card>
 
             {canEditPortal && (
-              <Card className="border-white/10 bg-[#111b2d] text-slate-100">
+              <Card className="border-white/10 bg-[#0f131c] text-slate-100">
                 <CardHeader className="border-b border-white/10">
                   <CardTitle className="flex items-center gap-2 text-xl text-white">
                     <Plus className="h-5 w-5 text-righello-pink" />
@@ -452,7 +452,7 @@ export default function ClientPortalPage() {
                           <SelectTrigger className="border-white/10 bg-[#0b1323] text-white">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="border-white/10 bg-[#111b2d] text-white">
+                          <SelectContent className="border-white/10 bg-[#0f131c] text-white">
                             {categories.map((category) => (
                               <SelectItem key={category} value={category}>
                                 {categoryConfig[category].label}
@@ -578,7 +578,7 @@ export default function ClientPortalPage() {
           </main>
 
           <aside className="min-w-0 space-y-6">
-            <Card className="border-white/10 bg-[#111b2d] text-slate-100">
+            <Card className="border-white/10 bg-[#0f131c] text-slate-100">
               <CardHeader className="border-b border-white/10">
                 <CardTitle className="text-lg text-white">
                   Riepilogo operativo
@@ -619,7 +619,7 @@ export default function ClientPortalPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-white/10 bg-[#111b2d] text-slate-100">
+            <Card className="border-white/10 bg-[#0f131c] text-slate-100">
               <CardHeader className="border-b border-white/10">
                 <CardTitle className="text-lg text-white">Progetti</CardTitle>
               </CardHeader>
@@ -653,7 +653,7 @@ export default function ClientPortalPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-white/10 bg-[#111b2d] text-slate-100">
+            <Card className="border-white/10 bg-[#0f131c] text-slate-100">
               <CardHeader className="border-b border-white/10">
                 <CardTitle className="text-lg text-white">
                   Task recenti

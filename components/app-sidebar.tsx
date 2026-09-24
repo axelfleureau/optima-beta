@@ -367,15 +367,33 @@ export function AppSidebar() {
   };
   const getNavItemClass = (active: boolean) =>
     cn(
-      "relative flex items-center transition-all duration-200",
-      isCollapsed ? "justify-center rounded-xl" : "gap-3 rounded-lg",
-      isMobile && "min-h-12 rounded-md px-3 py-3",
+      "relative flex min-w-0 items-center transition-all duration-200",
+      isCollapsed ? "justify-center rounded-xl" : "gap-3 rounded-xl",
+      isMobile && "min-h-12 px-3 py-3",
       active
         ? isCollapsed
-          ? "bg-righello-pink/16 text-white ring-1 ring-righello-pink/35 shadow-[0_10px_24px_rgba(214,72,126,0.12)]"
-          : "bg-gradient-to-r from-righello-pink/18 to-righello-cyan/10 text-white ring-1 ring-white/10"
-        : "text-white/68 hover:bg-white/[0.06] hover:text-white",
+          ? "bg-righello-pink/16 text-white ring-1 ring-righello-pink/30 shadow-[0_10px_24px_rgba(214,72,126,0.12)]"
+          : "bg-righello-pink/[0.12] text-white ring-1 ring-righello-pink/20 before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-righello-pink"
+        : "text-white/58 hover:bg-white/[0.05] hover:text-white",
     );
+
+  const getMenuSection = (url: string) => {
+    if (["/dashboard", "/workspace", "/clienti"].includes(url)) return "Lavoro"
+    if (["/campagne", "/preventivi", "/calendario-editoriale", "/video"].includes(url) || url.startsWith("https://calendo")) {
+      return "Delivery"
+    }
+    if (["/presenze", "/calendario-team", "/team", "/rapportini"].includes(url)) return "Persone"
+    if (["/management", "/ai-assistant", "/agenti"].includes(url)) return "Intelligence"
+    return "Strumenti"
+  }
+
+  const groupedMenuItems = menuItems.reduce<Array<{ label: string; items: typeof menuItems }>>((groups, item) => {
+    const label = getMenuSection(item.url)
+    const group = groups.find((candidate) => candidate.label === label)
+    if (group) group.items.push(item)
+    else groups.push({ label, items: [item] })
+    return groups
+  }, [])
 
   return (
     <Sidebar collapsible="icon">
@@ -454,7 +472,7 @@ export function AppSidebar() {
                 {!isCollapsed && (
                   <div className="min-w-0 leading-none">
                     <p className="truncate text-lg font-black tracking-[-0.02em] text-white">
-                      Optima
+                      Óptima
                     </p>
                     <p className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
                       by Righello
@@ -489,7 +507,7 @@ export function AppSidebar() {
         )}
       >
         {!isCollapsed && !isClient ? (
-          <div className="mb-4 rounded-[8px] border border-righello-cyan/18 bg-righello-cyan/[0.055] p-3">
+          <div className="mb-4 rounded-2xl border border-righello-cyan/15 bg-righello-cyan/[0.045] p-3">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-[0.66rem] font-black uppercase tracking-[0.2em] text-righello-cyan">
@@ -511,13 +529,13 @@ export function AppSidebar() {
                     href={item.url}
                     onClick={closeMobileSidebar}
                     className={cn(
-                      "group flex min-h-12 items-center gap-3 rounded-[7px] border px-3 py-2 transition",
+                      "group flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 transition",
                       active
                         ? "border-righello-pink/35 bg-righello-pink/14 text-white"
                         : "border-white/8 bg-black/15 text-white/68 hover:border-righello-cyan/30 hover:bg-white/[0.045] hover:text-white",
                     )}
                   >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[7px] border border-white/10 bg-white/[0.04]">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04]">
                       <Icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0">
@@ -536,46 +554,55 @@ export function AppSidebar() {
         ) : null}
 
         {/* Main menu section */}
-        <div className="mb-4">
+        <div className="mb-4 space-y-4">
           {!isCollapsed && (
-            <div className="mb-2 px-2 text-xs font-bold uppercase tracking-[0.18em] text-white/35">
+            <div className="px-2 text-[10px] font-black uppercase tracking-[0.22em] text-white/28">
               {menuLabel}
             </div>
           )}
-          <SidebarMenu className={isCollapsed ? "items-center" : ""}>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive(item.url)}
-                  tooltip={isCollapsed ? item.title : undefined}
-                  className={
-                    isCollapsed
-                      ? "group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0"
-                      : ""
-                  }
-                >
-                  <Link
-                    href={item.url}
-                    onClick={closeMobileSidebar}
-                    className={getNavItemClass(isActive(item.url))}
-                  >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span
-                        className={cn(
-                          "font-medium",
-                          isMobile ? "text-[15px]" : "text-sm",
-                        )}
+          {groupedMenuItems.map((group) => (
+            <div key={group.label}>
+              {!isCollapsed && (
+                <div className="mb-1.5 px-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/32">
+                  {group.label}
+                </div>
+              )}
+              <SidebarMenu className={isCollapsed ? "items-center" : ""}>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item.url)}
+                      tooltip={isCollapsed ? item.title : undefined}
+                      className={
+                        isCollapsed
+                          ? "group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0"
+                          : ""
+                      }
+                    >
+                      <Link
+                        href={item.url}
+                        onClick={closeMobileSidebar}
+                        className={getNavItemClass(isActive(item.url))}
                       >
-                        {item.title}
-                      </span>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
+                        <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
+                        {!isCollapsed && (
+                          <span
+                            className={cn(
+                              "min-w-0 truncate font-bold",
+                              isMobile ? "text-[15px]" : "text-sm",
+                            )}
+                          >
+                            {item.title}
+                          </span>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </div>
+          ))}
         </div>
 
         {/* Admin section */}

@@ -217,7 +217,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: "easeOut" }}
-      className="group relative overflow-hidden rounded-[8px] border border-white/10 bg-[#0a1020]/92 shadow-[0_18px_70px_rgba(0,0,0,0.24)]"
+      className="group relative overflow-hidden rounded-xl border border-white/10 bg-[#0a1020]/92 shadow-[0_18px_70px_rgba(0,0,0,0.24)]"
     >
       <div className={cn("h-1 w-full bg-gradient-to-r", statusInfo.accent)} />
       <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/[0.04] blur-2xl transition group-hover:bg-righello-pink/10" />
@@ -225,7 +225,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
       <div className="relative p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
-            <Badge className={cn("w-fit rounded-[8px] border px-2.5 py-1", statusInfo.className)}>
+            <Badge className={cn("w-fit rounded-xl border px-2.5 py-1", statusInfo.className)}>
               <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
               {statusInfo.label}
             </Badge>
@@ -238,7 +238,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
               {quote.description || "Struttura proposta, attivita e pricing pronti per essere completati."}
             </p>
             {quote.sourceType && (
-              <div className="flex w-fit items-center gap-2 rounded-[8px] border border-cyan-300/15 bg-cyan-300/10 px-2.5 py-1 text-xs font-semibold text-cyan-100">
+              <div className="flex w-fit items-center gap-2 rounded-xl border border-cyan-300/15 bg-cyan-300/10 px-2.5 py-1 text-xs font-semibold text-cyan-100">
                 <Database className="h-3.5 w-3.5" />
                 Fonte {quote.sourceType}
               </div>
@@ -247,11 +247,11 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-[8px] text-slate-300 hover:bg-white/10 hover:text-white">
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-slate-300 hover:bg-white/10 hover:text-white">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-[8px] border-white/10 bg-[#0d1320] text-white">
+            <DropdownMenuContent align="end" className="w-48 rounded-xl border-white/10 bg-[#10141d] text-white">
               <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
                 <Link href={`/preventivi/${quote.id}`}>
                   <Eye className="mr-2 h-4 w-4" />
@@ -290,7 +290,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
           <InfoCell icon={CheckCircle} label="Valore" value={quoteValuePreview(quote, hasInferredRows)} accent />
         </div>
 
-        <div className="mt-4 rounded-[8px] border border-white/10 bg-black/25 p-3">
+        <div className="mt-4 rounded-xl border border-white/10 bg-black/25 p-3">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-xs font-bold uppercase text-slate-500">Anteprima proposta</p>
             <span className="text-xs text-slate-500">
@@ -300,7 +300,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
           <div className="space-y-2">
             {rows.length > 0 ? (
               rows.map((row, index) => (
-                <div key={`${row.label}-${index}`} className="flex items-center justify-between gap-3 rounded-[8px] bg-white/[0.035] px-3 py-2">
+                <div key={`${row.label}-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.035] px-3 py-2">
                   <span className="line-clamp-1 text-sm font-semibold text-slate-200">{row.label}</span>
                   <span className="shrink-0 text-sm font-black text-white">
                     {quoteRowValuePreview(quote, row.value, hasInferredRows)}
@@ -308,7 +308,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
                 </div>
               ))
             ) : (
-              <div className="rounded-[8px] border border-dashed border-white/10 px-3 py-4 text-sm text-slate-500">
+              <div className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-sm text-slate-500">
                 Nessuna voce ancora definita. Apri l'editor per completare scope e pricing.
               </div>
             )}
@@ -316,7 +316,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
         </div>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button asChild variant="outline" className="rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10">
+          <Button asChild variant="outline" className="rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10">
             <Link href={`/preventivi/${quote.id}`}>
               <Eye className="mr-2 h-4 w-4" />
               Visualizza
@@ -325,7 +325,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
           {canEdit && (
             <Button
               variant="outline"
-              className="rounded-[8px] border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="rounded-xl border-white/10 bg-white/5 text-white hover:bg-white/10"
               onClick={() => onEdit?.(quote.id)}
             >
               <Edit className="mr-2 h-4 w-4" />
@@ -335,7 +335,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
           {canSend && (
             <Button
               disabled={sending}
-              className="rounded-[8px] bg-righello-pink text-white hover:bg-righello-pink-dark disabled:opacity-60"
+              className="rounded-xl bg-righello-pink text-white hover:bg-righello-pink-dark disabled:opacity-60"
               onClick={() => onSend?.(quote.id)}
             >
               <Send className={cn("mr-2 h-4 w-4", sending && "animate-pulse")} />
@@ -345,7 +345,7 @@ export function QuoteCard({ quote, onEdit, onSend, onDownload, onDelete, sending
           {onDownload && (
             <Button
               variant="ghost"
-              className="rounded-[8px] text-slate-300 hover:bg-white/10 hover:text-white sm:ml-auto"
+              className="rounded-xl text-slate-300 hover:bg-white/10 hover:text-white sm:ml-auto"
               onClick={() => onDownload(quote.id)}
             >
               <Download className="mr-2 h-4 w-4" />
@@ -370,7 +370,7 @@ function InfoCell({
   accent?: boolean
 }) {
   return (
-    <div className="min-w-0 rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
+    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.035] p-3">
       <div className="flex items-center gap-2 text-slate-500">
         <Icon className="h-3.5 w-3.5" />
         <span className="text-xs font-semibold uppercase">{label}</span>

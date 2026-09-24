@@ -774,7 +774,7 @@ export function AiPageGuide() {
             setHintOpen(false);
             dismissAssistantHint();
           }}
-          className="group relative flex h-14 min-w-14 items-center justify-center gap-2 rounded-[8px] border border-white/10 bg-[#070b12]/95 px-1.5 text-white shadow-2xl backdrop-blur-xl transition hover:border-righello-pink/50 md:min-w-[10.5rem] md:justify-start md:px-3"
+          className="group relative flex h-14 min-w-14 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#070b12]/95 px-1.5 text-white shadow-2xl backdrop-blur-xl transition hover:border-righello-pink/50 md:min-w-[10.5rem] md:justify-start md:px-3"
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
           whileHover={reduceMotion ? undefined : { y: -2 }}
@@ -786,7 +786,7 @@ export function AiPageGuide() {
             animate={reduceMotion ? undefined : { opacity: [0.25, 0.55, 0.25] }}
             transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
           />
-          <span className="relative grid h-11 w-11 place-items-center rounded-[8px] border border-white/10 bg-[radial-gradient(circle_at_30%_20%,rgba(214,72,126,0.45),transparent_42%),#0b1220]">
+          <span className="relative grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-[radial-gradient(circle_at_30%_20%,rgba(214,72,126,0.45),transparent_42%),#0b1220]">
             <RighelloIcon
               className="h-8 w-8"
               imageClassName="h-[18px] w-[18px]"
@@ -819,7 +819,7 @@ export function AiPageGuide() {
                 reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.96 }
               }
               transition={{ duration: 0.2 }}
-              className="absolute right-0 top-[4.25rem] w-[min(340px,calc(100vw-1.5rem))] overflow-hidden rounded-[8px] border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl md:bottom-[4.25rem] md:top-auto"
+              className="absolute right-0 top-[4.25rem] w-[min(340px,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-white/10 bg-[#070b12]/95 text-white shadow-2xl backdrop-blur-xl md:bottom-[4.25rem] md:top-auto"
             >
               <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(214,72,126,0.22),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.96))] p-4">
                 <div className="flex items-start justify-between gap-3">

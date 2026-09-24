@@ -62,7 +62,7 @@ export function CalendarSyncButton() {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg border-white/10 bg-[#111b2d] text-slate-100">
+        <DialogContent className="max-w-lg border-white/10 bg-[#0f131c] text-slate-100">
           <DialogHeader>
             <DialogTitle>Collega a Google o Apple Calendar</DialogTitle>
             <DialogDescription className="text-slate-400">

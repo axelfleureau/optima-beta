@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
                 className="w-10 h-10"
               />
             </div>
-            <span className="text-white font-bold text-2xl">Optima</span>
+            <span className="text-white font-bold text-2xl">Óptima</span>
           </div>
           <p className="text-gray-400">
             {success ? "Email inviata!" : "Reimposta la tua password"}

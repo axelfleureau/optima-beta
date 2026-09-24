@@ -62,7 +62,7 @@ function Group({
   const [open, setOpen] = useState(false);
   if (count === 0) return null;
   return (
-    <div className="rounded-lg border border-white/10 bg-[#0e1625]">
+    <div className="rounded-lg border border-white/10 bg-[#121722]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -155,7 +155,7 @@ export function StructureAudit() {
     audit.summary.holdingCandidates;
 
   return (
-    <div className="space-y-3 rounded-lg border border-white/10 bg-[#111b2d] p-4">
+    <div className="space-y-3 rounded-lg border border-white/10 bg-[#0f131c] p-4">
       <div className="flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-cyan-300" />
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300">
