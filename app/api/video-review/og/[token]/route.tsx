@@ -2,12 +2,11 @@ export const dynamic = "force-dynamic";
 
 /**
  * Card social (1200x630) della Post Review, brandizzata Righello: eyebrow,
- * cliente, titolo, mese e logo. Prima la generava il nodo (Mac Studio), ma
- * per i media su R2 (che il nodo non può leggere) il mockup con la foto
+ * cliente, titolo, mese e wordmark. Prima la generava il nodo (Mac Studio),
+ * ma per i media su R2 (che il nodo non può leggere) il mockup con la foto
  * spariva e restava il placeholder generico. La componiamo qui, nel Worker,
- * con solo testo e il logo esistente: stessa card per ogni consegna, NAS o
- * R2, nessuna dipendenza dal nodo, nessuna decodifica quindi nessun rischio
- * di timeout.
+ * con solo testo (nessun asset remoto da recuperare): stessa card per ogni
+ * consegna, NAS o R2, nessuna dipendenza dal nodo, nessun rischio di timeout.
  */
 
 import { ImageResponse } from "next/og";
@@ -16,11 +15,6 @@ import { getCloudflareDb } from "@/lib/cloudflare-db";
 
 const WIDTH = 1200;
 const HEIGHT = 630;
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  "https://appbeta.wearerighello.com"
-).replace(/\/$/, "");
 const IMAGE_HEADERS = {
   "Content-Type": "image/png",
   // L'URL porta già `?v=` come cache-buster (vedi reviewOgImageUrl): a parità
@@ -112,13 +106,20 @@ function card(opts: { title: string; client: string | null; date: string | null 
           </div>
         </div>
 
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`${SITE_URL}/righello-logo-white.png`}
-          width={168}
-          height={41}
-          style={{ objectFit: "contain" }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              display: "flex",
+              width: 20,
+              height: 20,
+              borderRadius: 999,
+              background: "linear-gradient(135deg, #d6487e, #06b6d4)",
+            }}
+          />
+          <div style={{ display: "flex", fontSize: 28, fontWeight: 800, color: "#ffffff" }}>
+            Righello
+          </div>
+        </div>
       </div>
     ),
     { width: WIDTH, height: HEIGHT, headers: IMAGE_HEADERS },
