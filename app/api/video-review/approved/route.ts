@@ -11,6 +11,7 @@ import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import {
+  preferredVideoStorageKey,
   signedByteUrl,
   signedPosterOrThumbUrl,
 } from "@/lib/video-node";
@@ -45,42 +46,45 @@ export async function GET(_request: NextRequest) {
     .all();
 
   const videos = await Promise.all(
-    ((res?.results || []) as any[]).map(async (v) => ({
-      id: v.id,
-      title: v.title,
-      filename: v.filename,
-      mediaType: v.media_type || "video",
-      mimeType: v.mime_type || null,
-      slideIndex: v.slide_index ? Number(v.slide_index) : null,
-      clientName: v.client_name || null,
-      trancheTitle: v.tranche_title,
-      plannedPublishDate: v.planned_publish_date,
-      durationSeconds: v.duration_seconds,
-      width: v.width,
-      height: v.height,
-      description: v.description || "",
-      published: !!v.published,
-      isMine: String(v.smm_member_id || "") === String(principal.memberId),
-      streamUrl:
-        String(v.media_type || "video") === "video"
-          ? await signedByteUrl(v.approved_key || v.storage_key)
-          : null,
-      imageUrl:
-        String(v.media_type || "video") === "image"
-          ? await signedByteUrl(v.approved_key || v.storage_key)
-          : null,
-      // Anteprima del player: senza, la board mostra rettangoli neri.
-      thumbUrl:
-        String(v.media_type || "video") === "video"
-          ? await signedPosterOrThumbUrl(
-              v.poster_key,
-              v.approved_key || v.storage_key,
-            )
-          : null,
-      downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, {
-        download: true,
-      }),
-    })),
+    ((res?.results || []) as any[]).map(async (v) => {
+      const playbackKey = preferredVideoStorageKey(
+        v.storage_key,
+        v.approved_key,
+      );
+      return {
+        id: v.id,
+        title: v.title,
+        filename: v.filename,
+        mediaType: v.media_type || "video",
+        mimeType: v.mime_type || null,
+        slideIndex: v.slide_index ? Number(v.slide_index) : null,
+        clientName: v.client_name || null,
+        trancheTitle: v.tranche_title,
+        plannedPublishDate: v.planned_publish_date,
+        durationSeconds: v.duration_seconds,
+        width: v.width,
+        height: v.height,
+        description: v.description || "",
+        published: !!v.published,
+        isMine: String(v.smm_member_id || "") === String(principal.memberId),
+        streamUrl:
+          String(v.media_type || "video") === "video"
+            ? await signedByteUrl(playbackKey)
+            : null,
+        imageUrl:
+          String(v.media_type || "video") === "image"
+            ? await signedByteUrl(playbackKey)
+            : null,
+        // Anteprima del player: senza, la board mostra rettangoli neri.
+        thumbUrl:
+          String(v.media_type || "video") === "video"
+            ? await signedPosterOrThumbUrl(v.poster_key, playbackKey)
+            : null,
+        downloadUrl: await signedByteUrl(playbackKey, {
+          download: true,
+        }),
+      };
+    }),
   );
 
   return Response.json({ ok: true, videos });

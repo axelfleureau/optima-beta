@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { signedOgCardUrl } from "@/lib/video-node";
+import { preferredVideoStorageKey, signedOgCardUrl } from "@/lib/video-node";
 import ReviewRoomClient from "./review-room-client";
 
 type PageParams = { params: Promise<{ token: string }> };
@@ -42,7 +42,7 @@ async function getReviewPreview(token: string) {
 
   const firstMedia: any = await db
     .prepare(
-      `SELECT v.title, COALESCE(v.approved_key, v.storage_key) AS media_key
+      `SELECT v.title, v.storage_key, v.approved_key
          FROM vr_videos v
         WHERE v.tranche_id = ? AND v.status != 'uploading'
           AND NOT EXISTS (
@@ -66,7 +66,12 @@ async function getReviewPreview(token: string) {
       t: String(tranche.title || "Contenuti da approvare"),
       c: tranche.client_name ? String(tranche.client_name) : null,
       d: mese(tranche.created_at ? String(tranche.created_at) : null),
-      f: firstMedia?.media_key ? String(firstMedia.media_key) : null,
+      f: firstMedia
+        ? preferredVideoStorageKey(
+            firstMedia.storage_key,
+            firstMedia.approved_key,
+          )
+        : null,
     })) || FALLBACK_IMAGE;
 
   return {

@@ -11,6 +11,7 @@ import { canAccessVideo } from "@/lib/video-review-acl";
 import {
   isR2VideoKey,
   r2VideoObjectKey,
+  signedByteUrl,
   signedHlsBuildUrl,
 } from "@/lib/video-node";
 
@@ -33,6 +34,73 @@ export async function PATCH(
   const now = new Date().toISOString();
   const sets: string[] = [];
   const vals: any[] = [];
+
+  // Non rendere mai visibile un upload basandosi solo sulla risposta del
+  // browser. Verifichiamo dal server che i byte esistano davvero nello storage
+  // autorevole e che la dimensione coincida con quella dichiarata.
+  if (body?.finalize) {
+    const upload: any = await db
+      .prepare(
+        `SELECT id, storage_key, file_size, status
+           FROM vr_videos
+          WHERE id = ? AND organization_id = ? LIMIT 1`,
+      )
+      .bind(id, principal.organizationId)
+      .first();
+    if (!upload) {
+      return Response.json({ error: "Video non trovato" }, { status: 404 });
+    }
+    if (String(upload.status) === "pending") {
+      return Response.json({ ok: true, alreadyFinalized: true });
+    }
+    if (String(upload.status) !== "uploading") {
+      return Response.json(
+        { error: "Questo media non e' in fase di caricamento" },
+        { status: 409 },
+      );
+    }
+
+    const storageKey = String(upload.storage_key || "");
+    const expectedSize = Number(upload.file_size || 0);
+    if (isR2VideoKey(storageKey)) {
+      const bucket = await getTaskMediaBucket();
+      const object = bucket
+        ? await bucket.head(r2VideoObjectKey(storageKey))
+        : null;
+      if (!object) {
+        return Response.json(
+          {
+            error: "Upload non presente nello storage: riprova il caricamento",
+          },
+          { status: 409 },
+        );
+      }
+      if (expectedSize > 0 && Number(object.size) !== expectedSize) {
+        return Response.json(
+          {
+            error: `Upload incompleto: ricevuti ${Number(object.size)} byte su ${expectedSize}`,
+          },
+          { status: 409 },
+        );
+      }
+    } else {
+      // Compatibilita' per eventuali upload sul nodo iniziati prima di questo
+      // rilascio. I nuovi upload non passano piu' da qui.
+      const url = await signedByteUrl(storageKey, { ttlSeconds: 120 });
+      const probe = url
+        ? await fetch(url, {
+            headers: { Range: "bytes=0-0" },
+            signal: AbortSignal.timeout(8000),
+          }).catch(() => null)
+        : null;
+      if (!probe?.ok) {
+        return Response.json(
+          { error: "Il nodo video non conferma il file caricato" },
+          { status: 409 },
+        );
+      }
+    }
+  }
 
   if ("description" in body) {
     sets.push("description = ?");
@@ -62,8 +130,8 @@ export async function PATCH(
     vals.push(body.published ? 1 : 0, body.published ? now : null);
   }
 
-  // Conferma di una nuova versione: i byte sono sul nodo, il video entra in
-  // attesa di review e salviamo i metadati letti da ffprobe dal nodo stesso.
+  // Conferma di una nuova versione: i byte sono stati verificati, il video
+  // entra in attesa di review e salviamo i metadati letti nel browser.
   if (body?.finalize) {
     sets.push(
       "status = ?",

@@ -27,6 +27,18 @@ export function isR2VideoKey(storageKey: string | null | undefined) {
   return String(storageKey || "").startsWith("r2://");
 }
 
+/**
+ * Preferisce sempre lo storage R2 autorevole. Questo evita che un vecchio
+ * `approved_key` del nodo renda il media illeggibile dopo un recupero su R2.
+ */
+export function preferredVideoStorageKey(
+  storageKey: string | null | undefined,
+  approvedKey: string | null | undefined,
+) {
+  if (isR2VideoKey(storageKey)) return String(storageKey);
+  return String(approvedKey || storageKey || "");
+}
+
 export function r2VideoObjectKey(storageKey: string) {
   return storageKey.replace(/^r2:\/\//, "");
 }

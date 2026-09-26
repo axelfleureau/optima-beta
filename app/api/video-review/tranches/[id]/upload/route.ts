@@ -4,14 +4,13 @@ export const dynamic = "force-dynamic";
  * Prepara l'upload di uno o più media NUOVI dentro una consegna, dal browser.
  *
  * Stessa logica del /new-version: creiamo PRIMA la riga (status 'uploading')
- * con la destinazione, poi il browser manda i byte al nodo (Mac Studio) con
- * l'URL firmato, infine conferma con PATCH { finalize: true }. Pre-creare la
+ * con la destinazione, poi il browser manda i byte a R2 in multipart, infine
+ * conferma con PATCH { finalize: true }. Pre-creare la
  * riga evita la corsa col watcher, che vedendo comparire il file creerebbe un
  * secondo video duplicato.
  *
- * La destinazione è la stessa cartella che il watcher sorveglia, quindi un
- * video caricato da qui finisce esattamente dove finirebbe esportandolo a mano:
- *   da-revisionare/<Cliente>/<Consegna>/<file>
+ * R2 e' lo storage autorevole della review; il NAS resta nel workflow di
+ * produzione/final render ma non e' una dipendenza della pagina cliente.
  */
 
 import type { NextRequest } from "next/server";
@@ -20,11 +19,7 @@ import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { canAccessTranche } from "@/lib/video-review-acl";
-import { signedUploadUrl } from "@/lib/video-node";
-import {
-  shouldUseVideoMultipartUpload,
-  VIDEO_MULTIPART_PART_SIZE_BYTES,
-} from "@/lib/video-upload-policy";
+import { VIDEO_MULTIPART_PART_SIZE_BYTES } from "@/lib/video-upload-policy";
 
 /** Nome file sicuro: niente separatori, niente `..`. */
 function safeName(name: string, fallback = "media.bin") {
@@ -35,18 +30,6 @@ function safeName(name: string, fallback = "media.bin") {
     .replace(/^\.+/, "")
     .slice(0, 120);
   return clean || fallback;
-}
-
-/** Segmento di cartella sicuro (cliente/consegna). */
-function safeSegment(name: string) {
-  return (
-    String(name || "")
-      .replace(/[\\/]/g, "_")
-      .replace(/\.\.+/g, "_")
-      .replace(/^\.+/, "")
-      .trim()
-      .slice(0, 80) || "Senza nome"
-  );
 }
 
 const VIDEO_EXT = /\.(mp4|mov|m4v|mkv|avi|mxf|webm)$/i;
@@ -123,6 +106,12 @@ export async function POST(
   if (typedFiles.some((file) => !file.mediaType)) {
     return Response.json({ error: "Formato non supportato" }, { status: 400 });
   }
+  if (typedFiles.some((file) => file.fileSize <= 0)) {
+    return Response.json(
+      { error: "File vuoto o illeggibile" },
+      { status: 400 },
+    );
+  }
   const mediaTypes = new Set(typedFiles.map((file) => file.mediaType));
   if (mediaTypes.size > 1) {
     return Response.json(
@@ -170,28 +159,10 @@ export async function POST(
       : typedFiles.length > 1
         ? "carousel"
         : "image";
-  // Struttura NAS: [Holding/]Cliente/Progetto/da-revisionare/Consegna (progetto sempre presente).
-  const videoDir = [
-    tranche.parent_name ? safeSegment(tranche.parent_name) : null,
-    safeSegment(tranche.client_name || "Senza cliente"),
-    safeSegment(tranche.project_name),
-    "da-revisionare",
-    safeSegment(tranche.title),
-  ]
-    .filter(Boolean)
-    .join("/");
-
-  // I media grandi passano da R2 multipart: ogni richiesta resta piccola e non
-  // incontra il limite del proxy Cloudflare davanti al nodo. I video piccoli
-  // continuano ad andare direttamente al Mac Studio/NAS (faststart + thumbnail).
-  const needsMultipart = typedFiles.some((file) =>
-    shouldUseVideoMultipartUpload(
-      file.mediaType as "image" | "video",
-      file.fileSize,
-    ),
-  );
-  const bucket = needsMultipart ? await getTaskMediaBucket() : null;
-  if (needsMultipart && !bucket) {
+  // Ogni media passa da R2 multipart: ogni richiesta resta piccola e il file
+  // della review non dipende dalla disponibilita' o dal mount del nodo video.
+  const bucket = await getTaskMediaBucket();
+  if (!bucket) {
     return Response.json(
       { error: "Storage media non configurato" },
       { status: 503 },
@@ -209,7 +180,7 @@ export async function POST(
     mediaId: string;
     mediaType: "image" | "video";
     storageKey: string;
-    uploadMode: "r2_multipart" | "node_put";
+    uploadMode: "r2_multipart";
     uploadUrl: string | null;
     uploadId: string | null;
     partSize: number;
@@ -222,41 +193,23 @@ export async function POST(
     // Immagini: tutte nello stesso gruppo (un carosello). Video: uno per post.
     const postGroupId =
       mediaType === "image" ? sharedImageGroupId : createId("vrpost");
-    const useMultipart = shouldUseVideoMultipartUpload(
-      mediaType,
-      file.fileSize,
-    );
-    const storageKey = useMultipart
-      ? `r2://post-review/${org}/${id}/${videoId}/${file.filename}`
-      : `${videoDir}/${file.filename}`;
+    const storageKey = `r2://post-review/${org}/${id}/${videoId}/${file.filename}`;
 
-    let uploadUrl: string | null = null;
-    let uploadId: string | null = null;
-    if (useMultipart) {
-      const multipart = await bucket.createMultipartUpload(
-        storageKey.replace(/^r2:\/\//, ""),
-        {
-          httpMetadata: { contentType: file.contentType },
-          customMetadata: {
-            organizationId: org,
-            trancheId: id,
-            videoId,
-            uploadedBy: principal.memberId,
-            originalName: file.filename,
-            mediaType,
-          },
+    const multipart = await bucket.createMultipartUpload(
+      storageKey.replace(/^r2:\/\//, ""),
+      {
+        httpMetadata: { contentType: file.contentType },
+        customMetadata: {
+          organizationId: org,
+          trancheId: id,
+          videoId,
+          uploadedBy: principal.memberId,
+          originalName: file.filename,
+          mediaType,
         },
-      );
-      uploadId = multipart.uploadId;
-    } else {
-      uploadUrl = await signedUploadUrl(storageKey);
-      if (!uploadUrl) {
-        return Response.json(
-          { error: "Nodo video non configurato" },
-          { status: 503 },
-        );
-      }
-    }
+      },
+    );
+    const uploadId = multipart.uploadId;
 
     await db
       .prepare(
@@ -291,8 +244,8 @@ export async function POST(
       mediaId: videoId,
       mediaType,
       storageKey,
-      uploadMode: useMultipart ? "r2_multipart" : "node_put",
-      uploadUrl,
+      uploadMode: "r2_multipart",
+      uploadUrl: null,
       uploadId,
       partSize: VIDEO_MULTIPART_PART_SIZE_BYTES,
       slideIndex: mediaType === "image" ? index + 1 : null,

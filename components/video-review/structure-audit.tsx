@@ -18,8 +18,9 @@ type NoProject = {
   clientName: string | null;
   media: number;
 };
-type OnR2 = {
+type LegacyNodeVideo = {
   id: string;
+  trancheId: string;
   title: string;
   trancheTitle: string;
   clientName: string | null;
@@ -36,12 +37,12 @@ type Audit = {
   ok: boolean;
   summary: {
     tranchesNoProject: number;
-    videosOnR2: number;
+    legacyNodeVideos: number;
     emptyTranches: number;
     holdingCandidates: number;
   };
   tranchesNoProject: NoProject[];
-  videosOnR2: OnR2[];
+  legacyNodeVideos: LegacyNodeVideo[];
   emptyTranches: Empty[];
   holdingCandidates: Holding[];
 };
@@ -86,8 +87,6 @@ export function StructureAudit() {
   const [audit, setAudit] = useState<Audit | null>(null);
   const [hidden, setHidden] = useState(false);
   const [linking, setLinking] = useState<string | null>(null);
-  const [migrating, setMigrating] = useState<string | null>(null);
-  const [migrateError, setMigrateError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/video-review/audit", { cache: "no-store" });
@@ -114,43 +113,10 @@ export function StructureAudit() {
     await load();
   }
 
-  async function migrateOne(videoId: string) {
-    setMigrateError(null);
-    setMigrating(videoId);
-    const res = await fetch(`/api/video-review/videos/${videoId}/migrate`, {
-      method: "POST",
-    });
-    const data = await res.json().catch(() => null);
-    setMigrating(null);
-    if (!data?.ok) {
-      setMigrateError(data?.error || "Migrazione non riuscita.");
-      return;
-    }
-    await load();
-  }
-
-  async function migrateAll(videos: OnR2[]) {
-    setMigrateError(null);
-    for (const v of videos) {
-      setMigrating(v.id);
-      const res = await fetch(`/api/video-review/videos/${v.id}/migrate`, {
-        method: "POST",
-      });
-      const data = await res.json().catch(() => null);
-      if (!data?.ok) {
-        setMigrating(null);
-        setMigrateError(`"${v.title}": ${data?.error || "errore"}`);
-        break;
-      }
-    }
-    setMigrating(null);
-    await load();
-  }
-
   if (hidden || !audit) return null;
   const total =
     audit.summary.tranchesNoProject +
-    audit.summary.videosOnR2 +
+    audit.summary.legacyNodeVideos +
     audit.summary.emptyTranches +
     audit.summary.holdingCandidates;
 
@@ -199,13 +165,14 @@ export function StructureAudit() {
           <Group
             icon={CloudOff}
             tone="text-sky-400"
-            title="Video ancora su cloud (R2) da migrare sul NAS"
-            count={audit.summary.videosOnR2}
+            title="Video legacy ancora dipendenti dal nodo"
+            count={audit.summary.legacyNodeVideos}
           >
             <div className="space-y-1">
-              {audit.videosOnR2.map((v) => (
-                <div
+              {audit.legacyNodeVideos.map((v) => (
+                <Link
                   key={v.id}
+                  href={`/video/${v.trancheId}`}
                   className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-200"
                 >
                   <span className="min-w-0 flex-1 truncate">{v.title}</span>
@@ -213,32 +180,16 @@ export function StructureAudit() {
                     {v.clientName || v.trancheTitle}
                     {v.sizeMb ? ` · ${v.sizeMb} MB` : ""}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => migrateOne(v.id)}
-                    disabled={migrating !== null}
-                    className="shrink-0 rounded-md border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-xs font-semibold text-sky-200 hover:bg-sky-400/20 disabled:opacity-50"
-                  >
-                    {migrating === v.id ? "Migro…" : "Migra"}
-                  </button>
-                </div>
+                  <span className="shrink-0 rounded-md border border-amber-400/25 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold text-amber-200">
+                    Da mettere al sicuro
+                  </span>
+                </Link>
               ))}
-              <div className="flex items-center justify-between px-2 pt-2">
-                <p className="text-[11px] text-slate-500">
-                  Sposta i byte sul Mac Studio (faststart incluso).
-                </p>
-                <button
-                  type="button"
-                  onClick={() => migrateAll(audit.videosOnR2)}
-                  disabled={migrating !== null}
-                  className="rounded-md bg-sky-500/90 px-3 py-1 text-xs font-bold text-white hover:bg-sky-500 disabled:opacity-50"
-                >
-                  {migrating ? "Migro…" : "Migra tutti sul NAS"}
-                </button>
-              </div>
-              {migrateError && (
-                <p className="px-2 text-[11px] text-red-300">{migrateError}</p>
-              )}
+              <p className="px-2 pt-2 text-[11px] text-slate-500">
+                I nuovi upload sono gia' su R2. Questi elementi precedenti vanno
+                recuperati dal sorgente prima che il percorso locale non sia
+                piu' disponibile.
+              </p>
             </div>
           </Group>
 
@@ -256,7 +207,8 @@ export function StructureAudit() {
                 >
                   <span className="min-w-0 flex-1 truncate text-slate-200">
                     <strong>{h.childName}</strong>{" "}
-                    <span className="text-slate-500">sotto</span> {h.parentName}?
+                    <span className="text-slate-500">sotto</span> {h.parentName}
+                    ?
                   </span>
                   <button
                     type="button"

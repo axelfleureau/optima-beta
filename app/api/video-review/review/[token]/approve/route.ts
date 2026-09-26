@@ -83,14 +83,20 @@ export async function POST(
   await db
     .prepare(
       `UPDATE vr_videos
-          SET status='approved', decided_at=?, updated_at=?
+          SET status='approved',
+              approved_key=CASE
+                WHEN storage_key LIKE 'r2://%' THEN storage_key
+                ELSE approved_key
+              END,
+              decided_at=?, updated_at=?
         WHERE id IN (${placeholders}) AND tranche_id=?`,
     )
     .bind(now, now, ...ids, String(t.id))
     .run();
 
   // Sposta i video del NODO da …/da-revisionare/… a …/approvati/… (best-effort).
-  // I video su R2 restano dove sono (approved_key null → si legge storage_key).
+  // I video su R2 restano dove sono e conservano lo stesso riferimento anche
+  // dopo l'approvazione. Solo i file legacy sul nodo vengono spostati.
   for (const v of videos) {
     const key = String(v.storage_key || "");
     if (key.startsWith("r2://") || !key.includes("/da-revisionare/")) continue;

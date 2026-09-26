@@ -11,8 +11,8 @@ import {
 
 /**
  * Carica un contenuto NUOVO nella consegna: video, immagine singola o
- * carosello immagini. Video piccoli possono andare al nodo; immagini e file
- * grandi passano da R2 multipart.
+ * carosello immagini. Ogni file passa da R2 multipart, cosi' la review non
+ * dipende dalla disponibilita' o dai mount locali del nodo video.
  */
 export function TrancheUploadButton({
   trancheId,
@@ -29,8 +29,8 @@ export function TrancheUploadButton({
   const [totale, setTotale] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  /** Quanti file salgono davvero insieme. Oltre non si guadagna: la banda è
-   *  quella, e il nodo deve restare reattivo per chi sta guardando i video. */
+  /** Quanti file salgono davvero insieme. Oltre non si guadagna: la banda e'
+   *  quella e troppi chunk concorrenti rendono meno stabile il caricamento. */
   const CONCURRENZA = 3;
 
   function classify(files: File[]) {

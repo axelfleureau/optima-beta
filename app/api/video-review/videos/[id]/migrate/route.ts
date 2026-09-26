@@ -1,23 +1,18 @@
 export const dynamic = "force-dynamic";
 
 /**
- * Migra un video da R2 (cloud) al NAS (Mac Studio), spostandolo nella struttura
- * corretta Cliente/Progetto/{da-revisionare|approvati}/Consegna. Il NODO scarica
- * dal media-proxy e scrive sul NAS (faststart + probe); poi Optima aggiorna
- * storage_key e cancella l'oggetto R2. Solo manager.
+ * Copia di sicurezza di un video R2 sul NAS (Mac Studio), nella struttura
+ * Cliente/Progetto/{da-revisionare|approvati}/Consegna. R2 resta sempre lo
+ * storage autorevole della review: non cambiamo storage_key e non cancelliamo
+ * l'oggetto cloud. Solo manager.
  */
 
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
 import { seesEverything } from "@/lib/video-review-acl";
-import {
-  signedByteUrl,
-  signedMigrateUrl,
-  r2VideoObjectKey,
-} from "@/lib/video-node";
+import { signedByteUrl, signedMigrateUrl } from "@/lib/video-node";
 
 function safeSegment(name: string) {
   return (
@@ -118,34 +113,10 @@ export async function POST(
     );
   }
 
-  await db
-    .prepare(
-      `UPDATE vr_videos
-          SET storage_key = ?, fps = COALESCE(?, fps),
-              duration_seconds = COALESCE(?, duration_seconds),
-              width = COALESCE(?, width), height = COALESCE(?, height),
-              updated_at = ?
-        WHERE id = ? AND organization_id = ?`,
-    )
-    .bind(
-      dst,
-      result.fps ?? null,
-      result.durationSeconds ?? null,
-      result.width ?? null,
-      result.height ?? null,
-      new Date().toISOString(),
-      id,
-      org,
-    )
-    .run();
-
-  // Ora che il NAS serve i byte, libera R2 (best-effort).
-  try {
-    const bucket = await getTaskMediaBucket();
-    if (bucket) await bucket.delete(r2VideoObjectKey(key));
-  } catch {
-    /* non blocca: il video vive già sul NAS */
-  }
-
-  return Response.json({ ok: true, storageKey: dst });
+  return Response.json({
+    ok: true,
+    archived: true,
+    storageKey: key,
+    archivePath: dst,
+  });
 }

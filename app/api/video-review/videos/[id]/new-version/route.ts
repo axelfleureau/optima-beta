@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
  * Prepara una NUOVA VERSIONE di un video (il montato corretto dopo le note).
  *
  * Flusso: qui creiamo PRIMA la riga (status 'uploading') con la destinazione,
- * poi il browser carica i byte diretti al nodo con l'URL firmato, infine
+ * poi il browser carica i byte su R2 in multipart, infine
  * conferma con PATCH. Pre-creare la riga evita la corsa col watcher del nodo,
  * che vedendo il file nuovo creerebbe un video separato invece della versione.
  */
@@ -14,11 +14,7 @@ import { getCloudflareDb, createId } from "@/lib/cloudflare-db";
 import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
-import { signedUploadUrl } from "@/lib/video-node";
-import {
-  VIDEO_MULTIPART_PART_SIZE_BYTES,
-  VIDEO_MULTIPART_THRESHOLD_BYTES,
-} from "@/lib/video-upload-policy";
+import { VIDEO_MULTIPART_PART_SIZE_BYTES } from "@/lib/video-upload-policy";
 
 /** Nome file sicuro: niente separatori, niente `..`. */
 function safeName(name: string) {
@@ -54,6 +50,12 @@ export async function POST(
   if (!/\.(mp4|mov|m4v|mkv|avi|mxf|webm)$/i.test(filename)) {
     return Response.json({ error: "Formato non supportato" }, { status: 400 });
   }
+  if (!Number.isFinite(fileSize) || fileSize <= 0) {
+    return Response.json(
+      { error: "File vuoto o illeggibile" },
+      { status: 400 },
+    );
+  }
 
   const parent: any = await db
     .prepare(
@@ -68,11 +70,6 @@ export async function POST(
   const rootId = parent.parent_video_id
     ? String(parent.parent_video_id)
     : String(parent.id);
-  const root: any = await db
-    .prepare(`SELECT storage_key FROM vr_videos WHERE id = ? LIMIT 1`)
-    .bind(rootId)
-    .first();
-
   const maxRow: any = await db
     .prepare(
       `SELECT MAX(version) AS v FROM vr_videos
@@ -85,61 +82,39 @@ export async function POST(
   // Destinazione: stessa cartella del video originale, sottocartella /vN/.
   const newId = createId("vrvd");
   const now = new Date().toISOString();
-  const rootKey = String(root?.storage_key || parent.storage_key);
-  // Le versioni grandi passano da R2 multipart per non attraversare il proxy
-  // Cloudflare in un'unica richiesta. Le catene già su R2 restano coerenti.
-  const useMultipart =
-    fileSize >= VIDEO_MULTIPART_THRESHOLD_BYTES || rootKey.startsWith("r2://");
-  const dir = rootKey.startsWith("r2://")
-    ? rootKey.split("/").slice(0, -1).join("/")
-    : rootKey
-        .split("/")
-        .slice(0, -1)
-        .join("/")
-        .replace(/\/v\d+$/, "");
-  const storageKey = useMultipart
-    ? `r2://video-review/${org}/versions/${newId}/${filename}`
-    : `${dir}/v${nextVersion}/${filename}`;
+  // Ogni nuova versione resta su storage durevole. Il nodo video puo' essere
+  // usato per lavorazioni derivate, ma non e' piu' la copia autorevole.
+  const storageKey = `r2://post-review/${org}/${String(parent.tranche_id)}/${newId}/${filename}`;
 
-  let uploadUrl: string | null = null;
-  let uploadId: string | null = null;
-  if (useMultipart) {
-    const bucket = await getTaskMediaBucket();
-    if (!bucket)
-      return Response.json(
-        { error: "Storage video non configurato" },
-        { status: 503 },
-      );
-    const multipart = await bucket.createMultipartUpload(
-      storageKey.replace(/^r2:\/\//, ""),
-      {
-        httpMetadata: { contentType },
-        customMetadata: {
-          organizationId: org,
-          videoId: newId,
-          parentVideoId: rootId,
-          uploadedBy: principal.memberId,
-          originalName: filename,
-        },
-      },
+  const bucket = await getTaskMediaBucket();
+  if (!bucket)
+    return Response.json(
+      { error: "Storage video non configurato" },
+      { status: 503 },
     );
-    uploadId = multipart.uploadId;
-  } else {
-    uploadUrl = await signedUploadUrl(storageKey);
-    if (!uploadUrl)
-      return Response.json(
-        { error: "Nodo video non configurato" },
-        { status: 503 },
-      );
-  }
+  const multipart = await bucket.createMultipartUpload(
+    storageKey.replace(/^r2:\/\//, ""),
+    {
+      httpMetadata: { contentType },
+      customMetadata: {
+        organizationId: org,
+        trancheId: String(parent.tranche_id),
+        videoId: newId,
+        parentVideoId: rootId,
+        uploadedBy: principal.memberId,
+        originalName: filename,
+      },
+    },
+  );
+  const uploadId = multipart.uploadId;
 
   await db
     .prepare(
       `INSERT INTO vr_videos
          (id, organization_id, tranche_id, client_id, title, filename, storage_key,
           source, status, version, parent_video_id, project_id, planned_publish_date,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'upload', 'uploading', ?, ?, ?, ?, ?, ?)`,
+          media_type, mime_type, file_size, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'upload', 'uploading', ?, ?, ?, ?, 'video', ?, ?, ?, ?)`,
     )
     .bind(
       newId,
@@ -153,6 +128,8 @@ export async function POST(
       rootId,
       parent.project_id ? String(parent.project_id) : null,
       parent.planned_publish_date || null,
+      contentType,
+      fileSize,
       now,
       now,
     )
@@ -163,8 +140,8 @@ export async function POST(
     videoId: newId,
     version: nextVersion,
     storageKey,
-    uploadMode: useMultipart ? "r2_multipart" : "node_put",
-    uploadUrl,
+    uploadMode: "r2_multipart",
+    uploadUrl: null,
     uploadId,
     partSize: VIDEO_MULTIPART_PART_SIZE_BYTES,
   });

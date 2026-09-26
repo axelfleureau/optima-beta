@@ -33,7 +33,8 @@ async function contextFor(id: string) {
   }
   const video: any = await db
     .prepare(
-      `SELECT id, storage_key, status FROM vr_videos WHERE id = ? AND organization_id = ? LIMIT 1`,
+      `SELECT id, storage_key, status, file_size, mime_type
+         FROM vr_videos WHERE id = ? AND organization_id = ? LIMIT 1`,
     )
     .bind(id, principal.organizationId)
     .first();
@@ -75,10 +76,7 @@ export async function PUT(
   }
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > VIDEO_MULTIPART_MAX_PART_BYTES) {
-    return Response.json(
-      { error: "Chunk troppo grande" },
-      { status: 413 },
-    );
+    return Response.json({ error: "Chunk troppo grande" }, { status: 413 });
   }
   let chunk: ArrayBuffer;
   try {
@@ -97,10 +95,7 @@ export async function PUT(
   if (!chunk.byteLength)
     return Response.json({ error: "Chunk mancante" }, { status: 400 });
   if (chunk.byteLength > VIDEO_MULTIPART_MAX_PART_BYTES) {
-    return Response.json(
-      { error: "Chunk troppo grande" },
-      { status: 413 },
-    );
+    return Response.json({ error: "Chunk troppo grande" }, { status: 413 });
   }
 
   const key = r2VideoObjectKey(String(ctx.video.storage_key));
@@ -167,6 +162,16 @@ export async function POST(
     return Response.json({ error: "Parti upload mancanti" }, { status: 400 });
   try {
     const object = await multipart.complete(parts);
+    const expectedSize = Number(ctx.video.file_size || 0);
+    if (expectedSize > 0 && Number(object.size || 0) !== expectedSize) {
+      await ctx.bucket.delete(key).catch(() => {});
+      return Response.json(
+        {
+          error: `Upload incompleto: ricevuti ${Number(object.size || 0)} byte su ${expectedSize}`,
+        },
+        { status: 409 },
+      );
+    }
     return Response.json({ ok: true, key: object.key, etag: object.httpEtag });
   } catch (error) {
     return Response.json(

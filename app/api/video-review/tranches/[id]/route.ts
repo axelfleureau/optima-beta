@@ -10,7 +10,11 @@ import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import { requireClerkUser } from "@/lib/server-clerk";
 import { ensureWorkspacePrincipal } from "@/lib/workspace-db";
-import { isR2VideoKey, r2VideoObjectKey } from "@/lib/video-node";
+import {
+  isR2VideoKey,
+  preferredVideoStorageKey,
+  r2VideoObjectKey,
+} from "@/lib/video-node";
 import {
   signedByteUrl,
   signedHlsUrl,
@@ -142,7 +146,11 @@ export async function GET(
     ((vids?.results || []) as any[]).map(async (v) => {
       const effectiveProjectId = v.project_id || t.project_id || null;
       const mediaType = String(v.media_type || "video");
-      const mediaUrl = await signedByteUrl(v.approved_key || v.storage_key);
+      const playbackKey = preferredVideoStorageKey(
+        v.storage_key,
+        v.approved_key,
+      );
+      const mediaUrl = await signedByteUrl(playbackKey);
       return {
         id: v.id,
         title: v.title,
@@ -169,20 +177,19 @@ export async function GET(
         streamUrl: mediaType === "video" ? mediaUrl : null,
         // HLS adattivo se pronto; se manca, il player usa streamUrl (MP4).
         hlsUrl:
-          mediaType === "video" && v.hls_status === "ready"
+          mediaType === "video" &&
+          !isR2VideoKey(playbackKey) &&
+          v.hls_status === "ready"
             ? await signedHlsUrl(v.hls_key)
             : null,
         imageUrl: mediaType === "image" ? mediaUrl : null,
-        downloadUrl: await signedByteUrl(v.approved_key || v.storage_key, {
+        downloadUrl: await signedByteUrl(playbackKey, {
           download: true,
         }),
         thumbUrl:
           mediaType === "image"
             ? mediaUrl
-            : await signedPosterOrThumbUrl(
-                v.poster_key,
-                v.approved_key || v.storage_key,
-              ),
+            : await signedPosterOrThumbUrl(v.poster_key, playbackKey),
         collaborators: collabByVideo[String(v.id)] || [],
         markers: markersByVideo[String(v.id)] || [],
       };

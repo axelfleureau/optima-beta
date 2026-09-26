@@ -9,6 +9,8 @@ export const dynamic = "force-dynamic";
 import type { NextRequest } from "next/server";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
 import {
+  isR2VideoKey,
+  preferredVideoStorageKey,
   signedByteUrl,
   signedHlsUrl,
   signedPosterOrThumbUrl,
@@ -76,7 +78,11 @@ export async function GET(
   const videos = await Promise.all(
     ((vids?.results || []) as any[]).map(async (v) => {
       const mediaType = String(v.media_type || "video");
-      const mediaUrl = await signedByteUrl(v.approved_key || v.storage_key);
+      const playbackKey = preferredVideoStorageKey(
+        v.storage_key,
+        v.approved_key,
+      );
+      const mediaUrl = await signedByteUrl(playbackKey);
       return {
         id: v.id,
         title: v.title,
@@ -94,17 +100,16 @@ export async function GET(
         streamUrl: mediaType === "video" ? mediaUrl : null,
         // HLS adattivo se pronto; se manca, il player usa streamUrl (MP4).
         hlsUrl:
-          mediaType === "video" && v.hls_status === "ready"
+          mediaType === "video" &&
+          !isR2VideoKey(playbackKey) &&
+          v.hls_status === "ready"
             ? await signedHlsUrl(v.hls_key)
             : null,
         imageUrl: mediaType === "image" ? mediaUrl : null,
         thumbUrl:
           mediaType === "image"
             ? mediaUrl
-            : await signedPosterOrThumbUrl(
-                v.poster_key,
-                v.approved_key || v.storage_key,
-              ),
+            : await signedPosterOrThumbUrl(v.poster_key, playbackKey),
         markers: byVideo[String(v.id)] || [],
       };
     }),

@@ -40,16 +40,17 @@ export async function GET() {
     .bind(org)
     .all();
 
-  // 2) Video ancora su R2 (cloud): candidati alla migrazione sul NAS.
-  const onR2 = await db
+  // 2) Video legacy ancora dipendenti dal nodo/NAS. I nuovi upload sono su R2;
+  // questi elementi vanno messi al sicuro prima che il path locale sparisca.
+  const legacyNode = await db
     .prepare(
-      `SELECT v.id, v.title, t.title AS tranche_title, c.name AS client_name,
+      `SELECT v.id, v.tranche_id, v.title, t.title AS tranche_title, c.name AS client_name,
               ROUND(v.file_size / 1048576.0, 1) AS mb
          FROM vr_videos v
          JOIN vr_tranches t ON t.id = v.tranche_id
          LEFT JOIN clients c ON c.id = v.client_id
         WHERE v.organization_id = ? AND v.media_type = 'video'
-          AND v.status != 'uploading' AND v.storage_key LIKE 'r2://%'
+          AND v.status != 'uploading' AND v.storage_key NOT LIKE 'r2://%'
         ORDER BY v.created_at DESC`,
     )
     .bind(org)
@@ -93,7 +94,7 @@ export async function GET() {
 
   const map = (rows: any) => (rows?.results || []) as any[];
   const noProjectRows = map(noProject);
-  const onR2Rows = map(onR2);
+  const legacyNodeRows = map(legacyNode);
   const emptyRows = map(empty);
   const holdingRows = map(holding);
 
@@ -101,7 +102,7 @@ export async function GET() {
     ok: true,
     summary: {
       tranchesNoProject: noProjectRows.length,
-      videosOnR2: onR2Rows.length,
+      legacyNodeVideos: legacyNodeRows.length,
       emptyTranches: emptyRows.length,
       holdingCandidates: holdingRows.length,
     },
@@ -111,8 +112,9 @@ export async function GET() {
       clientName: r.client_name || null,
       media: Number(r.media || 0),
     })),
-    videosOnR2: onR2Rows.map((r) => ({
+    legacyNodeVideos: legacyNodeRows.map((r) => ({
       id: String(r.id),
+      trancheId: String(r.tranche_id),
       title: r.title,
       trancheTitle: r.tranche_title,
       clientName: r.client_name || null,
