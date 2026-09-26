@@ -11,13 +11,16 @@ export const dynamic = "force-dynamic";
  * il primo media stesso. Nessun ffmpeg = nessun rischio di timeout.
  *
  * Satori (il motore di next/og) qui non recupera da solo le URL remote messe
- * in un <img src>: va fatto il fetch a mano e passato un data URI, sia per
- * il frame R2 sia per il logo — altrimenti l'immagine risulta assente senza
- * errore.
+ * in un <img src>, e un fetch() al dominio del Worker rientra nel Worker
+ * stesso senza risolversi: logo e font Degular si leggono dal binding
+ * ASSETS (stesso bucket statico di next/image, mai la rete) e si passano
+ * come byte — data URI per l'immagine, ArrayBuffer per i font.
  */
 
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
+import type { ReactElement } from "react";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
 import { getTaskMediaBucket } from "@/lib/cloudflare-r2";
 import {
@@ -64,7 +67,7 @@ function contentTypeFor(objectKey: string) {
   return "image/jpeg";
 }
 
-async function toDataUri(bytes: ArrayBuffer, contentType: string) {
+function toDataUri(bytes: ArrayBuffer, contentType: string) {
   return `data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`;
 }
 
@@ -85,31 +88,76 @@ async function loadFrameDataUri(frameKey: string | null): Promise<string | null>
   }
 }
 
-/** Logo statico (asset pubblico ASSETS, non R2): stesso trattamento del
- * frame, un fetch esplicito invece di lasciarlo a Satori. */
-async function loadLogoDataUri(): Promise<string | null> {
+/** Asset statico (public/, servito dal binding ASSETS): logo e font Degular
+ * si leggono così, non con fetch() (che dal Worker verso il proprio stesso
+ * dominio non si risolve). */
+async function loadStaticAsset(path: string): Promise<ArrayBuffer | null> {
   try {
-    const res = await fetch(`${SITE_URL}/righello-logo-white.png`);
+    const { env } = await getCloudflareContext({ async: true });
+    const assets = (env as any).ASSETS;
+    if (!assets) return null;
+    const res = await assets.fetch(new Request(`${SITE_URL}${path}`));
     if (!res.ok) return null;
-    return toDataUri(await res.arrayBuffer(), "image/png");
+    return await res.arrayBuffer();
   } catch {
     return null;
   }
 }
 
-function card(opts: {
+async function loadLogoDataUri(): Promise<string | null> {
+  const bytes = await loadStaticAsset("/righello-logo-white.png");
+  return bytes ? toDataUri(bytes, "image/png") : null;
+}
+
+/** Regular + Bold di Degular Display: il resto della UI usa questo font, la
+ * card di riserva no. Se il font non si carica, l'immagine resta comunque
+ * valida (vedi renderCard) — solo con il sans di default di Satori. */
+async function loadDegularFonts() {
+  const [regular, bold] = await Promise.all([
+    loadStaticAsset("/fonts/DegularDisplay-Regular_1768475446675.woff2"),
+    loadStaticAsset("/fonts/DegularDisplay-Bold_1768475446675.woff2"),
+  ]);
+  const fonts: { name: string; data: ArrayBuffer; weight: 400 | 700; style: "normal" }[] = [];
+  if (regular) fonts.push({ name: "Degular Display", data: regular, weight: 400, style: "normal" });
+  if (bold) fonts.push({ name: "Degular Display", data: bold, weight: 700, style: "normal" });
+  return fonts;
+}
+
+/** Prova a renderizzare con i font Degular; se Satori non li digerisce (es.
+ * woff2 non supportato dalla versione bundlata) ripiega sul sans di default
+ * invece di rispondere con un errore sull'og:image. */
+async function renderCard(
+  node: ReactElement,
+  fonts: Awaited<ReturnType<typeof loadDegularFonts>>,
+) {
+  try {
+    const withFonts = new ImageResponse(node, {
+      width: WIDTH,
+      height: HEIGHT,
+      fonts,
+      headers: IMAGE_HEADERS,
+    });
+    const bytes = await withFonts.arrayBuffer();
+    if (!bytes.byteLength) throw new Error("empty image");
+    return new Response(bytes, { headers: IMAGE_HEADERS });
+  } catch {
+    return new ImageResponse(node, { width: WIDTH, height: HEIGHT, headers: IMAGE_HEADERS });
+  }
+}
+
+async function card(opts: {
   title: string;
   client: string | null;
   date: string | null;
   frame: string | null;
   isVideo: boolean;
   logo: string | null;
+  fonts: Awaited<ReturnType<typeof loadDegularFonts>>;
 }) {
   const title = truncate(opts.title || "Contenuti da approvare", opts.frame ? 46 : 70);
   const subtitle = ["Contenuti da approvare", opts.date].filter(Boolean).join(" · ");
 
-  return new ImageResponse(
-    (
+  const node = (
       <div
         style={{
           width: WIDTH,
@@ -119,6 +167,7 @@ function card(opts: {
           alignItems: "center",
           background: BACKGROUND,
           padding: "64px 72px",
+          fontFamily: opts.fonts.length ? "Degular Display" : undefined,
         }}
       >
         <div
@@ -160,7 +209,7 @@ function card(opts: {
               style={{
                 display: "flex",
                 fontSize: opts.frame ? 48 : 58,
-                fontWeight: 800,
+                fontWeight: 700,
                 color: "#ffffff",
                 lineHeight: 1.15,
               }}
@@ -193,7 +242,7 @@ function card(opts: {
                   background: "linear-gradient(135deg, #d6487e, #06b6d4)",
                 }}
               />
-              <div style={{ display: "flex", fontSize: 26, fontWeight: 800, color: "#ffffff" }}>
+              <div style={{ display: "flex", fontSize: 26, fontWeight: 700, color: "#ffffff" }}>
                 Righello
               </div>
             </div>
@@ -273,9 +322,9 @@ function card(opts: {
           </div>
         )}
       </div>
-    ),
-    { width: WIDTH, height: HEIGHT, headers: IMAGE_HEADERS },
   );
+
+  return renderCard(node, opts.fonts);
 }
 
 export async function GET(
@@ -283,12 +332,20 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
-  const logo = await loadLogoDataUri();
+  const [logo, fonts] = await Promise.all([loadLogoDataUri(), loadDegularFonts()]);
   const db = await getCloudflareDb();
   if (!db) {
     // Disservizio transitorio del DB: meglio una card generica che un 5xx
     // sull'og:image (i crawler penalizzano le anteprime che falliscono).
-    return card({ title: "Post Review", client: null, date: null, frame: null, isVideo: false, logo });
+    return card({
+      title: "Post Review",
+      client: null,
+      date: null,
+      frame: null,
+      isVideo: false,
+      logo,
+      fonts,
+    });
   }
 
   const tranche: any = await db
@@ -337,5 +394,6 @@ export async function GET(
     frame,
     isVideo,
     logo,
+    fonts,
   });
 }
