@@ -341,7 +341,7 @@ function SocialPostReview({
         >
           <div
             ref={trackRef}
-            className="flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex h-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             tabIndex={0}
             role="group"
             aria-roledescription="carosello"
@@ -354,7 +354,7 @@ function SocialPostReview({
               return (
                 <div
                   key={slide.id}
-                  className="flex h-full w-full shrink-0 snap-center snap-always items-center justify-center"
+                  className="flex h-full w-full shrink-0 snap-center snap-always items-center justify-center [backface-visibility:hidden] [transform:translateZ(0)]"
                   aria-hidden={i !== index}
                 >
                   {isCurrentVideoSlide ? (

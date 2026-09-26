@@ -166,32 +166,13 @@ export async function signedHlsUrl(
 }
 
 /**
- * URL della card social (1200x630) generata dal nodo con titolo e cliente.
- * La generazione avviene sul Mac Studio: su Cloudflare (next/og) il Worker
- * va in timeout. TTL lungo perché i crawler ripassano a distanza di giorni.
- */
-export async function signedOgCardUrl(
-  card: { t: string; c?: string | null; d?: string | null; f?: string | null },
-  ttlSeconds = 2592000, // 30 giorni
-): Promise<string | null> {
-  // `f` = storage_key del primo contenuto: il nodo ne estrae un fotogramma e
-  // lo mette dentro il mockup di telefono, cosi' la card e' diversa per ogni
-  // consegna. I file su R2 non sono raggiungibili dal nodo: si omettono.
-  const frame = card.f && !isR2VideoKey(card.f) ? card.f : "";
-  const qs = await signQuery(
-    JSON.stringify({ t: card.t, c: card.c || "", d: card.d || "", f: frame }),
-    ttlSeconds,
-  );
-  return qs ? `${videoNodeUrl()}/v/og?${qs.toString()}` : null;
-}
-
-/**
- * URL della card social per consegne il cui primo media vive su R2.
- * Il nodo (Mac Studio) non può leggere R2, quindi qui la card la componiamo
- * noi (Worker), leggendo l'oggetto dal bucket via binding: nessun bytes che
- * lascia Cloudflare, nessun secret nell'URL. `v` è solo un cache-buster per
- * WhatsApp/Telegram: cambia quando cambia il media (id + updated_at), non è
- * un segreto e non serve firmarlo.
+ * URL della card social (1200x630) della Post Review, composta da noi in
+ * /api/video-review/og (vedi quel file): stessa card per ogni consegna, a
+ * prescindere da dove vive il media (NAS o R2). In precedenza la generava il
+ * nodo (Mac Studio) leggendo i file da NAS/T5, ma per i media su R2 (non
+ * raggiungibili dal nodo) il mockup spariva; ora non dipende più dal nodo.
+ * `v` è solo un cache-buster per WhatsApp/Telegram: cambia quando la
+ * consegna viene aggiornata, non è un segreto e non serve firmarlo.
  */
 export function reviewOgImageUrl(token: string, version: string | number) {
   const v = encodeURIComponent(String(version || "0"));

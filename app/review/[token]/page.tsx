@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import {
-  isR2VideoKey,
-  preferredVideoStorageKey,
-  reviewOgImageUrl,
-  signedOgCardUrl,
-} from "@/lib/video-node";
+import { reviewOgImageUrl } from "@/lib/video-node";
 import ReviewRoomClient from "./review-room-client";
 
 type PageParams = { params: Promise<{ token: string }> };
@@ -16,19 +11,9 @@ const SITE_URL = (
   "https://appbeta.wearerighello.com"
 ).replace(/\/$/, "");
 
-// Card statica di riserva: se il nodo non risponde l'anteprima resta
+// Card statica di riserva: se il DB non risponde l'anteprima resta
 // brandizzata invece di sparire del tutto.
 const FALLBACK_IMAGE = `${SITE_URL}/og-post-review.png`;
-
-function mese(iso: string | null) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat("it-IT", {
-    month: "long",
-    year: "numeric",
-  }).format(d);
-}
 
 async function getReviewPreview(token: string) {
   const db = await getCloudflareDb();
@@ -36,7 +21,7 @@ async function getReviewPreview(token: string) {
 
   const tranche: any = await db
     .prepare(
-      `SELECT t.id, t.title, t.post_type, t.created_at, c.name AS client_name
+      `SELECT t.id, t.title, t.post_type, t.updated_at, c.name AS client_name
          FROM vr_tranches t
          LEFT JOIN clients c ON c.id = t.client_id
         WHERE t.token = ? LIMIT 1`,
@@ -47,7 +32,7 @@ async function getReviewPreview(token: string) {
 
   const firstMedia: any = await db
     .prepare(
-      `SELECT v.id, v.title, v.storage_key, v.approved_key, v.updated_at
+      `SELECT v.title
          FROM vr_videos v
         WHERE v.tranche_id = ? AND v.status != 'uploading'
           AND NOT EXISTS (
@@ -63,24 +48,12 @@ async function getReviewPreview(token: string) {
     .bind(String(tranche.id))
     .first();
 
-  const primaryKey = firstMedia
-    ? preferredVideoStorageKey(firstMedia.storage_key, firstMedia.approved_key)
-    : null;
-
-  // Anteprima social: card brandizzata con logo, titolo, cliente e un frame
-  // del primo contenuto dentro un mockup di telefono. Il nodo (Mac Studio) la
-  // genera per i media su NAS; per quelli su R2 (che il nodo non può
-  // leggere) la componiamo noi in /api/video-review/og, così il mockup del
-  // telefono torna anche lì. `v` versiona l'URL per la cache di WhatsApp:
-  // cambia da solo quando arriva una nuova versione del media.
-  const image = primaryKey && isR2VideoKey(primaryKey)
-    ? reviewOgImageUrl(token, `${firstMedia.id}-${firstMedia.updated_at || ""}`)
-    : (await signedOgCardUrl({
-        t: String(tranche.title || "Contenuti da approvare"),
-        c: tranche.client_name ? String(tranche.client_name) : null,
-        d: mese(tranche.created_at ? String(tranche.created_at) : null),
-        f: primaryKey,
-      })) || FALLBACK_IMAGE;
+  // Anteprima social: card brandizzata (logo Righello, cliente, titolo, mese)
+  // composta nel Worker via /api/video-review/og, la stessa per ogni
+  // consegna a prescindere da dove vive il media (NAS o R2): niente più
+  // dipendenza dal nodo per questa card. `v` versiona l'URL per la cache di
+  // WhatsApp: cambia da solo quando la consegna viene aggiornata.
+  const image = reviewOgImageUrl(token, tranche.updated_at || tranche.id);
 
   return {
     title: String(tranche.title || "Post Review"),
