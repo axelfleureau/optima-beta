@@ -1,8 +1,8 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { derivePostType, groupIntoPosts } from "@/lib/video-review-posts";
-import { useHlsVideo } from "@/hooks/use-hls-video";
+import { AdaptivePlayer } from "@/components/video-review/adaptive-player";
 
 type Marker = {
   id: string;
@@ -81,18 +81,38 @@ function postLabel(media: ReviewMedia[]) {
   return "Video / Reel";
 }
 
+/** L'HLS/lo swipe-carousel non devono animare se il cliente ha ridotto le
+ * animazioni di sistema: rispettiamo prefers-reduced-motion su tutta la UI. */
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
+
 function SocialPostReview({
   token,
   clientName,
   trancheTitle,
   media,
+  postIndex,
+  postCount,
 }: {
   token: string;
   clientName: string | null;
   trancheTitle: string;
   media: ReviewMedia[];
+  postIndex: number;
+  postCount: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<"idle" | "revising">("idle");
   const [markers, setMarkers] = useState<Marker[]>(
@@ -121,10 +141,52 @@ function SocialPostReview({
   );
   const current = sorted[Math.min(index, Math.max(0, sorted.length - 1))];
   const isVideo = current?.mediaType === "video";
+  const canSwipe = sorted.length > 1;
 
-  // HLS se pronto, altrimenti l'MP4 di sempre. Va chiamato qui: è un hook,
-  // deve stare prima di qualsiasi return condizionale.
-  useHlsVideo(videoRef, isVideo ? current?.hlsUrl : null, current?.streamUrl);
+  const scrollToIndex = useCallback(
+    (target: number, behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth") => {
+      const clamped = Math.max(0, Math.min(sorted.length - 1, target));
+      const el = trackRef.current;
+      if (el) {
+        el.scrollTo({ left: clamped * el.clientWidth, behavior });
+      }
+      setIndex(clamped);
+    },
+    [reducedMotion, sorted.length],
+  );
+
+  // Sincronizza l'indice mentre l'utente fa swipe nativo (scroll-snap), non
+  // solo quando clicca frecce/puntini: cosi' gli indicatori restano coerenti
+  // durante il gesto e non solo a fine animazione.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || !canSwipe) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const width = el.clientWidth || 1;
+        const next = Math.round(el.scrollLeft / width);
+        setIndex((prev) => (prev === next ? prev : next));
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [canSwipe]);
+
+  function onTrackKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      scrollToIndex(index + 1);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      scrollToIndex(index - 1);
+    }
+  }
+
   const aggregateStatus = sorted.every(
     (media) => statuses[media.id] === "approved",
   )
@@ -225,16 +287,22 @@ function SocialPostReview({
 
   if (!current) {
     return (
-      <div className="rounded-3xl border border-white/10 bg-neutral-900/60 p-8 text-neutral-400">
+      <div className="rounded-2xl border border-white/10 bg-neutral-900/60 p-8 text-neutral-400">
         Nessun contenuto disponibile.
       </div>
     );
   }
 
+  const statusAnnouncement = busy
+    ? "Invio in corso…"
+    : msg
+      ? msg.text
+      : "";
+
   return (
-    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-neutral-900/70 shadow-2xl">
-      <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d6487e] to-[#06b6d4] text-sm font-bold text-white">
+    <div className="overflow-hidden rounded-2xl border border-white/8 bg-white/[0.02]">
+      <div className="flex items-center gap-3 border-b border-white/8 px-4 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d6487e] to-[#06b6d4] text-xs font-bold text-white">
           {initials(clientName)}
         </div>
         <div className="min-w-0">
@@ -244,120 +312,190 @@ function SocialPostReview({
           <p className="truncate text-xs text-neutral-500">{trancheTitle}</p>
         </div>
         <span
-          className={`ml-auto rounded-full border px-3 py-1 text-xs font-semibold ${statusClass}`}
+          className={`ml-auto shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${statusClass}`}
         >
           {statusLabel}
         </span>
       </div>
 
-      <div className="bg-black">
-        {isVideo ? (
-          <video
-            ref={videoRef}
-            controls
-            poster={current.thumbUrl || undefined}
-            preload="metadata"
-            playsInline
-            className="mx-auto max-h-[72vh] max-w-full bg-black"
-            style={
-              current.width && current.height
-                ? { aspectRatio: `${current.width} / ${current.height}` }
-                : { aspectRatio: "16 / 9", width: "100%" }
-            }
-          />
-        ) : current.imageUrl || current.thumbUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={current.imageUrl || current.thumbUrl || ""}
-            alt={current.title}
-            className="mx-auto max-h-[72vh] max-w-full object-contain"
-          />
-        ) : (
-          <div className="flex aspect-square items-center justify-center text-sm text-neutral-500">
-            Immagine non disponibile
-          </div>
+      <div className="flex flex-wrap items-center gap-2 px-4 pt-3">
+        {postCount > 1 && (
+          <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+            Post {postIndex + 1} di {postCount}
+          </span>
+        )}
+        <span className="rounded-full border border-[#d6487e]/30 bg-[#d6487e]/15 px-3 py-1 text-xs font-semibold text-[#ff8ab6]">
+          {postLabel(sorted)}
+        </span>
+        {current.plannedPublishDate && (
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-300">
+            Pubblicazione {fmtDate(current.plannedPublishDate)}
+          </span>
         )}
       </div>
 
-      {sorted.length > 1 && (
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+      {canSwipe ? (
+        <div
+          className="relative mt-3 w-full overflow-hidden bg-black"
+          style={{ height: "min(68vh, 620px)" }}
+        >
+          <div
+            ref={trackRef}
+            className="flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            tabIndex={0}
+            role="group"
+            aria-roledescription="carosello"
+            aria-label={`${postLabel(sorted)}. Usa le frecce sinistra e destra per cambiare slide.`}
+            onKeyDown={onTrackKeyDown}
+          >
+            {sorted.map((slide, i) => {
+              const alt = `${clientName || "Righello"} — slide ${i + 1} di ${sorted.length}: ${slide.title}`;
+              const isCurrentVideoSlide = i === index && slide.mediaType === "video";
+              return (
+                <div
+                  key={slide.id}
+                  className="flex h-full w-full shrink-0 snap-center snap-always items-center justify-center"
+                  aria-hidden={i !== index}
+                >
+                  {isCurrentVideoSlide ? (
+                    <AdaptivePlayer
+                      src={slide.streamUrl}
+                      hlsSrc={slide.hlsUrl}
+                      poster={slide.thumbUrl}
+                      width={slide.width}
+                      height={slide.height}
+                      videoRef={videoRef}
+                      maxVerticalHeight="min(68vh, 620px)"
+                      className="w-full !rounded-none bg-black"
+                    />
+                  ) : slide.mediaType === "video" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={slide.thumbUrl || undefined}
+                      alt={alt}
+                      loading={i === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : slide.imageUrl || slide.thumbUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={slide.imageUrl || slide.thumbUrl || ""}
+                      alt={alt}
+                      loading={i === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm text-neutral-500">
+                      Immagine non disponibile
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
+            {index + 1} / {sorted.length}
+          </span>
+
           <button
             type="button"
-            onClick={() => setIndex((value) => Math.max(0, value - 1))}
+            onClick={() => scrollToIndex(index - 1)}
             disabled={index === 0}
-            className="rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-200 disabled:opacity-40"
+            aria-label="Slide precedente"
+            className="righello-focus absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-lg text-white backdrop-blur transition disabled:pointer-events-none disabled:opacity-0"
           >
-            Precedente
+            ‹
           </button>
-          <div className="flex items-center gap-2">
-            {sorted.map((media, i) => (
+          <button
+            type="button"
+            onClick={() => scrollToIndex(index + 1)}
+            disabled={index >= sorted.length - 1}
+            aria-label="Slide successiva"
+            className="righello-focus absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-lg text-white backdrop-blur transition disabled:pointer-events-none disabled:opacity-0"
+          >
+            ›
+          </button>
+
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-8">
+            {sorted.map((slide, i) => (
               <button
-                key={media.id}
+                key={slide.id}
                 type="button"
-                aria-label={`Vai alla slide ${i + 1}`}
-                onClick={() => setIndex(i)}
-                className={`h-2.5 rounded-full transition-all ${
-                  i === index ? "w-8 bg-[#d6487e]" : "w-2.5 bg-white/25"
+                aria-label={`Vai alla slide ${i + 1} di ${sorted.length}`}
+                aria-current={i === index}
+                onClick={() => scrollToIndex(i)}
+                className={`pointer-events-auto h-1.5 rounded-full transition-all ${
+                  i === index ? "w-6 bg-white" : "w-1.5 bg-white/40"
                 }`}
               />
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() =>
-              setIndex((value) => Math.min(sorted.length - 1, value + 1))
-            }
-            disabled={index >= sorted.length - 1}
-            className="rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-200 disabled:opacity-40"
-          >
-            Successiva
-          </button>
+        </div>
+      ) : (
+        <div className="mt-3 bg-black">
+          {current.mediaType === "video" ? (
+            <AdaptivePlayer
+              src={current.streamUrl}
+              hlsSrc={current.hlsUrl}
+              poster={current.thumbUrl}
+              width={current.width}
+              height={current.height}
+              videoRef={videoRef}
+              maxVerticalHeight="min(70vh, 560px)"
+              className="mx-auto"
+            />
+          ) : current.imageUrl || current.thumbUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={current.imageUrl || current.thumbUrl || ""}
+              alt={`${clientName || "Righello"} — ${current.title}`}
+              loading="eager"
+              className="mx-auto max-h-[72vh] max-w-full object-contain"
+            />
+          ) : (
+            <div className="flex aspect-square items-center justify-center text-sm text-neutral-500">
+              Immagine non disponibile
+            </div>
+          )}
         </div>
       )}
 
       <div className="space-y-4 px-4 py-5">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-[#d6487e]/30 bg-[#d6487e]/15 px-3 py-1 text-xs font-semibold text-[#ff8ab6]">
-              {postLabel(sorted)}
-            </span>
-            {current.plannedPublishDate && (
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-300">
-                Pubblicazione {fmtDate(current.plannedPublishDate)}
-              </span>
-            )}
-          </div>
-          <p className="mt-3 text-sm leading-6 text-neutral-200">
-            <strong>{clientName || "Righello"}</strong> {current.title}
-          </p>
-        </div>
+        <p className="text-sm leading-6 text-neutral-200">
+          <strong>{clientName || "Righello"}</strong> {current.title}
+        </p>
 
         {mode === "idle" ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={approvePost}
-              disabled={busy}
-              className="rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-emerald-950 hover:brightness-110 disabled:opacity-50"
-            >
-              Approva post
-            </button>
-            <button
-              onClick={() => {
-                setMode("revising");
-                setMsg(null);
-              }}
-              disabled={busy}
-              className="rounded-xl bg-amber-500 px-5 py-3 font-semibold text-amber-950 hover:brightness-110 disabled:opacity-50"
-            >
-              Richiedi modifiche
-            </button>
-            {msg && (
-              <span
-                className={`text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={approvePost}
+                disabled={busy}
+                className="righello-focus min-h-11 flex-1 rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-emerald-950 hover:brightness-110 disabled:opacity-50"
               >
-                {msg.text}
-              </span>
-            )}
+                Approva post
+              </button>
+              <button
+                onClick={() => {
+                  setMode("revising");
+                  setMsg(null);
+                }}
+                disabled={busy}
+                className="righello-focus min-h-11 flex-1 rounded-xl border border-amber-400/40 bg-amber-500/10 px-5 py-3 font-semibold text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
+              >
+                Richiedi modifiche
+              </button>
+            </div>
+            <p role="status" aria-live="polite" className="min-h-[1.25rem] text-sm">
+              {statusAnnouncement && (
+                <span className={msg?.ok === false ? "text-red-400" : "text-emerald-400"}>
+                  {statusAnnouncement}
+                </span>
+              )}
+            </p>
           </div>
         ) : (
           <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
@@ -378,12 +516,12 @@ function SocialPostReview({
                     ? "Cosa modificare in questo punto?"
                     : "Cosa modificare in questa slide?"
                 }
-                className="min-h-11 flex-1 rounded-xl border border-white/15 bg-black/40 px-3 py-2 text-sm outline-none focus:border-[#d6487e]"
+                className="righello-focus min-h-11 flex-1 rounded-xl border border-white/15 bg-black/40 px-3 py-2 text-sm outline-none focus:border-[#d6487e]"
               />
               <button
                 onClick={addNote}
                 disabled={!note.trim()}
-                className="rounded-xl bg-[#d6487e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="righello-focus min-h-11 rounded-xl bg-[#d6487e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 Aggiungi nota
               </button>
@@ -403,8 +541,8 @@ function SocialPostReview({
                     >
                       <button
                         type="button"
-                        onClick={() => setIndex(Math.max(0, mediaIndex))}
-                        className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-xs text-amber-300"
+                        onClick={() => scrollToIndex(Math.max(0, mediaIndex))}
+                        className="righello-focus min-h-11 shrink-0 rounded-full bg-white/10 px-2 py-1 text-xs text-amber-300"
                       >
                         {media?.mediaType === "image"
                           ? `Slide ${mediaIndex + 1}`
@@ -417,7 +555,7 @@ function SocialPostReview({
                             items.filter((item) => item.id !== marker.id),
                           )
                         }
-                        className="text-neutral-500 hover:text-red-400"
+                        className="righello-focus min-h-11 px-2 text-neutral-500 hover:text-red-400"
                       >
                         Rimuovi
                       </button>
@@ -427,27 +565,29 @@ function SocialPostReview({
               </div>
             )}
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                onClick={sendRevision}
-                disabled={busy || !markers.length}
-                className="rounded-xl bg-amber-500 px-5 py-3 font-semibold text-amber-950 hover:brightness-110 disabled:opacity-50"
-              >
-                Invia revisione
-              </button>
-              <button
-                onClick={() => setMode("idle")}
-                className="text-sm text-neutral-400 hover:text-white"
-              >
-                Indietro
-              </button>
-              {msg && (
-                <span
-                  className={`text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}
+            <div className="mt-4 space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={sendRevision}
+                  disabled={busy || !markers.length}
+                  className="righello-focus min-h-11 rounded-xl bg-amber-500 px-5 py-3 font-semibold text-amber-950 hover:brightness-110 disabled:opacity-50"
                 >
-                  {msg.text}
-                </span>
-              )}
+                  Invia revisione
+                </button>
+                <button
+                  onClick={() => setMode("idle")}
+                  className="righello-focus min-h-11 px-2 text-sm text-neutral-400 hover:text-white"
+                >
+                  Indietro
+                </button>
+              </div>
+              <p role="status" aria-live="polite" className="min-h-[1.25rem] text-sm">
+                {statusAnnouncement && (
+                  <span className={msg?.ok === false ? "text-red-400" : "text-emerald-400"}>
+                    {statusAnnouncement}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         )}
@@ -474,7 +614,7 @@ export default function ReviewRoomClient({
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-950 text-neutral-400">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-950 px-6 text-center text-neutral-400">
         Link non valido o scaduto.
       </div>
     );
@@ -487,17 +627,19 @@ export default function ReviewRoomClient({
     );
   }
 
+  const posts = groupIntoPosts(data.videos);
+
   return (
     <div
-      className="min-h-screen bg-neutral-950 text-neutral-100"
+      className="min-h-screen overflow-x-hidden bg-neutral-950 text-neutral-100"
       style={{
         backgroundImage:
           "radial-gradient(1100px 560px at 50% -12%, rgba(214,72,126,0.14) 0%, rgba(6,182,212,0.05) 30%, transparent 60%)",
       }}
     >
-      <div className="border-b border-white/10 px-6 py-4">
+      <div className="sticky top-0 z-10 border-b border-white/10 bg-neutral-950/80 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-[#d6487e] to-[#06b6d4]" />
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-gradient-to-br from-[#d6487e] to-[#06b6d4]" />
           <span className="font-bold">Post Review</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -508,35 +650,33 @@ export default function ReviewRoomClient({
         </div>
       </div>
 
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#d6487e]">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+        <p className="truncate text-sm font-semibold uppercase tracking-wider text-[#d6487e]">
           {data.tranche.clientName || ""}
         </p>
-        <h1 className="mt-1 text-3xl font-bold">{data.tranche.title}</h1>
-        <p className="mt-3 text-neutral-400">
+        <h1 className="mt-1 break-words text-2xl font-bold sm:text-3xl">
+          {data.tranche.title}
+        </h1>
+        <p className="mt-3 text-sm text-neutral-400 sm:text-base">
           Controlla il contenuto social, poi approva il post oppure lascia note
           di modifica sulla slide o sul punto del video.
         </p>
 
-        <div className="mt-8 space-y-8">
-          {groupIntoPosts(data.videos).map((post, i, arr) => (
-            <div key={post.groupId} className="space-y-3">
-              {arr.length > 1 && (
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                  Post {i + 1} di {arr.length} · {postLabel(post.slides)}
-                </p>
-              )}
-              <SocialPostReview
-                token={token}
-                clientName={data.tranche.clientName}
-                trancheTitle={data.tranche.title}
-                media={post.slides}
-              />
-            </div>
+        <div className="mt-8 space-y-6">
+          {posts.map((post, i, arr) => (
+            <SocialPostReview
+              key={post.groupId}
+              token={token}
+              clientName={data.tranche.clientName}
+              trancheTitle={data.tranche.title}
+              media={post.slides}
+              postIndex={i}
+              postCount={arr.length}
+            />
           ))}
         </div>
 
-        <p className="mt-12 text-center text-xs text-neutral-600">
+        <p className="mt-12 pb-[env(safe-area-inset-bottom)] text-center text-xs text-neutral-600">
           Righello - Post Review
         </p>
       </div>

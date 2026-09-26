@@ -65,6 +65,18 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // La card social è versionata via `?v=` (vedi reviewOgImageUrl): a
+        // parità di v il contenuto non cambia mai, quindi puo' essere
+        // cacheata a lungo invece di ereditare il no-store globale sopra.
+        source: '/api/video-review/og/:token*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=604800, immutable',
+          },
+        ],
+      },
     ]
   },
   // Move skipTrailingSlashRedirect out of experimental as per Next.js 15 requirements

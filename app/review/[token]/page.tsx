@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { getCloudflareDb } from "@/lib/cloudflare-db";
-import { preferredVideoStorageKey, signedOgCardUrl } from "@/lib/video-node";
+import {
+  isR2VideoKey,
+  preferredVideoStorageKey,
+  reviewOgImageUrl,
+  signedOgCardUrl,
+} from "@/lib/video-node";
 import ReviewRoomClient from "./review-room-client";
 
 type PageParams = { params: Promise<{ token: string }> };
@@ -42,7 +47,7 @@ async function getReviewPreview(token: string) {
 
   const firstMedia: any = await db
     .prepare(
-      `SELECT v.title, v.storage_key, v.approved_key
+      `SELECT v.id, v.title, v.storage_key, v.approved_key, v.updated_at
          FROM vr_videos v
         WHERE v.tranche_id = ? AND v.status != 'uploading'
           AND NOT EXISTS (
@@ -58,21 +63,24 @@ async function getReviewPreview(token: string) {
     .bind(String(tranche.id))
     .first();
 
+  const primaryKey = firstMedia
+    ? preferredVideoStorageKey(firstMedia.storage_key, firstMedia.approved_key)
+    : null;
+
   // Anteprima social: card brandizzata con logo, titolo, cliente e un frame
-  // del primo contenuto dentro un mockup di telefono. La genera il nodo (Mac
-  // Studio): su Cloudflare `next/og` manda il Worker in timeout.
-  const image =
-    (await signedOgCardUrl({
-      t: String(tranche.title || "Contenuti da approvare"),
-      c: tranche.client_name ? String(tranche.client_name) : null,
-      d: mese(tranche.created_at ? String(tranche.created_at) : null),
-      f: firstMedia
-        ? preferredVideoStorageKey(
-            firstMedia.storage_key,
-            firstMedia.approved_key,
-          )
-        : null,
-    })) || FALLBACK_IMAGE;
+  // del primo contenuto dentro un mockup di telefono. Il nodo (Mac Studio) la
+  // genera per i media su NAS; per quelli su R2 (che il nodo non può
+  // leggere) la componiamo noi in /api/video-review/og, così il mockup del
+  // telefono torna anche lì. `v` versiona l'URL per la cache di WhatsApp:
+  // cambia da solo quando arriva una nuova versione del media.
+  const image = primaryKey && isR2VideoKey(primaryKey)
+    ? reviewOgImageUrl(token, `${firstMedia.id}-${firstMedia.updated_at || ""}`)
+    : (await signedOgCardUrl({
+        t: String(tranche.title || "Contenuti da approvare"),
+        c: tranche.client_name ? String(tranche.client_name) : null,
+        d: mese(tranche.created_at ? String(tranche.created_at) : null),
+        f: primaryKey,
+      })) || FALLBACK_IMAGE;
 
   return {
     title: String(tranche.title || "Post Review"),

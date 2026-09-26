@@ -185,6 +185,19 @@ export async function signedOgCardUrl(
   return qs ? `${videoNodeUrl()}/v/og?${qs.toString()}` : null;
 }
 
+/**
+ * URL della card social per consegne il cui primo media vive su R2.
+ * Il nodo (Mac Studio) non può leggere R2, quindi qui la card la componiamo
+ * noi (Worker), leggendo l'oggetto dal bucket via binding: nessun bytes che
+ * lascia Cloudflare, nessun secret nell'URL. `v` è solo un cache-buster per
+ * WhatsApp/Telegram: cambia quando cambia il media (id + updated_at), non è
+ * un segreto e non serve firmarlo.
+ */
+export function reviewOgImageUrl(token: string, version: string | number) {
+  const v = encodeURIComponent(String(version || "0"));
+  return `${appBaseUrl()}/api/video-review/og/${encodeURIComponent(token)}?v=${v}`;
+}
+
 /** URL firmato per far GENERARE l'HLS al nodo (server-to-server). */
 export async function signedHlsBuildUrl(
   job: { src: string; videoId?: string; force?: boolean },
